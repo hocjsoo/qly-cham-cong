@@ -1,5 +1,5 @@
 // ==============================================
-// app.js - Entry point của Backend Server (MongoDB Atlas + Static Client)
+// app.js - Entry point của Backend Server (MongoDB Atlas + API)
 // ET Office Portal
 // ==============================================
 
@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const connectDB = require('./database/db');
@@ -36,27 +37,27 @@ app.use(express.urlencoded({ extended: true }));
 // ==============================================
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 500,
   message: { error: 'Quá nhiều yêu cầu từ IP này, thử lại sau 15 phút.' }
 });
 
 const checkInLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
-  message: { error: 'Quá nhiều yêu cầu check-in. Thử lại sau 1 phút.' }
+  max: 30,
+  message: { error: 'Thao tác quá nhanh, vui lòng chờ 1 phút.' }
 });
 
-app.use('/api/', generalLimiter);
+app.use('/api', generalLimiter);
 
 // ==============================================
-// ROUTES API
+// ROUTES IMPORTS & MOUNTING
 // ==============================================
-const authRoutes       = require('./routes/auth.routes');
-const attendanceRoutes = require('./routes/attendance.routes');
-const requestRoutes    = require('./routes/request.routes');
-const dashboardRoutes  = require('./routes/dashboard.routes');
-const userRoutes       = require('./routes/user.routes');
-const departmentRoutes = require('./routes/department.routes');
+const authRoutes          = require('./routes/auth.routes');
+const attendanceRoutes    = require('./routes/attendance.routes');
+const requestRoutes       = require('./routes/request.routes');
+const dashboardRoutes     = require('./routes/dashboard.routes');
+const userRoutes          = require('./routes/user.routes');
+const departmentRoutes   = require('./routes/department.routes');
 const reportRoutes        = require('./routes/report.routes');
 const locationRoutes      = require('./routes/location.routes');
 const projectRoutes       = require('./routes/project.routes');
@@ -79,31 +80,39 @@ app.use('/api/export',        exportRoutes);
 app.use('/api/corrections',   correctionRoutes);
 app.use('/api/settings',      systemSettingRoutes);
 
-
-
-
 // HEALTH CHECK API
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     db: 'MongoDB Atlas',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV || 'production'
   });
 });
 
 // ==============================================
-// PHỤC VỤ STATIC FILES FRONTEND REACT (PRODUCTION)
+// PHỤC VỤ STATIC FILES FRONTEND REACT (NẾU CÓ)
 // ==============================================
 const clientDistPath = path.join(__dirname, '../../client/dist');
-app.use(express.static(clientDistPath));
+const indexPath = path.join(clientDistPath, 'index.html');
 
-// Tất cả route không phải /api thì trả về index.html của React Client
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(clientDistPath, 'index.html'));
-  }
-});
+if (fs.existsSync(indexPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({
+      message: '🚀 ET Office Portal Backend API is Live!',
+      health: '/api/health',
+      docs: 'API is ready for Vercel Frontend Connection'
+    });
+  });
+}
 
 // ERROR HANDLER
 app.use((err, req, res, next) => {
