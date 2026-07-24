@@ -1,0 +1,326 @@
+// controllers/reportController.js — Báo cáo chấm công + 6-month trend cho Recharts
+const Attendance = require('../models/Attendance');
+const User = require('../models/User');
+const Request = require('../models/Request');
+
+// GET /api/reports/monthly?month=7&year=2026&department_id=...
+const getMonthlyReport = async (req, res) => {
+  const { month, year, department_id } = req.query;
+
+  try {
+    const m = parseInt(month) || (new Date().getMonth() + 1);
+    const y = parseInt(year) || new Date().getFullYear();
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+
+    let userFilter = { is_active: true };
+    if (req.user.role === 'manager') {
+      userFilter.manager_id = req.user._id;
+    }
+    if (department_id) {
+      userFilter.department_id = department_id;
+    }
+
+    const users = await User.find(userFilter)
+      .select('full_name email department_id')
+      .populate('department_id', 'name')
+      .sort({ full_name: 1 });
+
+    const userIds = users.map(u => u._id);
+
+    const [attendances, approvedLeaves] = await Promise.all([
+      Attendance.find({ user_id: { $in: userIds }, date: { $regex: `^${monthStr}` } }),
+      Request.find({
+        user_id: { $in: userIds },
+        status: 'approved',
+        type: { $in: ['annual_leave', 'sick_leave'] },
+        start_date: { $regex: `^${monthStr}` }
+      })
+    ]);
+
+    const attByUser = {};
+    attendances.forEach(a => {
+      const uid = a.user_id.toString();
+      if (!attByUser[uid]) attByUser[uid] = [];
+      attByUser[uid].push(a);
+    });
+
+    const leaveByUser = {};
+    approvedLeaves.forEach(l => {
+      const uid = l.user_id.toString();
+      if (!leaveByUser[uid]) leaveByUser[uid] = [];
+      leaveByUser[uid].push(l);
+    });
+
+    const report = users.map(u => {
+      const uid = u._id.toString();
+      const recs = attByUser[uid] || [];
+      const leaves = leaveByUser[uid] || [];
+
+      const presentDays = recs.filter(r => !r.is_late).length;
+      const lateDays = recs.filter(r => r.is_late).length;
+      const totalDays = recs.length;
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
+      const leaveDays = leaves.length;
+
+      return {
+        user_id: u._id,
+        full_name: u.full_name,
+        email: u.email,
+        department_name: u.department_id?.name || '—',
+        present_days: presentDays,
+        late_days: lateDays,
+        total_days: totalDays,
+        absent_days: Math.max(0, 22 - totalDays - leaveDays),
+        leave_days: leaveDays,
+        total_hours: totalHours,
+        ot_hours: otHours,
+        total_late_minutes: totalLateMinutes,
+      };
+    });
+
+    const summary = {
+      month: monthStr,
+      total_employees: report.length,
+      total_attendance_days: report.reduce((s, r) => s + r.total_days, 0),
+      total_hours: parseFloat(report.reduce((s, r) => s + r.total_hours, 0).toFixed(1)),
+      total_ot_hours: parseFloat(report.reduce((s, r) => s + r.ot_hours, 0).toFixed(1)),
+      total_late_cases: report.reduce((s, r) => s + r.late_days, 0),
+    };
+
+    res.json({ summary, report });
+
+  } catch (error) {
+    console.error('GetMonthlyReport error:', error);
+    res.status(500).json({ error: 'Lỗi lấy báo cáo tháng.' });
+  }
+};
+
+// GET /api/reports/trend?months=6 — Dữ liệu 6 tháng gần nhất cho Line/Bar Chart
+const getTrend = async (req, res) => {
+  const months = parseInt(req.query.months) || 6;
+
+  try {
+    let userFilter = { is_active: true };
+    if (req.user.role === 'manager') {
+      userFilter.manager_id = req.user._id;
+    }
+    const userIds = await User.find(userFilter).distinct('_id');
+
+    const now = new Date();
+    const trendData = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' });
+
+      const records = await Attendance.find({
+        user_id: { $in: userIds },
+        date: { $regex: `^${monthStr}` }
+      });
+
+      const presentCount = records.filter(r => !r.is_late).length;
+      const lateCount = records.filter(r => r.is_late).length;
+      const totalHours = parseFloat(records.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const attendanceRate = userIds.length > 0
+        ? Math.round((records.length / (userIds.length * 22)) * 100)
+        : 0;
+
+      trendData.push({
+        month: monthStr,
+        label,
+        present: presentCount,
+        late: lateCount,
+        total_hours: totalHours,
+        attendance_rate: Math.min(100, attendanceRate),
+      });
+    }
+
+    res.json({ months: trendData });
+
+  } catch (error) {
+    console.error('GetTrend error:', error);
+    res.status(500).json({ error: 'Lỗi lấy dữ liệu trend.' });
+  }
+};
+
+// GET /api/reports/stats — Thống kê tổng hợp nhanh cho Dashboard Header
+const getAttendanceStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    let userFilter = { is_active: true };
+    if (req.user.role === 'manager') {
+      userFilter.manager_id = req.user._id;
+    }
+
+    const [userIds, todayRecords, monthRecords] = await Promise.all([
+      User.find(userFilter).distinct('_id'),
+      Attendance.find({ user_id: { $exists: true }, date: today }),
+      Attendance.find({ date: { $regex: `^${monthStr}` } }),
+    ]);
+
+    const totalEmployees = userIds.length;
+    const presentToday = todayRecords.filter(r => r.check_in_time).length;
+    const lateToday = todayRecords.filter(r => r.is_late).length;
+    const absentToday = totalEmployees - presentToday;
+    const avgHoursThisMonth = monthRecords.length > 0
+      ? parseFloat((monthRecords.reduce((s, r) => s + (r.total_hours || 0), 0) / monthRecords.length).toFixed(1))
+      : 0;
+    const attendanceRate = totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 0;
+
+    res.json({
+      totalEmployees,
+      presentToday,
+      absentToday,
+      lateToday,
+      avgHoursThisMonth,
+      attendanceRate,
+      month: monthStr,
+    });
+
+  } catch (error) {
+    console.error('GetAttendanceStats error:', error);
+    res.status(500).json({ error: 'Lỗi lấy stats.' });
+  }
+};
+
+
+// GET /api/reports/ranking?month=7&year=2026 — Xếp hạng nhân viên
+const getRanking = async (req, res) => {
+  try {
+    const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
+    const y = parseInt(req.query.year) || new Date().getFullYear();
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+
+    let userFilter = { is_active: true };
+    if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
+
+    const users = await User.find(userFilter).select('full_name email department_id').populate('department_id', 'name');
+    const userIds = users.map(u => u._id);
+
+    const attendances = await Attendance.find({
+      user_id: { $in: userIds },
+      date: { $regex: `^${monthStr}` },
+    });
+
+    const ranked = users.map(u => {
+      const uid = u._id.toString();
+      const recs = attendances.filter(a => a.user_id.toString() === uid);
+      const presentDays = recs.length;
+      const lateDays = recs.filter(r => r.is_late).length;
+      const onTimeDays = presentDays - lateDays;
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const punctualityRate = presentDays > 0 ? Math.round((onTimeDays / presentDays) * 100) : 0;
+      // Score: punctuality 50% + attendance 30% + hours 20%
+      const score = Math.round((punctualityRate * 0.5) + (Math.min(presentDays / 22, 1) * 100 * 0.3) + (Math.min(totalHours / 176, 1) * 100 * 0.2));
+
+      return {
+        user_id: u._id,
+        full_name: u.full_name,
+        department_name: u.department_id?.name || '—',
+        present_days: presentDays,
+        late_days: lateDays,
+        on_time_days: onTimeDays,
+        total_hours: totalHours,
+        ot_hours: otHours,
+        punctuality_rate: punctualityRate,
+        score,
+      };
+    }).sort((a, b) => b.score - a.score);
+
+    // Gán hạng
+    ranked.forEach((r, i) => { r.rank = i + 1; });
+
+    res.json({ month: monthStr, ranking: ranked });
+  } catch (error) {
+    console.error('GetRanking error:', error);
+    res.status(500).json({ error: 'Lỗi xếp hạng nhân viên.' });
+  }
+};
+
+// GET /api/reports/payroll?month=7&year=2026 — Bảng tính công chính xác
+// Công thức: (Ngày công / Ngày chuẩn) + OT*1.5h - Phạt muộn
+const getPayroll = async (req, res) => {
+  try {
+    const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
+    const y = parseInt(req.query.year) || new Date().getFullYear();
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+
+    let userFilter = { is_active: true };
+    if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
+
+    const users = await User.find(userFilter)
+      .select('full_name email department_id')
+      .populate('department_id', 'name');
+
+    const userIds = users.map(u => u._id);
+    const attendances = await Attendance.find({ user_id: { $in: userIds }, date: { $regex: `^${monthStr}` } });
+
+    // Số ngày làm chuẩn tháng (ước tính 22 ngày)
+    const STANDARD_WORK_DAYS = 22;
+    const WORK_HOURS_PER_DAY = 8;
+    const OT_MULTIPLIER = 1.5;
+
+    const payroll = users.map(u => {
+      const uid = u._id.toString();
+      const recs = attendances.filter(a => a.user_id.toString() === uid);
+
+      const presentDays = recs.length;
+      const lateDays = recs.filter(r => r.is_late).length;
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
+
+      // Tính ngày công quy đổi
+      const regularHours = Math.max(0, totalHours - otHours);
+      const attendanceDays = parseFloat((regularHours / WORK_HOURS_PER_DAY).toFixed(1));
+      const otEquivalentDays = parseFloat((otHours * OT_MULTIPLIER / WORK_HOURS_PER_DAY).toFixed(1));
+
+      // Phạt muộn: muộn nhẹ(1-10p) = 0.25 ngày, muộn(11-30p) = 0.5 ngày, muộn nhiều(>30p) = 1 ngày
+      let penaltyDays = 0;
+      recs.filter(r => r.is_late).forEach(r => {
+        if (r.late_tier === 'late_severe') penaltyDays += 1;
+        else if (r.late_tier === 'late_medium') penaltyDays += 0.5;
+        else if (r.late_tier === 'late_minor') penaltyDays += 0.25;
+        else penaltyDays += 0.25; // fallback
+      });
+
+      const totalWorkDays = parseFloat((attendanceDays + otEquivalentDays - penaltyDays).toFixed(2));
+      const attendanceRate = STANDARD_WORK_DAYS > 0
+        ? parseFloat((Math.min(presentDays / STANDARD_WORK_DAYS, 1) * 100).toFixed(1))
+        : 0;
+
+      return {
+        user_id: u._id,
+        full_name: u.full_name,
+        department_name: u.department_id?.name || '—',
+        present_days: presentDays,
+        absent_days: Math.max(0, STANDARD_WORK_DAYS - presentDays),
+        late_days: lateDays,
+        total_late_minutes: totalLateMinutes,
+        regular_hours: parseFloat(regularHours.toFixed(1)),
+        ot_hours: otHours,
+        attendance_days: attendanceDays,
+        ot_equivalent_days: otEquivalentDays,
+        penalty_days: parseFloat(penaltyDays.toFixed(2)),
+        total_work_days: Math.max(0, totalWorkDays),
+        attendance_rate: attendanceRate,
+        standard_work_days: STANDARD_WORK_DAYS,
+      };
+    });
+
+    res.json({ month: monthStr, standard_work_days: STANDARD_WORK_DAYS, payroll });
+  } catch (error) {
+    console.error('GetPayroll error:', error);
+    res.status(500).json({ error: 'Lỗi tính bảng công.' });
+  }
+};
+
+module.exports = { getMonthlyReport, getTrend, getAttendanceStats, getRanking, getPayroll };
+

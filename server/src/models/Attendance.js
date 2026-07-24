@@ -1,0 +1,112 @@
+// models/Attendance.js - MongoDB Schema Chấm công
+const mongoose = require('mongoose');
+
+const attendanceSchema = new mongoose.Schema(
+  {
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    date: {
+      type: String, // Format YYYY-MM-DD
+      required: true,
+    },
+    check_in_time: {
+      type: Date,
+      default: null,
+    },
+    check_in_lat: {
+      type: Number,
+      default: null,
+    },
+    check_in_lng: {
+      type: Number,
+      default: null,
+    },
+    check_in_type: {
+      type: String,
+      enum: ['office', 'site', 'client', 'wfh'],
+      required: true,
+    },
+    project_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      default: null,
+    },
+    project_name: {
+      type: String,
+      default: null,
+    },
+    check_in_note: {
+      type: String,
+      default: null,
+    },
+    check_out_time: {
+      type: Date,
+      default: null,
+    },
+    check_out_lat: {
+      type: Number,
+      default: null,
+    },
+    check_out_lng: {
+      type: Number,
+      default: null,
+    },
+    check_out_note: {
+      type: String,
+      default: null,
+    },
+    total_hours: {
+      type: Number,
+      default: 0,
+    },
+    ot_hours: {
+      type: Number,
+      default: 0,
+    },
+    is_late: {
+      type: Boolean,
+      default: false,
+    },
+    late_minutes: {
+      type: Number,
+      default: 0,
+    },
+    late_tier: {
+      type: String,
+      enum: ['on_time', 'late_minor', 'late_medium', 'late_severe'],
+      default: 'on_time',
+    },
+    is_early_leave: {
+      type: Boolean,
+      default: false,
+    },
+    early_minutes: {
+      type: Number,
+      default: 0,
+    },
+    auto_checkout: {
+      type: Boolean,
+      default: false,
+    },
+    status: {
+      type: String,
+      enum: ['present', 'late', 'half_day', 'absent', 'leave'],
+      default: 'present',
+    },
+    notes: {
+      type: String,
+      default: null,
+    },
+  },
+  {
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+  }
+);
+
+// Ràng buộc 1 user chỉ 1 bản ghi/ngày
+attendanceSchema.index({ user_id: 1, date: 1 }, { unique: true });
+
+module.exports = mongoose.model('Attendance', attendanceSchema);
