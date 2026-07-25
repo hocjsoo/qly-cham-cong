@@ -6,8 +6,6 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
-import ThemeToggle from './ThemeToggle';
-import NotificationCenter from './NotificationCenter';
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
@@ -65,10 +63,6 @@ export default function Layout() {
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               {user?.role === 'admin' ? 'Quản trị viên' : user?.role === 'manager' ? 'Trưởng phòng' : 'Nhân viên'}
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <NotificationCenter />
-            <ThemeToggle />
           </div>
         </div>
 
