@@ -1085,3 +1085,47 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+/* =============================================
+   MOBILE-FIRST DATA TABLE & RESPONSIVE SHEET OPTIMIZATIONS
+   ============================================= */
+@media (max-width: 767px) {
+  /* Page container bottom padding for Bottom Navigation Bar */
+  .page {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 16px)) !important;
+  }
+
+  /* Table horizontal touch scroll */
+  .card[style*="overflowX: auto"],
+  .card[style*="overflow-x: auto"] {
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 12px !important;
+  }
+
+  /* Table cell padding optimization for 320px+ mobile screens */
+  table th, table td {
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Filter chips horizontal scrollbar */
+  .chip {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Modal Sheet mobile optimizations */
+  .modal-sheet {
+    max-height: 85vh !important;
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 16px)) !important;
+    border-radius: 20px 20px 0 0 !important;
+  }
+
+  .header__title {
+    font-size: 17px !important;
+  }
+
+  .header__subtitle {
+    font-size: 11px !important;
+  }
+}
+
