@@ -187,11 +187,11 @@ INSERT INTO office_locations (name, lat, lng, radius_m) VALUES
   ('Văn phòng chính', 10.7769, 106.7009, 100)
 ON CONFLICT DO NOTHING;
 
--- Tài khoản Admin mẫu
--- Email: admin@etoffice.vn | Password: Admin@123
+-- Tài khoản Admin khởi tạo (mẫu)
+-- Email: admin@company.com | Đổi mật khẩu ngay khi vận hành
 INSERT INTO users (email, password_hash, full_name, role) VALUES
   (
-    'admin@etoffice.vn',
+    'admin@company.com',
     '$2b$10$rBnxFvqGrLYqfLxqM2OjbO3KoQGWM5HlLvCjUJVz8EtCJVwM.pFCi',
     'Quản trị viên',
     'admin'
