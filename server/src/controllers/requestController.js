@@ -79,6 +79,31 @@ const createRequest = async (req, res) => {
       attachment_url: project_id || null,
     });
 
+    // Gửi thông báo đến tất cả Admin & Trưởng phòng để duyệt đơn
+    const managers = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id');
+    const senderName = req.user.full_name || 'Nhân viên';
+    
+    for (const m of managers) {
+      if (m._id.toString() !== userId.toString()) {
+        await Notification.create({
+          user_id: m._id,
+          title: `📝 Đơn từ mới cần duyệt: ${senderName}`,
+          message: `${senderName} vừa gửi đơn "${TYPE_LABELS[type]}" ngày ${start_date}. Lý do: "${reason.trim()}"`,
+          type: 'request',
+          link: '/requests',
+        });
+      }
+    }
+
+    // Thông báo xác nhận cho chính nhân viên tạo đơn
+    await Notification.create({
+      user_id: userId,
+      title: `📝 Đã gửi đơn thành công`,
+      message: `Đơn "${TYPE_LABELS[type]}" ngày ${start_date} của bạn đã được gửi và đang chờ quản lý duyệt.`,
+      type: 'request',
+      link: '/requests',
+    });
+
     res.status(201).json({
       message: `Gửi đơn "${TYPE_LABELS[type]}" thành công! Đang chờ duyệt.`,
       request,
