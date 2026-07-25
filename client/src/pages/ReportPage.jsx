@@ -2,9 +2,10 @@
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, ZoomIn, Eye, Check, FileText, UserCheck, Printer, Building2, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -49,17 +50,17 @@ export default function ReportPage() {
   const timesheetRef = useRef(null);
   const individualRef = useRef(null);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'image'
+  const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'pdf'
   const [exportTarget, setExportTarget] = useState('matrix'); // 'matrix' (Bảng tổng hợp) | 'individual' (Phiếu chi tiết)
   const [exportScope, setExportScope] = useState('all'); // 'all' | 'single'
   const [selectedExportUser, setSelectedExportUser] = useState('');
   const [filterStaffId, setFilterStaffId] = useState('');
 
-  // Image Preview Lightbox State
-  const [previewImageUrl, setPreviewImageUrl] = useState(null);
-  const [generatingImage, setGeneratingImage] = useState(false);
-  const [showImagePreviewModal, setShowImagePreviewModal] = useState(false);
-  const [isZoomed, setIsZoomed] = useState(false);
+  // PDF Preview State
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfInstance, setPdfInstance] = useState(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
 
   useEffect(() => { loadTab(); }, [month, year, tab, selectedDetailUserId]);
 
@@ -186,20 +187,21 @@ export default function ReportPage() {
     }
   };
 
-  // 2. Xuất Ảnh PNG Nét Cao
-  const handleGenerateImagePreview = async (targetUserId = null) => {
-    const targetRef = (exportTarget === 'individual' || tab === 'individual_detail') ? individualRef.current : timesheetRef.current;
+  // 2. Xuất & Xem Trước File PDF Chuẩn A4 (jsPDF)
+  const handleGeneratePdfPreview = async (targetUserId = null) => {
+    const isIndividual = (exportTarget === 'individual' || tab === 'individual_detail');
+    const targetRef = isIndividual ? individualRef.current : timesheetRef.current;
 
     if (!targetRef) {
-      toast.error('Không tìm thấy nội dung bảng công để tạo ảnh');
+      toast.error('Không tìm thấy nội dung bảng công để tạo file PDF');
       return;
     }
 
     const queryUser = targetUserId || (exportScope === 'single' ? selectedExportUser : '');
     setFilterStaffId(queryUser);
     setShowExportModal(false);
-    setGeneratingImage(true);
-    toast.loading('Đang tạo hình ảnh bảng công sắc nét chuẩn doanh nghiệp...', { id: 'img' });
+    setGeneratingPdf(true);
+    toast.loading('Đang khởi tạo file PDF sắc nét chuẩn A4...', { id: 'pdf' });
 
     setTimeout(async () => {
       try {
@@ -207,20 +209,42 @@ export default function ReportPage() {
         const canvas = await html2canvas(targetRef, {
           scale: 2,
           useCORS: true,
-          backgroundColor: isDark ? '#0f172a' : '#ffffff',
+          backgroundColor: isIndividual ? '#ffffff' : (isDark ? '#0f172a' : '#ffffff'),
           logging: false,
         });
 
-        const dataUrl = canvas.toDataURL('image/png');
-        setPreviewImageUrl(dataUrl);
-        setShowImagePreviewModal(true);
-        setIsZoomed(false);
-        toast.success('Đã tạo xong hình ảnh bảng công! 🖼️', { id: 'img' });
+        const imgData = canvas.toDataURL('image/png');
+        const orientation = isIndividual ? 'p' : 'l'; // portrait vs landscape
+        const pdf = new jsPDF(orientation, 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+
+        const imgProps = pdf.getImageProperties(imgData);
+        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+        heightLeft -= pdfHeight;
+
+        while (heightLeft >= 20) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeight);
+          heightLeft -= pdfHeight;
+        }
+
+        const blobUrl = pdf.output('bloburl');
+        setPdfBlobUrl(blobUrl);
+        setPdfInstance(pdf);
+        setShowPdfPreviewModal(true);
+        toast.success('Đã tạo xong file PDF xem trước! 📄', { id: 'pdf' });
       } catch (err) {
-        console.error('Html2canvas error:', err);
-        toast.error('Lỗi tạo hình ảnh', { id: 'img' });
+        console.error('PDF error:', err);
+        toast.error('Lỗi tạo file PDF bảng công', { id: 'pdf' });
       } finally {
-        setGeneratingImage(false);
+        setGeneratingPdf(false);
         setFilterStaffId('');
       }
     }, 150);
@@ -231,23 +255,18 @@ export default function ReportPage() {
     if (exportFormat === 'excel') {
       exportExcel(exportScope === 'single' ? selectedExportUser : null);
     } else {
-      handleGenerateImagePreview(exportScope === 'single' ? selectedExportUser : null);
+      handleGeneratePdfPreview(exportScope === 'single' ? selectedExportUser : null);
     }
   };
 
-  // Tải Ảnh PNG Về Máy
-  const handleDownloadImage = () => {
-    if (!previewImageUrl) return;
+  // Tải File PDF Về Máy
+  const handleDownloadPdf = () => {
+    if (!pdfInstance) return;
     const userObj = matrixData?.staff_rows?.find(s => s.id === filterStaffId);
     const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
 
-    const link = document.createElement('a');
-    link.href = previewImageUrl;
-    link.download = `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}_BangCong.png`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    toast.success('Đã tải file ảnh PNG về máy thành công! 📥');
+    pdfInstance.save(`ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}_BangCong.pdf`);
+    toast.success('Đã tải file PDF bảng công về máy thành công! 📥');
   };
 
   // In Bảng Chi Tiết Cá Nhân
@@ -276,8 +295,8 @@ export default function ReportPage() {
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowExportModal(true)} disabled={generatingImage} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
-              {generatingImage ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công</>}
+            <button onClick={() => setShowExportModal(true)} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
+              {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công</>}
             </button>
             <HeaderActions />
           </div>
@@ -382,53 +401,53 @@ export default function ReportPage() {
 
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <thead>
-                    {/* Row 1 Header: Titles & Weekdays */}
+                    {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                     <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 800 }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '60px', border: '1px solid #334155' }}>ID</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', border: '1px solid #334155' }}>NHÂN SỰ</th>
-                      <th style={{ padding: '8px 10px', minWidth: '70px', border: '1px solid #334155' }}>NV</th>
+                      <th className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '55px', background: '#1e293b' }}>ID</th>
+                      <th className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', background: '#1e293b' }}>NHÂN SỰ</th>
+                      <th className="table-sticky-col-3" style={{ padding: '8px 10px', minWidth: '70px', background: '#1e293b' }}>NV</th>
 
                       {/* Summary Columns Header */}
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>NLV tại VP</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Trong nước</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Nước ngoài</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Work from home</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ phép</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ ốm</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ không lương</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Khác</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>NLV tại VP</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>CT Trong nước</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>CT Nước ngoài</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>Work from home</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>Nghỉ phép</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>Nghỉ ốm</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>Nghỉ không lương</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a' }}>Khác</th>
 
                       {/* Days Weekday Row */}
                       {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#475569' : '#334155', minWidth: '28px', border: '1px solid #334155' }}>
+                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#475569' : '#334155', minWidth: '28px' }}>
                           {hd.weekday}
                         </th>
                       ))}
 
-                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '60px', border: '1px solid #334155' }}>Chốt</th>}
+                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '50px' }}>Chốt</th>}
                     </tr>
 
                     {/* Row 2 Header: Days 01..31 */}
                     <tr style={{ background: '#0f172a', color: '#ffffff', fontWeight: 800 }}>
-                      <th colSpan="3" style={{ padding: '4px 10px', textAlign: 'left', border: '1px solid #334155' }}>BẢNG CHẤM CÔNG THÁNG</th>
-                      <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: '#94a3b8', border: '1px solid #334155' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
+                      <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 10px', textAlign: 'left', background: '#0f172a' }}>BẢNG CHẤM CÔNG THÁNG</th>
+                      <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: '#94a3b8' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
 
                       {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#334155' : '#0f172a', border: '1px solid #334155' }}>
+                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#334155' : '#0f172a' }}>
                           {hd.dayStr}
                         </th>
                       ))}
 
-                      {isAdminOrManager && <th style={{ padding: '4px', border: '1px solid #334155' }}>—</th>}
+                      {isAdminOrManager && <th style={{ padding: '4px' }}>—</th>}
                     </tr>
                   </thead>
 
                   <tbody>
                     {displayedStaffRows.map((r, idx) => (
                       <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)' }}>
-                        <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
-                        <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
+                        <td className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
+                        <td className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
+                        <td className="table-sticky-col-3" style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
 
                         {/* Summary Column Values */}
                         <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{r.nlv_office.toFixed(2)}</td>
@@ -858,7 +877,7 @@ export default function ReportPage() {
         </div>
       )}
 
-      {/* MODAL 3: UNIFIED EXPORT OPTIONS MODAL (EXCEL & IMAGE) */}
+      {/* MODAL 3: UNIFIED EXPORT OPTIONS MODAL (EXCEL & PDF) */}
       {showExportModal && (
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
           <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', margin: '0 auto' }}>
@@ -920,15 +939,15 @@ export default function ReportPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setExportFormat('image')}
+                  onClick={() => setExportFormat('pdf')}
                   style={{
-                    padding: '10px', borderRadius: '10px', border: exportFormat === 'image' ? '2px solid var(--primary)' : '1px solid var(--border)',
-                    background: exportFormat === 'image' ? 'var(--primary-soft)' : 'var(--bg-raised)',
-                    color: exportFormat === 'image' ? 'var(--primary)' : 'var(--text)',
+                    padding: '10px', borderRadius: '10px', border: exportFormat === 'pdf' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: exportFormat === 'pdf' ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                    color: exportFormat === 'pdf' ? 'var(--primary)' : 'var(--text)',
                     fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
                   }}
                 >
-                  <ImageIcon size={16} /> Hình ảnh (.png)
+                  <FileType size={16} /> File PDF (.pdf)
                 </button>
               </div>
             </div>
@@ -972,78 +991,53 @@ export default function ReportPage() {
               className="btn btn--primary btn--full"
               style={{ padding: '12px', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 800 }}
             >
-              {exportFormat === 'excel' ? <FileSpreadsheet size={18} /> : <ImageIcon size={18} />}
-              {exportFormat === 'excel' ? 'Xuất File Excel Ngay' : 'Tạo & Xem Trước Ảnh PNG'}
+              {exportFormat === 'excel' ? <FileSpreadsheet size={18} /> : <FileType size={18} />}
+              {exportFormat === 'excel' ? 'Xuất File Excel Ngay' : 'Tạo & Xem Trước File PDF (A4)'}
             </button>
           </div>
         </div>
       )}
 
-      {/* MODAL 4: SERIOUS CORPORATE IMAGE PREVIEW & LIGHTBOX ZOOM MODAL */}
-      {showImagePreviewModal && (
-        <div className="modal-overlay" onClick={() => setShowImagePreviewModal(false)}>
+      {/* MODAL 4: SERIOUS CORPORATE PDF PREVIEW & DOWNLOAD MODAL */}
+      {showPdfPreviewModal && (
+        <div className="modal-overlay" onClick={() => setShowPdfPreviewModal(false)}>
           <div
             className="modal-sheet animate-slide-up"
             onClick={e => e.stopPropagation()}
             style={{
-              maxWidth: isZoomed ? '98vw' : '90vw',
-              width: isZoomed ? '96vw' : '820px',
-              transition: 'all 0.25s ease-in-out',
+              maxWidth: '90vw',
+              width: '880px',
               margin: '0 auto',
             }}
           >
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước Hình Ảnh Bảng Chấm Công (PNG)</h3>
+                <FileType size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước File PDF Bảng Chấm Công (A4)</h3>
               </div>
-              <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={() => setShowPdfPreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {/* Professional Interactive Image Container with Click-to-Zoom */}
-            <div
-              onClick={() => setIsZoomed(!isZoomed)}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                overflow: 'auto',
-                maxHeight: isZoomed ? '82vh' : '62vh',
-                background: '#0f172a',
-                textAlign: 'center',
-                padding: '12px',
-                marginBottom: '14px',
-                cursor: isZoomed ? 'zoom-out' : 'zoom-in',
-                position: 'relative',
-              }}
-              title={isZoomed ? 'Bấm để thu nhỏ xem tổng thể' : 'Bấm vào ảnh để phóng to chi tiết'}
-            >
-              {previewImageUrl ? (
-                <img
-                  src={previewImageUrl}
-                  alt={`Bảng Chấm Công ET_Staff ${month}/${year}`}
-                  style={{
-                    maxWidth: isZoomed ? 'none' : '100%',
-                    width: isZoomed ? 'auto' : '100%',
-                    height: 'auto',
-                    borderRadius: '6px',
-                    display: 'inline-block',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
-                  }}
+            {/* PDF Embedded View */}
+            <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', height: '64vh', background: '#525659', marginBottom: '14px' }}>
+              {pdfBlobUrl ? (
+                <iframe
+                  title="PDF Preview"
+                  src={pdfBlobUrl}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 'none' }}
                 />
               ) : (
-                <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Đang xử lý tạo hình ảnh...</div>
+                <div style={{ padding: '40px', textAlign: 'center', color: '#ffffff' }}>Đang tạo file PDF...</div>
               )}
-
-              <div style={{ position: 'absolute', bottom: '12px', right: '16px', background: 'rgba(0,0,0,0.85)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <ZoomIn size={12} /> {isZoomed ? 'Bấm để thu nhỏ' : 'Chạm/Bấm vào ảnh để phóng to'}
-              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost">Đóng</button>
-              <button onClick={handleDownloadImage} className="btn btn--primary" style={{ gap: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: 800 }}>
-                <Download size={16} /> 📥 Tải Ảnh PNG Về Máy
+              <button onClick={() => setShowPdfPreviewModal(false)} className="btn btn--ghost">Đóng</button>
+              <button onClick={handleDownloadPdf} className="btn btn--primary" style={{ gap: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: 800 }}>
+                <Download size={16} /> 📄 Tải File PDF Về Máy
               </button>
             </div>
           </div>

@@ -1129,3 +1129,42 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   }
 }
 
+/* =============================================
+   STICKY TABLE COLUMNS & PRINT PDF HELPER STYLES
+   ============================================= */
+.table-sticky-col-1 {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 12 !important;
+}
+
+.table-sticky-col-2 {
+  position: sticky !important;
+  left: 55px !important;
+  z-index: 12 !important;
+}
+
+.table-sticky-col-3 {
+  position: sticky !important;
+  left: 195px !important;
+  z-index: 12 !important;
+}
+
+[data-theme="dark"] .table-sticky-col-1,
+[data-theme="dark"] .table-sticky-col-2,
+[data-theme="dark"] .table-sticky-col-3 {
+  background: #18191a !important;
+}
+
+[data-theme="light"] .table-sticky-col-1,
+[data-theme="light"] .table-sticky-col-2,
+[data-theme="light"] .table-sticky-col-3 {
+  background: #ffffff !important;
+}
+
+tr:nth-child(even) .table-sticky-col-1,
+tr:nth-child(even) .table-sticky-col-2,
+tr:nth-child(even) .table-sticky-col-3 {
+  background: var(--bg-raised) !important;
+}
+
