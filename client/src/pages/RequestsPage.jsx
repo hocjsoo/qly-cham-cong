@@ -382,11 +382,23 @@ export default function RequestsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div className="form-group">
                 <label className="form-label">Từ ngày *</label>
-                <input type="date" className="form-input" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <input
+                  type="date"
+                  className="form-input"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Đến ngày</label>
-                <input type="date" className="form-input" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                <input
+                  type="date"
+                  className="form-input"
+                  value={endDate}
+                  onChange={e => setEndDate(e.target.value)}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
               </div>
             </div>
 
@@ -394,11 +406,23 @@ export default function RequestsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div className="form-group">
                   <label className="form-label">Từ giờ</label>
-                  <input type="time" className="form-input" value={startTime} onChange={e => setStartTime(e.target.value)} />
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={startTime}
+                    onChange={e => setStartTime(e.target.value)}
+                    onClick={e => e.target.showPicker && e.target.showPicker()}
+                  />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Đến giờ</label>
-                  <input type="time" className="form-input" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={endTime}
+                    onChange={e => setEndTime(e.target.value)}
+                    onClick={e => e.target.showPicker && e.target.showPicker()}
+                  />
                 </div>
               </div>
             )}

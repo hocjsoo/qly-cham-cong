@@ -460,17 +460,35 @@ export default function StaffPage() {
 
             <div className="form-group">
               <label className="form-label">Chọn ngày *</label>
-              <input type="date" className="form-input" value={overrideForm.date} onChange={e => setOverrideForm({ ...overrideForm, date: e.target.value })} />
+              <input
+                type="date"
+                className="form-input"
+                value={overrideForm.date}
+                onChange={e => setOverrideForm({ ...overrideForm, date: e.target.value })}
+                onClick={e => e.target.showPicker && e.target.showPicker()}
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div className="form-group">
                 <label className="form-label">Giờ Check-in</label>
-                <input type="time" className="form-input" value={overrideForm.check_in_time} onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })} />
+                <input
+                  type="time"
+                  className="form-input"
+                  value={overrideForm.check_in_time}
+                  onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Giờ Check-out</label>
-                <input type="time" className="form-input" value={overrideForm.check_out_time} onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })} />
+                <input
+                  type="time"
+                  className="form-input"
+                  value={overrideForm.check_out_time}
+                  onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
               </div>
             </div>
 
