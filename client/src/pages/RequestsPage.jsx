@@ -34,7 +34,7 @@ const formatDate = (iso) => {
 
 export default function RequestsPage() {
   const { user } = useAuthStore();
-  const isManager = user?.role === 'admin' || user?.role === 'manager';
+  const isManager = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'leader';
 
   const [tab, setTab] = useState('mine'); // 'mine' | 'pending'
   const [mine, setMine] = useState([]);

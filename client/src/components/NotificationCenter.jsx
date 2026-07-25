@@ -29,7 +29,7 @@ function formatTimeAgo(isoString) {
 export default function NotificationCenter() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);

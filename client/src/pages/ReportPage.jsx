@@ -18,7 +18,7 @@ const RANK_MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 export default function ReportPage() {
   const { user } = useAuthStore();
-  const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);

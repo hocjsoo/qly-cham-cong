@@ -29,7 +29,7 @@ export default function LoginPage() {
       if (result.must_change_password) {
         toast('Lần đầu đăng nhập: Vui lòng đổi mật khẩu mới để bảo mật tài khoản.', { icon: '🔐', duration: 6000 });
       }
-      navigate(result.user.role === 'staff' ? '/checkin' : '/dashboard');
+      navigate((result.user.role === 'staff' || result.user.role === 'employee') ? '/checkin' : '/dashboard');
     } else {
       toast.error(result.error);
     }

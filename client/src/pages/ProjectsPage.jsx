@@ -33,7 +33,7 @@ const STATUS_MAP = {
 
 export default function ProjectsPage() {
   const { user } = useAuthStore();
-  const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);

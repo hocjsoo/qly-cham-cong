@@ -49,7 +49,7 @@ function getTimesheetSymbol(rec) {
 
 export default function HistoryPage() {
   const { user } = useAuthStore();
-  const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const now = new Date();
   const [timeMode, setTimeMode] = useState('month'); // 'week' | 'month' | 'year'

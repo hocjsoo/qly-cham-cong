@@ -6,17 +6,42 @@ server/node_modules/
 # Build outputs
 client/dist/
 dist/
-
-# Submodules & Extra non-app folders
-Employee-Attendance/
-staff-portal/
-.tempmediaStorage/
+build/
 
 # Environment files
 .env
 .env.local
+.env.production
+.env.*.local
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Submodules & Extra non-app folders
+Employee-Attendance/
+staff-portal/
+et-office-portal/
+.tempmediaStorage/
+
+# Coverage & Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
