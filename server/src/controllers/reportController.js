@@ -13,27 +13,30 @@ const getMonthlyReport = async (req, res) => {
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
     let userFilter = { is_active: true };
-    if (req.user.role === 'manager') {
-      userFilter.manager_id = req.user._id;
+    if (['manager', 'leader'].includes(req.user.role)) {
+      userFilter.$or = [{ manager_id: req.user._id }, { department_ids: { $in: req.user.department_ids || [] } }];
     }
     if (department_id) {
-      userFilter.department_id = department_id;
+      userFilter.department_ids = department_id;
     }
 
     const users = await User.find(userFilter)
-      .select('full_name email department_id')
+      .select('full_name email department_id department_ids')
       .populate('department_id', 'name')
       .sort({ full_name: 1 });
 
     const userIds = users.map(u => u._id);
 
+    const dateStart = `${monthStr}-01`;
+    const dateEnd = `${monthStr}-31`;
+
     const [attendances, approvedLeaves] = await Promise.all([
-      Attendance.find({ user_id: { $in: userIds }, date: { $regex: `^${monthStr}` } }),
+      Attendance.find({ user_id: { $in: userIds }, date: { $gte: dateStart, $lte: dateEnd } }),
       Request.find({
         user_id: { $in: userIds },
         status: 'approved',
         type: { $in: ['annual_leave', 'sick_leave'] },
-        start_date: { $regex: `^${monthStr}` }
+        start_date: { $gte: dateStart, $lte: dateEnd }
       })
     ]);
 

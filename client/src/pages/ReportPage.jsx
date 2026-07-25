@@ -1,8 +1,8 @@
 // src/pages/ReportPage.jsx
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -15,6 +15,28 @@ const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
 const RANK_MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
+
+// Confirm Dialog Component
+function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = true, onConfirm, onCancel }) {
+  return (
+    <div className="modal-overlay" style={{ zIndex: 99999 }}>
+      <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px' }}>
+        <div className="modal-sheet__handle" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <AlertTriangle size={22} color={danger ? 'var(--red)' : 'var(--yellow)'} />
+          <div style={{ fontSize: '15px', fontWeight: 700 }}>{title}</div>
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '18px' }}>{message}</div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={onCancel} className="btn btn--ghost btn--full">Hủy bỏ</button>
+          <button onClick={onConfirm} className="btn btn--full" style={{ background: danger ? 'var(--red)' : 'var(--primary)', color: '#fff', border: 'none', fontWeight: 700 }}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ReportPage() {
   const { user } = useAuthStore();
@@ -34,6 +56,13 @@ export default function ReportPage() {
   const [individualDetail, setIndividualDetail] = useState(null);
   const [selectedDetailUserId, setSelectedDetailUserId] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Search & Filter state for Matrix View
+  const [searchQuery, setSearchQuery] = useState('');
+  const [deptFilter, setDeptFilter] = useState('');
+
+  // Lock Confirm State
+  const [lockConfirm, setLockConfirm] = useState(null); // { userId, currentLocked, actionText, targetText }
 
   // Edit Cell Modal State
   const [selectedCell, setSelectedCell] = useState(null);
@@ -105,11 +134,15 @@ export default function ReportPage() {
   };
 
   // Toggle Chốt Công Toàn Bộ Công Ty Hoặc Nhân Viên
-  const handleToggleLock = async (userId = null, currentLocked = false) => {
+  const triggerToggleLock = (userId = null, currentLocked = false) => {
     const actionText = currentLocked ? 'Mở chốt công' : 'Chốt công';
     const targetText = userId ? 'nhân viên này' : `toàn bộ công ty Tháng ${month}/${year}`;
-    if (!window.confirm(`Bạn có chắc muốn ${actionText} cho ${targetText}?`)) return;
+    setLockConfirm({ userId, currentLocked, actionText, targetText });
+  };
 
+  const executeToggleLock = async () => {
+    if (!lockConfirm) return;
+    const { userId, currentLocked, actionText } = lockConfirm;
     try {
       await api.post('/timesheet-lock/toggle', {
         month,
@@ -119,6 +152,7 @@ export default function ReportPage() {
         note: `${actionText} bởi ${user.full_name}`,
       });
       toast.success(`Đã ${actionText} thành công! 🔒`);
+      setLockConfirm(null);
       loadTab();
     } catch {
       toast.error('Lỗi chốt/mở chốt công');
@@ -277,11 +311,26 @@ export default function ReportPage() {
     window.print();
   };
 
-  // Staff rows to display in table
-  const displayedStaffRows = (matrixData?.staff_rows || []).filter(r => {
-    if (!filterStaffId) return true;
-    return r.id === filterStaffId;
-  });
+  // Memoized Department Options
+  const departmentOptions = useMemo(() => {
+    if (!matrixData?.staff_rows) return [];
+    const depts = new Set();
+    matrixData.staff_rows.forEach(r => {
+      if (r.role_label) depts.add(r.role_label);
+    });
+    return Array.from(depts);
+  }, [matrixData]);
+
+  // Memoized Staff rows to display in matrix table
+  const displayedStaffRows = useMemo(() => {
+    if (!matrixData?.staff_rows) return [];
+    return matrixData.staff_rows.filter(r => {
+      const matchExport = !filterStaffId || r.id === filterStaffId;
+      const matchSearch = !searchQuery || r.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.id?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchDept = !deptFilter || r.role_label?.includes(deptFilter);
+      return matchExport && matchSearch && matchDept;
+    });
+  }, [matrixData, filterStaffId, searchQuery, deptFilter]);
 
   const indUser = individualDetail?.user || {};
   const indSum = individualDetail?.summary || {};
@@ -356,9 +405,9 @@ export default function ReportPage() {
                 </div>
 
                 {isAdminOrManager && (
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
-                      onClick={() => handleToggleLock(null, matrixData?.global_locked)}
+                      onClick={() => triggerToggleLock(null, matrixData?.global_locked)}
                       className={`btn ${matrixData?.global_locked ? 'btn--ghost' : 'btn--primary'}`}
                       style={{ padding: '6px 12px', fontSize: '12px' }}
                     >
@@ -372,6 +421,43 @@ export default function ReportPage() {
                       <History size={14} /> Lịch sử sửa công
                     </button>
                   </div>
+                )}
+              </div>
+
+              {/* Quick Matrix Filter Bar */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: '30px', padding: '6px 10px 6px 30px', fontSize: '12px' }}
+                    placeholder="Tìm tên, mã nhân sự..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                {departmentOptions.length > 0 && (
+                  <select
+                    className="form-input"
+                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '130px' }}
+                    value={deptFilter}
+                    onChange={e => setDeptFilter(e.target.value)}
+                  >
+                    <option value="">Tất cả phòng ban</option>
+                    {departmentOptions.map((dept, idx) => (
+                      <option key={idx} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                )}
+                {(searchQuery || deptFilter) && (
+                  <button
+                    onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
+                    className="btn btn--ghost"
+                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                  >
+                    Xóa lọc
+                  </button>
                 )}
               </div>
             </div>
@@ -1306,6 +1392,18 @@ export default function ReportPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirm Dialog for Lock/Unlock */}
+      {lockConfirm && (
+        <ConfirmDialog
+          title={`${lockConfirm.actionText}?`}
+          message={`Bạn có chắc chắn muốn ${lockConfirm.actionText.toLowerCase()} cho ${lockConfirm.targetText}?`}
+          confirmLabel={lockConfirm.actionText}
+          danger={!lockConfirm.currentLocked}
+          onConfirm={executeToggleLock}
+          onCancel={() => setLockConfirm(null)}
+        />
       )}
     </div>
   );
