@@ -1,8 +1,13 @@
-// models/User.js - MongoDB Schema Nhân viên (Production-ready)
+// models/User.js - MongoDB Schema Nhân viên (Theo mẫu thực tế ET Architects)
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
+    employee_code: {
+      type: String, // ID (NS 03, KTS 01, TV 02, TTS 03...)
+      trim: true,
+      default: null,
+    },
     email: {
       type: String,
       required: true,
@@ -22,6 +27,23 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       trim: true,
+    },
+    position: {
+      type: String, // Giám đốc, PGĐ - Thi công, PGĐ - Điều hành, KTS, KTS NT - QL, KTS NT, TTS, KTS Thử Việc...
+      trim: true,
+      default: 'KTS',
+    },
+    employment_status: {
+      type: String, // Đang làm việc, Đã nghỉ việc, Đang nghỉ ốm, Nghỉ thai sản, Chuyển chức vụ, Khác
+      default: 'Đang làm việc',
+    },
+    start_year: {
+      type: String, // Năm bắt đầu làm việc
+      default: null,
+    },
+    education: {
+      type: String, // Trình độ
+      default: null,
     },
     role: {
       type: String,
@@ -46,33 +68,25 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    // --- NEW: Production auth fields ---
-    employee_code: {
-      type: String,
-      trim: true,
-      default: null,
-    },
-    position: {
-      type: String,
-      trim: true,
-      default: null,
-    },
-    must_change_password: {
-      type: Boolean,
-      default: true,
-    },
-    reset_token: {
-      type: String,
-      default: null,
-    },
-    reset_token_expires: {
-      type: Date,
-      default: null,
-    },
-    last_login_at: {
-      type: Date,
-      default: null,
-    },
+
+    // --- Confidential HR Fields (Chỉ Admin / Giám đốc / PGĐ xem được) ---
+    bhxh_code: { type: String, default: null },       // Mã số BHXH
+    emergency_phone: { type: String, default: null }, // ĐT Khẩn
+    dob: { type: String, default: null },             // Ngày sinh
+    address_current: { type: String, default: null }, // Địa chỉ HT
+    hometown: { type: String, default: null },        // Quê quán
+    cccd: { type: String, default: null },            // CCCD
+    bank_name: { type: String, default: null },       // Ngân hàng
+    bank_account: { type: String, default: null },    // STK Ngân hàng
+    license_plate: { type: String, default: null },   // Biển số xe
+    driver_code: { type: String, default: null },     // Mã tài xế
+    branch: { type: String, default: null },          // Chi nhánh
+
+    // Auth & Security
+    must_change_password: { type: Boolean, default: true },
+    reset_token: { type: String, default: null },
+    reset_token_expires: { type: Date, default: null },
+    last_login_at: { type: Date, default: null },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
