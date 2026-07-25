@@ -15,6 +15,7 @@ import StaffPage from './pages/StaffPage';
 import ProfilePage from './pages/ProfilePage';
 import ReportPage from './pages/ReportPage';
 import SettingsPage from './pages/SettingsPage';
+import ProjectsPage from './pages/ProjectsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MagicCursor from './components/MagicCursor';
 
@@ -73,6 +74,12 @@ export default function App() {
           <Route path="/staff" element={
             <ProtectedRoute roles={['admin', 'manager']}>
               <StaffPage />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/projects" element={
+            <ProtectedRoute roles={['admin', 'manager']}>
+              <ProjectsPage />
             </ProtectedRoute>
           } />
 

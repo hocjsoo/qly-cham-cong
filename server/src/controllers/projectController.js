@@ -1,13 +1,13 @@
-// controllers/projectController.js - CRUD Dự án / Công trình
+// controllers/projectController.js - CRUD Quản Lý Dự Án / Công Trình (ET Architects)
 const Project = require('../models/Project');
 
-// GET /api/projects?active_only=true
+// GET /api/projects
 const getProjects = async (req, res) => {
   try {
     const { active_only } = req.query;
     let filter = { is_active: { $ne: false } };
     if (active_only === 'true') {
-      filter.status = 'active';
+      filter.status = { $in: ['active', 'Đang tiến hành', 'Cần thực hiện'] };
     }
 
     let projects = await Project.find(filter).sort({ created_at: -1 });
@@ -15,9 +15,9 @@ const getProjects = async (req, res) => {
     // Seeding dự án mẫu nếu trống
     if (projects.length === 0 && !active_only) {
       projects = await Project.insertMany([
-        { name: 'Biệt thự Palm City', code: 'CT-PALM', address: 'Quận 2, TP.HCM', status: 'active' },
-        { name: 'Văn phòng ET Tower', code: 'CT-ETTOWER', address: 'Quận 1, TP.HCM', status: 'active' },
-        { name: 'Khu đô thị Sol Forest', code: 'CT-SOL', address: 'Ecopark, Hưng Yên', status: 'paused' },
+        { name: 'Văn phòng ET Architects Hà Nội', code: 'DA-ETHN', category: 'Kiến trúc', client_name: 'ET Group', address: 'Tầng 5, Hà Nội', status: 'Đang tiến hành', pm_name: 'KTS. Nguyễn Hoàng' },
+        { name: 'Biệt thự Palm City', code: 'DA-PALM', category: 'Nội thất', client_name: 'Anh Minh', address: 'Quận 2, TP.HCM', status: 'Đang tiến hành', pm_name: 'KTS. Trần Nam' },
+        { name: 'Khu đô thị Sol Forest', code: 'DA-SOL', category: 'Quy hoạch&Kiến trúc', client_name: 'Ecopark', address: 'Hưng Yên', status: 'Cần thực hiện', pm_name: 'KTS. Lê Anh' },
       ]);
     }
 
@@ -30,7 +30,7 @@ const getProjects = async (req, res) => {
 
 // POST /api/projects - Tạo dự án
 const createProject = async (req, res) => {
-  const { name, code, address, client_name, status } = req.body;
+  const { name, code, category, sub_project, address, client_name, pm_name, note, status } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Tên dự án là bắt buộc.' });
@@ -40,9 +40,13 @@ const createProject = async (req, res) => {
     const project = await Project.create({
       name: name.trim(),
       code: code ? code.trim() : `DA-${Date.now().toString().slice(-4)}`,
+      category: category || 'Kiến trúc',
+      sub_project: sub_project ? sub_project.trim() : null,
       address: address ? address.trim() : null,
       client_name: client_name ? client_name.trim() : null,
-      status: status || 'active',
+      pm_name: pm_name ? pm_name.trim() : null,
+      note: note ? note.trim() : null,
+      status: status || 'Đang tiến hành',
     });
 
     res.status(201).json({ message: 'Tạo dự án thành công ✅', project });
@@ -52,10 +56,10 @@ const createProject = async (req, res) => {
   }
 };
 
-// PUT /api/projects/:id - Cập nhật trạng thái / thông tin dự án
+// PUT /api/projects/:id - Cập nhật thông tin dự án
 const updateProject = async (req, res) => {
   const { id } = req.params;
-  const { name, code, address, client_name, status } = req.body;
+  const { name, code, category, sub_project, address, client_name, pm_name, note, status } = req.body;
 
   try {
     const project = await Project.findById(id);
@@ -65,8 +69,12 @@ const updateProject = async (req, res) => {
 
     if (name) project.name = name.trim();
     if (code) project.code = code.trim();
+    if (category) project.category = category;
+    if (sub_project !== undefined) project.sub_project = sub_project ? sub_project.trim() : null;
     if (address !== undefined) project.address = address ? address.trim() : null;
     if (client_name !== undefined) project.client_name = client_name ? client_name.trim() : null;
+    if (pm_name !== undefined) project.pm_name = pm_name ? pm_name.trim() : null;
+    if (note !== undefined) project.note = note ? note.trim() : null;
     if (status) project.status = status;
 
     await project.save();
