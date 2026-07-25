@@ -178,7 +178,7 @@ const approveRequest = async (req, res) => {
     // 2. Tự động xóa phạt muộn & cập nhật bảng công nếu duyệt đơn giải trình đi muộn/công tác
     let att = await Attendance.findOne({ user_id: request.user_id, date: request.start_date });
     if (att) {
-      if (['late', 'business_trip'].includes(request.type)) {
+      if (['late', 'business_trip', 'early_leave'].includes(request.type)) {
         att.is_late = false;
         att.late_tier = 'on_time';
         att.notes = `Đã duyệt đơn giải trình (${request.reason})`;
