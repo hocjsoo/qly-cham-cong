@@ -10,7 +10,7 @@ import api from '../services/api';
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
-  const isStaff = user?.role === 'staff';
+  const isStaff = user?.role === 'staff' || user?.role === 'employee';
   const isAdmin = user?.role === 'admin';
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -62,7 +62,7 @@ export default function Layout() {
               {user?.full_name}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              {user?.role === 'admin' ? 'Quản trị viên' : user?.role === 'manager' ? 'Trưởng phòng' : 'Nhân viên'}
+              {user?.role === 'admin' ? 'Quản trị viên' : (user?.role === 'leader' || user?.role === 'manager') ? 'Leader' : 'Nhân viên'}
             </div>
           </div>
         </div>

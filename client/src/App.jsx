@@ -50,7 +50,7 @@ export default function App() {
       />
 
       <Routes>
-        <Route path="/login" element={user ? <Navigate to={user.role === 'staff' ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
+        <Route path="/login" element={user ? <Navigate to={(user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -90,7 +90,7 @@ export default function App() {
           } />
         </Route>
 
-        <Route path="*" element={<Navigate to={user ? (user.role === 'staff' ? '/checkin' : '/dashboard') : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={user ? ((user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard') : '/login'} replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -229,7 +229,7 @@ export default function StaffPage() {
 
   const activeCount = staff.filter(s => s.is_active !== false).length;
   const adminCount  = staff.filter(s => s.role === 'admin').length;
-  const mgCount     = staff.filter(s => s.role === 'manager').length;
+  const mgCount     = staff.filter(s => s.role === 'manager' || s.role === 'leader').length;
 
   return (
     <div className="page">
@@ -253,7 +253,7 @@ export default function StaffPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
           {[
             { label: 'Đang hoạt động', value: activeCount, color: 'var(--green)', bg: 'var(--green-soft)' },
-            { label: 'Trưởng phòng', value: mgCount, color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+            { label: 'Leader', value: mgCount, color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
             { label: 'Quản trị viên', value: adminCount, color: 'var(--red)', bg: 'var(--red-soft)' },
           ].map((item, i) => (
             <div key={i} style={{ background: item.bg, borderRadius: '10px', padding: '10px', textAlign: 'center', border: '1px solid var(--border)' }}>
@@ -278,8 +278,8 @@ export default function StaffPage() {
           </div>
           <select className="form-input" style={{ width: 'auto', padding: '8px 10px', fontSize: '12px' }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
             <option value="">Tất cả vai trò</option>
-            <option value="staff">Nhân viên</option>
-            <option value="manager">Trưởng phòng</option>
+            <option value="employee">Nhân viên</option>
+            <option value="leader">Leader</option>
             <option value="admin">Admin</option>
           </select>
         </div>

@@ -9,7 +9,7 @@ import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 
-const ROLE_VI = { admin: 'Quản trị viên', manager: 'Trưởng phòng', staff: 'Nhân viên' };
+const ROLE_VI = { admin: 'Quản trị viên', leader: 'Leader', manager: 'Leader', employee: 'Nhân viên', staff: 'Nhân viên' };
 
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore();
@@ -116,7 +116,7 @@ export default function ProfilePage() {
             {initials}
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{user?.full_name}</h2>
-          <span className={`badge ${user?.role === 'admin' ? 'badge--danger' : user?.role === 'manager' ? 'badge--warning' : 'badge--info'}`}>
+          <span className={`badge ${user?.role === 'admin' ? 'badge--danger' : (user?.role === 'leader' || user?.role === 'manager') ? 'badge--warning' : 'badge--info'}`}>
             {ROLE_VI[user?.role]}
           </span>
         </div>
