@@ -6,6 +6,7 @@ import { Building2, MapPin, Plus, Trash2, X, Calendar, Edit2, Check, AlertTriang
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import HeaderActions from '../components/HeaderActions';
+import MapGpsPicker from '../components/MapGpsPicker';
 
 // Confirm Dialog an toàn
 function ConfirmDialog({ message, onConfirm, onCancel }) {
@@ -568,36 +569,18 @@ export default function SettingsPage() {
               <input type="text" className="form-input" value={locForm.name} onChange={e => setLocForm({ ...locForm, name: e.target.value })} placeholder="VD: Trụ sở chính TP.HCM" />
             </div>
 
-            {/* GPS Acquire Button */}
-            <div style={{ marginBottom: '10px' }}>
-              <button
-                type="button"
-                onClick={handleLocGPS}
-                disabled={locGpsLoading}
-                className={`btn btn--full ${locForm.lat ? 'btn--ghost' : 'btn--primary'}`}
-                style={{ justifyContent: 'center', gap: '6px' }}
-              >
-                {locGpsLoading ? '⏳ Đang lấy GPS...' : locForm.lat ? `✅ GPS đã lấy — Bấm để cập nhật lại` : '📍 Bấm để lấy vị trí GPS của văn phòng'}
-              </button>
-              {locForm.lat && (
-                <div style={{ fontSize: '11px', color: 'var(--green)', textAlign: 'center', marginTop: '4px' }}>
-                  Tọa độ GPS đã lấy thành công. Bản đồ hiển thị bên dưới.
-                </div>
-              )}
+            {/* Interactive Leaflet Map Picker */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ marginBottom: '6px' }}>📍 Chọn vị trí trực tiếp trên bản đồ (Chạm/Kéo ghim hoặc gõ tìm kiếm)</label>
+              <MapGpsPicker
+                lat={locForm.lat}
+                lng={locForm.lng}
+                radius={locForm.radius_m}
+                onSelectLocation={(nLat, nLng) => {
+                  setLocForm(prev => ({ ...prev, lat: nLat, lng: nLng }));
+                }}
+              />
             </div>
-
-            {/* Map preview — chỉ hiện sau khi có GPS */}
-            {locForm.lat && locForm.lng && (
-              <div style={{ marginBottom: '12px', border: '1px solid var(--green)', borderRadius: '8px', overflow: 'hidden', height: '180px' }}>
-                <iframe
-                  title="Office Location Map Picker"
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  src={`https://maps.google.com/maps?q=${locForm.lat},${locForm.lng}&z=17&output=embed`}
-                />
-              </div>
-            )}
 
             <div className="form-group">
               <label className="form-label">Địa chỉ văn phòng (hiển thị cho nhân viên)</label>
