@@ -1,18 +1,29 @@
 // client/src/components/NotificationCenter.jsx
-// Notification Center Engine — Responsive Drawer (Fixed Mobile Bottom Sheet / Desktop Floating Modal)
+// Facebook-Style Notification Center Engine — Floating Dropdown & Bottom Sheet
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send } from 'lucide-react';
+import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send, MoreHorizontal, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 
 const TYPE_ICONS = {
-  system: <AlertTriangle size={16} color="var(--yellow)" />,
-  request: <Clock size={16} color="var(--primary)" />,
-  attendance: <CheckCircle2 size={16} color="var(--green)" />,
-  announcement: <Megaphone size={16} color="var(--purple, #8b5cf6)" />,
+  system: { icon: '⚡', bg: '#eab308' },
+  request: { icon: '📝', bg: '#2563eb' },
+  attendance: { icon: '✅', bg: '#16a34a' },
+  announcement: { icon: '📢', bg: '#8b5cf6' },
 };
+
+function formatTimeAgo(isoString) {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  const diffSec = Math.floor((new Date() - date) / 1000);
+  if (diffSec < 60) return 'Vừa xong';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ`;
+  if (diffSec < 172800) return 'Hôm qua';
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+}
 
 export default function NotificationCenter() {
   const { user } = useAuthStore();
@@ -21,7 +32,7 @@ export default function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [filterType, setFilterType] = useState('all'); // 'all' | 'announcement' | 'request'
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'unread' | 'announcement' | 'request'
   const dropdownRef = useRef(null);
 
   // Admin Broadcast / Holiday Modal State
@@ -118,71 +129,79 @@ export default function NotificationCenter() {
 
   const filteredNotifications = notifications.filter(n => {
     if (filterType === 'all') return true;
+    if (filterType === 'unread') return !n.is_read;
     return n.type === filterType;
   });
 
   return (
     <div style={{ position: 'relative' }} ref={dropdownRef}>
-      {/* Bell Button */}
+      {/* Bell Trigger Button */}
       <button
         onClick={() => setOpen(!open)}
         className="theme-toggle-btn"
-        style={{ position: 'relative', width: '36px', height: '36px' }}
+        style={{
+          position: 'relative', width: '40px', height: '40px',
+          borderRadius: '50%', background: open ? 'var(--primary-soft)' : 'var(--bg-raised)',
+          transition: 'all 0.15s ease-in-out'
+        }}
         title="Thông báo"
       >
-        <Bell size={18} />
+        <Bell size={20} color={open ? 'var(--primary)' : 'var(--text)'} />
         {unreadCount > 0 && (
           <span style={{
-            position: 'absolute', top: '1px', right: '1px',
+            position: 'absolute', top: '0px', right: '0px',
             background: 'var(--red)', color: '#fff',
             borderRadius: '10px', fontSize: '10px', fontWeight: 800,
-            padding: '1px 5px', lineHeight: 1.2, boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            padding: '1px 5px', lineHeight: 1.2, boxShadow: '0 2px 6px rgba(224,36,36,0.4)',
+            border: '2px solid var(--bg-card)'
           }}>
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
-      {/* Notifications Drawer (Fixed Position for perfect alignment on Desktop & Mobile) */}
+      {/* Facebook-Style Notification Popover & Bottom Sheet */}
       {open && (
         <div className="notification-drawer-container">
-          {/* Overlay for mobile tap-outside */}
+          {/* Backdrop for click-outside */}
           <div
             className="notification-drawer-overlay"
             onClick={() => setOpen(false)}
           />
 
-          {/* Drawer Sheet */}
-          <div className="card animate-slide-up" style={{
+          {/* Facebook-Style Floating Box */}
+          <div className="card fb-popover-card animate-slide-up" style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
             display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
           }}>
+            {/* Mobile Sheet Drag Handle */}
             <div className="modal-sheet__handle" style={{ margin: '8px auto 2px' }} />
 
-            {/* Header */}
+            {/* Header: Title + Options (Like Facebook) */}
             <div style={{
+              padding: '14px 16px 8px 16px',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)'
             }}>
-              <div style={{ fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🔔 Trung tâm thông báo</span>
-                {unreadCount > 0 && (
-                  <span className="badge badge--warning" style={{ fontSize: '10px' }}>{unreadCount} mới</span>
-                )}
+              <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.3px' }}>
+                Thông báo
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllRead}
-                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                    className="btn btn--ghost"
+                    style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 600, color: 'var(--primary)' }}
+                    title="Đánh dấu tất cả là đã đọc"
                   >
-                    <CheckCheck size={14} /> Đọc hết
+                    <CheckCheck size={16} /> Đọc hết
                   </button>
                 )}
                 <button
                   onClick={() => setOpen(false)}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
+                  className="btn btn--ghost"
+                  style={{ width: '32px', height: '32px', borderRadius: '50%', padding: 0 }}
                 >
                   <X size={18} />
                 </button>
@@ -191,103 +210,156 @@ export default function NotificationCenter() {
 
             {/* Admin Announcement Trigger Button */}
             {isAdminOrManager && (
-              <div style={{ padding: '8px 12px', background: 'var(--primary-soft)', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '4px 16px 8px 16px' }}>
                 <button
                   onClick={() => { setOpen(false); setShowBroadcastModal(true); }}
                   className="btn btn--primary btn--full"
-                  style={{ fontSize: '12px', padding: '7px 10px', gap: '6px', whiteSpace: 'nowrap' }}
+                  style={{ fontSize: '12px', padding: '7px 12px', gap: '6px', borderRadius: '10px' }}
                 >
-                  <Megaphone size={14} /> Đăng Thông Báo / Lịch Nghỉ Lễ
+                  <Megaphone size={15} /> Đăng Thông Báo / Lịch Nghỉ Lễ
                 </button>
               </div>
             )}
 
-            {/* Filter Chips */}
-            <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-card)' }}>
+            {/* Facebook-Style Filter Chips */}
+            <div style={{
+              display: 'flex', gap: '6px', padding: '4px 16px 10px 16px',
+              borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-card)'
+            }}>
               {[
                 { key: 'all', label: 'Tất cả' },
-                { key: 'announcement', label: '📢 Lễ / Thông báo' },
+                { key: 'unread', label: `Chưa đọc${unreadCount > 0 ? ` (${unreadCount})` : ''}` },
+                { key: 'announcement', label: '📢 Lễ & Sự kiện' },
                 { key: 'request', label: '📝 Đơn từ' },
               ].map(f => (
                 <button
                   key={f.key}
                   onClick={() => setFilterType(f.key)}
                   className={`chip${filterType === f.key ? ' active' : ''}`}
-                  style={{ fontSize: '11px', padding: '3px 8px' }}
+                  style={{
+                    fontSize: '12px', padding: '5px 12px', borderRadius: '16px',
+                    fontWeight: filterType === f.key ? 700 : 600
+                  }}
                 >
                   {f.label}
                 </button>
               ))}
             </div>
 
-            {/* Body Notification Cards List */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '6px', maxHeight: '360px' }}>
+            {/* Notification Item List (Facebook Avatar + Blue Dot Style) */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '4px 8px', maxHeight: '380px' }}>
               {filteredNotifications.length === 0 ? (
-                <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  ⚪ Chưa có thông báo trong mục này
+                <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  ⚪ Không có thông báo trong mục này
                 </div>
               ) : (
-                filteredNotifications.map(n => (
-                  <div
-                    key={n._id}
-                    onClick={() => handleMarkRead(n._id)}
-                    style={{
-                      padding: '10px 12px', borderRadius: '8px', marginBottom: '4px',
-                      background: n.is_read ? 'transparent' : 'var(--primary-soft)',
-                      borderLeft: n.is_read ? '3px solid transparent' : '3px solid var(--primary)',
-                      cursor: 'pointer', transition: 'background 0.15s'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'start', gap: '10px' }}>
-                      <div style={{ marginTop: '2px', flexShrink: 0 }}>
-                        {TYPE_ICONS[n.type] || TYPE_ICONS.system}
+                filteredNotifications.map(n => {
+                  const typeMeta = TYPE_ICONS[n.type] || TYPE_ICONS.system;
+
+                  return (
+                    <div
+                      key={n._id}
+                      onClick={() => handleMarkRead(n._id)}
+                      className="fb-notif-item"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '10px 12px', borderRadius: '12px', marginBottom: '2px',
+                        background: n.is_read ? 'transparent' : 'var(--primary-soft)',
+                        cursor: 'pointer', transition: 'background 0.15s ease-in-out',
+                        position: 'relative'
+                      }}
+                    >
+                      {/* Avatar Circle with Badge Overlay */}
+                      <div style={{ position: 'relative', width: '44px', height: '44px', flexShrink: 0 }}>
+                        <div style={{
+                          width: '44px', height: '44px', borderRadius: '50%',
+                          background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: '20px'
+                        }}>
+                          {typeMeta.icon}
+                        </div>
                       </div>
+
+                      {/* Content */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '12px', fontWeight: n.is_read ? 600 : 700, color: 'var(--text)', lineHeight: 1.3 }}>
+                        <div style={{
+                          fontSize: '13px', fontWeight: n.is_read ? 600 : 800,
+                          color: 'var(--text)', lineHeight: 1.35
+                        }}>
                           {n.title}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.4 }}>
+                        <div style={{
+                          fontSize: '12px', color: n.is_read ? 'var(--text-muted)' : 'var(--text-secondary)',
+                          marginTop: '2px', lineHeight: 1.35, display: '-webkit-box',
+                          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                        }}>
                           {n.message}
                         </div>
-                        <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          {new Date(n.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        <div style={{
+                          fontSize: '11px', fontWeight: 600,
+                          color: n.is_read ? 'var(--text-muted)' : 'var(--primary)', marginTop: '3px'
+                        }}>
+                          {formatTimeAgo(n.created_at)}
                         </div>
                       </div>
+
+                      {/* Blue Unread Dot (Like Facebook) */}
+                      {!n.is_read && (
+                        <div style={{
+                          width: '12px', height: '12px', borderRadius: '50%',
+                          background: 'var(--primary, #2e89ff)', flexShrink: 0,
+                          boxShadow: '0 0 6px rgba(46,137,255,0.6)'
+                        }} />
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
+
+            {/* Footer */}
+            {notifications.length > 0 && (
+              <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border-muted)', background: 'var(--bg-raised)' }}>
+                <button
+                  onClick={handleMarkAllRead}
+                  className="btn btn--ghost btn--full"
+                  style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', padding: '6px' }}
+                >
+                  Xem tất cả & Đánh dấu đã đọc
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Admin Broadcast / Holiday Modal */}
+      {/* Admin Broadcast / Holiday Modal (Facebook Style Modal Sheet) */}
       {showBroadcastModal && (
         <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '440px', margin: '0 auto', borderRadius: '16px' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Megaphone size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Đăng thông báo toàn công ty</h3>
+                <h3 style={{ fontSize: '17px', fontWeight: 800 }}>Tạo Thông Báo / Lịch Nghỉ Lễ</h3>
               </div>
               <button onClick={() => setShowBroadcastModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
             <div className="form-group" style={{ marginBottom: '12px' }}>
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={broadcastForm.is_holiday}
                   onChange={e => setBroadcastForm({ ...broadcastForm, is_holiday: e.target.checked })}
                 />
-                <span style={{ fontWeight: 700, color: 'var(--primary)' }}>🏖️ Đây là thông báo Lịch Nghỉ Lễ công ty</span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '13px' }}>🏖️ Thông báo Lịch Nghỉ Lễ công ty</span>
               </label>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Tiêu đề thông báo *</label>
+              <label className="form-label">Tiêu đề *</label>
               <input
                 type="text"
                 className="form-input"
@@ -323,17 +395,17 @@ export default function NotificationCenter() {
             )}
 
             <div className="form-group">
-              <label className="form-label">Nội dung thông báo *</label>
+              <label className="form-label">Nội dung chi tiết *</label>
               <textarea
                 className="form-input"
                 rows={3}
                 value={broadcastForm.message}
                 onChange={e => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
-                placeholder="Nhập nội dung chi tiết gửi đến toàn bộ nhân viên..."
+                placeholder="Nhập nội dung gửi đến toàn bộ cán bộ nhân viên..."
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={() => setShowBroadcastModal(false)} className="btn btn--ghost btn--full">Hủy</button>
               <button onClick={handleSendBroadcast} disabled={submittingBroadcast} className="btn btn--primary btn--full">
                 {submittingBroadcast ? <span className="spinner" /> : <><Send size={14} /> Phát thông báo</>}
