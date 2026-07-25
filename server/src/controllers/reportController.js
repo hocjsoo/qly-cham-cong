@@ -322,5 +322,139 @@ const getPayroll = async (req, res) => {
   }
 };
 
-module.exports = { getMonthlyReport, getTrend, getAttendanceStats, getRanking, getPayroll };
+// GET /api/reports/individual-detail?user_id=...&month=6&year=2026
+const getIndividualDetailReport = async (req, res) => {
+  try {
+    const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
+    const y = parseInt(req.query.year) || new Date().getFullYear();
+    const userId = req.query.user_id || req.user._id;
+
+    const userObj = await User.findById(userId)
+      .select('employee_code full_name position department_id')
+      .populate('department_id', 'name');
+
+    if (!userObj) {
+      return res.status(404).json({ error: 'Nhân viên không tồn tại' });
+    }
+
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+    const daysInMonth = new Date(y, m, 0).getDate();
+
+    const attendances = await Attendance.find({
+      user_id: userId,
+      date: { $regex: `^${monthStr}` },
+    }).sort({ date: 1 });
+
+    const attMap = {};
+    attendances.forEach(a => { attMap[a.date] = a; });
+
+    const weekdayNames = ['CN', 'Hai', 'Ba', 'Tư', 'Năm', 'Sáu', 'Bảy'];
+
+    let workHoursNormal = 0;
+    let workHoursWeekend = 0;
+    let ot1Hours = 0;
+    let ot2Hours = 0;
+    let ot3Hours = 0;
+    let lateCount = 0;
+    let lateMinutes = 0;
+    let earlyCount = 0;
+    let earlyMinutes = 0;
+
+    const leaveCounts = { V: 0, OM: 0, TS: 0, R: 0, Ro: 0, P: 0, F: 0, CO: 0, CD: 0, H: 0, CT: 0, Le: 0 };
+
+    const dailyLogs = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${monthStr}-${String(d).padStart(2, '0')}`;
+      const dateObj = new Date(y, m - 1, d);
+      const dayOfWeek = dateObj.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      const att = attMap[dateStr];
+      const inStr = att?.check_in_time ? new Date(att.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '';
+      const outStr = att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '';
+
+      const hrs = att?.total_hours || 0;
+      const ot = att?.ot_hours || 0;
+      const lateM = att?.late_minutes || 0;
+
+      if (isWeekend) workHoursWeekend += hrs;
+      else workHoursNormal += hrs;
+
+      if (att?.is_late) {
+        lateCount += 1;
+        lateMinutes += lateM;
+      }
+
+      if (ot > 0) {
+        if (isWeekend) ot2Hours += ot;
+        else ot1Hours += ot;
+      }
+
+      let locationName = 'VP';
+      if (att) {
+        if (att.check_in_type === 'site') locationName = 'CT1';
+        else if (att.check_in_type === 'client') locationName = 'CT2';
+        else if (att.check_in_type === 'wfh') locationName = 'WFH';
+        else if (att.status === 'leave') {
+          locationName = 'Nghỉ';
+          leaveCounts.P += 1;
+        } else if (hrs === 0) {
+          leaveCounts.V += 1;
+        }
+      }
+
+      dailyLogs.push({
+        day: d,
+        dateFormatted: `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`,
+        weekday: weekdayNames[dayOfWeek],
+        isWeekend,
+        shift1: { in: inStr, out: outStr },
+        shift2: { in: '', out: '' },
+        shift3: { in: '', out: '' },
+        lateMins: lateM > 0 ? lateM : '',
+        earlyMins: '',
+        workCredit: hrs > 0 ? (hrs >= 7.5 ? 8 : hrs >= 5.5 ? 6.5 : hrs >= 3.5 ? 4 : hrs) : (hrs === 0 ? 0 : ''),
+        totalHours: hrs,
+        ot1: ot > 0 && !isWeekend ? ot : '',
+        ot2: ot > 0 && isWeekend ? ot : '',
+        ot3: '',
+        locationName,
+      });
+    }
+
+    const totalWorkHours = workHoursNormal + workHoursWeekend;
+
+    res.json({
+      user: {
+        id: userObj.employee_code || `NS ${userObj._id.toString().slice(-4)}`,
+        full_name: userObj.full_name,
+        position: userObj.position || 'KTS',
+        department_name: userObj.department_id?.name || 'Văn Phòng',
+      },
+      summary: {
+        month: m,
+        year: y,
+        work_hours_normal: parseFloat(workHoursNormal.toFixed(1)),
+        work_hours_weekend: parseFloat(workHoursWeekend.toFixed(1)),
+        total_work_hours: parseFloat(totalWorkHours.toFixed(1)),
+        ot1_hours: parseFloat(ot1Hours.toFixed(1)),
+        ot2_hours: parseFloat(ot2Hours.toFixed(1)),
+        ot3_hours: parseFloat(ot3Hours.toFixed(1)),
+        late_count: lateCount,
+        late_minutes: lateMinutes,
+        early_count: earlyCount,
+        early_minutes: earlyMinutes,
+        leave_counts: leaveCounts,
+      },
+      daily_logs: dailyLogs,
+    });
+  } catch (error) {
+    console.error('GetIndividualDetailReport error:', error);
+    res.status(500).json({ error: 'Lỗi tải phiếu chấm công chi tiết.' });
+  }
+};
+
+module.exports = { getMonthlyReport, getTrend, getAttendanceStats, getRanking, getPayroll, getIndividualDetailReport };
+
 
