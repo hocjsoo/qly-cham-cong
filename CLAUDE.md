@@ -248,7 +248,7 @@ OFFICE_RADIUS_METERS=100
 
 ## Seed Data mặc định
 
-- **Admin**: `admin@etoffice.vn` / `Admin@123`
+- **Admin**: Cấu hình qua `INITIAL_ADMIN_EMAIL` & `INITIAL_ADMIN_PASSWORD` (mặc định: `admin@company.com`)
 - **Phòng ban**: Kiến trúc, Kết cấu, Nội thất, Hành chính
 - **Văn phòng**: GPS HCM (10.7769, 106.7009), bán kính 100m
 

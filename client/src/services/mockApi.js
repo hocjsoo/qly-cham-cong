@@ -5,7 +5,7 @@ const INITIAL_MOCK_USERS = [
   {
     id: 'user-admin',
     _id: 'user-admin',
-    email: 'admin@etoffice.vn',
+    email: 'admin@company.com',
     full_name: 'Quản trị viên (Phó GĐ)',
     phone: '0901234567',
     role: 'admin',

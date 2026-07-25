@@ -160,13 +160,16 @@ npx localtunnel --port 5000
 
 ---
 
-## 🔑 Tài khoản mặc định
+## 🔑 Tài khoản Admin khởi tạo (Initial Admin)
 
-| Email | Mật khẩu | Vai trò |
-|-------|----------|---------|
-| `admin@etoffice.vn` | `Admin@123` | Admin |
+Khi hệ thống chạy lần đầu tiên trên cơ sở dữ liệu mới, tài khoản Admin sẽ tự động được khởi tạo theo thông tin cấu hình trong `server/.env`:
 
-> ⚠️ **Đổi mật khẩu ngay** sau lần đăng nhập đầu tiên!
+```env
+INITIAL_ADMIN_EMAIL=admin@company.com
+INITIAL_ADMIN_PASSWORD=YourSecurePassword123
+```
+
+> ⚠️ **Lưu ý bảo mật**: Đổi mật khẩu ngay sau lần đăng nhập đầu tiên để đi vào vận hành chính thức!
 
 ---
 

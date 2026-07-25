@@ -81,7 +81,7 @@ export default function LoginPage() {
                 id="login-email"
                 type="email"
                 className="form-input"
-                placeholder="admin@etoffice.vn"
+                placeholder="email@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
@@ -134,17 +134,6 @@ export default function LoginPage() {
               {!isLoading && <ArrowRight size={16} />}
             </button>
           </form>
-        </div>
-
-        {/* Demo Helper text */}
-        <div style={{
-          marginTop: '20px', padding: '12px 14px',
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: '10px', fontSize: '12px', color: 'var(--text-muted)',
-          textAlign: 'center'
-        }}>
-          <strong style={{ color: 'var(--text-secondary)' }}>Tài khoản Admin mặc định:</strong>{' '}
-          admin@etoffice.vn / Admin@123
         </div>
       </div>
     </div>

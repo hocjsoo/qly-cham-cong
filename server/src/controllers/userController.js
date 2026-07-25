@@ -128,8 +128,12 @@ const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
-    if (user.email === 'admin@etoffice.vn') {
-      return res.status(400).json({ error: 'Không thể xóa tài khoản Admin tối cao.' });
+
+    if (user.role === 'admin') {
+      const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({ error: 'Hệ thống cần ít nhất 1 tài khoản Admin đang hoạt động.' });
+      }
     }
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ error: 'Bạn không thể tự xóa tài khoản của chính mình.' });
@@ -148,8 +152,11 @@ const toggleActive = async (req, res) => {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
 
-    if (user.email === 'admin@etoffice.vn' && user.is_active) {
-      return res.status(400).json({ error: 'Không thể vô hiệu hóa tài khoản Admin tối cao.' });
+    if (user.role === 'admin' && user.is_active) {
+      const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
+      if (activeAdminCount <= 1) {
+        return res.status(400).json({ error: 'Không thể vô hiệu hóa Admin duy nhất trong hệ thống.' });
+      }
     }
     if (user._id.toString() === req.user._id.toString() && user.is_active) {
       return res.status(400).json({ error: 'Bạn không thể tự vô hiệu hóa tài khoản của chính mình.' });

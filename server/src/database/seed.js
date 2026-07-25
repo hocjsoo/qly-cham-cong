@@ -55,19 +55,21 @@ const seedInitialData = async () => {
       console.log('🌱 Seeded global system settings (8:30 - 17:30, OT from 18:00)');
     }
 
-    // 4. Tạo tài khoản Admin mặc định
+    // 4. Tạo tài khoản Admin mặc định (nếu chưa có bất kỳ Admin nào)
     const adminCount = await User.countDocuments({ role: 'admin' });
     if (adminCount === 0) {
-      const passwordHash = await bcrypt.hash('Admin@123', 10);
+      const initialEmail = process.env.INITIAL_ADMIN_EMAIL || 'admin@company.com';
+      const initialPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@123';
+      const passwordHash = await bcrypt.hash(initialPassword, 10);
       await User.create({
-        email: 'admin@etoffice.vn',
+        email: initialEmail,
         password_hash: passwordHash,
-        full_name: 'Quản trị viên HT',
+        full_name: 'Quản trị viên Hệ thống',
         role: 'admin',
-        must_change_password: false,
+        must_change_password: true,
         is_active: true,
       });
-      console.log('🌱 Seeded default Admin user (admin@etoffice.vn / Admin@123)');
+      console.log(`🌱 Initialized first Admin user (${initialEmail}) — Please change password upon first login`);
     }
   } catch (error) {
     console.error('❌ Seed data error:', error.message);
