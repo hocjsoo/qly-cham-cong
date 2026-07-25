@@ -21,6 +21,32 @@ const TYPE_MAP = {
 };
 const TYPE_SHORT = { office: 'VP', site: 'CT', client: 'KH', wfh: 'WFH' };
 
+// Ký hiệu bảng chấm công chuẩn theo mẫu ET_Staff 2026
+const TIMESHEET_SYMBOLS = [
+  { code: 'x', label: 'Đủ công (1.0)', color: 'var(--green)' },
+  { code: '0.75x', label: '3/4 công', color: 'var(--green)' },
+  { code: '0.5x', label: '1/2 công', color: 'var(--yellow)' },
+  { code: 'CT1', label: 'CT Trong nước', color: 'var(--blue)' },
+  { code: 'CT2', label: 'CT Nước ngoài', color: 'var(--blue)' },
+  { code: 'WFH', label: 'Work form home', color: 'var(--primary)' },
+  { code: 'P', label: 'Nghỉ phép', color: 'var(--purple, #8b5cf6)' },
+  { code: 'O', label: 'Nghỉ ốm', color: 'var(--red)' },
+  { code: 'KL', label: 'Nghỉ không lương', color: 'var(--text-muted)' },
+  { code: 'K', label: 'Khác', color: 'var(--text-muted)' },
+];
+
+function getTimesheetSymbol(rec) {
+  if (!rec) return '—';
+  if (rec.check_in_type === 'wfh') return 'WFH';
+  if (rec.check_in_type === 'site') return 'CT1';
+  if (rec.check_in_type === 'client') return 'CT2';
+  if (rec.status === 'leave' || rec.notes?.includes('Nghỉ phép')) return 'P';
+  if (rec.status === 'half_day' || rec.total_hours <= 4) return '0.5x';
+  if (rec.total_hours >= 7.5) return 'x';
+  if (rec.total_hours >= 6) return '0.75x';
+  return 'x';
+}
+
 export default function HistoryPage() {
   const { user } = useAuthStore();
   const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
@@ -314,8 +340,8 @@ export default function HistoryPage() {
                         <span style={{ fontSize: '13px', fontWeight: 700, color: textColor }}>{item.day}</span>
 
                         {hasAtt ? (
-                          <div style={{ fontSize: '9px', fontWeight: 600, color: textColor, marginTop: '2px' }}>
-                            {rec.total_hours}h {isOt && '🔥'}
+                          <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, marginTop: '2px' }}>
+                            {getTimesheetSymbol(rec)} {isOt && '🔥'}
                           </div>
                         ) : (
                           <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>—</span>
@@ -325,12 +351,13 @@ export default function HistoryPage() {
                   })}
                 </div>
 
-                {/* Legend */}
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  <span>🟢 Đúng giờ</span>
-                  <span>🟡 Đi muộn</span>
-                  <span>🔥 Tăng ca</span>
-                  <span>⚪ Chưa có ca</span>
+                {/* Legend chuẩn theo mẫu ET_Staff */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                  {TIMESHEET_SYMBOLS.map(s => (
+                    <span key={s.code} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <strong style={{ color: s.color }}>{s.code}</strong>: {s.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             ) : viewMode === 'list' ? (
