@@ -6,16 +6,19 @@ const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval } = require('./leaveBalanceController');
 
-const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'sick_leave', 'annual_leave', 'other'];
+const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'other'];
 
 const TYPE_LABELS = {
   late: 'Đi muộn',
   early_leave: 'Về sớm',
-  overtime: 'Tăng ca',
-  business_trip: 'Đi công tác / WFH',
-  sick_leave: 'Nghỉ ốm',
-  annual_leave: 'Nghỉ phép',
-  other: 'Lý do khác',
+  overtime: 'Tăng ca (OT)',
+  business_trip: 'CT Trong nước (CT1)',
+  foreign_trip: 'CT Nước ngoài (CT2)',
+  wfh: 'Work from home (WFH)',
+  annual_leave: 'Nghỉ phép (P)',
+  sick_leave: 'Nghỉ ốm (O)',
+  unpaid_leave: 'Nghỉ không lương (KL)',
+  other: 'Khác (K)',
 };
 
 // GET /api/requests
@@ -175,26 +178,26 @@ const approveRequest = async (req, res) => {
       await deductLeaveOnApproval(request.user_id, request.type, request.start_date, request.end_date);
     }
 
-    // 2. Tự động xóa phạt muộn & cập nhật bảng công nếu duyệt đơn giải trình đi muộn/công tác
+    // 2. Tự động xóa phạt muộn & cập nhật bảng công nếu duyệt đơn giải trình
     let att = await Attendance.findOne({ user_id: request.user_id, date: request.start_date });
     if (att) {
-      if (['late', 'business_trip', 'early_leave'].includes(request.type)) {
+      if (['late', 'business_trip', 'foreign_trip', 'wfh', 'early_leave'].includes(request.type)) {
         att.is_late = false;
         att.late_tier = 'on_time';
-        att.notes = `Đã duyệt đơn giải trình (${request.reason})`;
+        att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type]}: ${request.reason})`;
         await att.save();
       }
-    } else if (['annual_leave', 'sick_leave', 'business_trip'].includes(request.type)) {
-      // Tạo bản ghi điểm danh phép/công tác để tính công đủ
+    } else if (['annual_leave', 'sick_leave', 'unpaid_leave', 'business_trip', 'foreign_trip', 'wfh', 'other'].includes(request.type)) {
+      // Tạo bản ghi điểm danh phép/công tác/WFH để tính công đầy đủ
       await Attendance.create({
         user_id: request.user_id,
         date: request.start_date,
-        check_in_type: request.type === 'business_trip' ? 'wfh' : 'office',
-        status: request.type === 'business_trip' ? 'present' : 'leave',
+        check_in_type: ['business_trip', 'foreign_trip'].includes(request.type) ? 'site' : request.type === 'wfh' ? 'wfh' : 'office',
+        status: ['annual_leave', 'sick_leave', 'unpaid_leave'].includes(request.type) ? 'leave' : 'present',
         total_hours: 8,
         is_late: false,
         late_tier: 'on_time',
-        notes: `Được duyệt đơn ${TYPE_LABELS[request.type]}`,
+        notes: `Được duyệt đơn: ${TYPE_LABELS[request.type]} (${request.reason})`,
       });
     }
 

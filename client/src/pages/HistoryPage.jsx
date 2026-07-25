@@ -394,6 +394,45 @@ export default function HistoryPage() {
                   <div>• Đơn đi muộn / WFH / công tác được duyệt ➔ <strong>Tính đủ 1.0 công (<code>x</code>) & tự động xóa cờ muộn</strong>!</div>
                 </div>
               </div>
+
+              {/* Official 10 Attendance Symbols Legend Grid */}
+              <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
+                <div style={{ fontWeight: 800, color: 'var(--text)', marginBottom: '8px', fontSize: '13px' }}>
+                  📋 Bảng Ký Hiệu Chấm Công Quy Định (ET Staff):
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '6px' }}>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--green)' }}>x</strong> : Đủ công (1.0)
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--green)' }}>0,75x</strong> : 3/4 công
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--yellow)' }}>0,5x</strong> : 1/2 công
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--primary)' }}>CT1</strong> : CT Trong nước
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: '#8b5cf6' }}>CT2</strong> : CT Nước ngoài
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--blue)' }}>WFH</strong> : Làm tại nhà
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--green)' }}>P</strong> : Nghỉ phép
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--yellow)' }}>O</strong> : Nghỉ ốm
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--text-muted)' }}>KL</strong> : Nghỉ không lương
+                  </div>
+                  <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                    <strong style={{ color: 'var(--text-secondary)' }}>K</strong> : Khác
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
