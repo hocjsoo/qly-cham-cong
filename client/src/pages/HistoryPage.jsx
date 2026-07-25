@@ -370,19 +370,19 @@ export default function HistoryPage() {
                   <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '4px' }}>
                     ⏰ Giờ Làm Việc Quy Định
                   </div>
-                  <div>• Ca ngày: <strong>08:00 - 17:30</strong> (8.0 giờ = <strong>x 1.0 công</strong>)</div>
-                  <div>• Cho phép Check-in linh hoạt đến <strong>08:15</strong> không tính muộn.</div>
+                  <div>• Ca ngày: <strong>09:00 - 18:00</strong> (8.0 giờ = <strong>x 1.0 công</strong>)</div>
+                  <div>• Tăng ca (OT): <strong>Tính từ 18:00 trở đi</strong> (hệ số 1.5x).</div>
                 </div>
 
                 {/* Rule 2: Late rules */}
                 <div style={{ background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                   <div style={{ fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
-                    ⚠️ Mức Phạt Đi Muộn
+                    ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
-                  <div>• 08:00 - 08:15: Đúng giờ (Tính đủ công <code>x</code>)</div>
-                  <div>• 08:16 - 08:30: Đi muộn nhẹ (Nhắc nhở)</div>
-                  <div>• 08:31 - 09:00: Muộn vừa (Phạt muộn / trừ 0.25 công)</div>
-                  <div>• Sau 09:00: Tính nửa công (<code>0.5x</code>)</div>
+                  <div>• <strong>≤ 09:00</strong>: Đúng giờ (Tính đủ công <code>x</code>)</div>
+                  <div>• <strong>09:01 – 09:10</strong>: Muộn nhẹ</div>
+                  <div>• <strong>09:11 – 09:30</strong>: Muộn</div>
+                  <div>• <strong>&gt; 09:30</strong>: Muộn nhiều</div>
                 </div>
 
                 {/* Rule 3: Leave & Explanation */}
