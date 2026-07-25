@@ -2,7 +2,7 @@
 // Lịch sử chấm công — Xem theo Tuần / Tháng / Năm, Chế độ Lịch Ô (Calendar Grid View), Xem Chi Tiết Ngày, Admin Override
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, MapPin, Building, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, MapPin, Building, CheckCircle2, Info, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -73,6 +73,9 @@ export default function HistoryPage() {
   const [showHolidayModal, setShowHolidayModal] = useState(false);
   const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', note: '' });
   const [submittingHoliday, setSubmittingHoliday] = useState(false);
+
+  // Policy Info Card Toggle
+  const [showPolicy, setShowPolicy] = useState(false);
 
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
@@ -340,6 +343,59 @@ export default function HistoryPage() {
           <button onClick={next} className="theme-toggle-btn" style={{ width: '32px', height: '32px' }}>
             <ChevronRight size={16} />
           </button>
+        </div>
+
+        {/* Attendance Calculation & Late Policy Banner */}
+        <div className="card" style={{ marginBottom: '14px', padding: '12px 14px', background: 'var(--bg-card)', borderLeft: '4px solid var(--primary)' }}>
+          <div
+            onClick={() => setShowPolicy(!showPolicy)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Info size={18} color="var(--primary)" />
+              <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>
+                📌 Quy định tính công & Đi muộn (ET Architects)
+              </span>
+            </div>
+            <button className="btn btn--ghost" style={{ padding: '2px 6px', fontSize: '11px', gap: '4px', color: 'var(--primary)' }}>
+              {showPolicy ? <>Thu gọn <ChevronUp size={14} /></> : <>Xem quy định <ChevronDown size={14} /></>}
+            </button>
+          </div>
+
+          {showPolicy && (
+            <div className="animate-fade-in" style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', fontSize: '12px', lineHeight: 1.5 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                {/* Rule 1: Working hours */}
+                <div style={{ background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '4px' }}>
+                    ⏰ Giờ Làm Việc Quy Định
+                  </div>
+                  <div>• Ca ngày: <strong>08:00 - 17:30</strong> (8.0 giờ = <strong>x 1.0 công</strong>)</div>
+                  <div>• Cho phép Check-in linh hoạt đến <strong>08:15</strong> không tính muộn.</div>
+                </div>
+
+                {/* Rule 2: Late rules */}
+                <div style={{ background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
+                    ⚠️ Mức Phạt Đi Muộn
+                  </div>
+                  <div>• 08:00 - 08:15: Đúng giờ (Tính đủ công <code>x</code>)</div>
+                  <div>• 08:16 - 08:30: Đi muộn nhẹ (Nhắc nhở)</div>
+                  <div>• 08:31 - 09:00: Muộn vừa (Phạt muộn / trừ 0.25 công)</div>
+                  <div>• Sau 09:00: Tính nửa công (<code>0.5x</code>)</div>
+                </div>
+
+                {/* Rule 3: Leave & Explanation */}
+                <div style={{ background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                  <div style={{ fontWeight: 800, color: 'var(--green)', marginBottom: '4px' }}>
+                    🏖️ Nghỉ Lễ & Đơn Từ Giải Trình
+                  </div>
+                  <div>• Ngày nghỉ lễ: Hưởng 100% lương công (<code>1.0x</code>)</div>
+                  <div>• Đơn đi muộn / WFH / công tác được duyệt ➔ <strong>Tính đủ 1.0 công (<code>x</code>) & tự động xóa cờ muộn</strong>!</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {loading ? (
