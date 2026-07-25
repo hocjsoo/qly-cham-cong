@@ -39,6 +39,9 @@ export default function RequestsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
+  // Status Filter
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
+
   // Reject modal state
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
@@ -139,7 +142,25 @@ export default function RequestsPage() {
     }
   };
 
-  const list = tab === 'mine' ? mine : pending;
+  const rawList = tab === 'mine' ? mine : pending;
+  const list = rawList.filter(r => statusFilter === 'all' || r.status === statusFilter);
+
+  const getWorkflowImpactText = (reqType) => {
+    switch (reqType) {
+      case 'late':
+        return '⚡ Sau khi duyệt: Tự động gỡ phạt đi muộn & khôi phục công đủ (1.0) cho ngày đã chọn.';
+      case 'overtime':
+        return '⚡ Sau khi duyệt: Tự động xác nhận giờ OT & cộng vào bảng tính lương.';
+      case 'wfh':
+      case 'business_trip':
+        return '⚡ Sau khi duyệt: Tự động xác nhận địa điểm làm việc ngoài công ty & tính công đủ (1.0).';
+      case 'annual_leave':
+      case 'sick_leave':
+        return '⚡ Sau khi duyệt: Tự động trừ vào quỹ ngày phép & ghi nhận nghỉ hợp lệ.';
+      default:
+        return '⚡ Sau khi duyệt: Đơn sẽ được lưu vết và thông báo cho nhân sự.';
+    }
+  };
 
   return (
     <div className="page">
@@ -167,6 +188,25 @@ export default function RequestsPage() {
             </button>
           </div>
         )}
+
+        {/* Status Filter Bar */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
+          {[
+            { key: 'all', label: 'Tất cả đơn' },
+            { key: 'pending', label: '⏳ Chờ duyệt' },
+            { key: 'approved', label: '✅ Đã duyệt' },
+            { key: 'rejected', label: '❌ Từ chối' },
+          ].map(sf => (
+            <button
+              key={sf.key}
+              onClick={() => setStatusFilter(sf.key)}
+              className={`chip${statusFilter === sf.key ? ' active' : ''}`}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
+            >
+              {sf.label}
+            </button>
+          ))}
+        </div>
 
         {/* Requests List */}
         {loading ? (
@@ -246,13 +286,9 @@ export default function RequestsPage() {
             <div className="form-group">
               <label className="form-label">Loại đơn *</label>
               <select className="form-input" value={type} onChange={e => setType(e.target.value)}>
-                <option value="annual_leave">🏖️ Nghỉ phép năm</option>
-                <option value="sick_leave">🤒 Nghỉ ốm</option>
-                <option value="late">⏰ Giải trình đi muộn</option>
-                <option value="early_leave">🏃 Xin về sớm</option>
-                <option value="overtime">⏱️ Đăng ký Tăng ca (OT)</option>
-                <option value="business_trip">💼 Đăng ký Đi công tác / WFH</option>
-                <option value="other">📌 Lý do khác</option>
+                {Object.entries(TYPE_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
               </select>
             </div>
 

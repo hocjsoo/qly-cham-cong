@@ -65,6 +65,7 @@ const leaveBalanceRoutes  = require('./routes/leave-balance.routes');
 const exportRoutes        = require('./routes/export.routes');
 const correctionRoutes    = require('./routes/correction.routes');
 const systemSettingRoutes = require('./routes/systemSetting.routes');
+const notificationRoutes  = require('./routes/notification.routes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
@@ -79,6 +80,7 @@ app.use('/api/leave-balance', leaveBalanceRoutes);
 app.use('/api/export',        exportRoutes);
 app.use('/api/corrections',   correctionRoutes);
 app.use('/api/settings',      systemSettingRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // HEALTH CHECK API
 app.get('/api/health', (req, res) => {

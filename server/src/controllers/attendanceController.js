@@ -259,15 +259,52 @@ const getTodayStatus = async (req, res) => {
   }
 };
 
-// GET /api/attendance/history
+// GET /api/attendance/history?month=7&year=2026&user_id=...&mode=month|year
 const getHistory = async (req, res) => {
   try {
     const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
     const y = parseInt(req.query.year) || new Date().getFullYear();
-    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+    const mode = req.query.mode || 'month';
+    let targetUserId = req.user._id;
 
+    // Admin / Manager có thể xem lịch sử của bất kỳ nhân viên nào
+    if (req.query.user_id && ['admin', 'manager'].includes(req.user.role)) {
+      targetUserId = req.query.user_id;
+    }
+
+    if (mode === 'year') {
+      // Trả về dữ liệu 12 tháng trong năm cho màn hình xem theo Năm
+      const yearlyRecords = await Attendance.find({
+        user_id: targetUserId,
+        date: { $regex: `^${y}-` }
+      });
+
+      const monthsData = Array.from({ length: 12 }, (_, i) => {
+        const monthNum = i + 1;
+        const monthPrefix = `${y}-${String(monthNum).padStart(2, '0')}`;
+        const monthRecs = yearlyRecords.filter(r => r.date.startsWith(monthPrefix));
+        const presentDays = monthRecs.filter(r => !r.is_late).length;
+        const lateDays = monthRecs.filter(r => r.is_late).length;
+        const totalHours = parseFloat(monthRecs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+        const otHours = parseFloat(monthRecs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+        return {
+          month: monthNum,
+          label: `Tháng ${monthNum}`,
+          total_days: monthRecs.length,
+          present_days: presentDays,
+          late_days: lateDays,
+          total_hours: totalHours,
+          ot_hours: otHours,
+        };
+      });
+
+      return res.json({ year: y, mode: 'year', months: monthsData });
+    }
+
+    // Default month mode
+    const monthStr = `${y}-${String(m).padStart(2, '0')}`;
     const records = await Attendance.find({
-      user_id: req.user._id,
+      user_id: targetUserId,
       date: { $regex: `^${monthStr}` }
     }).sort({ date: -1 });
 
@@ -281,6 +318,7 @@ const getHistory = async (req, res) => {
       records,
     });
   } catch (error) {
+    console.error('GetHistory error:', error);
     res.status(500).json({ error: 'Lỗi lấy lịch sử.' });
   }
 };
