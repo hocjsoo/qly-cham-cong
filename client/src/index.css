@@ -245,6 +245,36 @@ body {
   resize: vertical;
 }
 
+/* Instant Calendar & Time Picker Input Styling */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  filter: invert(0.8);
+  transition: background 0.15s, transform 0.15s;
+}
+
+[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="time"]::-webkit-calendar-picker-indicator,
+[data-theme="light"] input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  background: var(--primary-soft);
+  transform: scale(1.1);
+}
+
 /* =============================================
    BADGES — Pill-style, subtle backgrounds
    ============================================= */

@@ -313,6 +313,7 @@ export default function NotificationCenter() {
                     className="form-input"
                     value={broadcastForm.holiday_date}
                     onChange={e => setBroadcastForm({ ...broadcastForm, holiday_date: e.target.value })}
+                    onClick={e => e.target.showPicker && e.target.showPicker()}
                   />
                 </div>
                 <div className="form-group">
@@ -322,6 +323,7 @@ export default function NotificationCenter() {
                     className="form-input"
                     value={broadcastForm.holiday_end_date}
                     onChange={e => setBroadcastForm({ ...broadcastForm, holiday_end_date: e.target.value })}
+                    onClick={e => e.target.showPicker && e.target.showPicker()}
                   />
                 </div>
               </div>
