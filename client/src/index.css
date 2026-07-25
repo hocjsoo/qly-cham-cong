@@ -964,8 +964,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 .notification-drawer-overlay {
   position: fixed !important;
   inset: 0 !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  backdrop-filter: blur(4px) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
   z-index: 999998 !important;
   pointer-events: auto;
 }

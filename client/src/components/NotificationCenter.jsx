@@ -2,6 +2,7 @@
 // Facebook-Style Notification Center Engine — Floating Dropdown & Bottom Sheet
 
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send, MoreHorizontal, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -27,6 +28,7 @@ function formatTimeAgo(isoString) {
 
 export default function NotificationCenter() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const isAdminOrManager = ['admin', 'manager'].includes(user?.role);
 
   const [open, setOpen] = useState(false);
@@ -72,13 +74,20 @@ export default function NotificationCenter() {
     }
   };
 
-  const handleMarkRead = async (id) => {
+  const handleItemClick = async (notif) => {
     try {
-      await api.put(`/notifications/${id}/read`);
-      setNotifications(prev => prev.map(n => n._id === id ? { ...n, is_read: true } : n));
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      if (!notif.is_read) {
+        await api.put(`/notifications/${notif._id}/read`);
+        setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, is_read: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     } catch {
       // Silent
+    } finally {
+      setOpen(false);
+      if (notif.link) {
+        navigate(notif.link);
+      }
     }
   };
 
@@ -259,7 +268,7 @@ export default function NotificationCenter() {
                   return (
                     <div
                       key={n._id}
-                      onClick={() => handleMarkRead(n._id)}
+                      onClick={() => handleItemClick(n)}
                       className="fb-notif-item"
                       style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
@@ -284,13 +293,13 @@ export default function NotificationCenter() {
                       {/* Content */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontSize: '13px', fontWeight: n.is_read ? 600 : 800,
+                          fontSize: '13px', fontWeight: n.is_read ? 700 : 800,
                           color: 'var(--text)', lineHeight: 1.35
                         }}>
                           {n.title}
                         </div>
                         <div style={{
-                          fontSize: '12px', color: n.is_read ? 'var(--text-muted)' : 'var(--text-secondary)',
+                          fontSize: '12px', color: 'var(--text-secondary)',
                           marginTop: '2px', lineHeight: 1.35, display: '-webkit-box',
                           WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
                         }}>
@@ -298,7 +307,7 @@ export default function NotificationCenter() {
                         </div>
                         <div style={{
                           fontSize: '11px', fontWeight: 600,
-                          color: n.is_read ? 'var(--text-muted)' : 'var(--primary)', marginTop: '3px'
+                          color: 'var(--primary)', marginTop: '3px'
                         }}>
                           {formatTimeAgo(n.created_at)}
                         </div>
