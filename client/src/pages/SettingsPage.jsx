@@ -228,7 +228,6 @@ export default function SettingsPage() {
   const tabs = [
     { key: 'depts', label: '🏢 Phòng ban', count: depts.length },
     { key: 'locations', label: '📍 Vị trí GPS', count: locations.length },
-    { key: 'projects', label: '🏗️ Dự án', count: projects.length },
     { key: 'shift', label: '⚙️ Quy định ca làm' },
     { key: 'leave', label: '📅 Quản lý ngày phép', count: leaveBalances.length },
   ];
