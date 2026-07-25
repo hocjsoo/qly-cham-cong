@@ -367,8 +367,8 @@ export default function StaffPage() {
 
       {/* Create/Edit Form Modal */}
       {showForm && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up">
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700 }}>
@@ -446,8 +446,8 @@ export default function StaffPage() {
 
       {/* Attendance Override Modal (Admin Sửa Công) */}
       {showOverrideModal && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px' }}>
+        <div className="modal-overlay" onClick={() => setShowOverrideModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700 }}>

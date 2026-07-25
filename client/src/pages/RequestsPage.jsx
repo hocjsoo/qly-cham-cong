@@ -347,9 +347,10 @@ export default function RequestsPage() {
       </div>
 
       {/* Modern Create Request Sheet Modal */}
+      {/* Create Request Modal */}
       {showForm && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '440px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -460,8 +461,8 @@ export default function RequestsPage() {
 
       {/* Reject Reason Modal */}
       {rejectTarget && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setRejectTarget(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>Từ chối đơn từ</h3>

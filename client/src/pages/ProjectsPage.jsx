@@ -450,8 +450,8 @@ export default function ProjectsPage() {
 
       {/* Modal Create / Edit Project */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '460px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
