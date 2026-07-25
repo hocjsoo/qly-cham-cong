@@ -1,8 +1,8 @@
 // client/src/components/NotificationCenter.jsx
-// Notification Center Engine — Bell Drawer, Category Filters & Admin Holiday Notification Manager
+// Notification Center Engine — Responsive Drawer (Fixed Mobile Bottom Sheet / Desktop Floating Modal)
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Calendar, Plus, Send, Sparkles } from 'lucide-react';
+import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -91,7 +91,6 @@ export default function NotificationCenter() {
     setSubmittingBroadcast(true);
     try {
       if (broadcastForm.is_holiday) {
-        // Lưu ngày nghỉ lễ & tự động phát thông báo
         await api.post('/holidays', {
           name: broadcastForm.title,
           date: broadcastForm.holiday_date || new Date().toISOString().slice(0, 10),
@@ -100,7 +99,6 @@ export default function NotificationCenter() {
         });
         toast.success('Đã công bố ngày nghỉ lễ & phát thông báo toàn công ty! 🎉');
       } else {
-        // Phát thông báo thông thường
         await api.post('/notifications/broadcast', {
           title: broadcastForm.title,
           message: broadcastForm.message,
@@ -145,104 +143,128 @@ export default function NotificationCenter() {
         )}
       </button>
 
-      {/* Notifications Drawer */}
+      {/* Notifications Drawer (Fixed Position for perfect alignment on Desktop & Mobile) */}
       {open && (
-        <div className="card animate-slide-up" style={{
-          position: 'absolute', right: 0, top: '44px', width: '360px',
-          maxHeight: '480px', zIndex: 1000, boxShadow: 'var(--shadow-md)',
-          display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden'
+        <div className="notification-drawer-container" style={{
+          position: 'fixed',
+          zIndex: 9999,
         }}>
-          {/* Header */}
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '12px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)'
+          {/* Overlay for mobile tap-outside */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+              backdropFilter: 'blur(2px)', zIndex: 9998
+            }}
+          />
+
+          {/* Drawer Sheet */}
+          <div className="card animate-slide-up" style={{
+            position: 'fixed',
+            zIndex: 9999,
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-md)',
+            display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
           }}>
-            <div style={{ fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔔 Trung tâm thông báo</span>
-              {unreadCount > 0 && (
-                <span className="badge badge--warning" style={{ fontSize: '10px' }}>{unreadCount} mới</span>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
-                >
-                  <CheckCheck size={14} /> Đọc hết
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Admin Announcement Trigger Button */}
-          {isAdminOrManager && (
-            <div style={{ padding: '8px 12px', background: 'var(--primary-soft)', borderBottom: '1px solid var(--border)' }}>
-              <button
-                onClick={() => { setOpen(false); setShowBroadcastModal(true); }}
-                className="btn btn--primary btn--full"
-                style={{ fontSize: '12px', padding: '6px 10px', gap: '4px' }}
-              >
-                <Megaphone size={14} /> Đăng Thông Báo / Lịch Nghỉ Lễ mới
-              </button>
-            </div>
-          )}
-
-          {/* Filter Chips */}
-          <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-card)' }}>
-            {[
-              { key: 'all', label: 'Tất cả' },
-              { key: 'announcement', label: '📢 Lễ / Thông báo' },
-              { key: 'request', label: '📝 Đơn từ' },
-            ].map(f => (
-              <button
-                key={f.key}
-                onClick={() => setFilterType(f.key)}
-                className={`chip${filterType === f.key ? ' active' : ''}`}
-                style={{ fontSize: '11px', padding: '3px 8px' }}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Body Notification Cards List */}
-          <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
-            {filteredNotifications.length === 0 ? (
-              <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                ⚪ Chưa có thông báo trong mục này
+            {/* Header */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)'
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🔔 Trung tâm thông báo</span>
+                {unreadCount > 0 && (
+                  <span className="badge badge--warning" style={{ fontSize: '10px' }}>{unreadCount} mới</span>
+                )}
               </div>
-            ) : (
-              filteredNotifications.map(n => (
-                <div
-                  key={n._id}
-                  onClick={() => handleMarkRead(n._id)}
-                  style={{
-                    padding: '10px 12px', borderRadius: '8px', marginBottom: '4px',
-                    background: n.is_read ? 'transparent' : 'var(--primary-soft)',
-                    borderLeft: n.is_read ? '3px solid transparent' : '3px solid var(--primary)',
-                    cursor: 'pointer', transition: 'background 0.15s'
-                  }}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                  >
+                    <CheckCheck size={14} /> Đọc hết
+                  </button>
+                )}
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'start', gap: '10px' }}>
-                    <div style={{ marginTop: '2px', flexShrink: 0 }}>
-                      {TYPE_ICONS[n.type] || TYPE_ICONS.system}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: n.is_read ? 600 : 700, color: 'var(--text)', lineHeight: 1.3 }}>
-                        {n.title}
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Admin Announcement Trigger Button */}
+            {isAdminOrManager && (
+              <div style={{ padding: '8px 12px', background: 'var(--primary-soft)', borderBottom: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => { setOpen(false); setShowBroadcastModal(true); }}
+                  className="btn btn--primary btn--full"
+                  style={{ fontSize: '12px', padding: '7px 10px', gap: '6px', whiteSpace: 'nowrap' }}
+                >
+                  <Megaphone size={14} /> Đăng Thông Báo / Lịch Nghỉ Lễ
+                </button>
+              </div>
+            )}
+
+            {/* Filter Chips */}
+            <div style={{ display: 'flex', gap: '4px', padding: '8px 12px', borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-card)' }}>
+              {[
+                { key: 'all', label: 'Tất cả' },
+                { key: 'announcement', label: '📢 Lễ / Thông báo' },
+                { key: 'request', label: '📝 Đơn từ' },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilterType(f.key)}
+                  className={`chip${filterType === f.key ? ' active' : ''}`}
+                  style={{ fontSize: '11px', padding: '3px 8px' }}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Body Notification Cards List */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '6px', maxHeight: '360px' }}>
+              {filteredNotifications.length === 0 ? (
+                <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  ⚪ Chưa có thông báo trong mục này
+                </div>
+              ) : (
+                filteredNotifications.map(n => (
+                  <div
+                    key={n._id}
+                    onClick={() => handleMarkRead(n._id)}
+                    style={{
+                      padding: '10px 12px', borderRadius: '8px', marginBottom: '4px',
+                      background: n.is_read ? 'transparent' : 'var(--primary-soft)',
+                      borderLeft: n.is_read ? '3px solid transparent' : '3px solid var(--primary)',
+                      cursor: 'pointer', transition: 'background 0.15s'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'start', gap: '10px' }}>
+                      <div style={{ marginTop: '2px', flexShrink: 0 }}>
+                        {TYPE_ICONS[n.type] || TYPE_ICONS.system}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.4 }}>
-                        {n.message}
-                      </div>
-                      <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        {new Date(n.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: n.is_read ? 600 : 700, color: 'var(--text)', lineHeight: 1.3 }}>
+                          {n.title}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px', lineHeight: 1.4 }}>
+                          {n.message}
+                        </div>
+                        <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          {new Date(n.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
