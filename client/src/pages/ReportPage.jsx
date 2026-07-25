@@ -2,7 +2,7 @@
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, ZoomIn, Eye, Check, FileText, UserCheck, Printer } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, ZoomIn, Eye, Check, FileText, UserCheck, Printer, Building2, ShieldCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
@@ -50,6 +50,7 @@ export default function ReportPage() {
   const individualRef = useRef(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'image'
+  const [exportTarget, setExportTarget] = useState('matrix'); // 'matrix' (Bảng tổng hợp) | 'individual' (Phiếu chi tiết)
   const [exportScope, setExportScope] = useState('all'); // 'all' | 'single'
   const [selectedExportUser, setSelectedExportUser] = useState('');
   const [filterStaffId, setFilterStaffId] = useState('');
@@ -187,7 +188,7 @@ export default function ReportPage() {
 
   // 2. Xuất Ảnh PNG Nét Cao
   const handleGenerateImagePreview = async (targetUserId = null) => {
-    const targetRef = (tab === 'individual_detail') ? individualRef.current : timesheetRef.current;
+    const targetRef = (exportTarget === 'individual' || tab === 'individual_detail') ? individualRef.current : timesheetRef.current;
 
     if (!targetRef) {
       toast.error('Không tìm thấy nội dung bảng công để tạo ảnh');
@@ -198,7 +199,7 @@ export default function ReportPage() {
     setFilterStaffId(queryUser);
     setShowExportModal(false);
     setGeneratingImage(true);
-    toast.loading('Đang khởi tạo hình ảnh bảng công nét cao...', { id: 'img' });
+    toast.loading('Đang tạo hình ảnh bảng công sắc nét chuẩn doanh nghiệp...', { id: 'img' });
 
     setTimeout(async () => {
       try {
@@ -206,7 +207,7 @@ export default function ReportPage() {
         const canvas = await html2canvas(targetRef, {
           scale: 2,
           useCORS: true,
-          backgroundColor: isDark ? '#18191a' : '#ffffff',
+          backgroundColor: isDark ? '#0f172a' : '#ffffff',
           logging: false,
         });
 
@@ -275,7 +276,7 @@ export default function ReportPage() {
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowExportModal(true)} disabled={generatingImage} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px' }}>
+            <button onClick={() => setShowExportModal(true)} disabled={generatingImage} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
               {generatingImage ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công</>}
             </button>
             <HeaderActions />
@@ -319,14 +320,14 @@ export default function ReportPage() {
         {tab === 'timesheet_lock' && (
           <div>
             {/* Action Bar & Lock Status */}
-            <div className="card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)' }}>
+            <div className="card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className={`badge ${matrixData?.global_locked ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: '13px', padding: '6px 12px', fontWeight: 800 }}>
+                  <span className={`badge ${matrixData?.global_locked ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: '13px', padding: '6px 14px', fontWeight: 800, borderRadius: '8px' }}>
                     {matrixData?.global_locked ? '🔒 ĐÃ CHỐT CÔNG THÁNG' : '🔓 BẢNG CÔNG CHƯA CHỐT'}
                   </span>
                   {matrixData?.global_lock_info && (
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       Chốt bởi <strong>{matrixData.global_lock_info.locked_by_name}</strong> lúc {new Date(matrixData.global_lock_info.locked_at).toLocaleString('vi-VN')}
                     </div>
                   )}
@@ -359,59 +360,66 @@ export default function ReportPage() {
             ) : !matrixData || !matrixData.staff_rows ? (
               <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
             ) : (
-              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '10px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                {/* Professional Corporate Banner for Image Capture */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '2px solid var(--primary)', paddingBottom: '8px' }}>
-                  <div>
-                    <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
-                      BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
-                    </div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                      THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '12px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+                {/* Corporate Header Banner */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid var(--primary)', paddingBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Building2 size={24} color="var(--primary)" />
+                    <div>
+                      <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                        BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+                      </div>
                     </div>
                   </div>
                   <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                    <div>Quy trình: Chuẩn mẫu ET_Staff {year}</div>
-                    <div>Trạng thái: <strong>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
+                    <div>Mẫu quản lý: <strong>ET_Staff {year}</strong></div>
+                    <div>Trạng thái: <strong style={{ color: matrixData.global_locked ? 'var(--red)' : 'var(--green)' }}>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
                   </div>
                 </div>
 
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <thead>
-                    <tr style={{ background: '#2d3748', color: '#ffffff', fontWeight: 800 }}>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '60px' }}>ID</th>
-                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px' }}>NHÂN SỰ</th>
-                      <th style={{ padding: '8px 10px', minWidth: '70px' }}>NV</th>
+                    {/* Row 1 Header: Titles & Weekdays */}
+                    <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 800 }}>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '60px', border: '1px solid #334155' }}>ID</th>
+                      <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', border: '1px solid #334155' }}>NHÂN SỰ</th>
+                      <th style={{ padding: '8px 10px', minWidth: '70px', border: '1px solid #334155' }}>NV</th>
 
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>NLV tại VP</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>CT Trong nước</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>CT Nước ngoài</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>Work from home</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>Nghỉ phép</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>Nghỉ ốm</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>Nghỉ không lương</th>
-                      <th style={{ padding: '6px 8px', background: '#1a202c' }}>Khác</th>
+                      {/* Summary Columns Header */}
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>NLV tại VP</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Trong nước</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Nước ngoài</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Work from home</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ phép</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ ốm</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ không lương</th>
+                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Khác</th>
 
+                      {/* Days Weekday Row */}
                       {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#4a5568' : '#2d3748', minWidth: '28px' }}>
+                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#475569' : '#334155', minWidth: '28px', border: '1px solid #334155' }}>
                           {hd.weekday}
                         </th>
                       ))}
 
-                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '60px' }}>Chốt</th>}
+                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '60px', border: '1px solid #334155' }}>Chốt</th>}
                     </tr>
 
-                    <tr style={{ background: '#1a202c', color: '#ffffff', fontWeight: 800 }}>
-                      <th colSpan="3" style={{ padding: '4px 10px', textAlign: 'left' }}>BẢNG CHẤM CÔNG THÁNG</th>
-                      <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: '#a0aec0' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
+                    {/* Row 2 Header: Days 01..31 */}
+                    <tr style={{ background: '#0f172a', color: '#ffffff', fontWeight: 800 }}>
+                      <th colSpan="3" style={{ padding: '4px 10px', textAlign: 'left', border: '1px solid #334155' }}>BẢNG CHẤM CÔNG THÁNG</th>
+                      <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: '#94a3b8', border: '1px solid #334155' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
 
                       {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#2d3748' : '#1a202c', borderTop: '1px solid #4a5568' }}>
+                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#334155' : '#0f172a', border: '1px solid #334155' }}>
                           {hd.dayStr}
                         </th>
                       ))}
 
-                      {isAdminOrManager && <th style={{ padding: '4px' }}>—</th>}
+                      {isAdminOrManager && <th style={{ padding: '4px', border: '1px solid #334155' }}>—</th>}
                     </tr>
                   </thead>
 
@@ -422,15 +430,17 @@ export default function ReportPage() {
                         <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
                         <td style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
 
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--green)' }}>{r.nlv_office.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--primary)' }}>{r.ct_domestic.toFixed(2)}</td>
+                        {/* Summary Column Values */}
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{r.nlv_office.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#3b82f6' }}>{r.ct_domestic.toFixed(2)}</td>
                         <td style={{ padding: '8px 6px', fontWeight: 700, color: '#8b5cf6' }}>{r.ct_foreign.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--blue)' }}>{r.wfh.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--green)' }}>{r.annual_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--yellow)' }}>{r.sick_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--text-muted)' }}>{r.unpaid_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: 'var(--text-secondary)' }}>{r.other_leave.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#06b6d4' }}>{r.wfh.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{r.annual_leave.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#ef4444' }}>{r.sick_leave.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#64748b' }}>{r.unpaid_leave.toFixed(2)}</td>
+                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#94a3b8' }}>{r.other_leave.toFixed(2)}</td>
 
+                        {/* Day Cell Symbols */}
                         {r.days.map(d => {
                           const isWk = matrixData.header_days.find(hd => hd.day === d.day)?.isWeekend;
                           return (
@@ -446,14 +456,14 @@ export default function ReportPage() {
                               style={{
                                 padding: '6px 4px', fontWeight: 800, cursor: isAdminOrManager ? 'pointer' : 'default',
                                 background: isWk ? 'rgba(255,255,255,0.03)' : 'transparent',
-                                color: d.symbol === 'x' || d.symbol === '0,75x' ? 'var(--green)' :
-                                       d.symbol === '0,5x' ? 'var(--yellow)' :
-                                       d.symbol === 'CT1' ? 'var(--primary)' :
+                                color: d.symbol === 'x' || d.symbol === '0,75x' ? '#10b981' :
+                                       d.symbol === '0,5x' ? '#f59e0b' :
+                                       d.symbol === 'CT1' ? '#3b82f6' :
                                        d.symbol === 'CT2' ? '#8b5cf6' :
-                                       d.symbol === 'WFH' ? 'var(--blue)' :
-                                       d.symbol === 'P' ? 'var(--green)' :
-                                       d.symbol === 'O' ? 'var(--yellow)' :
-                                       d.symbol === 'KL' ? 'var(--text-muted)' : 'var(--text)'
+                                       d.symbol === 'WFH' ? '#06b6d4' :
+                                       d.symbol === 'P' ? '#10b981' :
+                                       d.symbol === 'O' ? '#ef4444' :
+                                       d.symbol === 'KL' ? '#64748b' : 'var(--text)'
                               }}
                               title={isAdminOrManager ? `Bấm để chỉnh sửa ô công ngày ${d.dateStr}` : d.symbol}
                             >
@@ -462,6 +472,7 @@ export default function ReportPage() {
                           );
                         })}
 
+                        {/* Lock Action Button per Staff */}
                         {isAdminOrManager && (
                           <td style={{ padding: '6px' }}>
                             <button
@@ -487,10 +498,10 @@ export default function ReportPage() {
           <div>
             {/* Staff Selector dropdown for Admin */}
             {isAdminOrManager && matrixData?.staff_rows && (
-              <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-card)' }}>
+              <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    👤 Vui lòng chọn nhân viên để xem Bảng Chi Tiết Chấm Công:
+                    👤 Select Staff / Chọn nhân viên:
                   </span>
                   <select
                     className="form-select"
@@ -516,150 +527,150 @@ export default function ReportPage() {
             ) : !individualDetail ? (
               <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu phiếu công</div></div>
             ) : (
-              <div ref={individualRef} className="card animate-fade-in" style={{ padding: '16px', background: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1px solid #ccc' }}>
-                {/* Title */}
-                <div style={{ textAlign: 'center', fontSize: '18px', fontWeight: 'bold', marginBottom: '10px', textTransform: 'uppercase' }}>
+              <div ref={individualRef} className="card animate-fade-in" style={{ padding: '20px', background: '#ffffff', color: '#0f172a', fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '12px' }}>
+                {/* Title Banner */}
+                <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: '900', marginBottom: '14px', textTransform: 'uppercase', color: '#0f172a', letterSpacing: '1px' }}>
                   BẢNG CHI TIẾT CHẤM CÔNG
                 </div>
 
                 {/* Banner 1: Header Employee Info */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '11px', border: '1px solid #000' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', fontSize: '11px', border: '1px solid #1e293b' }}>
                   <tbody>
-                    <tr style={{ background: '#ffff99' }}>
-                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontWeight: 'bold', width: '15%' }}>Mã nhân viên: {indUser.id}</td>
-                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontWeight: 'bold', width: '45%' }}>Tên nhân viên: {indUser.full_name}</td>
-                      <td style={{ border: '1px solid #000', padding: '4px 8px', fontWeight: 'bold', width: '40%' }}>Bộ phận: {indUser.department_name}</td>
+                    <tr style={{ background: '#fef08a', color: '#0f172a' }}>
+                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '20%' }}>Mã nhân viên: {indUser.id}</td>
+                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '45%' }}>Tên nhân viên: {indUser.full_name}</td>
+                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '35%' }}>Bộ phận: {indUser.department_name}</td>
                     </tr>
                   </tbody>
                 </table>
 
                 {/* Summary Table Grid 1 & 2 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
                   {/* Grid Left: Hours & Late/Early */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px' }}>
                     <tbody>
                       <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Ngày thường</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.work_hours_normal}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Tăng ca 1</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.ot1_hours}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Đi trễ</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>Số lần: {indSum.late_count}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Ngày thường</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.work_hours_normal}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Tăng ca 1</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.ot1_hours}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Đi trễ</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>Số lần: {indSum.late_count}</td>
                       </tr>
                       <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Cuối tuần</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.work_hours_weekend}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Tăng ca 2</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.ot2_hours}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold' }}>Về sớm</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>Số lần: {indSum.early_count}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Cuối tuần</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.work_hours_weekend}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Tăng ca 2</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.ot2_hours}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc' }}>Về sớm</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>Số lần: {indSum.early_count}</td>
                       </tr>
-                      <tr style={{ background: '#f2f2f2', fontWeight: 'bold' }}>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px' }}>TỔNG</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.total_work_hours}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px' }}>Tăng ca 3</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.ot3_hours}h</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px' }}>Số phút trễ</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{indSum.late_minutes}p</td>
+                      <tr style={{ background: '#e2e8f0', fontWeight: 'bold' }}>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>TỔNG</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.total_work_hours}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>Tăng ca 3</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.ot3_hours}h</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>Số phút trễ</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: indSum.late_minutes > 0 ? '#ef4444' : 'inherit' }}>{indSum.late_minutes}p</td>
                       </tr>
                     </tbody>
                   </table>
 
                   {/* Grid Right: Leave counts */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px', textAlign: 'center' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px', textAlign: 'center' }}>
                     <thead>
-                      <tr style={{ background: '#e6e6e6' }}>
-                        <th colSpan="12" style={{ border: '1px solid #000', padding: '3px' }}>Các loại vắng</th>
+                      <tr style={{ background: '#1e293b', color: '#ffffff' }}>
+                        <th colSpan="12" style={{ border: '1px solid #1e293b', padding: '4px' }}>Các loại vắng</th>
                       </tr>
-                      <tr style={{ background: '#f9f9f9', fontWeight: 'bold' }}>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>V</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>OM</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>TS</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>R</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>Ro</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>P</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>F</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>CO</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>CD</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>H</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>CT</td>
-                        <td style={{ border: '1px solid #000', padding: '2px' }}>Le</td>
+                      <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>V</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>OM</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>TS</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>R</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>Ro</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>P</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>F</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CO</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CD</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>H</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CT</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>Le</td>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.V || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.OM || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.TS || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.R || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.Ro || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.P || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.F || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.CO || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.CD || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.H || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.CT || 0}</td>
-                        <td style={{ border: '1px solid #000', padding: '4px' }}>{lc.Le || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.V || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.OM || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.TS || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.R || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.Ro || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.P || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.F || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CO || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CD || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.H || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CT || 0}</td>
+                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.Le || 0}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
                 {/* Main Detailed Logs Table */}
-                <div style={{ fontStyle: 'italic', fontSize: '10px', marginBottom: '2px', textAlign: 'center' }}>Chi tiết</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px', textAlign: 'center' }}>
+                <div style={{ fontStyle: 'italic', fontSize: '10px', marginBottom: '4px', textAlign: 'center', fontWeight: 'bold' }}>Chi tiết điểm danh hàng ngày</div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px', textAlign: 'center' }}>
                   <thead>
-                    <tr style={{ background: '#d9d9d9', fontWeight: 'bold' }}>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Ngày</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Thứ</th>
-                      <th colSpan="2" style={{ border: '1px solid #000', padding: '2px' }}>1</th>
-                      <th colSpan="2" style={{ border: '1px solid #000', padding: '2px' }}>2</th>
-                      <th colSpan="2" style={{ border: '1px solid #000', padding: '2px' }}>3</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Trễ</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Sớm</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Công</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>T.Giờ</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>T.Ca1</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>T.Ca2</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>T.Ca3</th>
-                      <th rowSpan="2" style={{ border: '1px solid #000', padding: '4px' }}>Nơi làm việc</th>
+                    <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Ngày</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Thứ</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '2px' }}>1</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '2px' }}>2</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '2px' }}>3</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Trễ</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Sớm</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Công</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>T.Giờ</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>T.Ca1</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>T.Ca2</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>T.Ca3</th>
+                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Nơi làm việc</th>
                     </tr>
-                    <tr style={{ background: '#e6e6e6', fontWeight: 'bold' }}>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Vào</th>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Ra</th>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Vào</th>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Ra</th>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Vào</th>
-                      <th style={{ border: '1px solid #000', padding: '2px' }}>Ra</th>
+                    <tr style={{ background: '#334155', color: '#ffffff', fontWeight: 'bold' }}>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Vào</th>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Ra</th>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Vào</th>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Ra</th>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Vào</th>
+                      <th style={{ border: '1px solid #475569', padding: '2px' }}>Ra</th>
                     </tr>
                   </thead>
                   <tbody>
                     {indLogs.map((row) => (
-                      <tr key={row.day} style={{ background: row.isWeekend ? '#eef2f7' : 'transparent' }}>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.dateFormatted}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: row.isWeekend ? 'bold' : 'normal' }}>{row.weekday}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift1.in}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift1.out}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift2.in}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift2.out}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift3.in}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.shift3.out}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px', color: row.lateMins ? '#cc0000' : 'inherit' }}>{row.lateMins}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.earlyMins}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px', fontWeight: 'bold' }}>{row.workCredit}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.totalHours || ''}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.ot1}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.ot2}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.ot3}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 4px' }}>{row.locationName}</td>
+                      <tr key={row.day} style={{ background: row.isWeekend ? '#f1f5f9' : 'transparent' }}>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.dateFormatted}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px', fontWeight: row.isWeekend ? 'bold' : 'normal' }}>{row.weekday}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift1.in}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift1.out}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift2.in}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift2.out}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift3.in}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.shift3.out}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px', color: row.lateMins ? '#ef4444' : 'inherit', fontWeight: row.lateMins ? 'bold' : 'normal' }}>{row.lateMins}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.earlyMins}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px', fontWeight: 'bold' }}>{row.workCredit}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.totalHours || ''}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.ot1}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.ot2}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.ot3}</td>
+                        <td style={{ border: '1px solid #cbd5e1', padding: '3px 4px' }}>{row.locationName}</td>
                       </tr>
                     ))}
                     {/* Bottom Summary Row */}
-                    <tr style={{ fontWeight: 'bold', background: '#f2f2f2' }}>
-                      <td colSpan="10" style={{ border: '1px solid #000', padding: '4px', textAlign: 'left' }}>
+                    <tr style={{ fontWeight: 'bold', background: '#e2e8f0' }}>
+                      <td colSpan="10" style={{ border: '1px solid #1e293b', padding: '5px', textAlign: 'left' }}>
                         Tổng công: {indSum.total_work_hours} giờ
                       </td>
-                      <td colSpan="6" style={{ border: '1px solid #000', padding: '4px', textAlign: 'center' }}>
+                      <td colSpan="6" style={{ border: '1px solid #1e293b', padding: '5px', textAlign: 'center' }}>
                         {indSum.total_work_hours}
                       </td>
                     </tr>
@@ -667,10 +678,10 @@ export default function ReportPage() {
                 </table>
 
                 {/* Signature Block */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', textAlign: 'center' }}>
-                  <div style={{ minWidth: '180px' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '40px' }}>Kí tên</div>
-                    <div style={{ fontWeight: 'bold' }}>{indUser.full_name}</div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', textAlign: 'center' }}>
+                  <div style={{ minWidth: '200px' }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '45px' }}>Kí tên</div>
+                    <div style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{indUser.full_name}</div>
                   </div>
                 </div>
               </div>
@@ -850,19 +861,50 @@ export default function ReportPage() {
       {/* MODAL 3: UNIFIED EXPORT OPTIONS MODAL (EXCEL & IMAGE) */}
       {showExportModal && (
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Download size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Công</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Chấm Công</h3>
               </div>
               <button onClick={() => setShowExportModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {/* Step 1: Format selection */}
+            {/* Step 1: Target type */}
             <div style={{ marginBottom: '14px' }}>
-              <label className="form-label" style={{ marginBottom: '6px' }}>1. Chọn định dạng xuất file</label>
+              <label className="form-label" style={{ marginBottom: '6px' }}>1. Chọn loại bảng công cần xuất</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setExportTarget('matrix')}
+                  style={{
+                    padding: '10px 8px', borderRadius: '10px', border: exportTarget === 'matrix' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: exportTarget === 'matrix' ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                    color: exportTarget === 'matrix' ? 'var(--primary)' : 'var(--text)',
+                    fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Lock size={15} /> Bảng Tổng Hợp ET_Staff
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportTarget('individual')}
+                  style={{
+                    padding: '10px 8px', borderRadius: '10px', border: exportTarget === 'individual' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: exportTarget === 'individual' ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                    color: exportTarget === 'individual' ? 'var(--primary)' : 'var(--text)',
+                    fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <FileText size={15} /> Phiếu Cá Nhân Chi Tiết
+                </button>
+              </div>
+            </div>
+
+            {/* Step 2: Format selection */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ marginBottom: '6px' }}>2. Chọn định dạng file xuất</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <button
                   type="button"
@@ -891,9 +933,9 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* Step 2: Scope selection */}
+            {/* Step 3: Scope selection */}
             <div style={{ marginBottom: '16px' }}>
-              <label className="form-label" style={{ marginBottom: '6px' }}>2. Chọn phạm vi nhân sự</label>
+              <label className="form-label" style={{ marginBottom: '6px' }}>3. Chọn phạm vi nhân sự</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
                   <input type="radio" name="exportScope" checked={exportScope === 'all'} onChange={() => setExportScope('all')} />
@@ -953,7 +995,7 @@ export default function ReportPage() {
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ImageIcon size={20} color="var(--primary)" />
+                <ShieldCheck size={20} color="var(--primary)" />
                 <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước Hình Ảnh Bảng Chấm Công (PNG)</h3>
               </div>
               <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
@@ -967,7 +1009,7 @@ export default function ReportPage() {
                 borderRadius: '12px',
                 overflow: 'auto',
                 maxHeight: isZoomed ? '82vh' : '62vh',
-                background: '#0d1117',
+                background: '#0f172a',
                 textAlign: 'center',
                 padding: '12px',
                 marginBottom: '14px',
@@ -986,14 +1028,14 @@ export default function ReportPage() {
                     height: 'auto',
                     borderRadius: '6px',
                     display: 'inline-block',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.6)',
                   }}
                 />
               ) : (
                 <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Đang xử lý tạo hình ảnh...</div>
               )}
 
-              <div style={{ position: 'absolute', bottom: '12px', right: '16px', background: 'rgba(0,0,0,0.7)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ position: 'absolute', bottom: '12px', right: '16px', background: 'rgba(0,0,0,0.85)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <ZoomIn size={12} /> {isZoomed ? 'Bấm để thu nhỏ' : 'Chạm/Bấm vào ảnh để phóng to'}
               </div>
             </div>
