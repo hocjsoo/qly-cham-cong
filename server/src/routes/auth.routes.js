@@ -1,19 +1,21 @@
-// routes/auth.routes.js - Complete
+// routes/auth.routes.js — Complete Auth Routes
 const express = require('express');
 const router = express.Router();
-const { login, getMe, changePassword, updateProfile } = require('../controllers/authController');
+const { login, register, forgotPassword, resetPassword, getMe, changePassword, updateProfile } = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const roleMiddleware = require('../middlewares/roleMiddleware');
 
-// POST /api/auth/login
+// Public routes
 router.post('/login', login);
+router.post('/reset-password', resetPassword);
 
-// GET /api/auth/me (cần đăng nhập)
+// Protected routes (cần đăng nhập)
 router.get('/me', authMiddleware, getMe);
-
-// POST /api/auth/change-password (cần đăng nhập)
 router.post('/change-password', authMiddleware, changePassword);
-
-// PATCH /api/auth/profile (cần đăng nhập)
 router.patch('/profile', authMiddleware, updateProfile);
+
+// Admin/Manager only
+router.post('/register', authMiddleware, roleMiddleware(['admin', 'manager']), register);
+router.post('/forgot-password', authMiddleware, roleMiddleware(['admin', 'manager']), forgotPassword);
 
 module.exports = router;

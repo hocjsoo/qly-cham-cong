@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import ThemeToggle from '../components/ThemeToggle';
+import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 
 const LOCATION_TYPES = [
   { value: 'office',  label: '🏢 Văn phòng',       desc: 'Trong bán kính GPS' },
@@ -131,16 +132,30 @@ export default function CheckInPage() {
 
     setSubmitting(true);
     try {
+      let deviceInfo = {};
+      try {
+        deviceInfo = await getDeviceFingerprint();
+      } catch (fpErr) {
+        console.warn('Fingerprint error:', fpErr);
+      }
+
       const { data } = await api.post('/attendance/checkin', {
         lat: gpsPosition.lat,
         lng: gpsPosition.lng,
         type: selected,
         project_id: selectedProject || null,
         note: note.trim() || null,
+        device_fingerprint: deviceInfo.fingerprint,
+        device_name: deviceInfo.device_name,
+        screen_info: deviceInfo.screen_info,
       });
 
       toast.success(data.message);
       setToday(data.attendance);
+
+      if (data.device_warning) {
+        toast(data.device_warning, { icon: '🛡️', duration: 8000 });
+      }
 
       if (data.far_warning) {
         toast(data.far_warning, { icon: '⚠️', duration: 6000 });

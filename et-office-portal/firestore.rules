@@ -1,0 +1,114 @@
+rules_version = '2';
+
+// Xem giải thích đầy đủ từng rule tại docs/03-firestore-security-rules.md
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function currentRole() {
+      return request.auth.token.role;
+    }
+    function isOwner(employeeId) {
+      return isSignedIn() && request.auth.uid == employeeId;
+    }
+    function isAtLeastLeader() {
+      return isSignedIn() && currentRole() in ["leader", "deputy_director", "admin"];
+    }
+    function isAdminOrPGD() {
+      return isSignedIn() && currentRole() in ["deputy_director", "admin"];
+    }
+    function isRole(role) {
+      return isSignedIn() && currentRole() == role;
+    }
+    function today() {
+      return request.time.toDate().toString().substring(0, 10);
+    }
+
+    match /employees/{employeeId} {
+      allow read: if isOwner(employeeId) || isAtLeastLeader();
+      allow write: if false; // chỉ Cloud Function (Admin SDK)
+    }
+
+    match /attendance/{attendanceId} {
+      allow read: if isOwner(resource.data.employeeId) || isAtLeastLeader();
+      allow create: if false; // chỉ Cloud Function onCheckIn
+      allow update: if false; // chỉ Cloud Function onCheckOut / closeMonthlyAttendance / unlockAttendanceRecord
+      allow delete: if false;
+    }
+
+    match /explanations/{explanationId} {
+      allow read: if isOwner(resource.data.employeeId) || isAtLeastLeader();
+      allow write: if false; // chỉ Cloud Function submitExplanation / reviewExplanation
+    }
+
+    match /dailyReports/{reportId} {
+      allow read: if isOwner(resource.data.employeeId) || isAtLeastLeader();
+      allow write: if isOwner(request.resource.data.employeeId);
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+
+    match /projectStats/{statId} {
+      allow read: if isAtLeastLeader();
+      allow write: if false;
+    }
+
+    match /leaveRequests/{leaveId} {
+      allow read: if isOwner(resource.data.employeeId) || isAtLeastLeader();
+      allow create: if isOwner(request.resource.data.employeeId);
+      allow update: if isAdminOrPGD() ||
+        (isOwner(resource.data.employeeId) && resource.data.status == "pending");
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAtLeastLeader();
+      allow write: if false; // TUYỆT ĐỐI chỉ Cloud Function
+    }
+
+    match /activityFeedEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if resource.data.recipientId == null
+        || resource.data.recipientId == request.auth.uid
+        || isAtLeastLeader();
+      allow update: if isSignedIn() && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["isRead"]);
+      allow create, delete: if false;
+    }
+
+    match /monthlyClosures/{closureId} {
+      allow read: if isAtLeastLeader();
+      allow write: if false;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+    match /offices/{officeId} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+    match /workSchedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+    match /holidays/{holidayId} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+
+    match /settings/{key} {
+      allow read: if isSignedIn();
+      allow write: if isRole("admin");
+    }
+  }
+}
