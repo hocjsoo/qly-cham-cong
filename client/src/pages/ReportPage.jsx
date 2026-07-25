@@ -2,7 +2,7 @@
 // Báo cáo 4 tab: Tổng quan / 🔒 Chốt Công (Mẫu thủ công ET_Staff 2026) / Bảng tính công / Xếp hạng nhân viên
 
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, Eye, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, ZoomIn, Eye, Check } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
@@ -14,7 +14,6 @@ const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
 const RANK_MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
-const SYMBOLS = ['x', '0,75x', '0,5x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'K'];
 
 export default function ReportPage() {
   const { user } = useAuthStore();
@@ -44,11 +43,19 @@ export default function ReportPage() {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  // Image Export & Preview State
+  // Unified Export Modal State
   const timesheetRef = useRef(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState('excel'); // 'excel' | 'image'
+  const [exportScope, setExportScope] = useState('all'); // 'all' | 'single'
+  const [selectedExportUser, setSelectedExportUser] = useState('');
+  const [filterStaffId, setFilterStaffId] = useState(''); // filter view for capturing image
+
+  // Image Preview Lightbox State
   const [previewImageUrl, setPreviewImageUrl] = useState(null);
   const [generatingImage, setGeneratingImage] = useState(false);
   const [showImagePreviewModal, setShowImagePreviewModal] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => { loadTab(); }, [month, year, tab]);
 
@@ -147,13 +154,10 @@ export default function ReportPage() {
     }
   };
 
-  // State cho Xuất Excel Theo Nhân Viên Chọn
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [selectedExportUser, setSelectedExportUser] = useState('');
-
+  // 1. Xuất Excel
   const exportExcel = async (targetUserId = null) => {
     try {
-      const queryUser = targetUserId || selectedExportUser || '';
+      const queryUser = targetUserId || (exportScope === 'single' ? selectedExportUser : '');
       const userObj = matrixData?.staff_rows?.find(s => s.id === queryUser);
       const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
 
@@ -174,47 +178,75 @@ export default function ReportPage() {
     }
   };
 
-  // Tạo & Xem Trước Ảnh Bảng Công (PNG High Quality)
-  const handleGenerateImagePreview = async () => {
-    if (!timesheetRef.current) {
-      toast.error('Không tìm thấy bảng công để chụp ảnh');
-      return;
-    }
-
+  // 2. Xuất Ảnh PNG Nét Cao (Cho Toàn Bộ hoặc Nhân Viên Được Chọn)
+  const handleGenerateImagePreview = async (targetUserId = null) => {
+    const queryUser = targetUserId || (exportScope === 'single' ? selectedExportUser : '');
+    setFilterStaffId(queryUser);
+    setShowExportModal(false);
     setGeneratingImage(true);
-    toast.loading('Đang tạo ảnh bảng công nét cao...', { id: 'img' });
+    toast.loading('Đang khởi tạo hình ảnh bảng công nghiêm túc nét cao...', { id: 'img' });
 
-    try {
-      const canvas = await html2canvas(timesheetRef.current, {
-        scale: 2, // Sharp 2x resolution
-        useCORS: true,
-        backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#18191a' : '#ffffff',
-        logging: false,
-      });
+    setTimeout(async () => {
+      if (!timesheetRef.current) {
+        toast.error('Không tìm thấy bảng công để tạo ảnh', { id: 'img' });
+        setGeneratingImage(false);
+        setFilterStaffId('');
+        return;
+      }
 
-      const dataUrl = canvas.toDataURL('image/png');
-      setPreviewImageUrl(dataUrl);
-      setShowImagePreviewModal(true);
-      toast.success('Đã tạo ảnh xem trước! 🖼️', { id: 'img' });
-    } catch (err) {
-      console.error('Html2canvas error:', err);
-      toast.error('Lỗi tạo hình ảnh bảng công', { id: 'img' });
-    } finally {
-      setGeneratingImage(false);
+      try {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const canvas = await html2canvas(timesheetRef.current, {
+          scale: 2, // High clarity 2x resolution
+          useCORS: true,
+          backgroundColor: isDark ? '#18191a' : '#ffffff',
+          logging: false,
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        setPreviewImageUrl(dataUrl);
+        setShowImagePreviewModal(true);
+        setIsZoomed(false);
+        toast.success('Đã tạo xong hình ảnh bảng công! 🖼️', { id: 'img' });
+      } catch (err) {
+        console.error('Html2canvas error:', err);
+        toast.error('Lỗi tạo hình ảnh', { id: 'img' });
+      } finally {
+        setGeneratingImage(false);
+        setFilterStaffId('');
+      }
+    }, 150);
+  };
+
+  // Thực thi nút Nộp trong Modal Xuất Bảng Công
+  const handleExecuteExport = () => {
+    if (exportFormat === 'excel') {
+      exportExcel(exportScope === 'single' ? selectedExportUser : null);
+    } else {
+      handleGenerateImagePreview(exportScope === 'single' ? selectedExportUser : null);
     }
   };
 
   // Tải Ảnh PNG Về Máy
   const handleDownloadImage = () => {
     if (!previewImageUrl) return;
+    const userObj = matrixData?.staff_rows?.find(s => s.id === filterStaffId);
+    const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
+
     const link = document.createElement('a');
     link.href = previewImageUrl;
-    link.download = `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}_BangCong.png`;
+    link.download = `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}_BangCong.png`;
     document.body.appendChild(link);
     link.click();
     link.remove();
-    toast.success('Đã tải ảnh bảng công PNG! 📥');
+    toast.success('Đã tải file ảnh PNG về máy thành công! 📥');
   };
+
+  // Staff rows to display in table
+  const displayedStaffRows = (matrixData?.staff_rows || []).filter(r => {
+    if (!filterStaffId) return true;
+    return r.id === filterStaffId;
+  });
 
   return (
     <div className="page">
@@ -225,12 +257,9 @@ export default function ReportPage() {
             <div className="header__title">Báo cáo & Chốt công</div>
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={handleGenerateImagePreview} disabled={generatingImage} className="btn btn--ghost" style={{ padding: '6px 12px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
-              {generatingImage ? <span className="spinner" /> : <><ImageIcon size={15} /> 🖼️ Xem Trước & Xuất Ảnh</>}
-            </button>
-            <button onClick={() => setShowExportModal(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
-              <FileSpreadsheet size={15} /> Xuất Bảng Công Excel
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button onClick={() => setShowExportModal(true)} disabled={generatingImage} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px' }}>
+              {generatingImage ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công</>}
             </button>
             <HeaderActions />
           </div>
@@ -310,7 +339,23 @@ export default function ReportPage() {
             ) : !matrixData || !matrixData.staff_rows ? (
               <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
             ) : (
-              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '8px', overflowX: 'auto', background: 'var(--bg-card)' }}>
+              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '10px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                {/* Professional Corporate Banner for Image Capture */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '2px solid var(--primary)', paddingBottom: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                      BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
+                    </div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                    <div>Quy trình: Chuẩn mẫu ET_Staff {year}</div>
+                    <div>Trạng thái: <strong>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
+                  </div>
+                </div>
+
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <thead>
                     {/* Row 1 Header: Titles & Weekdays */}
@@ -336,7 +381,7 @@ export default function ReportPage() {
                         </th>
                       ))}
 
-                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '80px' }}>Chốt</th>}
+                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '60px' }}>Chốt</th>}
                     </tr>
 
                     {/* Row 2 Header: Days 01..31 */}
@@ -355,7 +400,7 @@ export default function ReportPage() {
                   </thead>
 
                   <tbody>
-                    {matrixData.staff_rows.map((r, idx) => (
+                    {displayedStaffRows.map((r, idx) => (
                       <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)' }}>
                         <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
                         <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
@@ -593,92 +638,160 @@ export default function ReportPage() {
         </div>
       )}
 
-      {/* MODAL 3: EXPORT OPTIONS MODAL */}
+      {/* MODAL 3: UNIFIED EXPORT OPTIONS MODAL (EXCEL & IMAGE) */}
       {showExportModal && (
         <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
           <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FileSpreadsheet size={20} color="var(--green)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Công Excel</h3>
+                <Download size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Công</h3>
               </div>
               <button onClick={() => setShowExportModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-              Chọn chế độ xuất file Excel mẫu ET_Staff {year} (Tháng {month}/{year}):
+            {/* Step 1: Format selection */}
+            <div style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ marginBottom: '6px' }}>1. Chọn định dạng xuất file</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setExportFormat('excel')}
+                  style={{
+                    padding: '10px', borderRadius: '10px', border: exportFormat === 'excel' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: exportFormat === 'excel' ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                    color: exportFormat === 'excel' ? 'var(--primary)' : 'var(--text)',
+                    fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <FileSpreadsheet size={16} /> Excel (.xlsx)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportFormat('image')}
+                  style={{
+                    padding: '10px', borderRadius: '10px', border: exportFormat === 'image' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                    background: exportFormat === 'image' ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                    color: exportFormat === 'image' ? 'var(--primary)' : 'var(--text)',
+                    fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <ImageIcon size={16} /> Hình ảnh (.png)
+                </button>
+              </div>
             </div>
 
-            {/* Option 1: Full Company */}
+            {/* Step 2: Scope selection */}
+            <div style={{ marginBottom: '16px' }}>
+              <label className="form-label" style={{ marginBottom: '6px' }}>2. Chọn phạm vi nhân sự</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                  <input type="radio" name="exportScope" checked={exportScope === 'all'} onChange={() => setExportScope('all')} />
+                  <strong>📊 Toàn bộ nhân sự (Toàn công ty)</strong>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                  <input type="radio" name="exportScope" checked={exportScope === 'single'} onChange={() => setExportScope('single')} />
+                  <strong>👤 Chọn theo từng nhân viên</strong>
+                </label>
+              </div>
+
+              {exportScope === 'single' && (
+                <div style={{ marginTop: '10px' }}>
+                  <select
+                    className="form-select"
+                    value={selectedExportUser}
+                    onChange={e => setSelectedExportUser(e.target.value)}
+                  >
+                    <option value="">-- Chọn nhân viên cần xuất --</option>
+                    {(matrixData?.staff_rows || []).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.code} - {s.full_name} ({s.role_label})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Execute Button */}
             <button
-              onClick={() => exportExcel(null)}
+              onClick={handleExecuteExport}
+              disabled={exportScope === 'single' && !selectedExportUser}
               className="btn btn--primary btn--full"
-              style={{ padding: '12px', justifyContent: 'center', gap: '8px', marginBottom: '12px', fontSize: '13px' }}
+              style={{ padding: '12px', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 800 }}
             >
-              <FileSpreadsheet size={16} /> 📊 Xuất Toàn Bộ Nhân Sự (Toàn Công Ty)
-            </button>
-
-            <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', margin: '10px 0' }}>— HOẶC CHỌN NGHỈ/NHÂN VIÊN CỤ THỂ —</div>
-
-            {/* Option 2: Individual Staff Selection */}
-            <div className="form-group">
-              <label className="form-label">👤 Chọn nhân viên cần xuất bảng công riêng</label>
-              <select
-                className="form-select"
-                value={selectedExportUser}
-                onChange={e => setSelectedExportUser(e.target.value)}
-              >
-                <option value="">-- Chọn nhân viên --</option>
-                {(matrixData?.staff_rows || []).map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.code} - {s.full_name} ({s.role_label})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={() => exportExcel(selectedExportUser)}
-              disabled={!selectedExportUser}
-              className="btn btn--ghost btn--full"
-              style={{ padding: '10px', justifyContent: 'center', gap: '8px', borderColor: selectedExportUser ? 'var(--primary)' : 'var(--border)', color: selectedExportUser ? 'var(--primary)' : 'var(--text-muted)' }}
-            >
-              <Download size={16} /> 👤 Xuất Bảng Công Cho Nhân Viên Được Chọn
+              {exportFormat === 'excel' ? <FileSpreadsheet size={18} /> : <ImageIcon size={18} />}
+              {exportFormat === 'excel' ? 'Xuất File Excel Ngay' : 'Tạo & Xem Trước Ảnh PNG'}
             </button>
           </div>
         </div>
       )}
 
-      {/* MODAL 4: IMAGE PREVIEW & DOWNLOAD MODAL */}
+      {/* MODAL 4: SERIOUS CORPORATE IMAGE PREVIEW & LIGHTBOX ZOOM MODAL */}
       {showImagePreviewModal && (
         <div className="modal-overlay" onClick={() => setShowImagePreviewModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', width: '780px', margin: '0 auto' }}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: isZoomed ? '98vw' : '90vw',
+              width: isZoomed ? '96vw' : '820px',
+              transition: 'all 0.25s ease-in-out',
+              margin: '0 auto',
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ImageIcon size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước & Tải Ảnh Bảng Công (PNG)</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước Hình Ảnh Bảng Chấm Công (PNG)</h3>
               </div>
               <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-              Hình ảnh Bảng Chấm Công Tháng {month}/{year} nét cao. Dễ dàng lưu hoặc gửi qua Zalo / Messenger:
-            </div>
-
-            {/* Scrollable Image Preview */}
-            <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'auto', maxHeight: '60vh', background: '#000000', textAlign: 'center', padding: '8px', marginBottom: '14px' }}>
+            {/* Professional Interactive Image Container with Click-to-Zoom */}
+            <div
+              onClick={() => setIsZoomed(!isZoomed)}
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                overflow: 'auto',
+                maxHeight: isZoomed ? '82vh' : '62vh',
+                background: '#0d1117',
+                textAlign: 'center',
+                padding: '12px',
+                marginBottom: '14px',
+                cursor: isZoomed ? 'zoom-out' : 'zoom-in',
+                position: 'relative',
+              }}
+              title={isZoomed ? 'Bấm để thu nhỏ xem tổng thể' : 'Bấm vào ảnh để phóng to chi tiết'}
+            >
               {previewImageUrl ? (
-                <img src={previewImageUrl} alt="Bảng Chấm Công ET_Staff" style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'inline-block' }} />
+                <img
+                  src={previewImageUrl}
+                  alt={`Bảng Chấm Công ET_Staff ${month}/${year}`}
+                  style={{
+                    maxWidth: isZoomed ? 'none' : '100%',
+                    width: isZoomed ? 'auto' : '100%',
+                    height: 'auto',
+                    borderRadius: '6px',
+                    display: 'inline-block',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+                  }}
+                />
               ) : (
-                <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Đang tạo hình ảnh...</div>
+                <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Đang xử lý tạo hình ảnh...</div>
               )}
+
+              <div style={{ position: 'absolute', bottom: '12px', right: '16px', background: 'rgba(0,0,0,0.7)', color: '#ffffff', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', pointerEvents: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <ZoomIn size={12} /> {isZoomed ? 'Bấm để thu nhỏ' : 'Chạm/Bấm vào ảnh để phóng to'}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
               <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost">Đóng</button>
-              <button onClick={handleDownloadImage} className="btn btn--primary" style={{ gap: '6px' }}>
+              <button onClick={handleDownloadImage} className="btn btn--primary" style={{ gap: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: 800 }}>
                 <Download size={16} /> 📥 Tải Ảnh PNG Về Máy
               </button>
             </div>
