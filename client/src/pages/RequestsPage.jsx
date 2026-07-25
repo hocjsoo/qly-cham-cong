@@ -1,27 +1,27 @@
 // src/pages/RequestsPage.jsx
-// Đơn từ — Form tạo đơn với loại đơn "Khác", dự án & validation
+// Trang Đơn Từ — Premium Request Portal (Form, KPI Cards, Status Filters & Manager Workflow)
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Check, FileText, AlertCircle, Clock, CheckCircle2, XCircle, Building } from 'lucide-react';
+import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import ThemeToggle from '../components/ThemeToggle';
 
-const TYPE_LABELS = {
-  annual_leave:  { label: '🏖️ Nghỉ phép', color: 'var(--blue)' },
-  sick_leave:    { label: '🤒 Nghỉ ốm', color: 'var(--red)' },
-  late:          { label: '⏰ Đi muộn', color: 'var(--yellow)' },
-  early_leave:   { label: '🏃 Về sớm', color: 'var(--yellow)' },
-  overtime:      { label: '⏱️ Tăng ca', color: 'var(--primary)' },
-  business_trip: { label: '💼 Công tác', color: 'var(--green)' },
-  other:         { label: '📌 Lý do khác', color: 'var(--primary)' },
+const TYPE_CONFIG = {
+  annual_leave:  { label: '🏖️ Nghỉ phép năm', color: 'var(--blue)',  bg: 'var(--blue-soft)' },
+  sick_leave:    { label: '🤒 Nghỉ ốm',       color: 'var(--red)',   bg: 'var(--red-soft)' },
+  late:          { label: '⏰ Giải trình đi muộn', color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+  early_leave:   { label: '🏃 Xin về sớm',     color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+  overtime:      { label: '⏱️ Tăng ca (OT)',   color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  business_trip: { label: '💼 Công tác / WFH', color: 'var(--green)', bg: 'var(--green-soft)' },
+  other:         { label: '📌 Lý do khác',     color: 'var(--primary)', bg: 'var(--primary-soft)' },
 };
 
 const STATUS_CONFIG = {
-  pending:  { label: 'Chờ duyệt', cls: 'badge--warning', icon: <Clock size={11} /> },
-  approved: { label: 'Đã duyệt',  cls: 'badge--success', icon: <CheckCircle2 size={11} /> },
-  rejected: { label: 'Từ chối',   cls: 'badge--danger',  icon: <XCircle size={11} /> },
+  pending:  { label: 'Chờ duyệt', cls: 'badge--warning', icon: <Clock size={11} />, border: 'var(--yellow)' },
+  approved: { label: 'Đã duyệt',  cls: 'badge--success', icon: <CheckCircle2 size={11} />, border: 'var(--green)' },
+  rejected: { label: 'Từ chối',   cls: 'badge--danger',  icon: <XCircle size={11} />, border: 'var(--red)' },
 };
 
 const formatDate = (iso) => {
@@ -32,22 +32,24 @@ const formatDate = (iso) => {
 export default function RequestsPage() {
   const { user } = useAuthStore();
   const isManager = user?.role === 'admin' || user?.role === 'manager';
-  const [tab, setTab] = useState('mine');
+
+  const [tab, setTab] = useState('mine'); // 'mine' | 'pending'
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [leaveBalance, setLeaveBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
   // Status Filter
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
 
-  // Reject modal state
+  // Reject Modal State
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
 
-  // Form state
+  // Form State
   const [type, setType] = useState('annual_leave');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -60,6 +62,7 @@ export default function RequestsPage() {
   useEffect(() => {
     loadData();
     api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get('/leave-balance/me').then(r => setLeaveBalance(r.data?.annual_leave)).catch(() => {});
   }, [tab]);
 
   const loadData = async () => {
@@ -81,11 +84,11 @@ export default function RequestsPage() {
 
   const handleCreateRequest = async () => {
     if (!startDate) {
-      toast.error('Vui lòng chọn từ ngày');
+      toast.error('Vui lòng chọn ngày áp dụng');
       return;
     }
     if (!reason.trim()) {
-      toast.error('Vui lòng nhập lý do tạo đơn');
+      toast.error('Vui lòng nhập lý do cụ thể');
       return;
     }
 
@@ -115,7 +118,7 @@ export default function RequestsPage() {
   const handleApprove = async (id) => {
     try {
       await api.put(`/requests/${id}/approve`);
-      toast.success('Đã duyệt đơn! ✅');
+      toast.success('Đã duyệt đơn thành công! ✅');
       loadData();
     } catch {
       toast.error('Lỗi duyệt đơn');
@@ -145,31 +148,36 @@ export default function RequestsPage() {
   const rawList = tab === 'mine' ? mine : pending;
   const list = rawList.filter(r => statusFilter === 'all' || r.status === statusFilter);
 
+  // Summary counts
+  const pendingCount = rawList.filter(r => r.status === 'pending').length;
+  const approvedCount = rawList.filter(r => r.status === 'approved').length;
+
   const getWorkflowImpactText = (reqType) => {
     switch (reqType) {
       case 'late':
-        return '⚡ Sau khi duyệt: Tự động gỡ phạt đi muộn & khôi phục công đủ (1.0) cho ngày đã chọn.';
+        return '⚡ Tác động tự động: Gỡ bỏ phạt đi muộn & khôi phục công đủ 1.0 cho ngày đã chọn.';
       case 'overtime':
-        return '⚡ Sau khi duyệt: Tự động xác nhận giờ OT & cộng vào bảng tính lương.';
+        return '⚡ Tác động tự động: Ghi nhận giờ OT vào Bảng tính lương & Báo cáo tổng hợp.';
       case 'wfh':
       case 'business_trip':
-        return '⚡ Sau khi duyệt: Tự động xác nhận địa điểm làm việc ngoài công ty & tính công đủ (1.0).';
+        return '⚡ Tác động tự động: Xác nhận vị trí làm việc hợp lệ ngoài văn phòng & tính đủ công.';
       case 'annual_leave':
       case 'sick_leave':
-        return '⚡ Sau khi duyệt: Tự động trừ vào quỹ ngày phép & ghi nhận nghỉ hợp lệ.';
+        return '⚡ Tác động tự động: Trừ vào quỹ phép năm & tính nghỉ phép được hưởng lương.';
       default:
-        return '⚡ Sau khi duyệt: Đơn sẽ được lưu vết và thông báo cho nhân sự.';
+        return '⚡ Tác động tự động: Lưu nhật ký giải trình & gửi thông báo đến quản lý.';
     }
   };
 
   return (
     <div className="page">
+      {/* Top Header */}
       <div className="header">
         <div className="header__inner">
-          <div className="header__title">Đơn từ</div>
+          <div className="header__title">Portal Đơn Từ</div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
-              <Plus size={14} /> Tạo đơn
+            <button onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
+              <Plus size={15} /> Tạo đơn mới
             </button>
             <ThemeToggle />
           </div>
@@ -177,7 +185,25 @@ export default function RequestsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* Tabs */}
+        {/* KPI Stat Cards Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
+          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>⏳ ĐƠN CHỜ DUYỆT</div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--yellow)' }}>{pendingCount}</div>
+          </div>
+          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>✅ ĐÃ DUYỆT</div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green)' }}>{approvedCount}</div>
+          </div>
+          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>🏖️ PHÉP CÒN LẠI</div>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
+              {leaveBalance?.remaining ?? 12}d
+            </div>
+          </div>
+        </div>
+
+        {/* Manager Tab Bar */}
         {isManager && (
           <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
             <button onClick={() => setTab('mine')} className={`chip${tab === 'mine' ? ' active' : ''}`}>
@@ -189,8 +215,8 @@ export default function RequestsPage() {
           </div>
         )}
 
-        {/* Status Filter Bar */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
+        {/* Status Filter Chips */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
           {[
             { key: 'all', label: 'Tất cả đơn' },
             { key: 'pending', label: '⏳ Chờ duyệt' },
@@ -201,67 +227,114 @@ export default function RequestsPage() {
               key={sf.key}
               onClick={() => setStatusFilter(sf.key)}
               className={`chip${statusFilter === sf.key ? ' active' : ''}`}
-              style={{ fontSize: '11px', padding: '4px 10px' }}
+              style={{ fontSize: '11px', padding: '5px 12px' }}
             >
               {sf.label}
             </button>
           ))}
         </div>
 
-        {/* Requests List */}
+        {/* Request List */}
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '72px', borderRadius: '12px' }} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '96px', borderRadius: '12px' }} />)}
           </div>
         ) : list.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state__icon">📄</div>
-            <div className="empty-state__title">Không có đơn từ</div>
-            <div className="empty-state__desc">Bấm "Tạo đơn" để xin nghỉ phép, giải trình đi muộn hoặc công tác</div>
+            <div className="empty-state__title">Không tìm thấy đơn từ</div>
+            <div className="empty-state__desc">Bấm "Tạo đơn mới" để gửi yêu cầu xin nghỉ phép, giải trình đi muộn hoặc tăng ca</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {list.map(r => {
-              const typeCfg = TYPE_LABELS[r.type] || TYPE_LABELS.other;
+              const typeCfg = TYPE_CONFIG[r.type] || TYPE_CONFIG.other;
               const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
+              const initials = (r.user_name || user?.full_name || '?').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
 
               return (
-                <div key={r._id} className="card animate-fade-in" style={{ padding: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                    <div>
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: 'var(--bg)', padding: '2px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                        {typeCfg.label}
-                      </span>
-                      {r.user_name && <div style={{ fontSize: '13px', fontWeight: 600, marginTop: '4px' }}>{r.user_name}</div>}
+                <div
+                  key={r._id}
+                  className="card animate-fade-in"
+                  style={{
+                    padding: '14px',
+                    borderLeft: `4px solid ${statusCfg.border}`,
+                    background: 'var(--bg-card)',
+                  }}
+                >
+                  {/* Top Row: Type Tag + Status Badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {tab === 'pending' && (
+                        <div className="avatar" style={{ width: '28px', height: '28px', fontSize: '11px', background: 'var(--primary)' }}>
+                          {initials}
+                        </div>
+                      )}
+                      <div>
+                        <span style={{
+                          fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: typeCfg.bg,
+                          padding: '3px 8px', borderRadius: '6px', border: `1px solid ${typeCfg.color}22`
+                        }}>
+                          {typeCfg.label}
+                        </span>
+                        {r.user_name && tab === 'pending' && (
+                          <span style={{ fontSize: '12px', fontWeight: 600, marginLeft: '8px' }}>{r.user_name}</span>
+                        )}
+                      </div>
                     </div>
+
                     <span className={`badge ${statusCfg.cls}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                       {statusCfg.icon} {statusCfg.label}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '6px' }}>
-                    {r.reason}
+                  {/* Reason Details */}
+                  <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500, margin: '6px 0 8px 0', lineHeight: 1.5 }}>
+                    "{r.reason}"
                   </div>
 
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
-                    <span>📅 {formatDate(r.start_date)} {r.end_date && r.end_date !== r.start_date ? `→ ${formatDate(r.end_date)}` : ''}</span>
-                    {r.start_time && <span>⏰ {r.start_time} - {r.end_time || '...'}</span>}
-                    {r.project_name && <span>🏗️ {r.project_name}</span>}
+                  {/* Time & Location Details */}
+                  <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', marginBottom: '6px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      📅 {formatDate(r.start_date)} {r.end_date && r.end_date !== r.start_date ? `→ ${formatDate(r.end_date)}` : ''}
+                    </span>
+                    {r.start_time && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        ⏰ {r.start_time} {r.end_time && `- ${r.end_time}`}
+                      </span>
+                    )}
+                    {r.project_name && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        🏗️ {r.project_name}
+                      </span>
+                    )}
                   </div>
 
+                  {/* Reviewer Note if processed */}
                   {r.reviewer_note && (
-                    <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                      <strong>Ghi chú người duyệt:</strong> {r.reviewer_note}
+                    <div style={{
+                      fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)',
+                      padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', marginTop: '8px'
+                    }}>
+                      💬 <strong>Phản hồi của quản lý:</strong> {r.reviewer_note}
                     </div>
                   )}
 
-                  {/* Actions for Managers */}
+                  {/* Manager Quick Action Panel */}
                   {tab === 'pending' && isManager && r.status === 'pending' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderTop: '1px solid var(--border-muted)', paddingTop: '10px' }}>
-                      <button onClick={() => handleApprove(r._id)} className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '6px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
+                      <button
+                        onClick={() => handleApprove(r._id)}
+                        className="btn btn--primary"
+                        style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
+                      >
                         <Check size={14} /> Duyệt đơn
                       </button>
-                      <button onClick={() => { setRejectTarget(r); setRejectNote(''); }} className="btn btn--ghost" style={{ flex: 1, fontSize: '12px', padding: '6px', color: 'var(--red)' }}>
+                      <button
+                        onClick={() => { setRejectTarget(r); setRejectNote(''); }}
+                        className="btn btn--ghost"
+                        style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
+                      >
                         <X size={14} /> Từ chối
                       </button>
                     </div>
@@ -273,23 +346,37 @@ export default function RequestsPage() {
         )}
       </div>
 
-      {/* Create Request Modal */}
+      {/* Modern Create Request Sheet Modal */}
       {showForm && (
         <div className="modal-overlay">
           <div className="modal-sheet animate-slide-up" style={{ maxWidth: '440px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Tạo đơn mới</h3>
-              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Tạo đơn từ mới</h3>
+              </div>
+              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
+                <X size={18} />
+              </button>
             </div>
 
             <div className="form-group">
               <label className="form-label">Loại đơn *</label>
               <select className="form-input" value={type} onChange={e => setType(e.target.value)}>
-                {Object.entries(TYPE_LABELS).map(([k, v]) => (
+                {Object.entries(TYPE_CONFIG).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Dynamic Impact Preview Banner */}
+            <div style={{
+              fontSize: '11px', color: 'var(--primary)', background: 'var(--primary-soft)',
+              padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', lineHeight: 1.4,
+              border: '1px solid var(--primary-soft)'
+            }}>
+              {getWorkflowImpactText(type)}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -316,11 +403,11 @@ export default function RequestsPage() {
               </div>
             )}
 
-            {type === 'business_trip' && (
+            {['business_trip', 'overtime'].includes(type) && (
               <div className="form-group">
-                <label className="form-label">Dự án công tác (Nếu có)</label>
+                <label className="form-label">Chọn dự án / công trình (Nếu có)</label>
                 <select className="form-input" value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
-                  <option value="">-- Chọn dự án --</option>
+                  <option value="">-- Không chọn dự án --</option>
                   {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                 </select>
               </div>
@@ -328,13 +415,19 @@ export default function RequestsPage() {
 
             <div className="form-group">
               <label className="form-label">Lý do cụ thể *</label>
-              <textarea className="form-input" rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Nhập lý do chi tiết..." />
+              <textarea
+                className="form-input"
+                rows={3}
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="Nhập lý do xin phép hoặc giải trình..."
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
               <button onClick={() => setShowForm(false)} className="btn btn--ghost btn--full">Hủy</button>
               <button onClick={handleCreateRequest} disabled={submitting} className="btn btn--primary btn--full">
-                {submitting ? <span className="spinner" /> : 'Gửi đơn'}
+                {submitting ? <span className="spinner" /> : 'Gửi đơn xác nhận'}
               </button>
             </div>
           </div>
@@ -347,18 +440,24 @@ export default function RequestsPage() {
           <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>Từ chối đơn</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--red)' }}>Từ chối đơn từ</h3>
               <button onClick={() => setRejectTarget(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
             <div className="form-group">
               <label className="form-label">Lý do từ chối *</label>
-              <textarea className="form-input" rows={3} value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="Nhập lý do từ chối để nhân viên biết..." />
+              <textarea
+                className="form-input"
+                rows={3}
+                value={rejectNote}
+                onChange={e => setRejectNote(e.target.value)}
+                placeholder="Nhập ghi chú phản hồi lý do không duyệt đơn..."
+              />
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setRejectTarget(null)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleConfirmReject} disabled={rejecting} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none' }}>
+              <button onClick={handleConfirmReject} disabled={rejecting} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 700 }}>
                 {rejecting ? <span className="spinner" /> : 'Xác nhận từ chối'}
               </button>
             </div>
