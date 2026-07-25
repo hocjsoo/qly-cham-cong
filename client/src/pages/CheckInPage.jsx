@@ -210,7 +210,30 @@ export default function CheckInPage() {
       });
       toast.success(data.message);
       setToday(data.attendance);
-      if (data.attendance?.ot_hours > 0) {
+
+      if (data.outside_office_radius || data.suggest_explanation) {
+        toast((t) => (
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>
+              📍 Check-Out Ngoài Văn Phòng
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+              Vị trí cách VP {data.distance_meters ? `${data.distance_meters}m` : ''}. Tạo đơn giải trình ngay để Admin duyệt tính đủ công!
+            </div>
+            <button
+              className="btn btn--primary btn--full"
+              style={{ fontSize: '11px', padding: '5px' }}
+              onClick={() => {
+                toast.dismiss(t.id);
+                setExplanationType('business_trip');
+                setShowExplanationModal(true);
+              }}
+            >
+              📝 Tạo Đơn Giải Trình Ngay
+            </button>
+          </div>
+        ), { duration: 8000 });
+      } else if (data.attendance?.ot_hours > 0) {
         setExplanationType('overtime');
         setShowExplanationModal(true);
       }
