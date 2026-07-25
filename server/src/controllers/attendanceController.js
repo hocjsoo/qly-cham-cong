@@ -227,17 +227,41 @@ const checkOut = async (req, res) => {
       otHours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
     }
 
+    // Kiểm tra khoảng cách VP khi Check-out
+    let distanceMeters = null;
+    let outsideOfficeRadius = false;
+    const officeLoc = await OfficeLocation.findOne({ is_active: true });
+    if (officeLoc && officeLoc.lat && officeLoc.lng) {
+      distanceMeters = Math.round(getDistanceMeters(
+        parseFloat(lat), parseFloat(lng),
+        officeLoc.lat, officeLoc.lng
+      ));
+      if (distanceMeters > (officeLoc.radius_m || 100)) {
+        outsideOfficeRadius = true;
+      }
+    }
+
+    const clientIP = getClientIP(req);
+    const combinedNote = [
+      note,
+      distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
+      `IP: ${clientIP}`,
+    ].filter(Boolean).join(' | ');
+
     attendance.check_out_time = now;
     attendance.check_out_lat = parseFloat(lat);
     attendance.check_out_lng = parseFloat(lng);
-    attendance.check_out_note = note;
+    attendance.check_out_note = combinedNote;
     attendance.total_hours = Math.max(0, totalHours);
     attendance.ot_hours = Math.max(0, otHours);
     await attendance.save();
 
     res.json({
-      message: `Check-out thành công! Tổng ${totalHours}h (OT: ${otHours}h) ✅`,
+      message: `Check-out thành công! Tổng ${totalHours}h (OT: ${otHours}h) ${outsideOfficeRadius ? '📍 (Check-out ngoài VP)' : '✅'}`,
       attendance,
+      outside_office_radius: outsideOfficeRadius,
+      distance_meters: distanceMeters,
+      suggest_explanation: outsideOfficeRadius,
     });
 
   } catch (error) {
