@@ -7,6 +7,7 @@ import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, 
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
 import ThemeToggle from './ThemeToggle';
+import NotificationCenter from './NotificationCenter';
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
@@ -65,7 +66,10 @@ export default function Layout() {
               {user?.role === 'admin' ? 'Quản trị viên' : user?.role === 'manager' ? 'Trưởng phòng' : 'Nhân viên'}
             </div>
           </div>
-          <ThemeToggle />
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <NotificationCenter />
+            <ThemeToggle />
+          </div>
         </div>
 
         <nav className="desktop-sidebar__nav">

@@ -2,6 +2,7 @@
 const Request = require('../models/Request');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval } = require('./leaveBalanceController');
 
@@ -172,6 +173,15 @@ const approveRequest = async (req, res) => {
       });
     }
 
+    // 3. Gửi thông báo cho Nhân viên
+    await Notification.create({
+      user_id: request.user_id,
+      title: '✅ Đơn của bạn đã được duyệt',
+      message: `Đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date} đã được duyệt!`,
+      type: 'request',
+      link: '/requests',
+    });
+
     // Audit log
     logAction({
       performed_by: req.user._id,
@@ -210,6 +220,15 @@ const rejectRequest = async (req, res) => {
     request.approved_at = new Date();
     request.reviewer_note = reviewer_note.trim();
     await request.save();
+
+    // Gửi thông báo cho Nhân viên
+    await Notification.create({
+      user_id: request.user_id,
+      title: '❌ Đơn của bạn bị từ chối',
+      message: `Đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date} đã bị từ chối. Lý do: ${reviewer_note}`,
+      type: 'request',
+      link: '/requests',
+    });
 
     logAction({
       performed_by: req.user._id,

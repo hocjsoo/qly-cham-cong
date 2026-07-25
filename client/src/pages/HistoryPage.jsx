@@ -68,12 +68,26 @@ export default function HistoryPage() {
   const [overrideForm, setOverrideForm] = useState({ check_in_time: '', check_out_time: '', is_late: false, notes: '' });
   const [submittingOverride, setSubmittingOverride] = useState(false);
 
-  useEffect(() => { load(); }, [month, year, timeMode]);
+  // Admin Staff Selector
+  const [staffList, setStaffList] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+
+  useEffect(() => {
+    if (isAdminOrManager) {
+      api.get('/users').then(res => {
+        const list = Array.isArray(res.data) ? res.data : (res.data?.users || []);
+        setStaffList(list);
+      }).catch(() => {});
+    }
+  }, [isAdminOrManager]);
+
+  useEffect(() => { load(); }, [month, year, timeMode, selectedUserId]);
 
   const load = async () => {
     try {
       setLoading(true);
-      const { data: d } = await api.get(`/attendance/history?month=${month}&year=${year}&mode=${timeMode}`);
+      const userParam = selectedUserId ? `&user_id=${selectedUserId}` : '';
+      const { data: d } = await api.get(`/attendance/history?month=${month}&year=${year}&mode=${timeMode}${userParam}`);
       setData(d);
     } catch { toast.error('Lỗi tải lịch sử'); }
     finally { setLoading(false); }
@@ -215,12 +229,33 @@ export default function HistoryPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
+        {/* Admin Employee Selector Dropdown */}
+        {isAdminOrManager && (
+          <div className="card" style={{ marginBottom: '10px', padding: '10px 14px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>
+              👤 XEM LỊCH SỬ CHẤM CÔNG CỦA NHÂN VIÊN (DÀNH CHO ADMIN / QUẢN LÝ)
+            </div>
+            <select
+              className="form-input"
+              style={{ fontSize: '13px', padding: '8px 12px' }}
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+            >
+              <option value="">-- Cá nhân tôi ({user?.full_name}) --</option>
+              {staffList.map(s => (
+                <option key={s._id || s.id} value={s._id || s.id}>
+                  {s.full_name} ({s.employee_code || 'NV'}) - {s.email}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Time Mode Chips */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
           {[
-            { key: 'week', label: '📅 Xem theo Tuần' },
-            { key: 'month', label: '📊 Xem theo Tháng' },
-            { key: 'year', label: '🗓️ Xem theo Năm' },
+            { key: 'month', label: '📊 Xem theo Tháng (Lịch Ô)' },
+            { key: 'year', label: '🗓️ Xem theo Năm (12 Tháng)' },
           ].map(t => (
             <button key={t.key} onClick={() => setTimeMode(t.key)} className={`chip${timeMode === t.key ? ' active' : ''}`}>
               {t.label}
@@ -248,6 +283,51 @@ export default function HistoryPage() {
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '68px', borderRadius: '12px' }} />)}
+          </div>
+        ) : timeMode === 'year' ? (
+          /* YEAR DRILLDOWN VIEW: 12 Month Cards */
+          <div className="animate-fade-in">
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '10px' }}>
+              TỔNG QUAN 12 THÁNG NĂM {year} (Bấm vào tháng bất kỳ để xem chi tiết Lịch Ô)
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+              {(data?.months || []).map((mObj) => (
+                <button
+                  key={mObj.month}
+                  onClick={() => {
+                    setMonth(mObj.month);
+                    setTimeMode('month');
+                  }}
+                  className="card"
+                  style={{
+                    padding: '14px 10px', textAlign: 'center', cursor: 'pointer',
+                    transition: 'all 0.15s', border: '1px solid var(--border)',
+                    background: mObj.total_days > 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
+                  }}
+                >
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px' }}>
+                    {mObj.label}
+                  </div>
+                  {mObj.total_days > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--green)' }}>
+                        ✓ {mObj.present_days} ngày đi làm
+                      </div>
+                      {mObj.late_days > 0 && (
+                        <div style={{ fontSize: '11px', color: 'var(--yellow)', marginTop: '2px' }}>
+                          ⚠️ {mObj.late_days} lượt muộn
+                        </div>
+                      )}
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {mObj.total_hours}h làm {mObj.ot_hours > 0 && `(+${mObj.ot_hours}h OT)`}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Chưa có ca làm</div>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <>
