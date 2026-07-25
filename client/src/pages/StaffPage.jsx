@@ -6,7 +6,7 @@ import { Plus, X, Search, Edit2, Trash2, Shield, UserCheck, Building2, Phone, Al
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 const ROLE_LABELS = {
   admin:   { label: 'Admin',        cls: 'badge--danger' },
@@ -238,7 +238,7 @@ export default function StaffPage() {
             <button onClick={openCreate} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
               <Plus size={14} /> Thêm mới
             </button>
-            <ThemeToggle />
+            <HeaderActions />
           </div>
         </div>
       </div>

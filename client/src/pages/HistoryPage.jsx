@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock,
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 const fmt = (iso) => {
   if (!iso) return '—';
@@ -230,7 +230,7 @@ export default function HistoryPage() {
                 <Table2 size={14} />
               </button>
             </div>
-            <ThemeToggle />
+            <HeaderActions />
           </div>
         </div>
       </div>

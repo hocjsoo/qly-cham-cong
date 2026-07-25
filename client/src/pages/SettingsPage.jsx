@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Building2, MapPin, Plus, Trash2, X, Calendar, Edit2, Check, AlertTriangle, Clock, Briefcase, Settings2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 // Confirm Dialog an toàn
 function ConfirmDialog({ message, onConfirm, onCancel }) {
@@ -238,7 +238,7 @@ export default function SettingsPage() {
       <div className="header">
         <div className="header__inner">
           <div className="header__title">Cài đặt hệ thống</div>
-          <ThemeToggle />
+          <HeaderActions />
         </div>
       </div>
 

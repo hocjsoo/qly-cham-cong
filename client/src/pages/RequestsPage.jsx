@@ -6,7 +6,7 @@ import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Cale
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 const TYPE_CONFIG = {
   annual_leave:  { label: '🏖️ Nghỉ phép năm', color: 'var(--blue)',  bg: 'var(--blue-soft)' },
@@ -179,7 +179,7 @@ export default function RequestsPage() {
             <button onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
               <Plus size={15} /> Tạo đơn mới
             </button>
-            <ThemeToggle />
+            <HeaderActions />
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, Tre
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
@@ -117,7 +117,7 @@ export default function ReportPage() {
                 </button>
               </>
             )}
-            <ThemeToggle />
+            <HeaderActions />
           </div>
         </div>
       </div>

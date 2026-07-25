@@ -10,7 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 import { exportAttendanceToCSV } from '../utils/exportCsv';
 
 const fmt = (iso) => {
@@ -105,7 +105,7 @@ export default function DashboardPage() {
             <button onClick={fetchData} disabled={loading} className="theme-toggle-btn">
               <RefreshCw size={16} style={{ animation: loading ? 'spin 0.6s linear infinite' : 'none' }} />
             </button>
-            <ThemeToggle />
+            <HeaderActions />
             <div className="avatar">{initials}</div>
           </div>
         </div>
