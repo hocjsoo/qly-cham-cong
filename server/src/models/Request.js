@@ -10,7 +10,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['late', 'early_leave', 'overtime', 'business_trip', 'sick_leave', 'annual_leave', 'other'],
+      enum: ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'other'],
       required: true,
     },
     start_date: {

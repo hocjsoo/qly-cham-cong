@@ -9,13 +9,16 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 
 const TYPE_CONFIG = {
-  annual_leave:  { label: '🏖️ Nghỉ phép năm', color: 'var(--blue)',  bg: 'var(--blue-soft)' },
-  sick_leave:    { label: '🤒 Nghỉ ốm',       color: 'var(--red)',   bg: 'var(--red-soft)' },
-  late:          { label: '⏰ Giải trình đi muộn', color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
-  early_leave:   { label: '🏃 Xin về sớm',     color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
-  overtime:      { label: '⏱️ Tăng ca (OT)',   color: 'var(--primary)', bg: 'var(--primary-soft)' },
-  business_trip: { label: '💼 Công tác / WFH', color: 'var(--green)', bg: 'var(--green-soft)' },
-  other:         { label: '📌 Lý do khác',     color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  annual_leave:  { label: '🏖️ Nghỉ phép năm (P)',      color: 'var(--green)', bg: 'var(--green-soft)' },
+  sick_leave:    { label: '🏥 Nghỉ ốm (O)',             color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+  unpaid_leave:  { label: '⚪ Nghỉ không lương (KL)',    color: 'var(--text-muted)', bg: 'var(--bg-raised)' },
+  business_trip: { label: '💼 CT Trong nước (CT1)',     color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  foreign_trip:  { label: '✈️ CT Nước ngoài (CT2)',    color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)' },
+  wfh:           { label: '🏠 Work from home (WFH)',    color: 'var(--blue)', bg: 'var(--blue-soft)' },
+  late:          { label: '⏰ Giải trình đi muộn',      color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+  early_leave:   { label: '🏃 Giải trình về sớm',      color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
+  overtime:      { label: '⏱️ Tăng ca (OT)',            color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  other:         { label: '📌 Khác (K)',                color: 'var(--text-secondary)', bg: 'var(--bg-raised)' },
 };
 
 const STATUS_CONFIG = {
