@@ -68,16 +68,71 @@ export default function HistoryPage() {
   const [overrideForm, setOverrideForm] = useState({ check_in_time: '', check_out_time: '', is_late: false, notes: '' });
   const [submittingOverride, setSubmittingOverride] = useState(false);
 
-  // Holidays list
+  // Holidays list & modal management
   const [holidays, setHolidays] = useState([]);
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', note: '' });
+  const [submittingHoliday, setSubmittingHoliday] = useState(false);
 
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
 
-  useEffect(() => {
+  const fetchHolidays = () => {
     api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchHolidays();
   }, [year]);
+
+  const handleOpenCreateHoliday = (dateStr) => {
+    setHolidayForm({ id: null, name: '', date: dateStr, end_date: dateStr, note: '' });
+    setShowHolidayModal(true);
+  };
+
+  const handleOpenEditHoliday = (hObj) => {
+    setHolidayForm({ id: hObj._id, name: hObj.name, date: hObj.date, end_date: hObj.end_date || hObj.date, note: hObj.note || '' });
+    setShowHolidayModal(true);
+  };
+
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.name || !holidayForm.date) {
+      toast.error('Vui lòng nhập tên ngày lễ và ngày bắt đầu');
+      return;
+    }
+    setSubmittingHoliday(true);
+    try {
+      if (holidayForm.id) {
+        await api.delete(`/holidays/${holidayForm.id}`);
+      }
+      await api.post('/holidays', {
+        name: holidayForm.name,
+        date: holidayForm.date,
+        end_date: holidayForm.end_date || holidayForm.date,
+        note: holidayForm.note,
+      });
+      toast.success('Đã cập nhật ngày nghỉ lễ & phát thông báo toàn công ty! 🎉');
+      setShowHolidayModal(false);
+      fetchHolidays();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi lưu ngày nghỉ lễ');
+    } finally {
+      setSubmittingHoliday(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xóa ngày nghỉ lễ này?')) return;
+    try {
+      await api.delete(`/holidays/${id}`);
+      toast.success('Đã xóa ngày nghỉ lễ');
+      setSelectedDayDate('');
+      fetchHolidays();
+    } catch {
+      toast.error('Lỗi xóa ngày nghỉ lễ');
+    }
+  };
 
   useEffect(() => {
     if (isAdminOrManager) {
@@ -564,58 +619,115 @@ export default function HistoryPage() {
               <button onClick={() => setSelectedDayDate('')} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {selectedDayRecord ? (
-              <div>
-                <div className="card" style={{ padding: '12px', marginBottom: '12px', background: selectedDayRecord.is_late ? 'var(--yellow-soft)' : 'var(--green-soft)' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: selectedDayRecord.is_late ? 'var(--yellow)' : 'var(--green)', marginBottom: '4px' }}>
-                    {selectedDayRecord.is_late ? `⚠️ Đi muộn ${selectedDayRecord.late_minutes || 0} phút` : '✅ Chấm công đúng giờ'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {TYPE_MAP[selectedDayRecord.check_in_type] || 'Văn phòng'}
-                  </div>
+            {(() => {
+              const currentHoliday = holidays.find(h => selectedDayDate >= h.date && selectedDayDate <= (h.end_date || h.date));
+
+              return (
+                <div>
+                  {currentHoliday && (
+                    <div className="card" style={{
+                      padding: '12px', marginBottom: '12px', background: 'rgba(139, 92, 246, 0.12)',
+                      border: '1px solid #8b5cf6', borderRadius: '12px'
+                    }}>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#8b5cf6', marginBottom: '4px' }}>
+                        🏖️ NGHỈ LỄ: {currentHoliday.name.toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        Áp dụng: <strong>{currentHoliday.date}</strong> {currentHoliday.end_date && currentHoliday.end_date !== currentHoliday.date ? `→ ${currentHoliday.end_date}` : ''}
+                      </div>
+                      {currentHoliday.note && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          💬 {currentHoliday.note}
+                        </div>
+                      )}
+
+                      {isAdminOrManager && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                          <button
+                            onClick={() => { handleOpenEditHoliday(currentHoliday); setSelectedDayDate(''); }}
+                            className="btn btn--ghost"
+                            style={{ flex: 1, fontSize: '11px', padding: '6px', color: '#8b5cf6', borderColor: '#8b5cf6' }}
+                          >
+                            ✏️ Sửa ngày lễ
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHoliday(currentHoliday._id)}
+                            className="btn btn--ghost"
+                            style={{ fontSize: '11px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                          >
+                            🗑️ Xóa
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedDayRecord ? (
+                    <div>
+                      <div className="card" style={{ padding: '12px', marginBottom: '12px', background: selectedDayRecord.is_late ? 'var(--yellow-soft)' : 'var(--green-soft)' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: selectedDayRecord.is_late ? 'var(--yellow)' : 'var(--green)', marginBottom: '4px' }}>
+                          {selectedDayRecord.is_late ? `⚠️ Đi muộn ${selectedDayRecord.late_minutes || 0} phút` : '✅ Chấm công đúng giờ'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                          {TYPE_MAP[selectedDayRecord.check_in_type] || 'Văn phòng'}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div className="card" style={{ padding: '10px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ VÀO (CHECK-IN)</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>{fmt(selectedDayRecord.check_in_time)}</div>
+                        </div>
+                        <div className="card" style={{ padding: '10px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ RA (CHECK-OUT)</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{fmt(selectedDayRecord.check_out_time)}</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div className="card" style={{ padding: '10px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>TỔNG GIỜ LÀM</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>{selectedDayRecord.total_hours || 0} giờ</div>
+                        </div>
+                        <div className="card" style={{ padding: '10px' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ TĂNG CA (OT)</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>{selectedDayRecord.ot_hours || 0} giờ</div>
+                        </div>
+                      </div>
+
+                      {selectedDayRecord.notes && (
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                          <strong>Ghi chú:</strong> {selectedDayRecord.notes}
+                        </div>
+                      )}
+
+                      {isAdminOrManager && (
+                        <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '12px' }}>
+                          <Edit2 size={14} /> Điều chỉnh ca làm này
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <div className="empty-state__icon">⚪</div>
+                      <div className="empty-state__title">Không có ca làm</div>
+                      <div className="empty-state__desc">Nhân viên không chấm công trong ngày {selectedDayDate}</div>
+                    </div>
+                  )}
+
+                  {/* Admin Fast Add Holiday Trigger */}
+                  {isAdminOrManager && !currentHoliday && (
+                    <button
+                      onClick={() => { handleOpenCreateHoliday(selectedDayDate); setSelectedDayDate(''); }}
+                      className="btn btn--ghost btn--full"
+                      style={{ marginTop: '12px', borderColor: '#8b5cf6', color: '#8b5cf6', fontSize: '12px' }}
+                    >
+                      🏖️ Đặt ngày {selectedDayDate} làm Ngày Nghỉ Lễ
+                    </button>
+                  )}
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                  <div className="card" style={{ padding: '10px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ VÀO (CHECK-IN)</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>{fmt(selectedDayRecord.check_in_time)}</div>
-                  </div>
-                  <div className="card" style={{ padding: '10px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ RA (CHECK-OUT)</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{fmt(selectedDayRecord.check_out_time)}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                  <div className="card" style={{ padding: '10px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>TỔNG GIỜ LÀM</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>{selectedDayRecord.total_hours || 0} giờ</div>
-                  </div>
-                  <div className="card" style={{ padding: '10px' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ TĂNG CA (OT)</div>
-                    <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>{selectedDayRecord.ot_hours || 0} giờ</div>
-                  </div>
-                </div>
-
-                {selectedDayRecord.notes && (
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <strong>Ghi chú:</strong> {selectedDayRecord.notes}
-                  </div>
-                )}
-
-                {isAdminOrManager && (
-                  <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '12px' }}>
-                    <Edit2 size={14} /> Điều chỉnh ca làm này
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-state__icon">⚪</div>
-                <div className="empty-state__title">Không có ca làm</div>
-                <div className="empty-state__desc">Nhân viên không chấm công trong ngày {selectedDayDate}</div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
@@ -680,6 +792,76 @@ export default function HistoryPage() {
               <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost btn--full">Hủy</button>
               <button onClick={handleSaveOverride} disabled={submittingOverride} className="btn btn--primary btn--full">
                 {submittingOverride ? <span className="spinner" /> : 'Lưu điều chỉnh'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Holiday Edit/Create Modal Sheet */}
+      {showHolidayModal && (
+        <div className="modal-overlay">
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CalendarIcon size={20} color="#8b5cf6" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>
+                  {holidayForm.id ? 'Sửa Lịch Nghỉ Lễ' : 'Đặt Ngày Nghỉ Lễ Mới'}
+                </h3>
+              </div>
+              <button onClick={() => setShowHolidayModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Tên ngày nghỉ lễ *</label>
+              <input
+                type="text"
+                className="form-input"
+                value={holidayForm.name}
+                onChange={e => setHolidayForm({ ...holidayForm, name: e.target.value })}
+                placeholder="VD: Nghỉ lễ Quốc Khánh 2/9"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Từ ngày *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={holidayForm.date}
+                  onChange={e => setHolidayForm({ ...holidayForm, date: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Đến ngày</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={holidayForm.end_date}
+                  onChange={e => setHolidayForm({ ...holidayForm, end_date: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Ghi chú / Thông báo nhân viên</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={holidayForm.note}
+                onChange={e => setHolidayForm({ ...holidayForm, note: e.target.value })}
+                placeholder="Nhập chi tiết về đợt nghỉ lễ..."
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setShowHolidayModal(false)} className="btn btn--ghost btn--full">Hủy</button>
+              <button onClick={handleSaveHoliday} disabled={submittingHoliday} className="btn btn--primary btn--full" style={{ background: '#8b5cf6', borderColor: '#8b5cf6' }}>
+                {submittingHoliday ? <span className="spinner" /> : 'Lưu & Phát Thông Báo'}
               </button>
             </div>
           </div>
