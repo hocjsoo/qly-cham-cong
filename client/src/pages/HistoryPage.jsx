@@ -611,8 +611,8 @@ export default function HistoryPage() {
 
       {/* Selected Day Detail Modal */}
       {selectedDayDate && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setSelectedDayDate('')}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ fontWeight: 700, fontSize: '16px' }}>Chi tiết ngày {selectedDayDate}</div>
@@ -734,8 +734,8 @@ export default function HistoryPage() {
 
       {/* Admin Override Sheet */}
       {overrideRecord && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '400px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setOverrideRecord(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ fontWeight: 700, fontSize: '16px' }}>Sửa giờ chấm công</div>
@@ -800,8 +800,8 @@ export default function HistoryPage() {
 
       {/* Admin Holiday Edit/Create Modal Sheet */}
       {showHolidayModal && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={() => setShowHolidayModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
