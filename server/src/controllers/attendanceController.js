@@ -23,7 +23,7 @@ const getClientIP = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '127.0.0.1';
 };
 
-// Phân loại 4 mức đi muộn
+// Phân loại 4 mức đi muộn theo quy định công ty (<=09:00 đúng giờ, 09:01-09:10 muộn nhẹ, 09:11-09:30 muộn, >09:30 muộn nhiều)
 function calculateLateTier(checkInDate, workStartStr = '09:00') {
   const [targetH, targetM] = workStartStr.split(':').map(Number);
   const targetDate = new Date(checkInDate);
@@ -33,13 +33,13 @@ function calculateLateTier(checkInDate, workStartStr = '09:00') {
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMins <= 0) {
-    return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: 'Đúng giờ' };
+    return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: 'Đúng giờ (≤ 09:00)' };
   } else if (diffMins <= 10) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: 'Muộn nhẹ (1-10p)' };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: 'Muộn nhẹ (09:01–09:10)' };
   } else if (diffMins <= 30) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: 'Muộn (11-30p)' };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: 'Muộn (09:11–09:30)' };
   } else {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: 'Muộn nhiều (>30p)' };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: 'Muộn nhiều (> 09:30)' };
   }
 }
 
