@@ -4,24 +4,30 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 
 function getTimesheetSymbol(rec) {
-  if (!rec) return '—';
-  if (rec.check_in_type === 'wfh') return 'WFH';
-  if (rec.check_in_type === 'site') return 'CT1';
-  if (rec.check_in_type === 'client') return 'CT2';
-  if (rec.status === 'leave' || rec.notes?.includes('Nghỉ phép')) return 'P';
-  if (rec.status === 'half_day' || rec.total_hours <= 4) return '0.5x';
+  if (!rec) return '';
+  const notes = (rec.notes || '').toUpperCase();
+  if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI')) return 'CT2';
+  if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || rec.check_in_type === 'site') return 'CT1';
+  if (rec.check_in_type === 'wfh' || notes.includes('WFH')) return 'WFH';
+  if (rec.status === 'leave' || notes.includes('NGHỈ PHÉP') || notes.includes('(P)')) return 'P';
+  if (notes.includes('NGHỈ ỐM') || notes.includes('(O)')) return 'O';
+  if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)')) return 'KL';
+  if (notes.includes('(K)') || notes.includes('KHÁC')) return 'K';
   if (rec.total_hours >= 7.5) return 'x';
-  if (rec.total_hours >= 6) return '0.75x';
-  return 'x';
+  if (rec.total_hours >= 5.5) return '0,75x';
+  if (rec.total_hours >= 3.5) return '0,5x';
+  if (rec.total_hours > 0) return '0,5x';
+  return '';
 }
 
-// GET /api/export/excel?month=7&year=2026&department_id=...
+// GET /api/export/excel?month=7&year=2026&department_id=...&user_id=...
 const exportAttendanceExcel = async (req, res) => {
   try {
     const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
     const department_id = req.query.department_id;
+    const user_id = req.query.user_id;
 
     let userFilter = { is_active: true };
     if (req.user.role === 'manager') {
@@ -29,6 +35,9 @@ const exportAttendanceExcel = async (req, res) => {
     }
     if (department_id) {
       userFilter.department_id = department_id;
+    }
+    if (user_id) {
+      userFilter._id = user_id;
     }
 
     const users = await User.find(userFilter)

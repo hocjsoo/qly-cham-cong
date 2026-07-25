@@ -140,19 +140,28 @@ export default function ReportPage() {
     }
   };
 
-  const exportExcel = async () => {
+  // State cho Xuất Excel Theo Nhân Viên Chọn
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedExportUser, setSelectedExportUser] = useState('');
+
+  const exportExcel = async (targetUserId = null) => {
     try {
-      toast.loading('Đang tạo file Excel mẫu ET_Staff 2026...', { id: 'excel' });
-      const response = await api.get(`/export/excel?month=${month}&year=${year}`, { responseType: 'blob' });
+      const queryUser = targetUserId || selectedExportUser || '';
+      const userObj = matrixData?.staff_rows?.find(s => s.id === queryUser);
+      const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
+
+      toast.loading(`Đang tạo file Excel mẫu ET_Staff ${year}...`, { id: 'excel' });
+      const response = await api.get(`/export/excel?month=${month}&year=${year}${queryUser ? `&user_id=${queryUser}` : ''}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}.xlsx`);
+      link.setAttribute('download', `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}.xlsx`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.success('Đã tải file Excel Bảng Chấm Công! 📊', { id: 'excel' });
+      toast.success('Đã tải file Excel Bảng Chấm Công thành công! 📊', { id: 'excel' });
+      setShowExportModal(false);
     } catch {
       toast.error('Lỗi xuất Excel', { id: 'excel' });
     }
@@ -168,8 +177,8 @@ export default function ReportPage() {
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={exportExcel} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
-              <FileSpreadsheet size={15} /> Xuất Excel
+            <button onClick={() => setShowExportModal(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
+              <FileSpreadsheet size={15} /> Xuất Bảng Công Excel
             </button>
             <HeaderActions />
           </div>
@@ -528,6 +537,63 @@ export default function ReportPage() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: EXPORT OPTIONS MODAL */}
+      {showExportModal && (
+        <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileSpreadsheet size={20} color="var(--green)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Công Excel</h3>
+              </div>
+              <button onClick={() => setShowExportModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
+              Chọn chế độ xuất file Excel mẫu ET_Staff {year} (Tháng {month}/{year}):
+            </div>
+
+            {/* Option 1: Full Company */}
+            <button
+              onClick={() => exportExcel(null)}
+              className="btn btn--primary btn--full"
+              style={{ padding: '12px', justifyContent: 'center', gap: '8px', marginBottom: '12px', fontSize: '13px' }}
+            >
+              <FileSpreadsheet size={16} /> 📊 Xuất Toàn Bộ Nhân Sự (Toàn Công Ty)
+            </button>
+
+            <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', margin: '10px 0' }}>— HOẶC CHỌN NGHỈ/NHÂN VIÊN CỤ THỂ —</div>
+
+            {/* Option 2: Individual Staff Selection */}
+            <div className="form-group">
+              <label className="form-label">👤 Chọn nhân viên cần xuất bảng công riêng</label>
+              <select
+                className="form-select"
+                value={selectedExportUser}
+                onChange={e => setSelectedExportUser(e.target.value)}
+              >
+                <option value="">-- Chọn nhân viên --</option>
+                {(matrixData?.staff_rows || []).map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.code} - {s.full_name} ({s.role_label})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => exportExcel(selectedExportUser)}
+              disabled={!selectedExportUser}
+              className="btn btn--ghost btn--full"
+              style={{ padding: '10px', justifyContent: 'center', gap: '8px', borderColor: selectedExportUser ? 'var(--primary)' : 'var(--border)', color: selectedExportUser ? 'var(--primary)' : 'var(--text-muted)' }}
+            >
+              <Download size={16} /> 👤 Xuất Bảng Công Cho Nhân Viên Được Chọn
+            </button>
           </div>
         </div>
       )}
