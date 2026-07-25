@@ -9,9 +9,11 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 
 const ROLE_LABELS = {
-  admin:   { label: 'Admin',        cls: 'badge--danger' },
-  manager: { label: 'Trưởng phòng', cls: 'badge--warning' },
-  staff:   { label: 'Nhân viên',    cls: 'badge--info' },
+  admin:    { label: 'Admin',     cls: 'badge--danger' },
+  leader:   { label: 'Leader',    cls: 'badge--warning' },
+  manager:  { label: 'Leader',    cls: 'badge--warning' },
+  employee: { label: 'Nhân viên', cls: 'badge--info' },
+  staff:    { label: 'Nhân viên', cls: 'badge--info' },
 };
 
 // Safe Confirm Dialog — không bị đóng khi bấm vào overlay
@@ -48,7 +50,7 @@ export default function StaffPage() {
   const [editing, setEditing] = useState(null);
 
   const [form, setForm] = useState({
-    full_name: '', email: '', password: '', role: 'staff', department_id: '', phone: '',
+    full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -134,25 +136,28 @@ export default function StaffPage() {
   const filtered = staff.filter(s => {
     const matchSearch = s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
                         s.email?.toLowerCase().includes(search.toLowerCase());
-    const matchDept = !filterDept || (s.department_id?._id || s.department_id) === filterDept;
-    const matchRole = !filterRole || s.role === filterRole;
+    const userDeptIds = s.department_ids?.map(d => d._id || d) || [s.department_id?._id || s.department_id];
+    const matchDept = !filterDept || userDeptIds.includes(filterDept);
+    const matchRole = !filterRole || s.role === filterRole || (filterRole === 'leader' && s.role === 'manager') || (filterRole === 'employee' && s.role === 'staff');
     return matchSearch && matchDept && matchRole;
   });
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', email: '', password: '', role: 'staff', department_id: '', phone: '' });
+    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '' });
     setShowForm(true);
   };
 
   const openEdit = (user) => {
     setEditing(user);
+    const userDeptIds = user.department_ids?.map(d => d._id || d) || (user.department_id?._id || user.department_id ? [user.department_id._id || user.department_id] : []);
     setForm({
       full_name: user.full_name || '',
       email: user.email || '',
       password: '',
-      role: user.role || 'staff',
-      department_id: user.department_id?._id || user.department_id || '',
+      role: user.role || 'employee',
+      department_id: userDeptIds[0] || '',
+      department_ids: userDeptIds,
       phone: user.phone || '',
     });
     setShowForm(true);
@@ -395,21 +400,39 @@ export default function StaffPage() {
               <label className="form-label">Số điện thoại</label>
               <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678" />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div className="form-group">
-                <label className="form-label">Vai trò</label>
-                <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                  <option value="staff">Nhân viên</option>
-                  <option value="manager">Trưởng phòng</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Phòng ban</label>
-                <select className="form-input" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
-                  <option value="">-- Chọn phòng ban --</option>
-                  {depts.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-                </select>
+            <div className="form-group">
+              <label className="form-label">Vai trò *</label>
+              <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                <option value="employee">Nhân viên</option>
+                <option value="leader">Leader (Trưởng nhóm)</option>
+                <option value="admin">Admin (Quản trị viên)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Phòng ban * (Có thể chọn nhiều phòng ban)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px', background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                {depts.map(d => {
+                  const checked = (form.department_ids || []).includes(d._id);
+                  return (
+                    <label key={d._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          let updated = [...(form.department_ids || [])];
+                          if (e.target.checked) {
+                            if (!updated.includes(d._id)) updated.push(d._id);
+                          } else {
+                            updated = updated.filter(id => id !== d._id);
+                          }
+                          setForm({ ...form, department_ids: updated, department_id: updated[0] || '' });
+                        }}
+                      />
+                      <span>{d.name}</span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 

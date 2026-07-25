@@ -9,6 +9,10 @@
  */
 const requireRole = (...roles) => {
   const allowedRoles = roles.flat();
+  if (allowedRoles.includes('manager') && !allowedRoles.includes('leader')) allowedRoles.push('leader');
+  if (allowedRoles.includes('leader') && !allowedRoles.includes('manager')) allowedRoles.push('manager');
+  if (allowedRoles.includes('staff') && !allowedRoles.includes('employee')) allowedRoles.push('employee');
+  if (allowedRoles.includes('employee') && !allowedRoles.includes('staff')) allowedRoles.push('staff');
 
   return (req, res, next) => {
     if (!req.user) {
