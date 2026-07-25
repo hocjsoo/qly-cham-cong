@@ -8,15 +8,21 @@ const getAllUsers = async (req, res) => {
     const users = await User.find()
       .select('-password_hash')
       .populate('department_id', 'name')
+      .populate('department_ids', 'name')
       .populate('manager_id', 'full_name')
       .sort({ created_at: -1 });
 
     const formatted = users.map(u => {
       const obj = u.toObject();
+      const deptNames = (obj.department_ids && obj.department_ids.length > 0)
+        ? obj.department_ids.map(d => d.name)
+        : (obj.department_id?.name ? [obj.department_id.name] : []);
+
       return {
         ...obj,
         id: obj._id,
-        department_name: obj.department_id?.name || '—',
+        department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
+        department_names: deptNames,
         manager_name: obj.manager_id?.full_name || '—',
       };
     });
@@ -31,7 +37,7 @@ const getAllUsers = async (req, res) => {
 
 // POST /api/users
 const createUser = async (req, res) => {
-  const { email, full_name, password, role, phone, department_id, manager_id } = req.body;
+  const { email, full_name, password, role, phone, department_id, department_ids, manager_id } = req.body;
 
   if (!email || !full_name || !password) {
     return res.status(400).json({ error: 'Email, họ tên và mật khẩu là bắt buộc.' });
@@ -48,14 +54,18 @@ const createUser = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
+    const deptIds = Array.isArray(department_ids) && department_ids.length > 0
+      ? department_ids
+      : (department_id ? [department_id] : []);
 
     const user = await User.create({
       email: email.toLowerCase().trim(),
       password_hash: passwordHash,
       full_name: full_name.trim(),
       phone: phone || null,
-      role: role || 'staff',
-      department_id: department_id || null,
+      role: role || 'employee',
+      department_id: deptIds[0] || department_id || null,
+      department_ids: deptIds,
       manager_id: manager_id || null,
     });
 
@@ -76,7 +86,7 @@ const createUser = async (req, res) => {
 // PUT /api/users/:id
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const { full_name, email, phone, role, department_id, manager_id, is_active, password } = req.body;
+  const { full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password } = req.body;
 
   try {
     const updateData = {};
@@ -84,7 +94,13 @@ const updateUser = async (req, res) => {
     if (email !== undefined) updateData.email = email.toLowerCase().trim();
     if (phone !== undefined) updateData.phone = phone;
     if (role !== undefined) updateData.role = role;
-    if (department_id !== undefined) updateData.department_id = department_id || null;
+    if (department_ids !== undefined && Array.isArray(department_ids)) {
+      updateData.department_ids = department_ids;
+      updateData.department_id = department_ids[0] || null;
+    } else if (department_id !== undefined) {
+      updateData.department_id = department_id || null;
+      updateData.department_ids = department_id ? [department_id] : [];
+    }
     if (manager_id !== undefined) updateData.manager_id = manager_id || null;
     if (is_active !== undefined) updateData.is_active = is_active;
 

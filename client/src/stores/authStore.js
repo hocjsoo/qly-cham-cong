@@ -52,7 +52,7 @@ const useAuthStore = create((set, get) => ({
   // Helpers
   isAuthenticated: () => !!get().token,
   isAdmin: () => get().user?.role === 'admin',
-  isManager: () => ['admin', 'manager'].includes(get().user?.role),
+  isManager: () => ['admin', 'leader', 'manager'].includes(get().user?.role),
 }));
 
 export default useAuthStore;
