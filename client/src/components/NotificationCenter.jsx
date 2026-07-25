@@ -145,28 +145,21 @@ export default function NotificationCenter() {
 
       {/* Notifications Drawer (Fixed Position for perfect alignment on Desktop & Mobile) */}
       {open && (
-        <div className="notification-drawer-container" style={{
-          position: 'fixed',
-          zIndex: 9999,
-        }}>
+        <div className="notification-drawer-container">
           {/* Overlay for mobile tap-outside */}
           <div
+            className="notification-drawer-overlay"
             onClick={() => setOpen(false)}
-            style={{
-              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(2px)', zIndex: 9998
-            }}
           />
 
           {/* Drawer Sheet */}
           <div className="card animate-slide-up" style={{
-            position: 'fixed',
-            zIndex: 9999,
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
-            boxShadow: 'var(--shadow-md)',
             display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
           }}>
+            <div className="modal-sheet__handle" style={{ margin: '8px auto 2px' }} />
+
             {/* Header */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
