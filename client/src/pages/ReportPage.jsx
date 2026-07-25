@@ -1,9 +1,10 @@
 // src/pages/ReportPage.jsx
 // Báo cáo 4 tab: Tổng quan / 🔒 Chốt Công (Mẫu thủ công ET_Staff 2026) / Bảng tính công / Xếp hạng nhân viên
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, Image as ImageIcon, Eye, Share2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import html2canvas from 'html2canvas';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -42,6 +43,12 @@ export default function ReportPage() {
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Image Export & Preview State
+  const timesheetRef = useRef(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [showImagePreviewModal, setShowImagePreviewModal] = useState(false);
 
   useEffect(() => { loadTab(); }, [month, year, tab]);
 
@@ -167,6 +174,48 @@ export default function ReportPage() {
     }
   };
 
+  // Tạo & Xem Trước Ảnh Bảng Công (PNG High Quality)
+  const handleGenerateImagePreview = async () => {
+    if (!timesheetRef.current) {
+      toast.error('Không tìm thấy bảng công để chụp ảnh');
+      return;
+    }
+
+    setGeneratingImage(true);
+    toast.loading('Đang tạo ảnh bảng công nét cao...', { id: 'img' });
+
+    try {
+      const canvas = await html2canvas(timesheetRef.current, {
+        scale: 2, // Sharp 2x resolution
+        useCORS: true,
+        backgroundColor: document.documentElement.getAttribute('data-theme') === 'dark' ? '#18191a' : '#ffffff',
+        logging: false,
+      });
+
+      const dataUrl = canvas.toDataURL('image/png');
+      setPreviewImageUrl(dataUrl);
+      setShowImagePreviewModal(true);
+      toast.success('Đã tạo ảnh xem trước! 🖼️', { id: 'img' });
+    } catch (err) {
+      console.error('Html2canvas error:', err);
+      toast.error('Lỗi tạo hình ảnh bảng công', { id: 'img' });
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  // Tải Ảnh PNG Về Máy
+  const handleDownloadImage = () => {
+    if (!previewImageUrl) return;
+    const link = document.createElement('a');
+    link.href = previewImageUrl;
+    link.download = `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}_BangCong.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success('Đã tải ảnh bảng công PNG! 📥');
+  };
+
   return (
     <div className="page">
       {/* Header */}
@@ -176,7 +225,10 @@ export default function ReportPage() {
             <div className="header__title">Báo cáo & Chốt công</div>
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button onClick={handleGenerateImagePreview} disabled={generatingImage} className="btn btn--ghost" style={{ padding: '6px 12px', fontSize: '13px', borderColor: 'var(--primary)', color: 'var(--primary)' }}>
+              {generatingImage ? <span className="spinner" /> : <><ImageIcon size={15} /> 🖼️ Xem Trước & Xuất Ảnh</>}
+            </button>
             <button onClick={() => setShowExportModal(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
               <FileSpreadsheet size={15} /> Xuất Bảng Công Excel
             </button>
@@ -258,7 +310,7 @@ export default function ReportPage() {
             ) : !matrixData || !matrixData.staff_rows ? (
               <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
             ) : (
-              <div className="card animate-fade-in" style={{ padding: '4px', overflowX: 'auto' }}>
+              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '8px', overflowX: 'auto', background: 'var(--bg-card)' }}>
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap' }}>
                   <thead>
                     {/* Row 1 Header: Titles & Weekdays */}
@@ -594,6 +646,42 @@ export default function ReportPage() {
             >
               <Download size={16} /> 👤 Xuất Bảng Công Cho Nhân Viên Được Chọn
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: IMAGE PREVIEW & DOWNLOAD MODAL */}
+      {showImagePreviewModal && (
+        <div className="modal-overlay" onClick={() => setShowImagePreviewModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '90vw', width: '780px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ImageIcon size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước & Tải Ảnh Bảng Công (PNG)</h3>
+              </div>
+              <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+              Hình ảnh Bảng Chấm Công Tháng {month}/{year} nét cao. Dễ dàng lưu hoặc gửi qua Zalo / Messenger:
+            </div>
+
+            {/* Scrollable Image Preview */}
+            <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'auto', maxHeight: '60vh', background: '#000000', textAlign: 'center', padding: '8px', marginBottom: '14px' }}>
+              {previewImageUrl ? (
+                <img src={previewImageUrl} alt="Bảng Chấm Công ET_Staff" style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', display: 'inline-block' }} />
+              ) : (
+                <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Đang tạo hình ảnh...</div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowImagePreviewModal(false)} className="btn btn--ghost">Đóng</button>
+              <button onClick={handleDownloadImage} className="btn btn--primary" style={{ gap: '6px' }}>
+                <Download size={16} /> 📥 Tải Ảnh PNG Về Máy
+              </button>
+            </div>
           </div>
         </div>
       )}
