@@ -1,8 +1,9 @@
-// controllers/attendanceController.js - GPS bắt buộc mọi loại, Geofencing + cảnh báo xa văn phòng
+// controllers/attendanceController.js - GPS bắt buộc, Geofencing, Device Fingerprint chống gian lận
 const Attendance = require('../models/Attendance');
 const OfficeLocation = require('../models/OfficeLocation');
 const Project = require('../models/Project');
 const SystemSetting = require('../models/SystemSetting');
+const DeviceSession = require('../models/DeviceSession');
 
 // Helper tính khoảng cách GPS (Haversine)
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -47,7 +48,7 @@ function calculateLateTier(checkInDate, workStartStr = '09:00') {
 // - type=office: bắt buộc nằm trong bán kính geofence văn phòng
 // - type=wfh/site/client: ghi nhận GPS nhưng cảnh báo nếu quá xa (> 50km), không block
 const checkIn = async (req, res) => {
-  const { lat, lng, type = 'office', project_id, note } = req.body;
+  const { lat, lng, type = 'office', project_id, note, device_fingerprint, device_name, screen_info } = req.body;
   const userId = req.user._id;
 
   // BẮT BUỘC GPS cho mọi loại
@@ -62,6 +63,37 @@ const checkIn = async (req, res) => {
     const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00' };
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    // --- Device Fingerprint Validation ---
+    let deviceWarning = null;
+    if (device_fingerprint) {
+      const userAgentStr = req.headers['user-agent'] || '';
+      let session = await DeviceSession.findOne({ user_id: userId, device_fingerprint });
+      if (session) {
+        // Thiết bị đã biết — cập nhật last_used
+        session.last_used_at = now;
+        session.check_in_count += 1;
+        await session.save();
+      } else {
+        // Thiết bị MỚI — kiểm tra số lượng
+        const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
+        if (totalDevices >= 3) {
+          deviceWarning = `Cảnh báo: Tài khoản đã đăng nhập trên ${totalDevices} thiết bị khác nhau. Quản trị viên đã được thông báo.`;
+        }
+        session = await DeviceSession.create({
+          user_id: userId,
+          device_fingerprint,
+          device_name: device_name || 'Unknown',
+          user_agent: userAgentStr,
+          screen_info: screen_info || null,
+          is_trusted: totalDevices < 2, // Auto-trust first 2 devices
+          check_in_count: 1,
+        });
+        if (totalDevices >= 2) {
+          deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}). Thiết bị thứ ${totalDevices + 1} — cần Admin xác nhận.`;
+        }
+      }
+    }
 
     // Kiểm tra khoảng cách với văn phòng (cho TẤT CẢ các loại)
     let officeLoc = null;
@@ -129,6 +161,7 @@ const checkIn = async (req, res) => {
         late_info: lateInfo,
         distance_meters: distanceMeters,
         far_warning: farWarning,
+        device_warning: deviceWarning,
       });
     }
 
@@ -154,6 +187,7 @@ const checkIn = async (req, res) => {
       late_info: lateInfo,
       distance_meters: distanceMeters,
       far_warning: farWarning,
+      device_warning: deviceWarning,
     });
 
   } catch (error) {
@@ -251,27 +285,83 @@ const getHistory = async (req, res) => {
   }
 };
 
-// PUT /api/attendance/override/:id - Admin/Manager sửa bản ghi
-const overrideAttendance = async (req, res) => {
-  const { id } = req.params;
-  const { check_in_time, check_out_time, check_in_type, is_late, notes } = req.body;
+// GET /api/attendance/record?user_id=...&date=YYYY-MM-DD
+const getRecordByUserAndDate = async (req, res) => {
+  const { user_id, date } = req.query;
   try {
-    const attendance = await Attendance.findById(id);
-    if (!attendance) return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
-    if (check_in_time) attendance.check_in_time = new Date(check_in_time);
-    if (check_out_time) attendance.check_out_time = new Date(check_out_time);
-    if (check_in_type) attendance.check_in_type = check_in_type;
-    if (is_late !== undefined) attendance.is_late = Boolean(is_late);
-    if (notes) attendance.notes = notes;
-    if (attendance.check_in_time && attendance.check_out_time) {
-      const diffMs = new Date(attendance.check_out_time) - new Date(attendance.check_in_time);
-      attendance.total_hours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
-    }
-    await attendance.save();
-    res.json({ message: 'Đã cập nhật bản ghi chấm công ✅', attendance });
+    const attendance = await Attendance.findOne({ user_id, date }).populate('user_id', 'full_name email');
+    res.json({ attendance });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi sửa bản ghi.' });
+    res.status(500).json({ error: 'Lỗi tìm bản ghi chấm công.' });
   }
 };
 
-module.exports = { checkIn, checkOut, getTodayStatus, getHistory, overrideAttendance };
+// PUT /api/attendance/override/:id - Admin/Manager sửa hoặc tạo mới bản ghi chấm công
+const overrideAttendance = async (req, res) => {
+  const { id } = req.params;
+  const { user_id, date, check_in_time, check_out_time, check_in_type = 'office', is_late, notes, status } = req.body;
+  try {
+    let attendance = null;
+    if (id !== 'new') {
+      attendance = await Attendance.findById(id);
+    } else if (user_id && date) {
+      attendance = await Attendance.findOne({ user_id, date });
+    }
+
+    const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00' };
+
+    if (!attendance) {
+      if (!user_id || !date) {
+        return res.status(400).json({ error: 'Cần truyền user_id và date để tạo bản ghi mới.' });
+      }
+      attendance = new Attendance({
+        user_id,
+        date,
+        check_in_type,
+      });
+    }
+
+    if (check_in_time) {
+      attendance.check_in_time = new Date(check_in_time);
+      const lateInfo = calculateLateTier(attendance.check_in_time, settings.work_start_time);
+      if (is_late !== undefined) {
+        attendance.is_late = Boolean(is_late);
+      } else {
+        attendance.is_late = lateInfo.is_late;
+      }
+      attendance.late_minutes = lateInfo.late_minutes;
+      attendance.late_tier = lateInfo.late_tier;
+    } else if (is_late !== undefined) {
+      attendance.is_late = Boolean(is_late);
+    }
+
+    if (check_out_time) attendance.check_out_time = new Date(check_out_time);
+    if (check_in_type) attendance.check_in_type = check_in_type;
+    if (notes) attendance.notes = notes;
+    if (status) attendance.status = status;
+
+    if (attendance.check_in_time && attendance.check_out_time) {
+      const diffMs = new Date(attendance.check_out_time) - new Date(attendance.check_in_time);
+      const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
+      attendance.total_hours = Math.max(0, totalHours);
+
+      // OT tính từ 18:00
+      const otStart = new Date(attendance.check_out_time);
+      otStart.setHours(18, 0, 0, 0);
+      if (attendance.check_out_time > otStart) {
+        const otMs = attendance.check_out_time - Math.max(attendance.check_in_time.getTime(), otStart.getTime());
+        attendance.ot_hours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
+      } else {
+        attendance.ot_hours = 0;
+      }
+    }
+
+    await attendance.save();
+    res.json({ message: 'Đã cập nhật bản ghi chấm công thành công! ✅', attendance });
+  } catch (error) {
+    console.error('OverrideAttendance error:', error);
+    res.status(500).json({ error: 'Lỗi sửa bản ghi chấm công.' });
+  }
+};
+
+module.exports = { checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance };

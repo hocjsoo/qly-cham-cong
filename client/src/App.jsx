@@ -15,6 +15,7 @@ import StaffPage from './pages/StaffPage';
 import ProfilePage from './pages/ProfilePage';
 import ReportPage from './pages/ReportPage';
 import SettingsPage from './pages/SettingsPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MagicCursor from './components/MagicCursor';
 
 
@@ -49,6 +50,7 @@ export default function App() {
 
       <Routes>
         <Route path="/login" element={user ? <Navigate to={user.role === 'staff' ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/checkin" element={<CheckInPage />} />

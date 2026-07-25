@@ -52,6 +52,21 @@ export default function StaffPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Reset Code Modal
+  const [resetCodeModal, setResetCodeModal] = useState(null); // { user, code }
+
+  // Attendance Override Modal
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideUser, setOverrideUser] = useState(null);
+  const [overrideForm, setOverrideForm] = useState({
+    date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+    check_in_time: '08:30',
+    check_out_time: '17:30',
+    check_in_type: 'office',
+    is_late: false,
+    notes: '',
+  });
+
   // Confirm dialog state
   const [confirm, setConfirm] = useState(null); // { title, message, onConfirm, confirmLabel, danger }
 
@@ -65,6 +80,55 @@ export default function StaffPage() {
       setDepts(Array.isArray(d.data) ? d.data : (d.data?.departments || []));
     } catch { toast.error('Lỗi tải dữ liệu'); }
     finally { setLoading(false); }
+  };
+
+  const handleGenerateResetCode = async (user) => {
+    try {
+      const { data } = await api.post('/auth/forgot-password', { email: user.email });
+      setResetCodeModal({ user, code: data.reset_code });
+      toast.success(`Đã tạo mã reset cho ${user.full_name}`);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi tạo mã reset');
+    }
+  };
+
+  const openOverride = (user) => {
+    setOverrideUser(user);
+    setOverrideForm({
+      date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+      check_in_time: '08:30',
+      check_out_time: '17:30',
+      check_in_type: 'office',
+      is_late: false,
+      notes: 'Admin điều chỉnh giờ công',
+    });
+    setShowOverrideModal(true);
+  };
+
+  const handleSaveOverride = async () => {
+    if (!overrideForm.date) { toast.error('Vui lòng chọn ngày'); return; }
+    setSubmitting(true);
+    try {
+      const checkInISO = `${overrideForm.date}T${overrideForm.check_in_time}:00`;
+      const checkOutISO = overrideForm.check_out_time ? `${overrideForm.date}T${overrideForm.check_out_time}:00` : null;
+
+      const { data } = await api.put('/attendance/override/new', {
+        user_id: overrideUser._id || overrideUser.id,
+        date: overrideForm.date,
+        check_in_time: checkInISO,
+        check_out_time: checkOutISO,
+        check_in_type: overrideForm.check_in_type,
+        is_late: overrideForm.is_late,
+        notes: overrideForm.notes,
+      });
+
+      toast.success(data.message || 'Đã sửa giờ công thành công!');
+      setShowOverrideModal(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật chấm công');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const filtered = staff.filter(s => {
@@ -267,6 +331,12 @@ export default function StaffPage() {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                      <button onClick={() => openOverride(u)} title="Sửa giờ chấm công" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
+                        📝
+                      </button>
+                      <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
+                        🔑
+                      </button>
                       <button onClick={() => openEdit(u)} title="Sửa thông tin" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
                         <Edit2 size={14} />
                       </button>
@@ -345,6 +415,82 @@ export default function StaffPage() {
 
             <button onClick={handleSubmit} disabled={submitting} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
               {submitting ? <span className="spinner" /> : editing ? 'Lưu thay đổi' : 'Tạo tài khoản'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Code Result Modal */}
+      {resetCodeModal && (
+        <div className="modal-overlay">
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
+              <div style={{ fontSize: '28px', marginBottom: '4px' }}>🔑</div>
+              <div style={{ fontSize: '16px', fontWeight: 700 }}>Mã Reset Mật Khẩu</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Cấp cho: {resetCodeModal.user.full_name}</div>
+            </div>
+            <div style={{
+              background: 'var(--primary-soft)', border: '1px solid var(--primary)',
+              borderRadius: '10px', padding: '14px', textAlign: 'center', marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '4px', color: 'var(--primary)' }}>
+                {resetCodeModal.code}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Mã có hiệu lực trong 30 phút</div>
+            </div>
+            <button onClick={() => setResetCodeModal(null)} className="btn btn--primary btn--full">Đóng</button>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Override Modal (Admin Sửa Công) */}
+      {showOverrideModal && (
+        <div className="modal-overlay">
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>
+                📝 Sửa giờ công: {overrideUser?.full_name}
+              </h3>
+              <button onClick={() => setShowOverrideModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Chọn ngày *</label>
+              <input type="date" className="form-input" value={overrideForm.date} onChange={e => setOverrideForm({ ...overrideForm, date: e.target.value })} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div className="form-group">
+                <label className="form-label">Giờ Check-in</label>
+                <input type="time" className="form-input" value={overrideForm.check_in_time} onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Giờ Check-out</label>
+                <input type="time" className="form-input" value={overrideForm.check_out_time} onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Loại chấm công</label>
+              <select className="form-input" value={overrideForm.check_in_type} onChange={e => setOverrideForm({ ...overrideForm, check_in_type: e.target.value })}>
+                <option value="office">🏢 Văn phòng</option>
+                <option value="site">🏗️ Công trình</option>
+                <option value="client">👔 Khách hàng</option>
+                <option value="wfh">🏠 WFH</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Ghi chú / Lý do điều chỉnh</label>
+              <input type="text" className="form-input" value={overrideForm.notes} onChange={e => setOverrideForm({ ...overrideForm, notes: e.target.value })} placeholder="VD: Quên check-in do máy hỏng" />
+            </div>
+
+            <button onClick={handleSaveOverride} disabled={submitting} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
+              {submitting ? <span className="spinner" /> : 'Lưu điều chỉnh giờ công'}
             </button>
           </div>
         </div>

@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens mặc định — bị ghi đè lúc runtime bởi settings/theme (xem ThemeProvider) */
+:root {
+  --color-primary: #1B2A4A;
+  --color-secondary: #4FB0C6;
+  --color-success: #2E9E5B;
+  --color-warning: #D98E2C;
+  --color-danger: #C4453B;
+  --color-holiday: #8B7CC7;
+
+  --color-neutral-50: #FAFAF9;
+  --color-neutral-100: #F2F1EF;
+  --color-neutral-200: #E4E2DE;
+  --color-neutral-300: #CFCCC6;
+  --color-neutral-500: #8B8880;
+  --color-neutral-700: #4A4842;
+  --color-neutral-800: #2E2D28;
+  --color-neutral-900: #17160F;
+
+  --font-heading: "Inter", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+.dark {
+  --color-neutral-50: #17160F;
+  --color-neutral-100: #201F1A;
+  --color-neutral-200: #2E2D28;
+  --color-neutral-300: #4A4842;
+  --color-neutral-500: #8B8880;
+  --color-neutral-700: #CFCCC6;
+  --color-neutral-800: #E4E2DE;
+  --color-neutral-900: #FAFAF9;
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 font-body antialiased;
+}

@@ -1,0 +1,44 @@
+{
+  "indexes": [
+    { "collectionGroup": "attendance", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "employeeId", "order": "ASCENDING" },
+      { "fieldPath": "date", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "attendance", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "date", "order": "ASCENDING" },
+      { "fieldPath": "workflowStatus", "order": "ASCENDING" }
+    ]},
+    { "collectionGroup": "attendance", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "date", "order": "ASCENDING" },
+      { "fieldPath": "lateStatus", "order": "ASCENDING" }
+    ]},
+    { "collectionGroup": "explanations", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "employeeId", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "auditLogs", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "actorId", "order": "ASCENDING" },
+      { "fieldPath": "timestamp", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "auditLogs", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "targetCollection", "order": "ASCENDING" },
+      { "fieldPath": "timestamp", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "activityFeedEvents", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "timestamp", "order": "DESCENDING" }
+    ]},
+    { "collectionGroup": "employees", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "officeId", "order": "ASCENDING" },
+      { "fieldPath": "status", "order": "ASCENDING" }
+    ]},
+    { "collectionGroup": "employees", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "dobMonthDay", "order": "ASCENDING" }
+    ]},
+    { "collectionGroup": "notifications", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "recipientId", "order": "ASCENDING" },
+      { "fieldPath": "isRead", "order": "ASCENDING" },
+      { "fieldPath": "createdAt", "order": "DESCENDING" }
+    ]}
+  ],
+  "fieldOverrides": []
+}

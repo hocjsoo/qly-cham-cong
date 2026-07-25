@@ -1,4 +1,4 @@
-// models/User.js - MongoDB Schema Nhân viên
+// models/User.js - MongoDB Schema Nhân viên (Production-ready)
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
@@ -45,6 +45,33 @@ const userSchema = new mongoose.Schema(
     is_active: {
       type: Boolean,
       default: true,
+    },
+    // --- NEW: Production auth fields ---
+    employee_code: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    position: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    must_change_password: {
+      type: Boolean,
+      default: true,
+    },
+    reset_token: {
+      type: String,
+      default: null,
+    },
+    reset_token_expires: {
+      type: Date,
+      default: null,
+    },
+    last_login_at: {
+      type: Date,
+      default: null,
     },
   },
   {
