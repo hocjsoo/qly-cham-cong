@@ -68,9 +68,16 @@ export default function HistoryPage() {
   const [overrideForm, setOverrideForm] = useState({ check_in_time: '', check_out_time: '', is_late: false, notes: '' });
   const [submittingOverride, setSubmittingOverride] = useState(false);
 
+  // Holidays list
+  const [holidays, setHolidays] = useState([]);
+
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
+
+  useEffect(() => {
+    api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+  }, [year]);
 
   useEffect(() => {
     if (isAdminOrManager) {
@@ -387,12 +394,18 @@ export default function HistoryPage() {
                     const hasAtt = Boolean(rec);
                     const isLate = rec?.is_late;
                     const isOt = rec?.ot_hours > 0;
+                    const holidayObj = holidays.find(h => item.dateStr >= h.date && item.dateStr <= (h.end_date || h.date));
+                    const isHoliday = Boolean(holidayObj);
 
                     let bg = 'var(--bg-raised)';
                     let border = '1px solid var(--border)';
                     let textColor = 'var(--text)';
 
-                    if (hasAtt) {
+                    if (isHoliday) {
+                      bg = 'rgba(139, 92, 246, 0.15)';
+                      border = '1px solid #8b5cf6';
+                      textColor = '#8b5cf6';
+                    } else if (hasAtt) {
                       if (isLate) {
                         bg = 'var(--yellow-soft)';
                         border = '1px solid var(--yellow)';
@@ -419,7 +432,11 @@ export default function HistoryPage() {
                       >
                         <span style={{ fontSize: '13px', fontWeight: 700, color: textColor }}>{item.day}</span>
 
-                        {hasAtt ? (
+                        {isHoliday ? (
+                          <div style={{ fontSize: '9px', fontWeight: 700, color: '#8b5cf6', marginTop: '2px' }} title={holidayObj?.name}>
+                            🏖️ {holidayObj?.name?.slice(0, 8)}..
+                          </div>
+                        ) : hasAtt ? (
                           <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, marginTop: '2px' }}>
                             {getTimesheetSymbol(rec)} {isOt && '🔥'}
                           </div>
