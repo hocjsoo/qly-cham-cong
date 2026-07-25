@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 
 const LOCATION_TYPES = [
@@ -259,7 +259,7 @@ export default function CheckInPage() {
             <div className="header__title">ET Office Portal</div>
             <div className="header__subtitle">Xin chào, {user?.full_name}</div>
           </div>
-          <ThemeToggle />
+          <HeaderActions />
         </div>
       </div>
 

@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
-import ThemeToggle from '../components/ThemeToggle';
+import HeaderActions from '../components/HeaderActions';
 
 const ROLE_VI = { admin: 'Quản trị viên', manager: 'Trưởng phòng', staff: 'Nhân viên' };
 
@@ -102,7 +102,7 @@ export default function ProfilePage() {
       <div className="header">
         <div className="header__inner">
           <div className="header__title">Cá nhân</div>
-          <ThemeToggle />
+          <HeaderActions />
         </div>
       </div>
 
