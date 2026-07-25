@@ -179,11 +179,13 @@ export default function NotificationCenter() {
           />
 
           {/* Facebook-Style Floating Box */}
-          <div className="card fb-popover-card animate-slide-up" style={{
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
-          }}>
+          <div
+            className="card fb-popover-card animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden',
+            }}
+          >
             {/* Mobile Sheet Drag Handle */}
             <div className="modal-sheet__handle" style={{ margin: '8px auto 2px' }} />
 
@@ -268,14 +270,15 @@ export default function NotificationCenter() {
                   return (
                     <div
                       key={n._id}
-                      onClick={() => handleItemClick(n)}
-                      className="fb-notif-item"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleItemClick(n);
+                      }}
+                      className={`fb-notif-item${!n.is_read ? ' unread' : ''}`}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
-                        padding: '10px 12px', borderRadius: '12px', marginBottom: '2px',
-                        background: n.is_read ? 'transparent' : 'var(--primary-soft)',
-                        cursor: 'pointer', transition: 'background 0.15s ease-in-out',
-                        position: 'relative'
+                        padding: '10px 12px', marginBottom: '2px',
+                        cursor: 'pointer', position: 'relative'
                       }}
                     >
                       {/* Avatar Circle with Badge Overlay */}

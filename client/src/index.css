@@ -972,10 +972,41 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 .fb-popover-card {
   border-radius: 16px !important;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+  background: var(--bg-card) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
 }
 
-.fb-notif-item:hover {
-  background: var(--primary-soft) !important;
+[data-theme="dark"] .fb-popover-card {
+  background: #242526 !important;
+  border: 1px solid #393a3b !important;
+}
+
+[data-theme="light"] .fb-popover-card {
+  background: #ffffff !important;
+  border: 1px solid #e4e6eb !important;
+}
+
+.fb-notif-item {
+  transition: background 0.15s ease-in-out !important;
+  border-radius: 10px !important;
+}
+
+[data-theme="dark"] .fb-notif-item:hover {
+  background: #3a3b3c !important;
+}
+
+[data-theme="light"] .fb-notif-item:hover {
+  background: #f0f2f5 !important;
+}
+
+[data-theme="dark"] .fb-notif-item.unread {
+  background: #2d3238 !important;
+}
+
+[data-theme="light"] .fb-notif-item.unread {
+  background: #e7f3ff !important;
 }
 
 @media (min-width: 1024px) {
