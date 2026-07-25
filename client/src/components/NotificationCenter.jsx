@@ -172,12 +172,6 @@ export default function NotificationCenter() {
       {/* Facebook-Style Notification Popover & Bottom Sheet */}
       {open && (
         <div className="notification-drawer-container">
-          {/* Backdrop for click-outside */}
-          <div
-            className="notification-drawer-overlay"
-            onClick={() => setOpen(false)}
-          />
-
           {/* Facebook-Style Floating Box */}
           <div
             className="card fb-popover-card animate-slide-up"
@@ -258,7 +252,7 @@ export default function NotificationCenter() {
             </div>
 
             {/* Notification Item List (Facebook Avatar + Blue Dot Style) */}
-            <div style={{ overflowY: 'auto', flex: 1, padding: '4px 8px', maxHeight: '380px' }}>
+            <div className="fb-notif-scroll" style={{ overflowY: 'auto', flex: 1, padding: '4px 8px', maxHeight: '380px' }}>
               {filteredNotifications.length === 0 ? (
                 <div style={{ padding: '40px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
                   ⚪ Không có thông báo trong mục này
