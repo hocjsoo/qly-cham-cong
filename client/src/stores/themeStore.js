@@ -5,8 +5,7 @@ import { create } from 'zustand';
 
 const getInitialTheme = () => {
   const saved = localStorage.getItem('theme');
-  if (saved) return saved;
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  return saved || 'dark';
 };
 
 const useThemeStore = create((set, get) => ({
