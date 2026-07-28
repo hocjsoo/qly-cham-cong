@@ -42,33 +42,46 @@ export default function ProfilePage() {
     if (fileInputRef.current) fileInputRef.current.click();
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn tệp hình ảnh valid');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh phải nhỏ hơn 5MB');
+      toast.error('Vui lòng chọn tệp hình ảnh hợp lệ');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result;
-      setUploadingAvatar(true);
-      try {
-        const { data } = await api.patch('/auth/profile', { avatar_url: base64 });
-        toast.success('Đã cập nhật ảnh đại diện thành công! 📸');
-        setUser(data.user);
-      } catch (err) {
-        toast.error(err?.response?.data?.error || 'Lỗi tải ảnh đại diện');
-      } finally {
-        setUploadingAvatar(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    setUploadingAvatar(true);
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 400;
+            let w = img.width, h = img.height;
+            if (w > h) { if (w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; } }
+            else { if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; } }
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.onerror = reject;
+          img.src = ev.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const { data } = await api.patch('/auth/profile', { avatar_url: base64 });
+      toast.success('Đã cập nhật ảnh đại diện thành công! 📸');
+      setUser(data.user);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi tải ảnh đại diện');
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleUpdateProfile = async () => {
