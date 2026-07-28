@@ -326,7 +326,7 @@ export default function StaffPage() {
               const empStatusColor = { 'Dang lam viec': 'badge--success', 'Da nghi viec': 'badge--neutral', 'Nghi om': 'badge--warning', 'Nghi thai san': 'badge--info', 'Khac': 'badge--neutral' }[u.employment_status] || 'badge--neutral';
 
               return (
-                <div key={u._id || u.id} className="card" style={{ padding: '12px 14px', opacity: isInactive ? 0.6 : 1 }}>
+                <div key={u._id} className="card card--interactive animate-fade-in" style={{ padding: '12px 14px', borderLeft: u.is_active === false ? '3px solid var(--border)' : '3px solid var(--primary)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {u.avatar_url
                       ? <img src={u.avatar_url} alt={u.full_name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }} onError={e => { e.target.onerror=null; e.target.src=''; }} />

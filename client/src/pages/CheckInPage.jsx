@@ -333,11 +333,11 @@ export default function CheckInPage() {
         </div>
 
         {/* Clock Hero Card */}
-        <div className="card animate-fade-in" style={{ textAlign: 'center', padding: '24px 16px', marginBottom: '16px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
+          <div className="checkin-hero__date">
             {dateStr}
           </div>
-          <div style={{ fontSize: '44px', fontWeight: 800, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'var(--text)', margin: '4px 0 12px' }}>
+          <div className="checkin-hero__time">
             {timeStr}
           </div>
 
