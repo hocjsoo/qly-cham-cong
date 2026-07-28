@@ -46,13 +46,25 @@ const seedInitialData = async () => {
         company_name: 'ET Architects',
         work_start_time: '08:30',
         work_end_time: '17:30',
+        lunch_break_start: '12:00',
+        lunch_break_end: '13:00',
         ot_start_time: '18:00',
-        late_minor_mins: 10,
-        late_medium_mins: 30,
-        allow_wfh: true,
-        auto_checkout: true,
+        ot_mode: 'manual',         // OT do giam doc xet cuoi thang
+        minor_late_mins: 10,
+        medium_late_mins: 30,
+        working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], // Lam ca T7, nghi CN
       });
-      console.log('🌱 Seeded global system settings (8:30 - 17:30, OT from 18:00)');
+      console.log('🌱 Seeded global system settings (8:30 - 17:30, Mon-Sat, OT manual mode)');
+    } else {
+      // Update existing settings to add working_days Sat if not set
+      const existing = await SystemSetting.findOne({ key: 'global' });
+      if (existing && (!existing.working_days || existing.working_days.length <= 5)) {
+        existing.working_days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        if (!existing.ot_mode) existing.ot_mode = 'manual';
+        if (!existing.company_name) existing.company_name = 'ET Architects';
+        await existing.save();
+        console.log('🌱 Updated working_days to include Saturday');
+      }
     }
 
     // 4. Tạo tài khoản Admin mặc định (nếu chưa có bất kỳ Admin nào)

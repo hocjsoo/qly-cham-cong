@@ -4,9 +4,16 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema(
   {
     employee_code: {
-      type: String, // ID (NS 03, KTS 01, TV 02, TTS 03...)
+      type: String, // ID tự động: NS-001, TV-001, TTS-001
       trim: true,
+      unique: true,
+      sparse: true,
       default: null,
+    },
+    employee_type: {
+      type: String,
+      enum: ['NS', 'TV', 'TTS'], // Nhân sự chính thức, Thử việc, Thực tập sinh
+      default: 'NS',
     },
     email: {
       type: String,

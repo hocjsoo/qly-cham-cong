@@ -51,6 +51,7 @@ export default function StaffPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
+    position: '', dob: '', employee_type: 'NS', employment_status: 'Dang lam viec', avatar_url: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -144,7 +145,7 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '' });
+    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', employee_type: 'NS', employment_status: 'Dang lam viec', avatar_url: '' });
     setShowForm(true);
   };
 
@@ -159,6 +160,11 @@ export default function StaffPage() {
       department_id: userDeptIds[0] || '',
       department_ids: userDeptIds,
       phone: user.phone || '',
+      position: user.position || '',
+      dob: user.dob || '',
+      employee_type: user.employee_type || 'NS',
+      employment_status: user.employment_status || 'Dang lam viec',
+      avatar_url: user.avatar_url || '',
     });
     setShowForm(true);
   };
@@ -312,25 +318,31 @@ export default function StaffPage() {
               const deptName = u.department_id?.name || depts.find(d => d._id === u.department_id)?.name || '—';
               const initials = (u.full_name || '?').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
               const isInactive = u.is_active === false;
+              const empStatusColor = { 'Dang lam viec': 'badge--success', 'Da nghi viec': 'badge--neutral', 'Nghi om': 'badge--warning', 'Nghi thai san': 'badge--info', 'Khac': 'badge--neutral' }[u.employment_status] || 'badge--neutral';
 
               return (
                 <div key={u._id || u.id} className="card" style={{ padding: '12px 14px', opacity: isInactive ? 0.6 : 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="avatar" style={{ background: isInactive ? 'var(--text-muted)' : 'var(--primary)' }}>
-                      {initials}
-                    </div>
+                    {u.avatar_url
+                      ? <img src={u.avatar_url} alt={u.full_name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }} onError={e => { e.target.onerror=null; e.target.src=''; }} />
+                      : <div className="avatar" style={{ background: isInactive ? 'var(--text-muted)' : 'var(--primary)', flexShrink: 0 }}>{initials}</div>
+                    }
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {u.full_name}
                         </span>
                         <span className={`badge ${roleCfg.cls}`} style={{ fontSize: '10px' }}>{roleCfg.label}</span>
-                        {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Đã khóa</span>}
+                        {u.employee_type && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>{u.employee_type}</span>}
+                        {u.employment_status && u.employment_status !== 'Dang lam viec' && <span className={`badge ${empStatusColor}`} style={{ fontSize: '10px' }}>{u.employment_status}</span>}
+                        {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Da khoa</span>}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
+                        {u.employee_code && <span style={{ fontWeight: 600, color: 'var(--primary)' }}>#{u.employee_code}</span>}
                         <span>{u.email}</span>
                         {u.phone && <span>📱 {u.phone}</span>}
                         <span>🏢 {deptName}</span>
+                        {u.position && <span>💼 {u.position}</span>}
                       </div>
                     </div>
 
@@ -396,17 +408,52 @@ export default function StaffPage() {
               <label className="form-label">{editing ? 'Mật khẩu mới (bỏ trống nếu không đổi)' : 'Mật khẩu *'}</label>
               <input type="password" className="form-input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
             </div>
-            <div className="form-group">
-              <label className="form-label">Số điện thoại</label>
-              <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678" />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group">
+                <label className="form-label">So dien thoai</label>
+                <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ngay sinh (YYYY-MM-DD)</label>
+                <input type="date" className="form-input" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} />
+              </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Vai trò *</label>
+              <label className="form-label">Chuc vu / Vi tri</label>
+              <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kien truc su, Truong phong..." />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group">
+                <label className="form-label">Loai nhan su</label>
+                <select className="form-input" value={form.employee_type} onChange={e => setForm({ ...form, employee_type: e.target.value })}>
+                  <option value="NS">NS - Nhan su chinh thuc</option>
+                  <option value="TV">TV - Thu viec</option>
+                  <option value="TTS">TTS - Thuc tap sinh</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Trang thai</label>
+                <select className="form-input" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })}>
+                  <option value="Dang lam viec">Dang lam viec</option>
+                  <option value="Da nghi viec">Da nghi viec</option>
+                  <option value="Nghi om">Nghi om</option>
+                  <option value="Nghi thai san">Nghi thai san</option>
+                  <option value="Khac">Khac</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vai tro *</label>
               <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="employee">Nhân viên</option>
-                <option value="leader">Leader (Trưởng nhóm)</option>
-                <option value="admin">Admin (Quản trị viên)</option>
+                <option value="employee">Nhan vien</option>
+                <option value="leader">Leader (Truong nhom)</option>
+                <option value="admin">Admin (Quan tri vien)</option>
               </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">URL Avatar (anh dai dien)</label>
+              <input type="text" className="form-input" value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} placeholder="https://..." />
+              {form.avatar_url && <div style={{ marginTop: '6px' }}><img src={form.avatar_url} alt="avatar" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} onError={e=>{ e.target.style.display='none'; }} /></div>}
             </div>
 
             <div className="form-group">

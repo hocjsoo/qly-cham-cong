@@ -12,12 +12,20 @@ const getMonthlyReport = async (req, res) => {
     const y = parseInt(year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = { is_active: true };
+    let userFilter = { is_active: true, employment_status: { $ne: 'Da nghi viec' } };
     if (['manager', 'leader'].includes(req.user.role)) {
-      userFilter.$or = [{ manager_id: req.user._id }, { department_ids: { $in: req.user.department_ids || [] } }];
+      const leaderDeptIds = req.user.department_ids && req.user.department_ids.length > 0 ? req.user.department_ids : (req.user.department_id ? [req.user.department_id] : []);
+      userFilter.$or = [
+        { manager_id: req.user._id },
+        { department_ids: { $in: leaderDeptIds } },
+        { department_id: { $in: leaderDeptIds } }
+      ];
     }
     if (department_id) {
-      userFilter.department_ids = department_id;
+      userFilter.$or = [
+        { department_ids: department_id },
+        { department_id: department_id }
+      ];
     }
 
     const users = await User.find(userFilter)

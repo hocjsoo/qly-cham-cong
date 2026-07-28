@@ -1,7 +1,7 @@
-// controllers/systemSettingController.js
+﻿// controllers/systemSettingController.js - He thong cai dat
 const SystemSetting = require('../models/SystemSetting');
 
-// GET /api/settings - Lấy cài đặt hệ thống
+// GET /api/settings
 const getSettings = async (req, res) => {
   try {
     let settings = await SystemSetting.findOne({ key: 'global' });
@@ -11,39 +11,38 @@ const getSettings = async (req, res) => {
     res.json(settings);
   } catch (error) {
     console.error('GetSettings error:', error);
-    res.status(500).json({ error: 'Lỗi lấy cài đặt hệ thống.' });
+    res.status(500).json({ error: 'Loi lay cai dat he thong.' });
   }
 };
 
-// PUT /api/settings - Cập nhật cài đặt hệ thống (Admin only)
+// PUT /api/settings
 const updateSettings = async (req, res) => {
   try {
     let settings = await SystemSetting.findOne({ key: 'global' });
-    if (!settings) {
-      settings = new SystemSetting({ key: 'global' });
+    if (!settings) settings = new SystemSetting({ key: 'global' });
+
+    const fields = [
+      'work_start_time', 'work_end_time', 'lunch_break_start', 'lunch_break_end',
+      'minor_late_mins', 'medium_late_mins', 'ot_start_time', 'ot_mode',
+      'working_days', 'holidays', 'makeup_days',
+      'company_name', 'company_logo_url',
+    ];
+
+    for (const field of fields) {
+      if (req.body[field] !== undefined) {
+        if (field === 'minor_late_mins' || field === 'medium_late_mins') {
+          settings[field] = Number(req.body[field]);
+        } else {
+          settings[field] = req.body[field];
+        }
+      }
     }
 
-    const {
-      work_start_time, work_end_time, lunch_break_start, lunch_break_end,
-      minor_late_mins, medium_late_mins, ot_start_time, working_days, holidays, makeup_days
-    } = req.body;
-
-    if (work_start_time) settings.work_start_time = work_start_time;
-    if (work_end_time) settings.work_end_time = work_end_time;
-    if (lunch_break_start) settings.lunch_break_start = lunch_break_start;
-    if (lunch_break_end) settings.lunch_break_end = lunch_break_end;
-    if (minor_late_mins !== undefined) settings.minor_late_mins = Number(minor_late_mins);
-    if (medium_late_mins !== undefined) settings.medium_late_mins = Number(medium_late_mins);
-    if (ot_start_time) settings.ot_start_time = ot_start_time;
-    if (working_days) settings.working_days = working_days;
-    if (holidays) settings.holidays = holidays;
-    if (makeup_days) settings.makeup_days = makeup_days;
-
     await settings.save();
-    res.json({ message: 'Đã lưu cấu hình hệ thống thành công! ✅', settings });
+    res.json({ message: 'Da luu cau hinh he thong thanh cong!', settings });
   } catch (error) {
     console.error('UpdateSettings error:', error);
-    res.status(500).json({ error: 'Lỗi cập nhật cài đặt hệ thống.' });
+    res.status(500).json({ error: 'Loi cap nhat cai dat he thong.' });
   }
 };
 
