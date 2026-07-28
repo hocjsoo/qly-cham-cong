@@ -296,8 +296,8 @@ const getHistory = async (req, res) => {
     const mode = req.query.mode || 'month';
     let targetUserId = req.user._id;
 
-    // Admin / Manager có thể xem lịch sử của bất kỳ nhân viên nào
-    if (req.query.user_id && ['admin', 'manager'].includes(req.user.role)) {
+    // Admin / Manager / Leader co the xem lich su cua bat ky nhan vien nao
+    if (req.query.user_id && ['admin', 'manager', 'leader'].includes(req.user.role)) {
       targetUserId = req.query.user_id;
     }
 
