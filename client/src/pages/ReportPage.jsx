@@ -41,6 +41,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 export default function ReportPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isAdminOrManager = isAdmin;
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -344,7 +345,7 @@ export default function ReportPage() {
     if (!matrixData?.staff_rows) return [];
     return matrixData.staff_rows.filter(r => {
       const matchExport = !filterStaffId || r.id === filterStaffId;
-      const matchSearch = !searchQuery || r.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.id?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = !searchQuery || r.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.toLowerCase()) || String(r.id || '').toLowerCase().includes(searchQuery.toLowerCase());
       const matchDept = !deptFilter || r.role_label?.includes(deptFilter);
       return matchExport && matchSearch && matchDept;
     });

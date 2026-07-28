@@ -30,7 +30,10 @@ const getFullMatrix = async (req, res) => {
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
     // Lấy danh sách nhân viên active
-    const users = await User.find({ is_active: { $ne: false } }).sort({ employee_code: 1, full_name: 1 });
+    const users = await User.find({ is_active: { $ne: false } })
+      .populate('department_id', 'name')
+      .populate('department_ids', 'name')
+      .sort({ employee_code: 1, full_name: 1 });
 
     // Lấy tất cả bản ghi điểm danh tháng này
     const attendances = await Attendance.find({
