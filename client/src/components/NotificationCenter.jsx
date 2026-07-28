@@ -35,6 +35,7 @@ export default function NotificationCenter() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [filterType, setFilterType] = useState('all'); // 'all' | 'unread' | 'announcement' | 'request'
+  const [selectedNotifForDetail, setSelectedNotifForDetail] = useState(null);
   const dropdownRef = useRef(null);
 
   // Admin Broadcast / Holiday Modal State
@@ -85,9 +86,7 @@ export default function NotificationCenter() {
       // Silent
     } finally {
       setOpen(false);
-      if (notif.link) {
-        navigate(notif.link);
-      }
+      setSelectedNotifForDetail(notif);
     }
   };
 
@@ -416,6 +415,58 @@ export default function NotificationCenter() {
               <button onClick={handleSendBroadcast} disabled={submittingBroadcast} className="btn btn--primary btn--full">
                 {submittingBroadcast ? <span className="spinner" /> : <><Send size={14} /> Phát thông báo</>}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Detail Modal Sheet */}
+      {selectedNotifForDetail && (
+        <div className="modal-overlay" onClick={() => setSelectedNotifForDetail(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={20} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
+                  Chi tiết thông báo
+                </h3>
+              </div>
+              <button onClick={() => setSelectedNotifForDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px' }}>
+              {selectedNotifForDetail.title}
+            </div>
+
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
+              📅 Thời gian: {selectedNotifForDetail.created_at ? new Date(selectedNotifForDetail.created_at).toLocaleString('vi-VN') : ''}
+            </div>
+
+            <div style={{
+              background: 'var(--bg-input)', padding: '14px', borderRadius: '10px',
+              border: '1px solid var(--border)', fontSize: '13px', color: 'var(--text)',
+              lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: '18px'
+            }}>
+              {selectedNotifForDetail.message}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setSelectedNotifForDetail(null)} className="btn btn--ghost btn--full">
+                Đóng
+              </button>
+              {selectedNotifForDetail.link && (
+                <button
+                  onClick={() => {
+                    const link = selectedNotifForDetail.link;
+                    setSelectedNotifForDetail(null);
+                    navigate(link);
+                  }}
+                  className="btn btn--primary btn--full"
+                >
+                  Mở trang liên quan →
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -39,6 +39,11 @@ const useAuthStore = create((set, get) => ({
   },
 
   // === LẤY THÔNG TIN USER MỚI NHẤT ===
+  setUser: (newUser) => {
+    localStorage.setItem('user', JSON.stringify(newUser));
+    set({ user: newUser });
+  },
+
   fetchMe: async () => {
     try {
       const { data } = await api.get('/auth/me');
