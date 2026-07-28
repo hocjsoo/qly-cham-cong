@@ -1,7 +1,7 @@
-﻿// routes/announcement.routes.js
+// routes/announcement.routes.js
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middlewares/authMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 const {
   getBirthdays,
