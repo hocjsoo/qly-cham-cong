@@ -1,6 +1,19 @@
-// controllers/userController.js - Mongoose User Management Controller
+﻿// controllers/userController.js - Mongoose User Management Controller
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+
+// Ham tu sinh employee_code: NS-001, TV-001, TTS-001
+const generateEmployeeCode = async (employeeType = 'NS') => {
+  const prefix = employeeType;
+  const count = await User.countDocuments({ employee_type: prefix });
+  const seq = String(count + 1).padStart(3, '0');
+  const code = `${prefix}-${seq}`;
+  const existing = await User.findOne({ employee_code: code });
+  if (existing) {
+    return `${prefix}-${Date.now().toString().slice(-4)}`;
+  }
+  return code;
+};
 
 // GET /api/users
 const getAllUsers = async (req, res) => {
@@ -10,7 +23,7 @@ const getAllUsers = async (req, res) => {
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
       .populate('manager_id', 'full_name')
-      .sort({ created_at: -1 });
+      .sort({ employee_code: 1, created_at: -1 });
 
     const formatted = users.map(u => {
       const obj = u.toObject();
@@ -28,35 +41,42 @@ const getAllUsers = async (req, res) => {
     });
 
     res.json(formatted);
-
   } catch (error) {
     console.error('GetAllUsers error:', error);
-    res.status(500).json({ error: 'Lỗi lấy danh sách nhân viên.' });
+    res.status(500).json({ error: 'Loi lay danh sach nhan vien.' });
   }
 };
 
 // POST /api/users
 const createUser = async (req, res) => {
-  const { email, full_name, password, role, phone, department_id, department_ids, manager_id } = req.body;
+  const {
+    email, full_name, password, role, phone,
+    department_id, department_ids, manager_id,
+    employee_type, employee_code, position, employment_status,
+    dob, bhxh_code, emergency_phone, address_current, hometown, cccd,
+    bank_name, bank_account, branch, start_year, education,
+  } = req.body;
 
   if (!email || !full_name || !password) {
-    return res.status(400).json({ error: 'Email, họ tên và mật khẩu là bắt buộc.' });
+    return res.status(400).json({ error: 'Email, ho ten va mat khau la bat buoc.' });
   }
-
   if (password.length < 6) {
-    return res.status(400).json({ error: 'Mật khẩu phải ít nhất 6 ký tự.' });
+    return res.status(400).json({ error: 'Mat khau phai it nhat 6 ky tu.' });
   }
 
   try {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
-      return res.status(409).json({ error: 'Email đã tồn tại trong hệ thống.' });
+      return res.status(409).json({ error: 'Email da ton tai trong he thong.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const deptIds = Array.isArray(department_ids) && department_ids.length > 0
       ? department_ids
       : (department_id ? [department_id] : []);
+
+    const empType = employee_type || 'NS';
+    const empCode = employee_code || await generateEmployeeCode(empType);
 
     const user = await User.create({
       email: email.toLowerCase().trim(),
@@ -67,26 +87,45 @@ const createUser = async (req, res) => {
       department_id: deptIds[0] || department_id || null,
       department_ids: deptIds,
       manager_id: manager_id || null,
+      employee_type: empType,
+      employee_code: empCode,
+      position: position || null,
+      employment_status: employment_status || 'Dang lam viec',
+      dob: dob || null,
+      bhxh_code: bhxh_code || null,
+      emergency_phone: emergency_phone || null,
+      address_current: address_current || null,
+      hometown: hometown || null,
+      cccd: cccd || null,
+      bank_name: bank_name || null,
+      bank_account: bank_account || null,
+      branch: branch || null,
+      start_year: start_year || null,
+      education: education || null,
     });
 
     const userObj = user.toObject();
     delete userObj.password_hash;
 
     res.status(201).json({
-      message: `Đã thêm nhân viên "${full_name}" thành công!`,
+      message: `Da them nhan vien "${full_name}" (${empCode}) thanh cong!`,
       user: userObj
     });
-
   } catch (error) {
     console.error('CreateUser error:', error);
-    res.status(500).json({ error: 'Lỗi thêm nhân viên.' });
+    res.status(500).json({ error: 'Loi them nhan vien.' });
   }
 };
 
 // PUT /api/users/:id
 const updateUser = async (req, res) => {
   const { id } = req.params;
-  const { full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password } = req.body;
+  const {
+    full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password,
+    employee_type, position, employment_status,
+    dob, bhxh_code, emergency_phone, address_current, hometown, cccd,
+    bank_name, bank_account, branch, start_year, education,
+  } = req.body;
 
   try {
     const updateData = {};
@@ -94,6 +133,9 @@ const updateUser = async (req, res) => {
     if (email !== undefined) updateData.email = email.toLowerCase().trim();
     if (phone !== undefined) updateData.phone = phone;
     if (role !== undefined) updateData.role = role;
+    if (position !== undefined) updateData.position = position;
+    if (employment_status !== undefined) updateData.employment_status = employment_status;
+    if (employee_type !== undefined) updateData.employee_type = employee_type;
     if (department_ids !== undefined && Array.isArray(department_ids)) {
       updateData.department_ids = department_ids;
       updateData.department_id = department_ids[0] || null;
@@ -103,23 +145,51 @@ const updateUser = async (req, res) => {
     }
     if (manager_id !== undefined) updateData.manager_id = manager_id || null;
     if (is_active !== undefined) updateData.is_active = is_active;
-
-    // Update password if provided
+    if (dob !== undefined) updateData.dob = dob;
+    if (bhxh_code !== undefined) updateData.bhxh_code = bhxh_code;
+    if (emergency_phone !== undefined) updateData.emergency_phone = emergency_phone;
+    if (address_current !== undefined) updateData.address_current = address_current;
+    if (hometown !== undefined) updateData.hometown = hometown;
+    if (cccd !== undefined) updateData.cccd = cccd;
+    if (bank_name !== undefined) updateData.bank_name = bank_name;
+    if (bank_account !== undefined) updateData.bank_account = bank_account;
+    if (branch !== undefined) updateData.branch = branch;
+    if (start_year !== undefined) updateData.start_year = start_year;
+    if (education !== undefined) updateData.education = education;
     if (password && password.length >= 6) {
       updateData.password_hash = await bcrypt.hash(password, 10);
     }
 
     const user = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password_hash');
+    if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
 
-    if (!user) {
-      return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
-    }
-
-    res.json({ message: 'Cập nhật thông tin thành công!', user });
-
+    res.json({ message: 'Cap nhat thong tin thanh cong!', user });
   } catch (error) {
     console.error('UpdateUser error:', error);
-    res.status(500).json({ error: 'Lỗi cập nhật nhân viên.' });
+    res.status(500).json({ error: 'Loi cap nhat nhan vien.' });
+  }
+};
+
+// PATCH /api/users/:id/avatar
+const updateAvatar = async (req, res) => {
+  try {
+    const { avatar_url } = req.body;
+    if (!avatar_url) return res.status(400).json({ error: 'URL anh khong duoc de trong.' });
+
+    const targetId = req.params.id;
+    const isOwner = req.user._id.toString() === targetId;
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Khong co quyen cap nhat avatar nguoi khac.' });
+    }
+
+    const user = await User.findByIdAndUpdate(targetId, { avatar_url }, { new: true }).select('-password_hash');
+    if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
+
+    res.json({ message: 'Da cap nhat anh dai dien!', avatar_url: user.avatar_url });
+  } catch (error) {
+    console.error('UpdateAvatar error:', error);
+    res.status(500).json({ error: 'Loi cap nhat avatar.' });
   }
 };
 
@@ -127,22 +197,22 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
+    if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
 
     if (user.role === 'admin') {
       const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
       if (activeAdminCount <= 1) {
-        return res.status(400).json({ error: 'Hệ thống cần ít nhất 1 tài khoản Admin đang hoạt động.' });
+        return res.status(400).json({ error: 'He thong can it nhat 1 tai khoan Admin dang hoat dong.' });
       }
     }
     if (user._id.toString() === req.user._id.toString()) {
-      return res.status(400).json({ error: 'Bạn không thể tự xóa tài khoản của chính mình.' });
+      return res.status(400).json({ error: 'Ban khong the tu xoa tai khoan cua chinh minh.' });
     }
     await User.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Đã xóa nhân viên.' });
+    res.json({ message: 'Da xoa nhan vien.' });
   } catch (error) {
     console.error('DeleteUser error:', error);
-    res.status(500).json({ error: 'Lỗi xóa nhân viên.' });
+    res.status(500).json({ error: 'Loi xoa nhan vien.' });
   }
 };
 
@@ -150,26 +220,26 @@ const deleteUser = async (req, res) => {
 const toggleActive = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
+    if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
 
     if (user.role === 'admin' && user.is_active) {
       const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
       if (activeAdminCount <= 1) {
-        return res.status(400).json({ error: 'Không thể vô hiệu hóa Admin duy nhất trong hệ thống.' });
+        return res.status(400).json({ error: 'Khong the vo hieu hoa Admin duy nhat.' });
       }
     }
     if (user._id.toString() === req.user._id.toString() && user.is_active) {
-      return res.status(400).json({ error: 'Bạn không thể tự vô hiệu hóa tài khoản của chính mình.' });
+      return res.status(400).json({ error: 'Ban khong the tu vo hieu hoa tai khoan cua chinh minh.' });
     }
 
     user.is_active = !user.is_active;
     await user.save();
 
-    res.json({ message: user.is_active ? 'Đã kích hoạt' : 'Đã vô hiệu hóa', is_active: user.is_active });
+    res.json({ message: user.is_active ? 'Da kich hoat' : 'Da vo hieu hoa', is_active: user.is_active });
   } catch (error) {
     console.error('ToggleActive error:', error);
-    res.status(500).json({ error: 'Lỗi cập nhật.' });
+    res.status(500).json({ error: 'Loi cap nhat.' });
   }
 };
 
-module.exports = { getAllUsers, createUser, updateUser, deleteUser, toggleActive };
+module.exports = { getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive };

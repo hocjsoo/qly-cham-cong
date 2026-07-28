@@ -68,6 +68,7 @@ const systemSettingRoutes = require('./routes/systemSetting.routes');
 const notificationRoutes  = require('./routes/notification.routes');
 const holidayRoutes       = require('./routes/holiday.routes');
 const timesheetLockRoutes = require('./routes/timesheetLock.routes');
+const announcementRoutes  = require('./routes/announcement.routes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
@@ -85,6 +86,7 @@ app.use('/api/settings',      systemSettingRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays',      holidayRoutes);
 app.use('/api/timesheet-lock',timesheetLockRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // HEALTH CHECK API
 app.get('/api/health', (req, res) => {

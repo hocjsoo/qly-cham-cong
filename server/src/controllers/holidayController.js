@@ -1,64 +1,93 @@
-// controllers/holidayController.js — Quản lý Ngày Nghỉ Lễ & Tự Động Gửi Thông Báo
+﻿// controllers/holidayController.js - Quan ly Ngay Nghi Le & Tu Dong Gui Thong Bao
 const Holiday = require('../models/Holiday');
 const Notification = require('../models/Notification');
 
-// GET /api/holidays — Lấy danh sách ngày lễ (cho cả staff & admin)
+// GET /api/holidays
 const getHolidays = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
-    const holidays = await Holiday.find({
-      date: { $regex: `^${year}` }
-    }).sort({ date: 1 });
-
+    const holidays = await Holiday.find({ date: { $regex: `^${year}` } }).sort({ date: 1 });
     res.json(holidays);
   } catch (error) {
     console.error('GetHolidays error:', error);
-    res.status(500).json({ error: 'Lỗi lấy danh sách ngày nghỉ lễ.' });
+    res.status(500).json({ error: 'Loi lay danh sach ngay nghi le.' });
   }
 };
 
-// POST /api/holidays — Admin thêm ngày nghỉ lễ & tự động thông báo
+// POST /api/holidays
 const createHoliday = async (req, res) => {
   const { name, date, end_date, is_paid = true, note } = req.body;
-  if (!name || !date) {
-    return res.status(400).json({ error: 'Tên ngày lễ và ngày bắt đầu là bắt buộc.' });
-  }
+  if (!name || !date) return res.status(400).json({ error: 'Ten ngay le va ngay bat dau la bat buoc.' });
 
   try {
     const holiday = await Holiday.create({
-      name: name.trim(),
-      date,
-      end_date: end_date || date,
-      is_paid: Boolean(is_paid),
-      note: note?.trim() || null,
-      created_by: req.user._id,
+      name: name.trim(), date, end_date: end_date || date,
+      is_paid: Boolean(is_paid), note: note?.trim() || null, created_by: req.user._id,
     });
-
-    // TỰ ĐỘNG PHÁT THÔNG BÁO TOÀN CÔNG TY
-    const dateText = end_date && end_date !== date ? `từ ${date} đến ${end_date}` : `ngày ${date}`;
+    const dateText = end_date && end_date !== date ? `tu ${date} den ${end_date}` : `ngay ${date}`;
     await Notification.create({
-      user_id: null, // Broadcast all
-      title: `📢 THÔNG BÁO NGHỈ LỄ: ${name.toUpperCase()}`,
-      message: `Công ty ET Architects thông báo lịch nghỉ lễ "${name}" (${dateText}). Chúc toàn thể CB-NV có kỳ nghỉ an toàn & vui vẻ! 🎉`,
+      user_id: null,
+      title: `THONG BAO NGHI LE: ${name.toUpperCase()}`,
+      message: `Cong ty thong bao lich nghi le "${name}" (${dateText}).`,
       type: 'announcement',
     });
-
-    res.status(201).json({ message: 'Đã thêm ngày lễ & tự động phát thông báo toàn công ty! 🎉', holiday });
+    res.status(201).json({ message: 'Da them ngay le & tu dong phat thong bao!', holiday });
   } catch (error) {
     console.error('CreateHoliday error:', error);
-    res.status(500).json({ error: 'Lỗi tạo ngày nghỉ lễ.' });
+    res.status(500).json({ error: 'Loi tao ngay nghi le.' });
   }
 };
 
-// DELETE /api/holidays/:id — Admin xóa ngày lễ
+// DELETE /api/holidays/:id
 const deleteHoliday = async (req, res) => {
   try {
-    const { id } = req.params;
-    await Holiday.findByIdAndDelete(id);
-    res.json({ message: 'Đã xóa ngày nghỉ lễ' });
+    await Holiday.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Da xoa ngay nghi le' });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi xóa ngày nghỉ lễ.' });
+    res.status(500).json({ error: 'Loi xoa ngay nghi le.' });
   }
 };
 
-module.exports = { getHolidays, createHoliday, deleteHoliday };
+// POST /api/holidays/seed-vietnam - Nap tu dong ngay le Viet Nam theo nam
+const seedVietnamHolidays = async (req, res) => {
+  try {
+    const year = parseInt(req.query.year) || new Date().getFullYear();
+
+    const fixedHolidays = [
+      { date: `${year}-01-01`, end_date: `${year}-01-01`, name: 'Tet Duong lich', is_paid: true },
+      { date: `${year}-04-30`, end_date: `${year}-05-01`, name: 'Ngay Giai phong mien Nam & Quoc te Lao dong', is_paid: true },
+      { date: `${year}-09-02`, end_date: `${year}-09-02`, name: 'Quoc khanh', is_paid: true },
+    ];
+
+    const tetDates = {
+      2024: { start: '2024-02-08', end: '2024-02-14' },
+      2025: { start: '2025-01-28', end: '2025-02-02' },
+      2026: { start: '2026-02-17', end: '2026-02-22' },
+      2027: { start: '2027-02-06', end: '2027-02-12' },
+    };
+    if (tetDates[year]) {
+      fixedHolidays.push({ date: tetDates[year].start, end_date: tetDates[year].end, name: 'Tet Nguyen Dan', is_paid: true });
+    }
+
+    const giotoHV = { 2024: '2024-04-18', 2025: '2025-04-07', 2026: '2026-03-28', 2027: '2027-04-15' };
+    if (giotoHV[year]) {
+      fixedHolidays.push({ date: giotoHV[year], end_date: giotoHV[year], name: 'Gio To Hung Vuong', is_paid: true });
+    }
+
+    let added = 0, skipped = 0;
+    for (const h of fixedHolidays) {
+      const exists = await Holiday.findOne({ date: h.date });
+      if (!exists) {
+        await Holiday.create({ ...h, note: 'Tu dong nap', created_by: req.user._id });
+        added++;
+      } else { skipped++; }
+    }
+
+    res.json({ message: `Da nap ${added} ngay le cho nam ${year} (bo qua ${skipped} ngay da co).`, added, skipped });
+  } catch (error) {
+    console.error('SeedVietnamHolidays error:', error);
+    res.status(500).json({ error: 'Loi nap ngay le.' });
+  }
+};
+
+module.exports = { getHolidays, createHoliday, deleteHoliday, seedVietnamHolidays };

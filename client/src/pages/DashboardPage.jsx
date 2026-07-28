@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,
-  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp
+  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
@@ -53,6 +53,8 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [geo, setGeo] = useState(null);
+  const [birthdays, setBirthdays] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -75,6 +77,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const i = setInterval(fetchData, 120000);
     return () => clearInterval(i);
+  }, []);
+
+  // Load birthdays and announcements
+  useEffect(() => {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const month = now.getMonth() + 1;
+    api.get(`/announcements/birthdays?month=${month}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+    api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
   const s = data?.summary || {};
@@ -158,6 +168,48 @@ export default function DashboardPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--red)' }} /> Vắng ({s.absent})
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Pinned Announcements */}
+        {announcements.length > 0 && (
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Bell size={16} /> Thông báo đã ghim ({announcements.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {announcements.map(ann => (
+                <div key={ann._id} style={{ fontSize: '12px', color: 'var(--text)' }}>
+                  <strong>{ann.title}</strong>: {ann.content}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Birthdays this month */}
+        {birthdays.length > 0 && (
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--yellow)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Gift size={16} /> Sinh nhật nhân sự tháng {new Date().getMonth() + 1} ({birthdays.length})
+            </div>
+            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {birthdays.map(b => (
+                <div key={b._id} style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  {b.avatar_url ? (
+                    <img src={b.avatar_url} alt={b.full_name} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      {b.full_name.slice(0, 1)}
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{b.full_name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>🎂 {b.dob} (ngày {b.day})</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
