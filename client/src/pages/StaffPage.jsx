@@ -55,8 +55,10 @@ export default function StaffPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset Code Modal
+  // Reset Code & Detail Modal States
   const [resetCodeModal, setResetCodeModal] = useState(null); // { user, code }
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   // Attendance Override Modal
   const [showOverrideModal, setShowOverrideModal] = useState(false);
@@ -326,21 +328,37 @@ export default function StaffPage() {
               const empStatusColor = { 'Dang lam viec': 'badge--success', 'Da nghi viec': 'badge--neutral', 'Nghi om': 'badge--warning', 'Nghi thai san': 'badge--info', 'Khac': 'badge--neutral' }[u.employment_status] || 'badge--neutral';
 
               return (
-                <div key={u._id} className="card card--interactive animate-fade-in" style={{ padding: '12px 14px', borderLeft: u.is_active === false ? '3px solid var(--border)' : '3px solid var(--primary)' }}>
+                <div
+                  key={u._id}
+                  onClick={() => setViewingStaffDetail(u)}
+                  className="card card--interactive animate-fade-in"
+                  style={{ padding: '12px 14px', borderLeft: u.is_active === false ? '3px solid var(--border)' : '3px solid var(--primary)', cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {u.avatar_url
-                      ? <img src={u.avatar_url} alt={u.full_name} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }} onError={e => { e.target.onerror=null; e.target.src=''; }} />
-                      : <div className="avatar" style={{ background: isInactive ? 'var(--text-muted)' : 'var(--primary)', flexShrink: 0 }}>{initials}</div>
-                    }
+                    {u.avatar_url ? (
+                      <img
+                        src={u.avatar_url}
+                        alt={u.full_name}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFullAvatarImage({ url: u.avatar_url, title: u.full_name });
+                        }}
+                        title="Click để phóng to ảnh"
+                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                        onError={e => { e.target.onerror=null; e.target.src=''; }}
+                      />
+                    ) : (
+                      <div className="avatar" style={{ width: 44, height: 44, background: isInactive ? 'var(--text-muted)' : 'var(--primary)', flexShrink: 0, fontSize: '15px' }}>{initials}</div>
+                    )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {u.full_name}
                         </span>
                         <span className={`badge ${roleCfg.cls}`} style={{ fontSize: '10px' }}>{roleCfg.label}</span>
                         {u.employee_type && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>{u.employee_type}</span>}
                         {u.employment_status && u.employment_status !== 'Dang lam viec' && <span className={`badge ${empStatusColor}`} style={{ fontSize: '10px' }}>{u.employment_status}</span>}
-                        {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Da khoa</span>}
+                        {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Đã khóa</span>}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '2px' }}>
                         {u.employee_code && <span style={{ fontWeight: 600, color: 'var(--primary)' }}>#{u.employee_code}</span>}
@@ -352,7 +370,7 @@ export default function StaffPage() {
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                       {currentUser?.role === 'admin' && (
                         <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
                           📝
@@ -459,10 +477,9 @@ export default function StaffPage() {
             </div>
             <div className="form-group">
               <label className="form-label">Ảnh đại diện (Avatar)</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input type="text" className="form-input" value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} placeholder="Dán link ảnh hoặc tải tệp lên..." style={{ flex: 1 }} />
-                <label className="btn btn--ghost" style={{ cursor: 'pointer', padding: '7px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                  📁 Tải ảnh
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <label className="btn btn--primary" style={{ cursor: 'pointer', padding: '8px 14px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                  📸 Chọn ảnh từ thiết bị
                   <input
                     type="file"
                     accept="image/*"
@@ -493,19 +510,26 @@ export default function StaffPage() {
                           reader.readAsDataURL(file);
                         });
                         setForm(p => ({ ...p, avatar_url: base64 }));
+                        toast.success('Đã tải ảnh lên thành công!');
                       } catch {
                         toast.error('Lỗi xử lý file ảnh');
                       }
                     }}
                   />
                 </label>
+                {form.avatar_url && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img
+                      src={form.avatar_url}
+                      alt="avatar"
+                      onClick={() => setFullAvatarImage({ url: form.avatar_url, title: form.full_name || 'Ảnh đại diện' })}
+                      title="Click để phóng to ảnh"
+                      style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                    />
+                    <button type="button" onClick={() => setForm({ ...form, avatar_url: '' })} className="btn btn--ghost" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--red)' }}>Xóa ảnh</button>
+                  </div>
+                )}
               </div>
-              {form.avatar_url && (
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img src={form.avatar_url} alt="avatar" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} onError={e=>{ e.target.style.display='none'; }} />
-                  <button type="button" onClick={() => setForm({ ...form, avatar_url: '' })} className="btn btn--ghost" style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--red)' }}>Xóa ảnh</button>
-                </div>
-              )}
             </div>
 
             <div className="form-group">
@@ -646,6 +670,115 @@ export default function StaffPage() {
           onConfirm={confirm.onConfirm}
           onCancel={() => setConfirm(null)}
         />
+      )}
+
+      {/* Staff Account & Detail Profile Modal */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800 }}>👤 Hồ Sơ Nhân Viên</h3>
+              <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            {/* Large Avatar Header */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div
+                style={{ position: 'relative', width: '96px', height: '96px', margin: '0 auto 8px', cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default' }}
+                onClick={() => {
+                  if (viewingStaffDetail.avatar_url) {
+                    setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
+                  }
+                }}
+                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh phóng to' : ''}
+              >
+                {viewingStaffDetail.avatar_url ? (
+                  <img
+                    src={viewingStaffDetail.avatar_url}
+                    alt={viewingStaffDetail.full_name}
+                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: 'var(--shadow-sm)' }}
+                  />
+                ) : (
+                  <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto' }}>
+                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {viewingStaffDetail.avatar_url && (
+                <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name })}>
+                  🔍 Xem ảnh kích thước đầy đủ
+                </div>
+              )}
+              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px' }}>{viewingStaffDetail.full_name}</h2>
+              <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{viewingStaffDetail.employee_code || 'NS-000'}</div>
+            </div>
+
+            {/* Information Grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Email: </span>
+                <strong>{viewingStaffDetail.email}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Số điện thoại: </span>
+                <strong>{viewingStaffDetail.phone || 'Chưa cập nhật'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Phòng ban: </span>
+                <strong>{viewingStaffDetail.department_name || depts.find(d => d._id === viewingStaffDetail.department_id)?.name || 'Chưa phân'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Chức danh: </span>
+                <strong>{viewingStaffDetail.position || 'Nhân viên'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Trạng thái làm việc: </span>
+                <strong style={{ color: 'var(--green)' }}>{viewingStaffDetail.employment_status || 'Đang làm việc'}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost btn--full">Đóng</button>
+              <button
+                onClick={() => {
+                  const target = viewingStaffDetail;
+                  setViewingStaffDetail(null);
+                  openEdit(target);
+                }}
+                className="btn btn--primary btn--full"
+              >
+                ✏️ Chỉnh sửa tài khoản
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Avatar Lightbox Modal */}
+      {fullAvatarImage && (
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
+                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+              📸 {fullAvatarImage.title}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

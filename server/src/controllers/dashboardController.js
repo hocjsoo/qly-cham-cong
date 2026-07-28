@@ -10,13 +10,21 @@ const getTodaySummary = async (req, res) => {
 
     // Filter users
     let userFilter = { is_active: true };
-    if (req.user.role !== 'admin') {
-      userFilter.manager_id = req.user._id;
+    if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
+      const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
+        ? req.user.department_ids
+        : (req.user.department_id ? [req.user.department_id] : []);
+      userFilter.$or = [
+        { manager_id: req.user._id },
+        { department_ids: { $in: leaderDeptIds } },
+        { department_id: { $in: leaderDeptIds } }
+      ];
     }
 
     const users = await User.find(userFilter)
-      .select('full_name email role department_id')
-      .populate('department_id', 'name');
+      .select('full_name email role department_id department_ids avatar_url employee_code phone')
+      .populate('department_id', 'name')
+      .populate('department_ids', 'name');
 
     const userIds = users.map(u => u._id);
 
@@ -38,12 +46,20 @@ const getTodaySummary = async (req, res) => {
         today_status = att.check_out_time ? 'checked_out' : 'checked_in';
       }
 
+      const deptNames = (u.department_ids && u.department_ids.length > 0)
+        ? u.department_ids.map(d => d.name)
+        : (u.department_id?.name ? [u.department_id.name] : []);
+
       return {
         user_id: u._id,
+        id: u._id,
         full_name: u.full_name,
         email: u.email,
+        phone: u.phone || '',
+        employee_code: u.employee_code || '—',
+        avatar_url: u.avatar_url || null,
         role: u.role,
-        department_name: u.department_id?.name || '—',
+        department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
         check_in_time: att?.check_in_time || null,
         check_in_type: att?.check_in_type || null,
         check_out_time: att?.check_out_time || null,
