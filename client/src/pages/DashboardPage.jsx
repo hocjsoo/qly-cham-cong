@@ -56,6 +56,8 @@ export default function DashboardPage() {
   const [birthdays, setBirthdays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -316,10 +318,29 @@ export default function DashboardPage() {
             ) : filtered.map((p) => {
               const cfg = STATUS_MAP[p.today_status] || STATUS_MAP.absent;
               return (
-                <div key={p.user_id} className="person-row animate-fade-in">
-                  <div className="avatar" style={{ width: '34px', height: '34px', fontSize: '12px' }}>
-                    {p.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
+                <div
+                  key={p.user_id}
+                  onClick={() => setViewingStaffDetail(p)}
+                  className="person-row animate-fade-in card--interactive"
+                  style={{ cursor: 'pointer' }}
+                >
+                  {p.avatar_url ? (
+                    <img
+                      src={p.avatar_url}
+                      alt={p.full_name}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFullAvatarImage({ url: p.avatar_url, title: p.full_name });
+                      }}
+                      title="Click để phóng to ảnh"
+                      style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                      onError={e => { e.target.onerror=null; e.target.src=''; }}
+                    />
+                  ) : (
+                    <div className="avatar" style={{ width: 38, height: 38, fontSize: '13px', flexShrink: 0 }}>
+                      {p.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                    </div>
+                  )}
                   <div className="person-row__info">
                     <div className="person-row__name">{p.full_name}</div>
                     <div className="person-row__meta">
@@ -327,7 +348,7 @@ export default function DashboardPage() {
                       {p.total_hours > 0 && ` · ${p.total_hours}h`}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
                     <span className={`badge ${cfg.cls}`}>{cfg.label}</span>
                     {p.check_in_time && (
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -427,6 +448,104 @@ export default function DashboardPage() {
             <button onClick={() => setSelectedAnnouncement(null)} className="btn btn--primary btn--full">
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Account & Detail Profile Modal Sheet */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800 }}>👤 Thông Tin Nhân Viên</h3>
+              <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            {/* Large Avatar Header */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div
+                style={{ position: 'relative', width: '96px', height: '96px', margin: '0 auto 8px', cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default' }}
+                onClick={() => {
+                  if (viewingStaffDetail.avatar_url) {
+                    setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
+                  }
+                }}
+                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh phóng to' : ''}
+              >
+                {viewingStaffDetail.avatar_url ? (
+                  <img
+                    src={viewingStaffDetail.avatar_url}
+                    alt={viewingStaffDetail.full_name}
+                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: 'var(--shadow-sm)' }}
+                  />
+                ) : (
+                  <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto' }}>
+                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {viewingStaffDetail.avatar_url && (
+                <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name })}>
+                  🔍 Click để xem ảnh lớn kịch khung
+                </div>
+              )}
+              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px' }}>{viewingStaffDetail.full_name}</h2>
+              <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{viewingStaffDetail.employee_code || 'NS-000'}</div>
+            </div>
+
+            {/* Information List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Email: </span>
+                <strong>{viewingStaffDetail.email}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Số điện thoại: </span>
+                <strong>{viewingStaffDetail.phone || 'Chưa cập nhật'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Phòng ban: </span>
+                <strong>{viewingStaffDetail.department_name || 'Chưa phân'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Trạng thái hôm nay: </span>
+                <strong style={{ color: viewingStaffDetail.today_status === 'checked_in' ? 'var(--green)' : 'var(--text-muted)' }}>
+                  {STATUS_MAP[viewingStaffDetail.today_status]?.label || 'Vắng'}
+                  {viewingStaffDetail.check_in_time ? ` (Vào lúc ${fmt(viewingStaffDetail.check_in_time)})` : ''}
+                </strong>
+              </div>
+            </div>
+
+            <button onClick={() => setViewingStaffDetail(null)} className="btn btn--primary btn--full">
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Avatar Lightbox Modal */}
+      {fullAvatarImage && (
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
+                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+              📸 {fullAvatarImage.title}
+            </div>
           </div>
         </div>
       )}
