@@ -5,7 +5,7 @@ import { create } from 'zustand';
 
 const getInitialTheme = () => {
   const saved = localStorage.getItem('theme');
-  return saved || 'dark';
+  return saved || 'light';
 };
 
 const useThemeStore = create((set, get) => ({
