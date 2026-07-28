@@ -118,6 +118,20 @@ body {
   min-height: 100vh;
   line-height: 1.5;
   transition: background var(--transition), color var(--transition);
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.18) 0%, rgba(6, 182, 212, 0.08) 45%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* =============================================
@@ -127,11 +141,15 @@ body {
   max-width: 480px;
   margin: 0 auto;
   padding: 0 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .page {
   min-height: 100vh;
   padding-bottom: 80px;
+  position: relative;
+  z-index: 1;
 }
 
 /* =============================================
@@ -139,24 +157,24 @@ body {
    ============================================= */
 .card {
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  box-shadow: var(--shadow-xs);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all var(--transition);
 }
 
 .card:hover {
-  border-color: rgba(108, 92, 231, 0.35);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-color: rgba(124, 58, 237, 0.4);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 24px rgba(124, 58, 237, 0.2);
 }
 
 .card--interactive:hover {
   background: var(--bg-card-hover);
   transform: translateY(-3px);
-  box-shadow: var(--shadow-sm), 0 0 20px var(--primary-soft);
+  box-shadow: var(--shadow-sm), 0 0 24px var(--primary-glow);
 }
 
 .card--highlight {
@@ -989,9 +1007,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .desktop-nav__item.active {
-    background: var(--primary-soft);
-    color: var(--primary);
-    box-shadow: inset 3px 0 0 var(--primary);
+    background: linear-gradient(90deg, var(--primary-soft) 0%, transparent 100%);
+    color: var(--primary-light);
+    border-left: 3px solid var(--primary);
     font-weight: 700;
   }
 
