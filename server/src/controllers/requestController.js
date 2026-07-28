@@ -167,6 +167,11 @@ const approveRequest = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy đơn hoặc đơn đã được xử lý.' });
     }
 
+    const requestUser = await User.findById(request.user_id);
+    if (['leader', 'manager'].includes(req.user.role) && requestUser?.role === 'admin') {
+      return res.status(403).json({ error: 'Leader không có quyền duyệt đơn của Admin.' });
+    }
+
     request.status = 'approved';
     request.approved_by = req.user._id;
     request.approved_at = new Date();
@@ -241,6 +246,11 @@ const rejectRequest = async (req, res) => {
     const request = await Request.findOne({ _id: id, status: 'pending' });
     if (!request) {
       return res.status(404).json({ error: 'Không tìm thấy đơn hoặc đơn đã được xử lý.' });
+    }
+
+    const requestUser = await User.findById(request.user_id);
+    if (['leader', 'manager'].includes(req.user.role) && requestUser?.role === 'admin') {
+      return res.status(403).json({ error: 'Leader không có quyền từ chối đơn của Admin.' });
     }
 
     request.status = 'rejected';

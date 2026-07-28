@@ -32,8 +32,7 @@ const STATUS_MAP = {
 };
 
 export default function ProjectsPage() {
-  const { user } = useAuthStore();
-  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
+  const isAdmin = user?.role === 'admin';
 
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -165,7 +164,7 @@ export default function ProjectsPage() {
             <div className="header__subtitle">{totalCount} dự án · Khớp 100% Bảng Mẫu THÔNG TIN NS+DA</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {isAdminOrManager && (
+            {isAdmin && (
               <button onClick={handleOpenCreate} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
                 <Plus size={15} /> Thêm dự án
               </button>
@@ -282,7 +281,7 @@ export default function ProjectsPage() {
                   <th style={{ padding: '10px 12px' }}>PM (quản lý dự án)</th>
                   <th style={{ padding: '10px 12px' }}>NOTE</th>
                   <th style={{ padding: '10px 12px' }}>TRẠNG THÁI</th>
-                  {isAdminOrManager && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
+                  {isAdmin && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
                 </tr>
               </thead>
               <tbody>
@@ -345,7 +344,7 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* THAO TÁC */}
-                      {isAdminOrManager && (
+                      {isAdmin && (
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                             <button

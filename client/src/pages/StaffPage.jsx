@@ -174,6 +174,11 @@ export default function StaffPage() {
     if (!editing && !form.password) { toast.error('Vui lòng nhập mật khẩu'); return; }
     if (!editing && form.password.length < 6) { toast.error('Mật khẩu phải ít nhất 6 ký tự'); return; }
 
+    if ((form.role === 'leader' || form.role === 'manager') && (!form.department_ids || form.department_ids.length === 0)) {
+      toast.error('Khi chọn vai trò Leader, bắt buộc phải chọn ít nhất 1 phòng ban quản lý!');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = { ...form };
@@ -348,9 +353,11 @@ export default function StaffPage() {
 
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                      <button onClick={() => openOverride(u)} title="Sửa giờ chấm công" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
-                        📝
-                      </button>
+                      {currentUser?.role === 'admin' && (
+                        <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
+                          📝
+                        </button>
+                      )}
                       <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
                         🔑
                       </button>
@@ -451,9 +458,32 @@ export default function StaffPage() {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">URL Avatar (anh dai dien)</label>
-              <input type="text" className="form-input" value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} placeholder="https://..." />
-              {form.avatar_url && <div style={{ marginTop: '6px' }}><img src={form.avatar_url} alt="avatar" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} onError={e=>{ e.target.style.display='none'; }} /></div>}
+              <label className="form-label">Ảnh đại diện (Avatar)</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input type="text" className="form-input" value={form.avatar_url} onChange={e => setForm({ ...form, avatar_url: e.target.value })} placeholder="Dán link ảnh hoặc tải tệp lên..." style={{ flex: 1 }} />
+                <label className="btn btn--ghost" style={{ cursor: 'pointer', padding: '7px 12px', fontSize: '12px', whiteSpace: 'nowrap' }}>
+                  📁 Tải ảnh
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { toast.error('Ảnh phải nhỏ hơn 5MB'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => setForm(p => ({ ...p, avatar_url: reader.result }));
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
+              {form.avatar_url && (
+                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img src={form.avatar_url} alt="avatar" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} onError={e=>{ e.target.style.display='none'; }} />
+                  <button type="button" onClick={() => setForm({ ...form, avatar_url: '' })} className="btn btn--ghost" style={{ padding: '2px 6px', fontSize: '11px', color: 'var(--red)' }}>Xóa ảnh</button>
+                </div>
+              )}
             </div>
 
             <div className="form-group">

@@ -18,7 +18,7 @@ const holidaySchema = new mongoose.Schema(
     },
     is_paid: {
       type: Boolean,
-      default: true, // Nghỉ lễ hưởng nguyên lương
+      default: false, // Nghỉ lễ không hưởng lương
     },
     note: {
       type: String,

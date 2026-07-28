@@ -23,8 +23,8 @@ const getClientIP = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '127.0.0.1';
 };
 
-// Phân loại 4 mức đi muộn theo quy định công ty (<=09:00 đúng giờ, 09:01-09:10 muộn nhẹ, 09:11-09:30 muộn, >09:30 muộn nhiều)
-function calculateLateTier(checkInDate, workStartStr = '09:00') {
+// Phân loại mức đi muộn theo quy định công ty từ cài đặt thực tế
+function calculateLateTier(checkInDate, workStartStr = '08:30', minorMins = 10, mediumMins = 30) {
   const [targetH, targetM] = workStartStr.split(':').map(Number);
   const targetDate = new Date(checkInDate);
   targetDate.setHours(targetH, targetM, 0, 0);
@@ -33,13 +33,13 @@ function calculateLateTier(checkInDate, workStartStr = '09:00') {
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMins <= 0) {
-    return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: 'Đúng giờ (≤ 09:00)' };
-  } else if (diffMins <= 10) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: 'Muộn nhẹ (09:01–09:10)' };
-  } else if (diffMins <= 30) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: 'Muộn (09:11–09:30)' };
+    return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: `Đúng giờ (≤ ${workStartStr})` };
+  } else if (diffMins <= minorMins) {
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: `Muộn nhẹ (≤ +${minorMins}p)` };
+  } else if (diffMins <= mediumMins) {
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: `Muộn (≤ +${mediumMins}p)` };
   } else {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: 'Muộn nhiều (> 09:30)' };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: `Muộn nhiều (> +${mediumMins}p)` };
   }
 }
 
@@ -133,7 +133,12 @@ const checkIn = async (req, res) => {
       if (proj) projectName = proj.name;
     }
 
-    const lateInfo = calculateLateTier(now, settings.work_start_time);
+    const lateInfo = calculateLateTier(
+      now,
+      settings.work_start_time || '08:30',
+      settings.minor_late_mins ?? 10,
+      settings.medium_late_mins ?? 30
+    );
     let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     const clientIP = getClientIP(req);
     const combinedNote = [

@@ -40,7 +40,20 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 
 export default function ReportPage() {
   const { user } = useAuthStore();
-  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
+  const isAdmin = user?.role === 'admin';
+  if (!isAdmin) {
+    return (
+      <div className="page">
+        <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
+          <div className="empty-state">
+            <div className="empty-state__icon">🔒</div>
+            <div className="empty-state__title">Truy cập bị từ chối</div>
+            <div className="empty-state__desc">Chỉ tài khoản Admin mới có quyền truy cập trang Báo cáo.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);

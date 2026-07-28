@@ -516,7 +516,7 @@ export default function SettingsPage() {
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>{h.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {h.date}{h.end_date && h.end_date !== h.date ? ` - ${h.end_date}` : ''}
-                      {h.is_paid && <span className="badge badge--success" style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 5px' }}>Huong luong</span>}
+                      <span className="badge badge--neutral" style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 5px' }}>Nghỉ lễ (Không hưởng lương)</span>
                     </div>
                   </div>
                   {isAdmin && <button onClick={() => handleDeleteHoliday(h._id, h.name)} style={iconBtn()}><Trash2 size={14} /></button>}

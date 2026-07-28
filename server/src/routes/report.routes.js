@@ -10,7 +10,7 @@ router.use(authMiddleware);
 // GET /api/reports/individual-detail?user_id=...&month=6&year=2026
 router.get('/individual-detail', getIndividualDetailReport);
 
-router.use(requireRole('admin', 'manager'));
+router.use(requireRole('admin'));
 
 // GET /api/reports/monthly?month=7&year=2026
 router.get('/monthly', getMonthlyReport);
