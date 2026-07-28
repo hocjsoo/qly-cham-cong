@@ -13,17 +13,18 @@
   --primary:         #6c5ce7;
   --primary-hover:   #5f4dd0;
   --primary-light:   #a29bfe;
-  --primary-gradient: linear-gradient(135deg, #6c5ce7 0%, #8c7ae6 100%);
+  --primary-gradient: linear-gradient(135deg, #6c5ce7 0%, #8c7ae6 50%, #4834d4 100%);
   --primary-soft:    rgba(108, 92, 231, 0.15);
-  --primary-glow:    rgba(108, 92, 231, 0.35);
+  --primary-glow:    rgba(108, 92, 231, 0.4);
 
   --bg:              #0b0f17;
+  --bg-mesh:         radial-gradient(circle at 15% 15%, rgba(108, 92, 231, 0.12) 0%, transparent 45%), radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.08) 0%, transparent 45%);
   --bg-raised:       #131924;
-  --bg-card:         #18202f;
-  --bg-card-hover:   #1e283a;
+  --bg-card:         rgba(24, 32, 47, 0.75);
+  --bg-card-hover:   rgba(30, 40, 58, 0.85);
   --bg-input:        #0f1520;
-  --border:          #273244;
-  --border-muted:    #1c2533;
+  --border:          rgba(255, 255, 255, 0.1);
+  --border-muted:    rgba(255, 255, 255, 0.05);
 
   --text:            #f1f5f9;
   --text-secondary:  #94a3b8;
@@ -38,13 +39,13 @@
   --blue:            #3b82f6;
   --blue-soft:       rgba(59, 130, 246, 0.15);
 
-  --shadow-xs:       0 1px 2px rgba(0,0,0,0.3);
-  --shadow-sm:       0 4px 14px rgba(0,0,0,0.35);
-  --shadow-md:       0 10px 30px rgba(0,0,0,0.45);
-  --shadow-glow:     0 0 20px rgba(108, 92, 231, 0.25);
+  --shadow-xs:       0 2px 4px rgba(0,0,0,0.2);
+  --shadow-sm:       0 4px 16px rgba(0,0,0,0.35);
+  --shadow-md:       0 12px 36px rgba(0,0,0,0.5);
+  --shadow-glow:     0 0 24px rgba(108, 92, 231, 0.35);
 
-  --nav-bg:          rgba(19, 25, 36, 0.85);
-  --nav-border:      rgba(39, 50, 68, 0.8);
+  --nav-bg:          rgba(19, 25, 36, 0.8);
+  --nav-border:      rgba(255, 255, 255, 0.08);
   --radius:          12px;
   --radius-lg:       18px;
   --transition:      0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -107,6 +108,8 @@ html {
 body {
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
+  background-image: var(--bg-mesh);
+  background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
@@ -128,10 +131,12 @@ body {
 }
 
 /* =============================================
-   CARDS — Modern Elevating Cards
+   CARDS — Modern Glassmorphism Elevating Cards
    ============================================= */
 .card {
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 18px;
@@ -140,13 +145,14 @@ body {
 }
 
 .card:hover {
-  border-color: var(--border);
+  border-color: rgba(108, 92, 231, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .card--interactive:hover {
   background: var(--bg-card-hover);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm), 0 0 20px var(--primary-soft);
 }
 
 .card--highlight {
@@ -548,6 +554,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   gap: 12px;
   padding: 14px;
   background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
@@ -555,19 +563,21 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .stat-card:hover {
-  border-color: var(--primary-soft);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  border-color: rgba(108, 92, 231, 0.35);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm), 0 0 20px var(--primary-soft);
 }
 
 .stat-card__icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .stat-card__value {
@@ -668,11 +678,13 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
    ============================================= */
 .checkin-hero {
   background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-raised) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 28px 24px;
+  border-radius: 24px;
+  padding: 32px 24px;
   text-align: center;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.4), 0 0 30px var(--primary-soft);
   position: relative;
   overflow: hidden;
 }
@@ -681,18 +693,21 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   content: '';
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 2px;
+  height: 3px;
   background: var(--primary-gradient);
+  box-shadow: 0 0 12px var(--primary);
 }
 
 .checkin-hero__time {
-  font-size: 52px;
+  font-size: 56px;
   font-weight: 800;
-  letter-spacing: -2px;
+  letter-spacing: -2.5px;
   font-variant-numeric: tabular-nums;
-  color: var(--text);
+  background: linear-gradient(180deg, #ffffff 0%, var(--text) 60%, var(--text-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   line-height: 1;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  filter: drop-shadow(0 4px 16px rgba(108, 92, 231, 0.25));
 }
 
 .checkin-hero__date {
@@ -873,7 +888,9 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     position: fixed;
     top: 0;
     left: 0;
-    background: var(--bg-raised);
+    background: var(--nav-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border-right: 1px solid var(--border);
     padding: 20px 16px;
     z-index: 100;
@@ -889,17 +906,18 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .desktop-sidebar__logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: var(--primary);
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: var(--primary-gradient);
     color: white;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px var(--primary-soft);
+    box-shadow: 0 4px 14px var(--primary-glow);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 
   .desktop-sidebar__title {
@@ -954,6 +972,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   .desktop-nav__item.active {
     background: var(--primary-soft);
     color: var(--primary);
+    box-shadow: inset 3px 0 0 var(--primary);
+    font-weight: 700;
   }
 
   .sidebar-badge {
