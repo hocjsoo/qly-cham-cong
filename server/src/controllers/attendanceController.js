@@ -296,9 +296,25 @@ const getHistory = async (req, res) => {
     const mode = req.query.mode || 'month';
     let targetUserId = req.user._id;
 
-    // Admin / Manager / Leader co the xem lich su cua bat ky nhan vien nao
-    if (req.query.user_id && ['admin', 'manager', 'leader'].includes(req.user.role)) {
-      targetUserId = req.query.user_id;
+    // Admin / Leader / Manager có thể xem lịch sử của nhân viên
+    if (req.query.user_id && ['admin', 'leader', 'manager'].includes(req.user.role)) {
+      if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
+        const targetUser = await User.findById(req.query.user_id).select('department_id department_ids');
+        if (targetUser) {
+          const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
+            ? req.user.department_ids.map(id => id.toString())
+            : (req.user.department_id ? [req.user.department_id.toString()] : []);
+          const targetDeptIds = (targetUser.department_ids && targetUser.department_ids.length > 0)
+            ? targetUser.department_ids.map(id => id.toString())
+            : (targetUser.department_id ? [targetUser.department_id.toString()] : []);
+          const isSameDept = targetDeptIds.some(id => leaderDeptIds.includes(id));
+          if (isSameDept) {
+            targetUserId = req.query.user_id;
+          }
+        }
+      } else {
+        targetUserId = req.query.user_id;
+      }
     }
 
     if (mode === 'year') {
