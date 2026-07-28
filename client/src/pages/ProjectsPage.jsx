@@ -381,7 +381,7 @@ export default function ProjectsPage() {
               return (
                 <div
                   key={p._id || p.id}
-                  className="card animate-fade-in"
+                  className="card card--interactive animate-fade-in"
                   style={{
                     padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
                     borderLeft: '4px solid var(--primary)', transition: 'all 0.15s ease-in-out'
