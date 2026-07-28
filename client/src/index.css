@@ -9,15 +9,58 @@
 /* =============================================
    DARK MODE (Default) — Ultra Modern Cyber & Slate
    ============================================= */
-:root, [data-theme="dark"] {
+:root, [data-theme="light"] {
   --font-body:       'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display:    'Outfit', 'Plus Jakarta Sans', sans-serif;
   --font-mono:       'JetBrains Mono', monospace;
 
   --primary:         #2563eb;
   --primary-hover:   #1d4ed8;
+  --primary-light:   #3b82f6;
+  --primary-soft:    rgba(37, 99, 235, 0.08);
+  --primary-glow:    transparent;
+
+  --bg:              #f8fafc;
+  --bg-mesh:         none;
+  --bg-raised:       #ffffff;
+  --bg-card:         #ffffff;
+  --bg-card-hover:   #f1f5f9;
+  --bg-input:        #ffffff;
+  --border:          #e2e8f0;
+  --border-muted:    #f1f5f9;
+
+  --text:            #0f172a;
+  --text-secondary:  #475569;
+  --text-muted:      #64748b;
+
+  --green:           #10b981;
+  --green-soft:      rgba(16, 185, 129, 0.1);
+  --yellow:          #d97706;
+  --yellow-soft:     rgba(217, 119, 6, 0.1);
+  --red:             #dc2626;
+  --red-soft:        rgba(220, 38, 38, 0.1);
+  --blue:            #2563eb;
+  --blue-soft:       rgba(37, 99, 235, 0.1);
+
+  --shadow-xs:       0 1px 3px rgba(0,0,0,0.05);
+  --shadow-sm:       0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md:       0 6px 16px rgba(0,0,0,0.08);
+  --shadow-glow:     none;
+
+  --nav-bg:          #ffffff;
+  --nav-border:      #e2e8f0;
+  --radius:          10px;
+  --radius-lg:       14px;
+  --transition:      0.15s ease-in-out;
+}
+
+/* =============================================
+   DARK MODE
+   ============================================= */
+[data-theme="dark"] {
+  --primary:         #2563eb;
+  --primary-hover:   #1d4ed8;
   --primary-light:   #60a5fa;
-  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   --primary-soft:    rgba(37, 99, 235, 0.12);
   --primary-glow:    transparent;
 
@@ -46,51 +89,9 @@
   --shadow-xs:       0 1px 3px rgba(0,0,0,0.2);
   --shadow-sm:       0 4px 12px rgba(0,0,0,0.3);
   --shadow-md:       0 8px 24px rgba(0,0,0,0.4);
-  --shadow-glow:     none;
 
   --nav-bg:          #162038;
   --nav-border:      rgba(255, 255, 255, 0.08);
-  --radius:          10px;
-  --radius-lg:       14px;
-  --transition:      0.15s ease-in-out;
-}
-
-/* =============================================
-   LIGHT MODE
-   ============================================= */
-[data-theme="light"] {
-  --primary:         #2563eb;
-  --primary-hover:   #1d4ed8;
-  --primary-light:   #3b82f6;
-  --primary-soft:    rgba(37, 99, 235, 0.08);
-
-  --bg:              #f8fafc;
-  --bg-raised:       #ffffff;
-  --bg-card:         #ffffff;
-  --bg-card-hover:   #f1f5f9;
-  --bg-input:        #f8fafc;
-  --border:          #e2e8f0;
-  --border-muted:    #f1f5f9;
-
-  --text:            #0f172a;
-  --text-secondary:  #475569;
-  --text-muted:      #64748b;
-
-  --green:           #10b981;
-  --green-soft:      rgba(16, 185, 129, 0.1);
-  --yellow:          #d97706;
-  --yellow-soft:     rgba(217, 119, 6, 0.1);
-  --red:             #dc2626;
-  --red-soft:        rgba(220, 38, 38, 0.1);
-  --blue:            #2563eb;
-  --blue-soft:       rgba(37, 99, 235, 0.1);
-
-  --shadow-xs:       0 1px 2px rgba(0,0,0,0.04);
-  --shadow-sm:       0 1px 4px rgba(0,0,0,0.06);
-  --shadow-md:       0 4px 12px rgba(0,0,0,0.08);
-
-  --nav-bg:          #ffffff;
-  --nav-border:      #e2e8f0;
 }
 
 /* =============================================
