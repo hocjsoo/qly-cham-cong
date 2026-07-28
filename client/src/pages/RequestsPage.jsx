@@ -188,53 +188,72 @@ export default function RequestsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* KPI Stat Cards Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>⏳ ĐƠN CHỜ DUYỆT</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--yellow)' }}>{pendingCount}</div>
+        {/* KPI Stat Cards Header - 2 Cards Only (No Phép Còn Lại) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '14px' }}>
+          <div className="card" style={{ padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>⏳ ĐƠN CHỜ DUYỆT</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--yellow)' }}>{pendingCount}</div>
           </div>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>✅ ĐÃ DUYỆT</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green)' }}>{approvedCount}</div>
-          </div>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>🏖️ PHÉP CÒN LẠI</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
-              {leaveBalance?.remaining ?? 12}d
-            </div>
+          <div className="card" style={{ padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>✅ ĐÃ DUYỆT</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--green)' }}>{approvedCount}</div>
           </div>
         </div>
 
-        {/* Manager Tab Bar */}
-        {isManager && (
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
-            <button onClick={() => setTab('mine')} className={`chip${tab === 'mine' ? ' active' : ''}`}>
-              Đơn của tôi ({mine.length})
+        {/* Manager/Leader Segmented Navigation */}
+        {isManager ? (
+          <div style={{ background: 'var(--bg-raised)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '14px' }}>
+            <button
+              onClick={() => { setTab('mine'); setStatusFilter('all'); }}
+              className="btn"
+              style={{
+                background: tab === 'mine' ? 'var(--bg-card)' : 'transparent',
+                color: tab === 'mine' ? 'var(--text)' : 'var(--text-secondary)',
+                boxShadow: tab === 'mine' ? 'var(--shadow-xs)' : 'none',
+                borderRadius: '8px',
+                padding: '8px',
+                fontSize: '13px',
+                fontWeight: tab === 'mine' ? 700 : 500,
+                border: 'none',
+              }}
+            >
+              📝 Đơn của tôi ({mine.length})
             </button>
-            <button onClick={() => setTab('pending')} className={`chip${tab === 'pending' ? ' active' : ''}`}>
-              Cần duyệt ({pending.length})
+            <button
+              onClick={() => { setTab('pending'); setStatusFilter('all'); }}
+              className="btn"
+              style={{
+                background: tab === 'pending' ? 'var(--bg-card)' : 'transparent',
+                color: tab === 'pending' ? 'var(--primary)' : 'var(--text-secondary)',
+                boxShadow: tab === 'pending' ? 'var(--shadow-xs)' : 'none',
+                borderRadius: '8px',
+                padding: '8px',
+                fontSize: '13px',
+                fontWeight: tab === 'pending' ? 700 : 500,
+                border: 'none',
+              }}
+            >
+              🛡️ Đơn cần duyệt ({pending.length})
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Status Filter Chips */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
-          {[
-            { key: 'all', label: 'Tất cả đơn' },
-            { key: 'pending', label: '⏳ Chờ duyệt' },
-            { key: 'approved', label: '✅ Đã duyệt' },
-            { key: 'rejected', label: '❌ Từ chối' },
-          ].map(sf => (
-            <button
-              key={sf.key}
-              onClick={() => setStatusFilter(sf.key)}
-              className={`chip${statusFilter === sf.key ? ' active' : ''}`}
-              style={{ fontSize: '11px', padding: '5px 12px' }}
-            >
-              {sf.label}
-            </button>
-          ))}
+        {/* Clean Status Filter Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            {tab === 'mine' ? 'Danh sách đơn của tôi' : 'Danh sách đơn chờ phê duyệt'} ({list.length})
+          </div>
+          <select
+            className="form-input"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            style={{ width: 'auto', padding: '4px 10px', fontSize: '12px', borderRadius: '8px' }}
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="pending">⏳ Chờ duyệt</option>
+            <option value="approved">✅ Đã duyệt</option>
+            <option value="rejected">❌ Từ chối</option>
+          </select>
         </div>
 
         {/* Request List */}

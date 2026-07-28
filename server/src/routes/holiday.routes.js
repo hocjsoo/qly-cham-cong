@@ -1,4 +1,4 @@
-﻿// routes/holiday.routes.js
+// routes/holiday.routes.js
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -7,7 +7,7 @@ const { getHolidays, createHoliday, deleteHoliday, seedVietnamHolidays } = requi
 
 router.get('/', authMiddleware, getHolidays);
 router.post('/seed-vietnam', authMiddleware, requireRole('admin'), seedVietnamHolidays);
-router.post('/', authMiddleware, requireRole('admin', 'manager'), createHoliday);
-router.delete('/:id', authMiddleware, requireRole('admin', 'manager'), deleteHoliday);
+router.post('/', authMiddleware, requireRole('admin'), createHoliday);
+router.delete('/:id', authMiddleware, requireRole('admin'), deleteHoliday);
 
 module.exports = router;
