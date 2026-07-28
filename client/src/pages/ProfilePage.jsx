@@ -1,8 +1,8 @@
 // src/pages/ProfilePage.jsx
 // Trang cá nhân — Xem thông tin, Quản lý ngày phép tồn, Chỉnh sửa họ tên/SĐT, Đổi mật khẩu
 
-import { useState, useEffect } from 'react';
-import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Calendar, Briefcase, HeartHandshake } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -14,9 +14,10 @@ const ROLE_VI = { admin: 'Quản trị viên', leader: 'Leader', manager: 'Leade
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
   const [showChangePass, setShowChangePass] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
-  const [leaveBal, setLeaveBal] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Edit info state
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -31,23 +32,43 @@ export default function ProfilePage() {
 
   const initials = user?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?';
 
-  useEffect(() => {
-    fetchLeaveBalance();
-  }, []);
-
-  const fetchLeaveBalance = async () => {
-    try {
-      const { data } = await api.get('/leave-balance/me');
-      setLeaveBal(data);
-    } catch (err) {
-      console.log('Chưa có dữ liệu ngày phép:', err);
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/login');
     toast.success('Đã đăng xuất');
+  };
+
+  const handleAvatarSelect = () => {
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn tệp hình ảnh valid');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Ảnh phải nhỏ hơn 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result;
+      setUploadingAvatar(true);
+      try {
+        const { data } = await api.patch('/auth/profile', { avatar_url: base64 });
+        toast.success('Đã cập nhật ảnh đại diện thành công! 📸');
+        setUser(data.user);
+      } catch (err) {
+        toast.error(err?.response?.data?.error || 'Lỗi tải ảnh đại diện');
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleUpdateProfile = async () => {
@@ -99,6 +120,8 @@ export default function ProfilePage() {
 
   return (
     <div className="page">
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+
       <div className="header">
         <div className="header__inner">
           <div className="header__title">Cá nhân</div>
@@ -109,55 +132,32 @@ export default function ProfilePage() {
       <div className="container" style={{ paddingTop: '20px' }}>
         {/* Profile header */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }} className="animate-fade-in">
-          <div className="avatar" style={{
-            width: '64px', height: '64px', fontSize: '22px',
-            margin: '0 auto 10px',
-          }}>
-            {initials}
+          <div style={{ position: 'relative', width: '72px', height: '72px', margin: '0 auto 10px', cursor: 'pointer' }} onClick={handleAvatarSelect} title="Click để tải ảnh đại diện">
+            {user?.avatar_url ? (
+              <img src={user.avatar_url} alt={user.full_name} style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
+            ) : (
+              <div className="avatar" style={{ width: '72px', height: '72px', fontSize: '24px' }}>
+                {initials}
+              </div>
+            )}
+            <div style={{
+              position: 'absolute', bottom: '0', right: '0', background: 'var(--primary)', color: '#fff',
+              borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: '2px solid var(--bg)', fontSize: '11px',
+            }}>
+              {uploadingAvatar ? <span className="spinner" style={{ width: '12px', height: '12px' }} /> : <Camera size={12} />}
+            </div>
           </div>
+
+          <div style={{ fontSize: '11px', color: 'var(--primary)', cursor: 'pointer', marginBottom: '6px', fontWeight: 600 }} onClick={handleAvatarSelect}>
+            📸 Đổi ảnh đại diện
+          </div>
+
           <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{user?.full_name}</h2>
           <span className={`badge ${user?.role === 'admin' ? 'badge--danger' : (user?.role === 'leader' || user?.role === 'manager') ? 'badge--warning' : 'badge--info'}`}>
             {ROLE_VI[user?.role]}
           </span>
         </div>
-
-        {/* Leave Balances Card */}
-        {leaveBal && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', background: 'var(--bg-raised)', borderColor: 'var(--primary-soft)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-              <Calendar size={18} color="var(--primary)" />
-              <span style={{ fontSize: '13px', fontWeight: 700 }}>Quỹ nghỉ phép năm {leaveBal.year}</span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-              {/* Phép năm */}
-              <div style={{ background: 'var(--bg)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Briefcase size={12} /> Phép năm
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)', marginTop: '4px' }}>
-                  {leaveBal.annual_leave.remaining} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>/ {leaveBal.annual_leave.total} ngày</span>
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Đã dùng: {leaveBal.annual_leave.used} ngày
-                </div>
-              </div>
-
-              {/* Nghỉ ốm */}
-              <div style={{ background: 'var(--bg)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <HeartHandshake size={12} /> Nghỉ ốm
-                </div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--green)', marginTop: '4px' }}>
-                  {leaveBal.sick_leave.remaining} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>/ {leaveBal.sick_leave.total} ngày</span>
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Đã dùng: {leaveBal.sick_leave.used} ngày
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Info card */}
         <div className="card animate-fade-in" style={{ marginBottom: '12px' }}>

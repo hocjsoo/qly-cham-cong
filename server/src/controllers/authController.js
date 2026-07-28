@@ -232,17 +232,22 @@ const changePassword = async (req, res) => {
   }
 };
 
-// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân
+// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân (bao gồm avatar)
 const updateProfile = async (req, res) => {
-  const { full_name, phone } = req.body;
-  if (!full_name || !full_name.trim()) {
+  const { full_name, phone, avatar_url } = req.body;
+  if (full_name !== undefined && !full_name.trim()) {
     return res.status(400).json({ error: 'Họ tên không được để trống.' });
   }
 
   try {
+    const updateData = {};
+    if (full_name !== undefined) updateData.full_name = full_name.trim();
+    if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
+    if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { full_name: full_name.trim(), phone: phone?.trim() || null },
+      updateData,
       { new: true }
     ).select('-password_hash -reset_token -reset_token_expires').populate('department_id', 'name');
 

@@ -25,7 +25,7 @@ router.get('/history', getHistory);
 // GET /api/attendance/record?user_id=...&date=YYYY-MM-DD
 router.get('/record', getRecordByUserAndDate);
 
-// PUT /api/attendance/override/:id — Admin/Manager override
-router.put('/override/:id', requireRole('admin', 'manager'), overrideAttendance);
+// PUT /api/attendance/override/:id — Admin override
+router.put('/override/:id', requireRole('admin'), overrideAttendance);
 
 module.exports = router;

@@ -10,13 +10,13 @@ router.use(authMiddleware);
 // GET /api/projects
 router.get('/', getProjects);
 
-// POST /api/projects (Admin/Manager)
-router.post('/', requireRole('admin', 'manager'), createProject);
+// POST /api/projects (Admin only)
+router.post('/', requireRole('admin'), createProject);
 
-// PUT /api/projects/:id (Admin/Manager)
-router.put('/:id', requireRole('admin', 'manager'), updateProject);
+// PUT /api/projects/:id (Admin only)
+router.put('/:id', requireRole('admin'), updateProject);
 
-// DELETE /api/projects/:id (Admin/Manager)
-router.delete('/:id', requireRole('admin', 'manager'), deleteProject);
+// DELETE /api/projects/:id (Admin only)
+router.delete('/:id', requireRole('admin'), deleteProject);
 
 module.exports = router;

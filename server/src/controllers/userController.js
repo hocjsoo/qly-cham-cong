@@ -1,4 +1,4 @@
-﻿// controllers/userController.js - Mongoose User Management Controller
+// controllers/userController.js - Mongoose User Management Controller
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
@@ -18,7 +18,19 @@ const generateEmployeeCode = async (employeeType = 'NS') => {
 // GET /api/users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find()
+    let queryFilter = {};
+    if (['manager', 'leader'].includes(req.user.role)) {
+      const leaderDeptIds = req.user.department_ids && req.user.department_ids.length > 0
+        ? req.user.department_ids
+        : (req.user.department_id ? [req.user.department_id] : []);
+      queryFilter.$or = [
+        { _id: req.user._id },
+        { department_ids: { $in: leaderDeptIds } },
+        { department_id: { $in: leaderDeptIds } }
+      ];
+    }
+
+    const users = await User.find(queryFilter)
       .select('-password_hash')
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
@@ -64,6 +76,14 @@ const createUser = async (req, res) => {
     return res.status(400).json({ error: 'Mat khau phai it nhat 6 ky tu.' });
   }
 
+  const deptIds = Array.isArray(department_ids) && department_ids.length > 0
+    ? department_ids
+    : (department_id ? [department_id] : []);
+
+  if (['leader', 'manager'].includes(role) && deptIds.length === 0) {
+    return res.status(400).json({ error: 'Khi chon vai tro Leader, bat buoc phai chon phong ban quan ly.' });
+  }
+
   try {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) {
@@ -71,10 +91,6 @@ const createUser = async (req, res) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const deptIds = Array.isArray(department_ids) && department_ids.length > 0
-      ? department_ids
-      : (department_id ? [department_id] : []);
-
     const empType = employee_type || 'NS';
     const empCode = employee_code || await generateEmployeeCode(empType);
 

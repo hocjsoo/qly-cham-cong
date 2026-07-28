@@ -1,4 +1,4 @@
-﻿// controllers/holidayController.js - Quan ly Ngay Nghi Le & Tu Dong Gui Thong Bao
+// controllers/holidayController.js - Quan ly Ngay Nghi Le & Tu Dong Gui Thong Bao
 const Holiday = require('../models/Holiday');
 const Notification = require('../models/Notification');
 
@@ -16,7 +16,7 @@ const getHolidays = async (req, res) => {
 
 // POST /api/holidays
 const createHoliday = async (req, res) => {
-  const { name, date, end_date, is_paid = true, note } = req.body;
+  const { name, date, end_date, is_paid = false, note } = req.body;
   if (!name || !date) return res.status(400).json({ error: 'Ten ngay le va ngay bat dau la bat buoc.' });
 
   try {
@@ -48,15 +48,15 @@ const deleteHoliday = async (req, res) => {
   }
 };
 
-// POST /api/holidays/seed-vietnam - Nap tu dong ngay le Viet Nam theo nam
+// POST /api/holidays/seed-vietnam - Nap tu dong ngay le Viet Nam theo nam (khong huong luong)
 const seedVietnamHolidays = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
 
     const fixedHolidays = [
-      { date: `${year}-01-01`, end_date: `${year}-01-01`, name: 'Tet Duong lich', is_paid: true },
-      { date: `${year}-04-30`, end_date: `${year}-05-01`, name: 'Ngay Giai phong mien Nam & Quoc te Lao dong', is_paid: true },
-      { date: `${year}-09-02`, end_date: `${year}-09-02`, name: 'Quoc khanh', is_paid: true },
+      { date: `${year}-01-01`, end_date: `${year}-01-01`, name: 'Tet Duong lich', is_paid: false },
+      { date: `${year}-04-30`, end_date: `${year}-05-01`, name: 'Ngay Giai phong mien Nam & Quoc te Lao dong', is_paid: false },
+      { date: `${year}-09-02`, end_date: `${year}-09-02`, name: 'Quoc khanh', is_paid: false },
     ];
 
     const tetDates = {
@@ -66,12 +66,12 @@ const seedVietnamHolidays = async (req, res) => {
       2027: { start: '2027-02-06', end: '2027-02-12' },
     };
     if (tetDates[year]) {
-      fixedHolidays.push({ date: tetDates[year].start, end_date: tetDates[year].end, name: 'Tet Nguyen Dan', is_paid: true });
+      fixedHolidays.push({ date: tetDates[year].start, end_date: tetDates[year].end, name: 'Tet Nguyen Dan', is_paid: false });
     }
 
     const giotoHV = { 2024: '2024-04-18', 2025: '2025-04-07', 2026: '2026-03-28', 2027: '2027-04-15' };
     if (giotoHV[year]) {
-      fixedHolidays.push({ date: giotoHV[year], end_date: giotoHV[year], name: 'Gio To Hung Vuong', is_paid: true });
+      fixedHolidays.push({ date: giotoHV[year], end_date: giotoHV[year], name: 'Gio To Hung Vuong', is_paid: false });
     }
 
     let added = 0, skipped = 0;
