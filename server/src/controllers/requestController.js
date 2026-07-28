@@ -127,15 +127,20 @@ const getPendingRequests = async (req, res) => {
         .populate('user_id', 'full_name email department_id')
         .sort({ created_at: -1 });
     } else {
+      const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
+        ? req.user.department_ids
+        : (req.user.department_id ? [req.user.department_id] : []);
+
       const teamUserIds = await User.find({
         $or: [
           { manager_id: req.user._id },
-          { department_id: req.user.department_id }
+          { department_ids: { $in: leaderDeptIds } },
+          { department_id: { $in: leaderDeptIds } }
         ]
       }).distinct('_id');
 
       requests = await Request.find({ status: 'pending', user_id: { $in: teamUserIds } })
-        .populate('user_id', 'full_name email department_id')
+        .populate('user_id', 'full_name email department_id department_ids')
         .sort({ created_at: -1 });
     }
 
