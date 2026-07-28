@@ -41,19 +41,6 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 export default function ReportPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
-  if (!isAdmin) {
-    return (
-      <div className="page">
-        <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-          <div className="empty-state">
-            <div className="empty-state__icon">🔒</div>
-            <div className="empty-state__title">Truy cập bị từ chối</div>
-            <div className="empty-state__desc">Chỉ tài khoản Admin mới có quyền truy cập trang Báo cáo.</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -107,7 +94,25 @@ export default function ReportPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
 
-  useEffect(() => { loadTab(); }, [month, year, tab, selectedDetailUserId]);
+  useEffect(() => {
+    if (isAdmin) {
+      loadTab();
+    }
+  }, [isAdmin, month, year, tab, selectedDetailUserId]);
+
+  if (!isAdmin) {
+    return (
+      <div className="page">
+        <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
+          <div className="empty-state">
+            <div className="empty-state__icon">🔒</div>
+            <div className="empty-state__title">Truy cập bị từ chối</div>
+            <div className="empty-state__desc">Chỉ tài khoản Admin mới có quyền truy cập trang Báo cáo.</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const loadTab = async () => {
     setLoading(true);
