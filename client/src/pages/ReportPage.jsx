@@ -116,7 +116,7 @@ export default function ReportPage() {
         const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
         setMatrixData(data);
       } else if (tab === 'individual_detail') {
-        const queryUser = selectedDetailUserId || user._id;
+        const queryUser = selectedDetailUserId || user?._id || user?.id;
         const { data } = await api.get(`/reports/individual-detail?user_id=${queryUser}&month=${month}&year=${year}`);
         setIndividualDetail(data);
       } else if (tab === 'overview') {
