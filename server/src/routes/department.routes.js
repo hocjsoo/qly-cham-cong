@@ -9,7 +9,14 @@ router.use(authMiddleware);
 // GET /api/departments
 router.get('/', async (req, res) => {
   try {
-    const departments = await Department.find().sort({ name: 1 });
+    let filter = {};
+    if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
+      const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
+        ? req.user.department_ids
+        : (req.user.department_id ? [req.user.department_id] : []);
+      filter = { _id: { $in: leaderDeptIds } };
+    }
+    const departments = await Department.find(filter).sort({ name: 1 });
     res.json(departments);
   } catch (error) {
     console.error('GetDepartments error:', error);

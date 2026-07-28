@@ -298,14 +298,20 @@ export default function StaffPage() {
         </div>
 
         {/* Dept filter chips */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
-          <button onClick={() => setFilterDept('')} className={`chip${!filterDept ? ' active' : ''}`}>Tất cả</button>
-          {depts.map(d => (
-            <button key={d._id} onClick={() => setFilterDept(d._id)} className={`chip${filterDept === d._id ? ' active' : ''}`}>
-              {d.name}
-            </button>
-          ))}
-        </div>
+        {depts.length > 1 ? (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
+            <button onClick={() => setFilterDept('')} className={`chip${!filterDept ? ' active' : ''}`}>Tất cả phòng ban</button>
+            {depts.map(d => (
+              <button key={d._id} onClick={() => setFilterDept(d._id)} className={`chip${filterDept === d._id ? ' active' : ''}`}>
+                {d.name}
+              </button>
+            ))}
+          </div>
+        ) : depts.length === 1 ? (
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span>🏢 Phòng ban:</span> <span className="chip active" style={{ fontSize: '11px', padding: '3px 10px' }}>{depts[0].name}</span>
+          </div>
+        ) : null}
 
         {/* Staff list */}
         {loading ? (
