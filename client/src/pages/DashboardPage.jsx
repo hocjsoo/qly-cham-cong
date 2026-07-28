@@ -122,16 +122,16 @@ export default function DashboardPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* Stat cards */}
+        {/* Bento Grid Stat Cards */}
         {data && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '12px' }}>
+          <div className="grid-desktop-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '14px' }}>
             {[
-              { icon: <Users size={18} />, label: 'Tổng', value: s.total, color: 'var(--primary)', bg: 'var(--primary-soft)' },
-              { icon: <UserCheck size={18} />, label: 'Có mặt', value: s.present_total, color: 'var(--green)', bg: 'var(--green-soft)' },
-              { icon: <Clock size={18} />, label: 'Đang làm', value: s.checked_in, color: 'var(--blue)', bg: 'var(--blue-soft)' },
-              { icon: <UserX size={18} />, label: 'Vắng', value: s.absent, color: 'var(--red)', bg: 'var(--red-soft)' },
+              { icon: <Users size={20} />, label: 'Tổng nhân sự', value: s.total, color: 'var(--primary)', bg: 'var(--primary-soft)', border: '1px solid var(--primary-glow)' },
+              { icon: <UserCheck size={20} />, label: 'Có mặt hôm nay', value: s.present_total, color: 'var(--green)', bg: 'var(--green-soft)', border: '1px solid rgba(16, 185, 129, 0.3)' },
+              { icon: <Clock size={20} />, label: 'Đang làm việc', value: s.checked_in, color: 'var(--blue)', bg: 'var(--blue-soft)', border: '1px solid rgba(6, 182, 212, 0.3)' },
+              { icon: <UserX size={20} />, label: 'Vắng mặt', value: s.absent, color: 'var(--red)', bg: 'var(--red-soft)', border: '1px solid rgba(244, 63, 94, 0.3)' },
             ].map((item, i) => (
-              <div key={i} className="stat-card animate-fade-in">
+              <div key={i} className="stat-card card--interactive animate-fade-in" style={{ border: item.border }}>
                 <div className="stat-card__icon" style={{ background: item.bg, color: item.color }}>
                   {item.icon}
                 </div>
