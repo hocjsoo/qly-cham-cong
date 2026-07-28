@@ -32,6 +32,7 @@ const STATUS_MAP = {
 };
 
 export default function ProjectsPage() {
+  const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
   const [projects, setProjects] = useState([]);
