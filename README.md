@@ -23,10 +23,11 @@
 
 ### 📊 Dashboard & Báo cáo
 - Dashboard tổng quan theo thời gian thực (Admin/Leader)
-- **Bảng chấm công matrix** 31 ngày theo tháng (toàn công ty)
-- **Phiếu chi tiết chấm công cá nhân** (3 ca / ngày)
-- Xuất **PDF A4 sắc nét** (3x scale, offscreen render)
+- **Bảng chấm công matrix** 31 ngày theo tháng (toàn công ty, render 2150px không bị xén ngày)
+- **Bảng Chi Tiết Chấm Công Cá Nhân** (gộp giờ Vào/Ra, Loại Công, badge Đủ Công Ngày, Giờ làm & OT ngày)
+- Xuất **PDF A4 sắc nét 2.5x–3x** (offscreen high-def renderer)
 - Xuất **Excel** (xlsx) báo cáo chấm công
+- Tự động lưu & đồng bộ **Logo doanh nghiệp** tức thì trên giao diện và trang Đăng Nhập
 
 ### 📋 Quản Lý Đơn Từ
 - Tạo đơn: Nghỉ phép (P), Nghỉ ốm (O), Nghỉ không lương (KL), OT, WFH, Công tác, Giải trình, Khác
@@ -220,7 +221,8 @@ INITIAL_ADMIN_PASSWORD=YourSecurePassword123
 | `GET/POST/PUT/DELETE` | `/api/departments` | CRUD phòng ban | ✅ |
 | `GET/POST/PUT/DELETE` | `/api/projects` | CRUD dự án | Mixed |
 | `GET/POST/PUT/DELETE` | `/api/locations` | CRUD vị trí GPS | Admin |
-| `GET/PUT` | `/api/settings` | Cài đặt hệ thống | Admin |
+| `GET` | `/api/settings` | Tải Logo & Tên Công Ty | ❌ (Public) |
+| `PUT` | `/api/settings` | Cập nhật logo & cấu hình hệ thống | Admin |
 | `GET/POST/DELETE` | `/api/holidays` | CRUD ngày lễ | Admin/Leader |
 | `GET/PUT` | `/api/leave-balance` | Quản lý ngày phép | Admin/Leader |
 | `GET/POST/PUT` | `/api/corrections` | Yêu cầu sửa công | Mixed |
