@@ -62,7 +62,9 @@ const getFullMatrix = async (req, res) => {
         dayStr: String(d).padStart(2, '0'),
         weekday: weekdayStr,
         dateStr,
-        isWeekend: dateObj.getDay() === 0 || dateObj.getDay() === 6,
+        isSunday: dateObj.getDay() === 0,
+        isSaturday: dateObj.getDay() === 6,
+        isWeekend: dateObj.getDay() === 0,
       });
     }
 

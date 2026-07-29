@@ -95,6 +95,55 @@ export default function ReportPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
 
+  // Departments from Database API
+  const [dbDepartments, setDbDepartments] = useState([]);
+
+  useEffect(() => {
+    api.get('/departments').then(res => {
+      if (Array.isArray(res.data)) {
+        setDbDepartments(res.data);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const departmentOptions = useMemo(() => {
+    const set = new Set();
+    dbDepartments.forEach(d => {
+      if (d.name) set.add(d.name.trim());
+    });
+    if (matrixData?.staff_rows) {
+      matrixData.staff_rows.forEach(r => {
+        if (r.department_name) set.add(r.department_name.trim());
+        if (Array.isArray(r.department_ids)) {
+          r.department_ids.forEach(dName => {
+            if (typeof dName === 'string' && dName.trim()) set.add(dName.trim());
+            else if (dName?.name) set.add(dName.name.trim());
+          });
+        }
+      });
+    }
+    return Array.from(set).sort();
+  }, [dbDepartments, matrixData]);
+
+  const displayedStaffRows = useMemo(() => {
+    if (!matrixData?.staff_rows) return [];
+    return matrixData.staff_rows.filter(r => {
+      const q = searchQuery.trim().toLowerCase();
+      const matchSearch = !q ||
+        r.full_name?.toLowerCase().includes(q) ||
+        r.code?.toLowerCase().includes(q);
+
+      const staffDepts = [
+        r.department_name,
+        ...(Array.isArray(r.department_ids) ? r.department_ids.map(d => typeof d === 'string' ? d : d?.name) : [])
+      ].filter(Boolean);
+
+      const matchDept = !deptFilter || staffDepts.includes(deptFilter) || r.department_name === deptFilter;
+
+      return matchSearch && matchDept;
+    });
+  }, [matrixData, searchQuery, deptFilter]);
+
   useEffect(() => {
     if (isAdmin) {
       loadTab();
@@ -330,27 +379,6 @@ export default function ReportPage() {
     window.print();
   };
 
-  // Memoized Department Options
-  const departmentOptions = useMemo(() => {
-    if (!matrixData?.staff_rows) return [];
-    const depts = new Set();
-    matrixData.staff_rows.forEach(r => {
-      if (r.role_label) depts.add(r.role_label);
-    });
-    return Array.from(depts);
-  }, [matrixData]);
-
-  // Memoized Staff rows to display in matrix table
-  const displayedStaffRows = useMemo(() => {
-    if (!matrixData?.staff_rows) return [];
-    return matrixData.staff_rows.filter(r => {
-      const matchExport = !filterStaffId || r.id === filterStaffId;
-      const matchSearch = !searchQuery || r.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || r.code?.toLowerCase().includes(searchQuery.toLowerCase()) || String(r.id || '').toLowerCase().includes(searchQuery.toLowerCase());
-      const matchDept = !deptFilter || r.role_label?.includes(deptFilter);
-      return matchExport && matchSearch && matchDept;
-    });
-  }, [matrixData, filterStaffId, searchQuery, deptFilter]);
-
   const indUser = individualDetail?.user || {};
   const indSum = individualDetail?.summary || {};
   const indLogs = individualDetail?.daily_logs || [];
@@ -581,16 +609,19 @@ export default function ReportPage() {
                           <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }}>Khác</th>
 
                           {/* Days Weekday Row */}
-                          {matrixData.header_days.map(hd => (
-                            <th key={hd.day} style={{
-                              padding: '4px 6px',
-                              background: hd.isWeekend ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
-                              color: hd.isWeekend ? '#ef4444' : 'var(--text-muted)',
-                              minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
-                            }}>
-                              {hd.weekday}
-                            </th>
-                          ))}
+                          {matrixData.header_days.map(hd => {
+                            const isSun = hd.weekday === 'CN' || hd.isSunday;
+                            return (
+                              <th key={hd.day} style={{
+                                padding: '4px 6px',
+                                background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
+                                color: isSun ? '#ef4444' : 'var(--text-muted)',
+                                minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
+                              }}>
+                                {hd.weekday}
+                              </th>
+                            );
+                          })}
 
                           {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
                         </tr>
@@ -600,16 +631,19 @@ export default function ReportPage() {
                           <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 10px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG THÁNG</th>
                           <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
 
-                          {matrixData.header_days.map(hd => (
-                            <th key={hd.day} style={{
-                              padding: '4px 6px',
-                              background: hd.isWeekend ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
-                              color: hd.isWeekend ? '#ef4444' : 'var(--text)',
-                              borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
-                            }}>
-                              {hd.dayStr}
-                            </th>
-                          ))}
+                          {matrixData.header_days.map(hd => {
+                            const isSun = hd.weekday === 'CN' || hd.isSunday;
+                            return (
+                              <th key={hd.day} style={{
+                                padding: '4px 6px',
+                                background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                                color: isSun ? '#ef4444' : 'var(--text)',
+                                borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
+                              }}>
+                                {hd.dayStr}
+                              </th>
+                            );
+                          })}
 
                           {isAdminOrManager && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
                         </tr>
@@ -634,7 +668,8 @@ export default function ReportPage() {
 
                             {/* Day Cell Symbols */}
                             {r.days.map(d => {
-                              const isWk = matrixData.header_days.find(hd => hd.day === d.day)?.isWeekend;
+                              const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
+                              const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                               return (
                                 <td
                                   key={d.day}
@@ -647,12 +682,12 @@ export default function ReportPage() {
                                   }}
                                   style={{
                                     padding: '6px 2px', cursor: isAdminOrManager ? 'pointer' : 'default',
-                                    background: isWk ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                                    background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                     borderLeft: '1px solid var(--border-muted)'
                                   }}
                                   title={isAdminOrManager ? `Bấm để chỉnh sửa ô công ngày ${d.dateStr}` : d.symbol}
                                 >
-                                  {renderDaySymbol(d.symbol, isWk)}
+                                  {renderDaySymbol(d.symbol, isSun)}
                                 </td>
                               );
                             })}
