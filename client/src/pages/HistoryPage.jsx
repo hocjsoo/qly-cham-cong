@@ -58,6 +58,7 @@ function getTimesheetSymbol(rec) {
 
 export default function HistoryPage() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const now = new Date();
@@ -680,7 +681,7 @@ export default function HistoryPage() {
                         ) : (
                           <span className="badge badge--success" style={{ fontSize: '10px' }}>✓</span>
                         )}
-                        {isAdminOrManager && (
+                        {isAdmin && (
                           <button onClick={() => handleOpenOverride(r)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '2px' }}>
                             <Edit2 size={14} />
                           </button>
@@ -703,7 +704,7 @@ export default function HistoryPage() {
                       <th style={{ padding: '6px 8px' }}>Giờ</th>
                       <th style={{ padding: '6px 8px' }}>OT</th>
                       <th style={{ padding: '6px 8px' }}>Trạng thái</th>
-                      {isAdminOrManager && <th style={{ padding: '6px 8px' }}>Sửa</th>}
+                      {isAdmin && <th style={{ padding: '6px 8px' }}>Sửa</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -722,7 +723,7 @@ export default function HistoryPage() {
                             <span className="badge badge--success" style={{ fontSize: '10px' }}>✓</span>
                           )}
                         </td>
-                        {isAdminOrManager && (
+                        {isAdmin && (
                           <td style={{ padding: '6px 8px' }}>
                             <button onClick={() => handleOpenOverride(r)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}>
                               <Edit2 size={14} />
@@ -771,7 +772,7 @@ export default function HistoryPage() {
                         </div>
                       )}
 
-                      {isAdminOrManager && (
+                      {isAdmin && (
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                           <button
                             onClick={() => { handleOpenEditHoliday(currentHoliday); setSelectedDayDate(''); }}
@@ -831,7 +832,7 @@ export default function HistoryPage() {
                         </div>
                       )}
 
-                      {isAdminOrManager && (
+                      {isAdmin && (
                         <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '12px' }}>
                           <Edit2 size={14} /> Điều chỉnh ca làm này
                         </button>
@@ -846,7 +847,7 @@ export default function HistoryPage() {
                   )}
 
                   {/* Admin Fast Add Holiday Trigger */}
-                  {isAdminOrManager && !currentHoliday && (
+                  {isAdmin && !currentHoliday && (
                     <button
                       onClick={() => { handleOpenCreateHoliday(selectedDayDate); setSelectedDayDate(''); }}
                       className="btn btn--ghost btn--full"
