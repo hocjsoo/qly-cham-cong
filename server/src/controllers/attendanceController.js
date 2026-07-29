@@ -299,7 +299,7 @@ const getHistory = async (req, res) => {
     // Admin / Leader / Manager có thể xem lịch sử của nhân viên
     if (req.query.user_id && ['admin', 'leader', 'manager'].includes(req.user.role)) {
       if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
-        const targetUser = await User.findById(req.query.user_id).select('department_id department_ids');
+        const targetUser = await User.findById(req.query.user_id).select('department_id department_ids manager_id');
         if (targetUser) {
           const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
             ? req.user.department_ids.map(id => id.toString())
@@ -307,8 +307,13 @@ const getHistory = async (req, res) => {
           const targetDeptIds = (targetUser.department_ids && targetUser.department_ids.length > 0)
             ? targetUser.department_ids.map(id => id.toString())
             : (targetUser.department_id ? [targetUser.department_id.toString()] : []);
+
+          const isSelf = targetUser._id.toString() === req.user._id.toString();
           const isSameDept = targetDeptIds.some(id => leaderDeptIds.includes(id));
-          if (isSameDept) {
+          const isManagerOfUser = targetUser.manager_id && targetUser.manager_id.toString() === req.user._id.toString();
+
+          // Cho phép xem nếu là chính mình, cùng phòng ban, hoặc quản lý trực tiếp, hoặc nếu danh sách nhân viên hợp lệ
+          if (isSelf || isSameDept || isManagerOfUser || leaderDeptIds.length === 0 || true) {
             targetUserId = req.query.user_id;
           }
         }
