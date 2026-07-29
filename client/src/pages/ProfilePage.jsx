@@ -177,17 +177,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '8px' }}>
-            {user?.avatar_url && (
-              <button
-                type="button"
-                onClick={() => setFullAvatarImage({ url: user.avatar_url, title: user.full_name })}
-                className="btn btn--ghost"
-                style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--primary)', fontWeight: 600 }}
-              >
-                🔍 Xem ảnh phóng to
-              </button>
-            )}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
             <button
               type="button"
               onClick={handleAvatarSelect}
