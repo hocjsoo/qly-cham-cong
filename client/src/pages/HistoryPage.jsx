@@ -89,7 +89,7 @@ export default function HistoryPage() {
 
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('all');
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   // Settings for dynamic working hours & late rules
   const [settings, setSettings] = useState({
@@ -342,8 +342,7 @@ export default function HistoryPage() {
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
             >
-              <option value="all">🌐 Tất cả nhân viên phòng ban ({staffList.length})</option>
-              <option value={user?._id || user?.id}>👤 Cá nhân tôi ({user?.full_name})</option>
+              <option value="">-- Cá nhân tôi ({user?.full_name}) --</option>
               {staffList.filter(s => (s._id || s.id) !== (user?._id || user?.id)).map(s => (
                 <option key={s._id || s.id} value={s._id || s.id}>
                   {s.full_name} ({s.employee_code || 'NV'}) - {s.email}
