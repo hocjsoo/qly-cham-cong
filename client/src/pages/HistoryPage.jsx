@@ -89,7 +89,7 @@ export default function HistoryPage() {
 
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState('all');
 
   // Settings for dynamic working hours & late rules
   const [settings, setSettings] = useState({
@@ -342,8 +342,9 @@ export default function HistoryPage() {
               value={selectedUserId}
               onChange={(e) => setSelectedUserId(e.target.value)}
             >
-              <option value="">-- Cá nhân tôi ({user?.full_name}) --</option>
-              {staffList.map(s => (
+              <option value="all">🌐 Tất cả nhân viên phòng ban ({staffList.length})</option>
+              <option value={user?._id || user?.id}>👤 Cá nhân tôi ({user?.full_name})</option>
+              {staffList.filter(s => (s._id || s.id) !== (user?._id || user?.id)).map(s => (
                 <option key={s._id || s.id} value={s._id || s.id}>
                   {s.full_name} ({s.employee_code || 'NV'}) - {s.email}
                 </option>
@@ -668,6 +669,7 @@ export default function HistoryPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                          {r.user_id?.full_name ? <span style={{ fontWeight: 700, color: 'var(--primary)', marginRight: '6px' }}>{r.user_id.full_name}:</span> : null}
                           {fmt(r.check_in_time)} → {fmt(r.check_out_time)}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
