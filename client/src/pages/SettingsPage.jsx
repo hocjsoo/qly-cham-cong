@@ -361,13 +361,41 @@ export default function SettingsPage() {
                     <input type="text" className="form-input" value={shiftForm.company_name} onChange={e => setShiftForm(p => ({...p, company_name: e.target.value}))} placeholder="ET Architects" />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">URL Logo cong ty</label>
-                    <input type="text" className="form-input" value={shiftForm.company_logo_url} onChange={e => setShiftForm(p => ({...p, company_logo_url: e.target.value}))} placeholder="https://..." />
-                    {shiftForm.company_logo_url && (
-                      <div style={{ marginTop: '8px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', border: '1px dashed var(--border)' }}>
-                        <img src={shiftForm.company_logo_url} alt="Logo preview" style={{ maxHeight: '48px', maxWidth: '180px', objectFit: 'contain' }} onError={e => { e.target.style.display = 'none'; }} />
-                      </div>
-                    )}
+                    <label className="form-label">Logo công ty</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      {shiftForm.company_logo_url ? (
+                        <div style={{ padding: '6px 12px', background: 'var(--bg-raised)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                          <img src={shiftForm.company_logo_url} alt="Logo preview" style={{ height: '40px', maxWidth: '160px', objectFit: 'contain', display: 'block' }} />
+                        </div>
+                      ) : null}
+                      <label className="btn btn--ghost" style={{ cursor: 'pointer', padding: '8px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        📷 Tải ảnh logo lên...
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 3 * 1024 * 1024) {
+                              toast.error('File ảnh logo tối đa 3MB');
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setShiftForm(p => ({ ...p, company_logo_url: reader.result }));
+                              toast.success('Đã tải ảnh logo!');
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+                      {shiftForm.company_logo_url && (
+                        <button onClick={() => setShiftForm(p => ({ ...p, company_logo_url: '' }))} className="btn btn--ghost" style={{ color: 'var(--red)', fontSize: '12px' }}>
+                          Xóa logo
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </>
               ) : <div className="skeleton-card" style={{ height: '80px' }} />}
@@ -375,44 +403,35 @@ export default function SettingsPage() {
 
             <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
               <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={16} color="var(--primary)" /> Gio lam & Ca lam viec
+                <Clock size={16} color="var(--primary)" /> Giờ làm & Ca làm việc
               </div>
               {shiftForm ? (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '14px' }}>
                     <div className="form-group">
-                      <label className="form-label">Gio vao chuan</label>
+                      <label className="form-label">Giờ vào chuẩn</label>
                       <input type="time" className="form-input" value={shiftForm.work_start_time} onChange={e => setShiftForm(p => ({...p, work_start_time: e.target.value}))} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Gio ve chuan</label>
+                      <label className="form-label">Giờ về chuẩn</label>
                       <input type="time" className="form-input" value={shiftForm.work_end_time} onChange={e => setShiftForm(p => ({...p, work_end_time: e.target.value}))} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Nghi trua bat dau</label>
-                      <input type="time" className="form-input" value={shiftForm.lunch_break_start} onChange={e => setShiftForm(p => ({...p, lunch_break_start: e.target.value}))} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Nghi trua ket thuc</label>
-                      <input type="time" className="form-input" value={shiftForm.lunch_break_end} onChange={e => setShiftForm(p => ({...p, lunch_break_end: e.target.value}))} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Muon nhe (phut)</label>
+                      <label className="form-label">Muộn nhẹ (phút)</label>
                       <input type="number" className="form-input" value={shiftForm.minor_late_mins} onChange={e => setShiftForm(p => ({...p, minor_late_mins: Number(e.target.value)}))} min="1" max="60" />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Muon vua (phut)</label>
+                      <label className="form-label">Muộn vừa (phút)</label>
                       <input type="number" className="form-input" value={shiftForm.medium_late_mins} onChange={e => setShiftForm(p => ({...p, medium_late_mins: Number(e.target.value)}))} min="1" max="120" />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">OT tinh tu</label>
+                      <label className="form-label">OT tính từ</label>
                       <input type="time" className="form-input" value={shiftForm.ot_start_time} onChange={e => setShiftForm(p => ({...p, ot_start_time: e.target.value}))} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Che do OT</label>
-                      <select className="form-input" value={shiftForm.ot_mode} onChange={e => setShiftForm(p => ({...p, ot_mode: e.target.value}))}>
-                        <option value="manual">Thu cong (Giam doc xet cuoi thang)</option>
-                        <option value="auto">Tu dong (Tinh theo gio)</option>
+                      <label className="form-label">Chế độ OT</label>
+                      <select className="form-input" value="manual" disabled style={{ background: 'var(--bg-raised)', opacity: 0.8, cursor: 'not-allowed' }}>
+                        <option value="manual">Thủ công (Giám đốc xem xét & phê duyệt)</option>
                       </select>
                     </div>
                   </div>
@@ -446,7 +465,7 @@ export default function SettingsPage() {
                       <li>Muon nhe: {shiftForm.work_start_time} + {shiftForm.minor_late_mins} phut dau</li>
                       <li>Muon vua: {shiftForm.work_start_time} + {shiftForm.medium_late_mins} phut</li>
                       <li>Muon nhieu: qua nguong muon vua</li>
-                      <li>OT: {shiftForm.ot_mode === 'manual' ? 'Giam doc xet thuong cuoi thang (khong tinh gio tu dong)' : `Tu tinh sau ${shiftForm.ot_start_time}`}</li>
+                      <li>OT: Giám đốc xem xét khen thưởng & phê duyệt cuối tháng</li>
                     </ul>
                   </div>
                 </>
