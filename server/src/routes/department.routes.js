@@ -41,6 +41,27 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PUT /api/departments/:id (admin/leader)
+router.put('/:id', async (req, res) => {
+  if (!['admin', 'leader', 'manager'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Không có quyền sửa phòng ban.' });
+  }
+  try {
+    const { name, description } = req.body;
+    const updateData = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (description !== undefined) updateData.description = description.trim();
+
+    const dept = await Department.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!dept) return res.status(404).json({ error: 'Không tìm thấy phòng ban.' });
+
+    res.json({ message: 'Đã cập nhật phòng ban', department: dept });
+  } catch (error) {
+    console.error('UpdateDepartment error:', error);
+    res.status(500).json({ error: 'Lỗi sửa phòng ban.' });
+  }
+});
+
 // DELETE /api/departments/:id (admin only)
 router.delete('/:id', async (req, res) => {
   if (req.user.role !== 'admin') {

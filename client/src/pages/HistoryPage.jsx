@@ -13,6 +13,15 @@ const fmt = (iso) => {
   return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
+const addMinsToTime = (timeStr, mins) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + m + mins;
+  const newH = String(Math.floor(total / 60) % 24).padStart(2, '0');
+  const newM = String(total % 60).padStart(2, '0');
+  return `${newH}:${newM}`;
+};
+
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
@@ -80,6 +89,27 @@ export default function HistoryPage() {
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
+
+  // Settings for dynamic working hours & late rules
+  const [settings, setSettings] = useState({
+    work_start_time: '08:30',
+    work_end_time: '17:30',
+    minor_late_mins: 10,
+    medium_late_mins: 30,
+  });
+
+  useEffect(() => {
+    api.get('/settings').then(r => {
+      if (r.data) {
+        setSettings({
+          work_start_time: r.data.work_start_time || '08:30',
+          work_end_time: r.data.work_end_time || '17:30',
+          minor_late_mins: r.data.minor_late_mins ?? 10,
+          medium_late_mins: r.data.medium_late_mins ?? 30,
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   const fetchHolidays = () => {
     api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
@@ -370,8 +400,8 @@ export default function HistoryPage() {
                   <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '4px' }}>
                     ⏰ Giờ Làm Việc Quy Định
                   </div>
-                  <div>• Ca ngày: <strong>09:00 - 18:00</strong> (8.0 giờ = <strong>x 1.0 công</strong>)</div>
-                  <div>• Tăng ca (OT): <strong>Tính từ 18:00 trở đi</strong> (hệ số 1.5x).</div>
+                  <div>• Ca ngày: <strong>{startTime} – {endTime}</strong> (Tính <strong>x 1.0 công</strong>)</div>
+                  <div>• Tăng ca (OT): <strong>Tính từ {endTime} trở đi</strong> (ghi nhận giờ làm thêm để công ty xem xét khen thưởng).</div>
                 </div>
 
                 {/* Rule 2: Late rules */}
@@ -379,10 +409,10 @@ export default function HistoryPage() {
                   <div style={{ fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
                     ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
-                  <div>• <strong>≤ 09:00</strong>: Đúng giờ (Tính đủ công <code>x</code>)</div>
-                  <div>• <strong>09:01 – 09:10</strong>: Muộn nhẹ</div>
-                  <div>• <strong>09:11 – 09:30</strong>: Muộn</div>
-                  <div>• <strong>&gt; 09:30</strong>: Muộn nhiều</div>
+                  <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ công <code>x</code>)</div>
+                  <div>• <strong>{addMinsToTime(startTime, 1)} – {minorLateTime}</strong>: Muộn nhẹ</div>
+                  <div>• <strong>{addMinsToTime(minorLateTime, 1)} – {mediumLateTime}</strong>: Muộn</div>
+                  <div>• <strong>&gt; {mediumLateTime}</strong>: Muộn nhiều</div>
                 </div>
 
                 {/* Rule 3: Leave & Explanation */}
@@ -390,7 +420,7 @@ export default function HistoryPage() {
                   <div style={{ fontWeight: 800, color: 'var(--green)', marginBottom: '4px' }}>
                     🏖️ Nghỉ Lễ & Đơn Từ Giải Trình
                   </div>
-                  <div>• Ngày nghỉ lễ: Hưởng 100% lương công (<code>1.0x</code>)</div>
+                  <div>• Ngày nghỉ lễ: Nghỉ theo quy định lịch nhà nước / công ty.</div>
                   <div>• Đơn đi muộn / WFH / công tác được duyệt ➔ <strong>Tính đủ 1.0 công (<code>x</code>) & tự động xóa cờ muộn</strong>!</div>
                 </div>
               </div>
