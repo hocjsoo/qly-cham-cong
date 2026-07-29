@@ -212,7 +212,7 @@ User model có 2 trường:
 - Mật khẩu hash: bcrypt (10 rounds)
 - GPS bắt buộc khi chấm công (tất cả loại check-in)
 - Device fingerprint ghi nhận mỗi lần check-in (chống chấm công hộ)
-- Rate limiting: 500 req/15min (general), 30 req/min (check-in)
+- Rate limiting: 5000 req/15min (general, auto-skip localhost/dev mode), 100 req/min (check-in)
 - CORS: `origin: true` (frontend/backend tách domain)
 - `password_hash` KHÔNG BAO GIỜ trả về trong API response
 - GPS coordinates phải validate là số hợp lệ trước khi lưu
