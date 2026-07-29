@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send, MoreHorizontal, Sparkles } from 'lucide-react';
+import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send, MoreHorizontal, Sparkles, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -98,6 +98,16 @@ export default function NotificationCenter() {
       toast.success('Đã đánh dấu tất cả thông báo là đã đọc');
     } catch {
       toast.error('Lỗi cập nhật thông báo');
+    }
+  };
+
+  const handleDeleteNotification = async (notifId) => {
+    try {
+      await api.delete(`/notifications/${notifId}`);
+      setNotifications(prev => prev.filter(n => n._id !== notifId));
+      toast.success('Đã xóa thông báo!');
+    } catch {
+      toast.error('Lỗi xóa thông báo');
     }
   };
 
@@ -316,6 +326,24 @@ export default function NotificationCenter() {
                           background: 'var(--primary, #2e89ff)', flexShrink: 0,
                           boxShadow: '0 0 6px rgba(46,137,255,0.6)'
                         }} />
+                      )}
+
+                      {/* Admin Delete Notification Button */}
+                      {isAdminOrManager && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotification(n._id);
+                          }}
+                          style={{
+                            background: 'none', border: 'none', color: 'var(--red)',
+                            cursor: 'pointer', padding: '4px', opacity: 0.7,
+                            borderRadius: '6px', flexShrink: 0, display: 'flex', alignItems: 'center'
+                          }}
+                          title="Xóa thông báo này"
+                        >
+                          <Trash2 size={15} />
+                        </button>
                       )}
                     </div>
                   );

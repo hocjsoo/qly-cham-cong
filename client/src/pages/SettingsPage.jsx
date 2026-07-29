@@ -55,10 +55,7 @@ export default function SettingsPage() {
   const [showLocModal, setShowLocModal] = useState(false);
   const [locForm, setLocForm] = useState({ name: '', address: '', lat: '', lng: '', radius_m: 100 });
 
-  const [showProjModal, setShowProjModal] = useState(false);
-  const [projForm, setProjForm] = useState({ id: null, name: '', code: '', address: '', client_name: '', status: 'active' });
-
-  const [holidayForm, setHolidayForm] = useState({ name: '', date: '', end_date: '' });
+  const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', send_notification: true });
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [seedingHolidays, setSeedingHolidays] = useState(false);
 
@@ -73,9 +70,6 @@ export default function SettingsPage() {
       } else if (tab === 'locations') {
         const { data } = await api.get('/locations');
         setLocations(Array.isArray(data) ? data : []);
-      } else if (tab === 'projects') {
-        const { data } = await api.get('/projects');
-        setProjects(Array.isArray(data) ? data : []);
       } else if (tab === 'shift') {
         const { data } = await api.get('/settings');
         setShiftForm({
@@ -112,27 +106,26 @@ export default function SettingsPage() {
     finally { setSubmitting(false); }
   };
 
-  const handleEditDept = async () => {
+  const handleEditDept = async (id) => {
     if (!editDeptForm.name.trim()) { toast.error('Ten phong ban khong duoc de trong'); return; }
     setSubmitting(true);
     try {
-      await api.put(`/departments/${editingDept}`, { name: editDeptForm.name.trim(), description: editDeptForm.description.trim() });
+      await api.put(`/departments/${id}`, editDeptForm);
       toast.success('Da cap nhat phong ban'); setEditingDept(null); loadData();
-    } catch (err) { toast.error(err?.response?.data?.error || 'Loi sua phong ban'); }
+    } catch (err) { toast.error(err?.response?.data?.error || 'Loi cap nhat phong ban'); }
     finally { setSubmitting(false); }
   };
 
   const handleDeleteDept = (id, name) => {
-    askConfirm(`Xoa phong ban "${name}"? Hanh dong nay khong the khoi phuc.`, async () => {
+    askConfirm(`Xoa phong ban "${name}"?`, async () => {
       setConfirm(null);
       try { await api.delete(`/departments/${id}`); toast.success('Da xoa phong ban'); loadData(); }
-      catch { toast.error('Loi xoa phong ban'); }
+      catch (err) { toast.error(err?.response?.data?.error || 'Loi xoa phong ban'); }
     });
   };
 
   const handleSaveLocation = async () => {
-    if (!locForm.name.trim()) { toast.error('Tên vị trí là bắt buộc'); return; }
-    if (!locForm.lat || !locForm.lng) { toast.error('Vui lòng chọn vị trí GPS trước'); return; }
+    if (!locForm.name.trim() || !locForm.address.trim()) { toast.error('Ten va dia chi la bat buoc'); return; }
     setSubmitting(true);
     try {
       if (locForm.id) {
@@ -154,25 +147,6 @@ export default function SettingsPage() {
       setConfirm(null);
       try { await api.delete(`/locations/${id}`); toast.success('Da xoa vi tri'); loadData(); }
       catch { toast.error('Loi xoa vi tri'); }
-    });
-  };
-
-  const handleSaveProject = async () => {
-    if (!projForm.name.trim()) { toast.error('Ten du an la bat buoc'); return; }
-    setSubmitting(true);
-    try {
-      if (projForm.id) { await api.put(`/projects/${projForm.id}`, projForm); toast.success('Da cap nhat du an'); }
-      else { await api.post('/projects', projForm); toast.success('Da tao du an moi'); }
-      setShowProjModal(false); setProjForm({ id: null, name: '', code: '', address: '', client_name: '', status: 'active' }); loadData();
-    } catch (err) { toast.error(err?.response?.data?.error || 'Loi luu du an'); }
-    finally { setSubmitting(false); }
-  };
-
-  const handleDeleteProject = (id, name) => {
-    askConfirm(`Xoa du an "${name}"?`, async () => {
-      setConfirm(null);
-      try { await api.delete(`/projects/${id}`); toast.success('Da xoa du an'); loadData(); }
-      catch { toast.error('Loi xoa du an'); }
     });
   };
 
@@ -205,7 +179,7 @@ export default function SettingsPage() {
         await api.post('/holidays', { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
         toast.success('Đã thêm ngày lễ!');
       }
-      setHolidayForm({ id: null, name: '', date: '', end_date: '' });
+      setHolidayForm({ id: null, name: '', date: '', end_date: '', send_notification: true });
       setShowHolidayForm(false);
       loadData();
     } catch (err) { toast.error(err?.response?.data?.error || 'Lỗi lưu ngày lễ'); }
@@ -220,20 +194,22 @@ export default function SettingsPage() {
     });
   };
 
-  const handleSeedVietnamHolidays = async () => {
+  const handleSeedHolidays = async () => {
     setSeedingHolidays(true);
     try {
-      const year = new Date().getFullYear();
-      const { data } = await api.post(`/holidays/seed-vietnam?year=${year}`);
-      toast.success(data.message || 'Da nap ngay le Viet Nam!'); loadData();
-    } catch (err) { toast.error(err?.response?.data?.error || 'Loi nap ngay le'); }
-    finally { setSeedingHolidays(false); }
+      const { data } = await api.post('/holidays/seed');
+      toast.success(data.message || 'Đã tự động nạp các ngày nghỉ lễ!');
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi nạp ngày nghỉ lễ');
+    } finally {
+      setSeedingHolidays(false);
+    }
   };
 
   const tabs = [
     { key: 'depts', label: '🏢 Phong ban', count: depts.length },
     { key: 'locations', label: '📍 Vi tri GPS', count: locations.length },
-    { key: 'projects', label: '🏗️ Du an', count: projects.length },
     { key: 'shift', label: '⚙️ Ca lam & Quy tac' },
     { key: 'holidays', label: '🎌 Ngay le', count: holidays.length },
   ];
@@ -524,20 +500,30 @@ export default function SettingsPage() {
 
             {showHolidayForm && (
               <div className="card" style={{ padding: '14px', marginBottom: '10px', border: '1px solid var(--primary)' }}>
-                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '10px' }}>Them ngay le moi</div>
+                <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '10px' }}>{holidayForm.id ? 'Sửa ngày lễ' : 'Thêm ngày lễ mới'}</div>
                 <div className="form-group">
-                  <label className="form-label">Ten ngay le *</label>
-                  <input className="form-input" style={{ fontSize: '13px' }} value={holidayForm.name} onChange={e => setHolidayForm(p => ({...p, name: e.target.value}))} placeholder="VD: Tet Nguyen Dan" />
+                  <label className="form-label">Tên ngày lễ *</label>
+                  <input className="form-input" style={{ fontSize: '13px' }} value={holidayForm.name} onChange={e => setHolidayForm(p => ({...p, name: e.target.value}))} placeholder="VD: Tết Nguyên Đán" />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
                   <div className="form-group">
-                    <label className="form-label">Tu ngay *</label>
+                    <label className="form-label">Từ ngày *</label>
                     <input type="date" className="form-input" style={{ fontSize: '13px' }} value={holidayForm.date} onChange={e => setHolidayForm(p => ({...p, date: e.target.value, end_date: p.end_date || e.target.value}))} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Den ngay</label>
+                    <label className="form-label">Đến ngày</label>
                     <input type="date" className="form-input" style={{ fontSize: '13px' }} value={holidayForm.end_date} onChange={e => setHolidayForm(p => ({...p, end_date: e.target.value}))} />
                   </div>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)' }}>
+                    <input
+                      type="checkbox"
+                      checked={holidayForm.send_notification ?? true}
+                      onChange={e => setHolidayForm(p => ({ ...p, send_notification: e.target.checked }))}
+                    />
+                    <span>📢 Gửi thông báo đến toàn bộ nhân viên</span>
+                  </label>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button onClick={handleSaveHoliday} disabled={submitting} className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '7px' }}>

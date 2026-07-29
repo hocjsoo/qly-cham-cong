@@ -67,15 +67,15 @@ const updateProject = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy dự án.' });
     }
 
-    if (name) project.name = name.trim();
-    if (code) project.code = code.trim();
-    if (category) project.category = category;
+    if (name !== undefined) project.name = name.trim();
+    if (code !== undefined) project.code = code.trim();
+    if (category !== undefined) project.category = category;
     if (sub_project !== undefined) project.sub_project = sub_project ? sub_project.trim() : null;
     if (address !== undefined) project.address = address ? address.trim() : null;
     if (client_name !== undefined) project.client_name = client_name ? client_name.trim() : null;
     if (pm_name !== undefined) project.pm_name = pm_name ? pm_name.trim() : null;
     if (note !== undefined) project.note = note ? note.trim() : null;
-    if (status) project.status = status;
+    if (status !== undefined) project.status = status;
 
     await project.save();
     res.json({ message: 'Đã cập nhật dự án thành công ✅', project });
