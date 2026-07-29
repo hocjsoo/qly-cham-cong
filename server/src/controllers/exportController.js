@@ -57,37 +57,73 @@ const exportAttendanceExcel = async (req, res) => {
     // Sheet 1: Bảng Chấm Công ET_Staff chuẩn mẫu
     const summaryData = users.map((u, index) => {
       const recs = attendances.filter(a => a.user_id.toString() === u._id.toString());
+      const attDateMap = {};
+      recs.forEach(a => { attDateMap[a.date] = a; });
 
-      const vpDays = recs.filter(r => r.check_in_type === 'office' && !r.is_late).length;
-      const ct1Days = recs.filter(r => r.check_in_type === 'site').length;
-      const ct2Days = recs.filter(r => r.check_in_type === 'client').length;
-      const wfhDays = recs.filter(r => r.check_in_type === 'wfh').length;
-      const leaveDays = recs.filter(r => r.status === 'leave').length;
+      let nlv_office = 0;
+      let ct_domestic = 0;
+      let ct_foreign = 0;
+      let wfh = 0;
+      let annual_leave = 0;
+      let sick_leave = 0;
+      let unpaid_leave = 0;
+      let other_leave = 0;
 
-      const row = {
-        'ID': u.employee_code || `NS ${String(index + 1).padStart(2, '0')}`,
-        'NHÂN SỰ': u.full_name,
-        'NV': u.position || 'KTS',
-        'NLV tại VP': vpDays,
-        'CT Trong nước': ct1Days,
-        'CT Nước ngoài': ct2Days,
-        'Work form home': wfhDays,
-        'Nghỉ phép': leaveDays,
-        'Nghỉ ốm': 0,
-        'Nghỉ không lương': 0,
-        'Khác': 0,
-      };
+      const daySymbols = {};
 
-      // ĐIỀN CỘT TỪNG NGÀY TRONG THÁNG (01 -> 31)
       for (let d = 1; d <= daysInMonth; d++) {
         const dateKey = `${monthStr}-${String(d).padStart(2, '0')}`;
-        const att = recs.find(a => a.date === dateKey);
+        const att = attDateMap[dateKey];
+        const sym = getTimesheetSymbol(att);
         const colHeader = String(d).padStart(2, '0');
-        row[colHeader] = getTimesheetSymbol(att);
+        daySymbols[colHeader] = sym;
+
+        if (sym === 'CT2') ct_foreign += 1;
+        else if (sym === 'CT1') ct_domestic += 1;
+        else if (sym === 'WFH') wfh += 1;
+        else if (sym === 'P') annual_leave += 1;
+        else if (sym === 'O') sick_leave += 1;
+        else if (sym === 'KL') unpaid_leave += 1;
+        else if (sym === 'K') other_leave += 1;
+        else if (sym === 'x') nlv_office += 1;
+        else if (sym === '0,75x') nlv_office += 0.75;
+        else if (sym === '0,5x') nlv_office += 0.5;
       }
 
-      return row;
+      return {
+        'ID': u.employee_code || `NS ${String(index + 1).padStart(2, '0')}`,
+        'NHÂN SỰ': u.full_name,
+        'NV': u.position || (u.role === 'admin' ? 'KTS-PGD' : u.role === 'manager' ? 'KTS NT - QL' : 'KTS'),
+        'NLV tại VP': parseFloat(nlv_office.toFixed(2)),
+        'CT Trong nước': parseFloat(ct_domestic.toFixed(2)),
+        'CT Nước ngoài': parseFloat(ct_foreign.toFixed(2)),
+        'Work form home': parseFloat(wfh.toFixed(2)),
+        'Nghỉ phép': parseFloat(annual_leave.toFixed(2)),
+        'Nghỉ ốm': parseFloat(sick_leave.toFixed(2)),
+        'Nghỉ không lương': parseFloat(unpaid_leave.toFixed(2)),
+        'Khác': parseFloat(other_leave.toFixed(2)),
+        ...daySymbols,
+      };
     });
+
+    // Thêm Dòng TỔNG CỘNG HỆ THỐNG ở cuối Sheet 1
+    const totalRow = {
+      'ID': 'TỔNG CỘNG',
+      'NHÂN SỰ': `HỆ THỐNG (${users.length} NV)`,
+      'NV': '—',
+      'NLV tại VP': parseFloat(summaryData.reduce((s, r) => s + (r['NLV tại VP'] || 0), 0).toFixed(2)),
+      'CT Trong nước': parseFloat(summaryData.reduce((s, r) => s + (r['CT Trong nước'] || 0), 0).toFixed(2)),
+      'CT Nước ngoài': parseFloat(summaryData.reduce((s, r) => s + (r['CT Nước ngoài'] || 0), 0).toFixed(2)),
+      'Work form home': parseFloat(summaryData.reduce((s, r) => s + (r['Work form home'] || 0), 0).toFixed(2)),
+      'Nghỉ phép': parseFloat(summaryData.reduce((s, r) => s + (r['Nghỉ phép'] || 0), 0).toFixed(2)),
+      'Nghỉ ốm': parseFloat(summaryData.reduce((s, r) => s + (r['Nghỉ ốm'] || 0), 0).toFixed(2)),
+      'Nghỉ không lương': parseFloat(summaryData.reduce((s, r) => s + (r['Nghỉ không lương'] || 0), 0).toFixed(2)),
+      'Khác': parseFloat(summaryData.reduce((s, r) => s + (r['Khác'] || 0), 0).toFixed(2)),
+    };
+    for (let d = 1; d <= daysInMonth; d++) {
+      totalRow[String(d).padStart(2, '0')] = '—';
+    }
+    summaryData.push(totalRow);
 
     // Sheet 2: Danh sách thông tin nhân sự (Cho Admin / Ban Giám Đốc)
     const staffInfoData = users.map((u, index) => ({
@@ -112,6 +148,25 @@ const exportAttendanceExcel = async (req, res) => {
 
     const wsSummary = XLSX.utils.json_to_sheet(summaryData);
     const wsStaff = XLSX.utils.json_to_sheet(staffInfoData);
+
+    // Thiết lập Độ rộng Cột (Column Widths) tối ưu hiển thị Excel
+    const summaryColWidths = [
+      { wch: 12 }, // ID
+      { wch: 22 }, // NHÂN SỰ
+      { wch: 14 }, // NV
+      { wch: 14 }, // NLV tại VP
+      { wch: 15 }, // CT Trong nước
+      { wch: 15 }, // CT Nước ngoài
+      { wch: 16 }, // Work form home
+      { wch: 12 }, // Nghỉ phép
+      { wch: 10 }, // Nghỉ ốm
+      { wch: 16 }, // Nghỉ không lương
+      { wch: 10 }, // Khác
+    ];
+    for (let d = 1; d <= daysInMonth; d++) {
+      summaryColWidths.push({ wch: 6 });
+    }
+    wsSummary['!cols'] = summaryColWidths;
 
     XLSX.utils.book_append_sheet(wb, wsSummary, 'Chấm Công ET_Staff');
     XLSX.utils.book_append_sheet(wb, wsStaff, 'Thông Tin Nhân Sự');
