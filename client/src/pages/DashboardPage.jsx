@@ -54,9 +54,11 @@ export default function DashboardPage() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [geo, setGeo] = useState(null);
   const [birthdays, setBirthdays] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [selectedBirthday, setSelectedBirthday] = useState(null);
+  const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
@@ -83,11 +85,13 @@ export default function DashboardPage() {
     return () => clearInterval(i);
   }, []);
 
-  // Load birthdays and announcements
+  // Load birthdays, holidays and announcements
   useEffect(() => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     const month = now.getMonth() + 1;
+    const year = now.getFullYear();
     api.get(`/announcements/birthdays?month=${month}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+    api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
@@ -213,61 +217,114 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Birthdays this month — Redesigned SaaS Festive Theme */}
-        {birthdays.length > 0 && (
-          <div
-            className="card animate-fade-in"
-            style={{
-              marginBottom: '14px', padding: '14px 16px',
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              boxShadow: '0 4px 20px rgba(245, 158, 11, 0.08)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
-                <span>Sinh nhật nhân sự tháng {new Date().getMonth() + 1}</span>
-                <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>{birthdays.length} sự kiện</span>
-              </div>
-            </div>
+        {/* Birthdays & Events this month — Redesigned SaaS Festive Theme */}
+        {(() => {
+          const nowObj = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+          const monthNum = nowObj.getMonth() + 1;
+          const monthStr = `${nowObj.getFullYear()}-${String(monthNum).padStart(2, '0')}`;
+          const currentMonthHolidays = holidays.filter(h =>
+            (h.date && h.date.startsWith(monthStr)) || (h.end_date && h.end_date.startsWith(monthStr))
+          );
+          const totalMonthEvents = birthdays.length + currentMonthHolidays.length;
 
-            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {birthdays.map(b => (
-                <div
-                  key={b._id}
-                  onClick={() => setSelectedBirthday(b)}
-                  className="card--interactive"
-                  style={{
-                    background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
-                    border: '1px solid var(--border)', fontSize: '12px', display: 'flex',
-                    alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
-                    boxShadow: 'var(--shadow-xs)'
-                  }}
-                  title="Click để xem chi tiết sự kiện & gửi lời chúc"
-                >
-                  {b.avatar_url ? (
-                    <img src={b.avatar_url} alt={b.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
-                  ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                      {b.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>{b.full_name}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{b.employee_code || 'NS'}</span>
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
-                      <span>🎂 Ngày {b.day}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>· {b.department_name}</span>
+          if (totalMonthEvents === 0) return null;
+
+          return (
+            <div
+              className="card animate-fade-in"
+              style={{
+                marginBottom: '14px', padding: '14px 16px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                boxShadow: '0 4px 20px rgba(245, 158, 11, 0.08)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
+                  <span>Sinh nhật & Sự kiện tháng {monthNum}</span>
+                  <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>• {totalMonthEvents} sự kiện</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {/* Birthdays */}
+                {birthdays.map(b => (
+                  <div
+                    key={`b-${b._id}`}
+                    onClick={() => setSelectedBirthday(b)}
+                    className="card--interactive"
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                      border: '1px solid var(--border)', fontSize: '12px', display: 'flex',
+                      alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                    title="Click để xem chi tiết sinh nhật"
+                  >
+                    {b.avatar_url ? (
+                      <img src={b.avatar_url} alt={b.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                        {b.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{b.full_name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{b.employee_code || 'NS'}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                        <span>🎂 Ngày {b.day}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>· {b.department_name}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+
+                {/* Holidays & Events */}
+                {currentMonthHolidays.map(h => {
+                  const isSingleDay = !h.end_date || h.end_date === h.date;
+                  const startDay = h.date?.split('-')[2];
+                  const endDay = h.end_date?.split('-')[2];
+                  const dateLabel = isSingleDay ? `Ngày ${startDay}` : `Từ ${startDay} → ${endDay}`;
+
+                  return (
+                    <div
+                      key={`h-${h._id}`}
+                      onClick={() => setSelectedHoliday(h)}
+                      className="card--interactive"
+                      style={{
+                        background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                        border: '1px solid #8b5cf6', fontSize: '12px', display: 'flex',
+                        alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                        boxShadow: 'var(--shadow-xs)'
+                      }}
+                      title="Click để xem chi tiết ngày lễ / sự kiện"
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: 'rgba(139, 92, 246, 0.15)',
+                        color: '#8b5cf6', fontSize: '18px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', border: '1px solid #8b5cf6', flexShrink: 0
+                      }}>
+                        🎌
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>{h.name}</span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                          <span>🗓️ {dateLabel}</span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>· Nghỉ lễ</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 6-Month Trend Mini Chart */}
         {trend?.months?.length > 0 && (
@@ -677,6 +734,37 @@ export default function DashboardPage() {
                 👤 Xem tài khoản đầy đủ
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected Holiday Detail Modal */}
+      {selectedHoliday && (
+        <div className="modal-overlay" onClick={() => setSelectedHoliday(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontWeight: 800, fontSize: '15px', color: '#8b5cf6', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🎌 CHI TIẾT SỰ KIỆN / NGÀY LỄ</span>
+              </div>
+              <button onClick={() => setSelectedHoliday(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div className="card" style={{ padding: '16px', marginBottom: '16px', background: 'rgba(139, 92, 246, 0.1)', border: '1px solid #8b5cf6', borderRadius: '12px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#8b5cf6', marginBottom: '6px' }}>
+                🏖️ {selectedHoliday.name.toUpperCase()}
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600, marginBottom: '4px' }}>
+                Áp dụng: <strong>{selectedHoliday.date}</strong> {selectedHoliday.end_date && selectedHoliday.end_date !== selectedHoliday.date ? `→ ${selectedHoliday.end_date}` : ''}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                💬 {selectedHoliday.note || 'Theo quy định của Nhà nước & Công ty.'}
+              </div>
+            </div>
+
+            <button onClick={() => setSelectedHoliday(null)} className="btn btn--primary btn--full" style={{ fontWeight: 700 }}>
+              Đóng
+            </button>
           </div>
         </div>
       )}
