@@ -736,19 +736,19 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* TAB 2: 📄 BẢNG CHI TIẾT CHẤM CÔNG CÁ NHÂN (100% KHỚP MẪU) */}
+        {/* TAB 2: 📄 BẢNG CHI TIẾT CHẤM CÔNG CÁ NHÂN (MẪU PHIẾU CÔNG) */}
         {tab === 'individual_detail' && (
-          <div>
+          <div className="animate-fade-in">
             {/* Staff Selector dropdown for Admin */}
             {isAdminOrManager && matrixData?.staff_rows && (
-              <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    👤 Select Staff / Chọn nhân viên:
+              <div className="card" style={{ padding: '12px 16px', marginBottom: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <UserCheck size={16} color="var(--primary)" /> Chọn nhân viên xem chi tiết:
                   </span>
                   <select
                     className="form-select"
-                    style={{ width: '280px', fontSize: '13px', padding: '6px 10px' }}
+                    style={{ width: '280px', fontSize: '13px', padding: '6px 12px', fontWeight: 600 }}
                     value={selectedDetailUserId || user._id}
                     onChange={e => setSelectedDetailUserId(e.target.value)}
                   >
@@ -758,8 +758,8 @@ export default function ReportPage() {
                       </option>
                     ))}
                   </select>
-                  <button onClick={handlePrintIndividual} className="btn btn--ghost" style={{ padding: '6px 12px', fontSize: '12px', marginLeft: 'auto' }}>
-                    <Printer size={14} /> In phiếu công
+                  <button onClick={handlePrintIndividual} className="btn btn--ghost" style={{ padding: '6px 14px', fontSize: '12px', marginLeft: 'auto', gap: '6px' }}>
+                    <Printer size={15} /> In phiếu công
                   </button>
                 </div>
               </div>
@@ -770,112 +770,64 @@ export default function ReportPage() {
             ) : !individualDetail ? (
               <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu phiếu công</div></div>
             ) : (
-              <div ref={individualRef} className="card animate-fade-in" style={{ padding: '20px', background: '#ffffff', color: '#0f172a', fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '12px' }}>
+              <div ref={individualRef} className="card animate-fade-in" style={{ padding: '24px', background: '#ffffff', color: '#0f172a', fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
                 {/* Title Banner */}
-                <div style={{ textAlign: 'center', fontSize: '20px', fontWeight: '900', marginBottom: '14px', textTransform: 'uppercase', color: '#0f172a', letterSpacing: '1px' }}>
-                  BẢNG CHI TIẾT CHẤM CÔNG
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1e293b', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <div style={{ fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', color: '#1e293b', letterSpacing: '0.5px' }}>
+                      BẢNG CHI TIẾT CHẤM CÔNG CÁ NHÂN
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginTop: '2px' }}>
+                      THÁNG {month} NĂM {year} · ET ARCHITECTS
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
+                    <div>Mã NV: <strong style={{ color: '#2563eb', fontSize: '13px' }}>{indUser.id}</strong></div>
+                    <div>Nhân sự: <strong style={{ color: '#0f172a', fontSize: '13px' }}>{indUser.full_name}</strong></div>
+                    <div>Phòng ban: <strong>{indUser.department_name}</strong></div>
+                  </div>
                 </div>
 
-                {/* Banner 1: Header Employee Info */}
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '10px', fontSize: '11px', border: '1px solid #1e293b' }}>
-                  <tbody>
-                    <tr style={{ background: '#fef08a', color: '#0f172a' }}>
-                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '20%' }}>Mã nhân viên: {indUser.id}</td>
-                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '45%' }}>Tên nhân viên: {indUser.full_name}</td>
-                      <td style={{ border: '1px solid #1e293b', padding: '6px 10px', fontWeight: 'bold', width: '35%' }}>Bộ phận: {indUser.department_name}</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Summary Table Grid 1 & 2 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                  {/* Grid Left: Hours & Late/Early */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Ngày thường</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>{indSum.work_hours_normal}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Tăng ca 1</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>{indSum.ot1_hours}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Đi trễ</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>Số lần: {indSum.late_count}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Cuối tuần</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>{indSum.work_hours_weekend}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Tăng ca 2</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>{indSum.ot2_hours}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Về sớm</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: '#0f172a' }}>Số lần: {indSum.early_count}</td>
-                      </tr>
-                      <tr style={{ background: '#e2e8f0', fontWeight: 'bold', color: '#0f172a' }}>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>TỔNG</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.total_work_hours}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>Tăng ca 3</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center' }}>{indSum.ot3_hours}h</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px' }}>Số phút trễ</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '4px 8px', textAlign: 'center', color: indSum.late_minutes > 0 ? '#ef4444' : '#0f172a' }}>{indSum.late_minutes}p</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  {/* Grid Right: Leave counts */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px', textAlign: 'center' }}>
-                    <thead>
-                      <tr style={{ background: '#1e293b', color: '#ffffff' }}>
-                        <th colSpan="12" style={{ border: '1px solid #1e293b', padding: '4px' }}>Các loại vắng</th>
-                      </tr>
-                      <tr style={{ background: '#f1f5f9', fontWeight: 'bold', color: '#0f172a' }}>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>V</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>OM</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>TS</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>R</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>Ro</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>P</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>F</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CO</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CD</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>H</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>CT</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '3px' }}>Le</td>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr style={{ color: '#0f172a' }}>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.V || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.OM || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.TS || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.R || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.Ro || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.P || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.F || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CO || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CD || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.H || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.CT || 0}</td>
-                        <td style={{ border: '1px solid #1e293b', padding: '5px' }}>{lc.Le || 0}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                {/* Summary Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>TỔNG GIỜ LÀM</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#059669', marginTop: '2px' }}>{indSum.total_work_hours}h</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>NGÀY THƯỜNG</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#2563eb', marginTop: '2px' }}>{indSum.work_hours_normal}h</div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>TỔNG TĂNG CA</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#7c3aed', marginTop: '2px' }}>
+                      {((indSum.ot1_hours || 0) + (indSum.ot2_hours || 0) + (indSum.ot3_hours || 0)).toFixed(1)}h
+                    </div>
+                  </div>
+                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>ĐI TRỄ / VỀ SỚM</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: indSum.late_count > 0 ? '#dc2626' : '#059669', marginTop: '2px' }}>
+                      {indSum.late_count} lần ({indSum.late_minutes}p)
+                    </div>
+                  </div>
                 </div>
 
                 {/* Main Detailed Logs Table */}
-                <div style={{ fontStyle: 'italic', fontSize: '10px', marginBottom: '4px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>Chi tiết điểm danh hàng ngày</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #1e293b', fontSize: '10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', marginBottom: '8px', fontWeight: 800, color: '#1e293b' }}>
+                  📋 Nhật ký điểm danh chi tiết từng ngày
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '10px', textAlign: 'center' }}>
                   <thead>
                     <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Ngày</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Thứ</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>1</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>2</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>3</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Ca sáng</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Ca chiều</th>
+                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Tăng ca</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Trễ</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Sớm</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Công</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Giờ</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca1</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca2</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca3</th>
                       <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Nơi làm việc</th>
                     </tr>
                     <tr style={{ background: '#334155', color: '#ffffff', fontWeight: 'bold' }}>
@@ -888,33 +840,37 @@ export default function ReportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {indLogs.map((row) => (
-                      <tr key={row.day} style={{ background: row.isWeekend ? '#f1f5f9' : '#ffffff', color: '#0f172a' }}>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.dateFormatted}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: row.isWeekend ? 'bold' : 'normal' }}>{row.weekday}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift1.in}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift1.out}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift2.in}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift2.out}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift3.in}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift3.out}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.lateMins ? '#ef4444' : '#0f172a', fontWeight: row.lateMins ? 'bold' : 'normal' }}>{row.lateMins}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.earlyMins}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 'bold' }}>{row.workCredit}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.totalHours || ''}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot1}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot2}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot3}</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.locationName}</td>
-                      </tr>
-                    ))}
+                    {indLogs.map((row) => {
+                      const isSun = row.weekday === 'CN' || row.weekday === 'Chủ Nhật';
+                      return (
+                        <tr key={row.day} style={{ background: isSun ? '#fef2f2' : row.isWeekend ? '#f8fafc' : '#ffffff', color: '#0f172a' }}>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700 }}>{row.dateFormatted}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700, color: isSun ? '#dc2626' : '#0f172a' }}>{row.weekday}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#059669' }}>{row.shift1.in}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#059669' }}>{row.shift1.out}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#2563eb' }}>{row.shift2.in}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#2563eb' }}>{row.shift2.out}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#7c3aed' }}>{row.shift3.in}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#7c3aed' }}>{row.shift3.out}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.lateMins ? '#dc2626' : '#94a3b8', fontWeight: row.lateMins ? 'bold' : 'normal' }}>
+                            {row.lateMins ? `${row.lateMins}p` : '—'}
+                          </td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.earlyMins ? '#d97706' : '#94a3b8' }}>
+                            {row.earlyMins ? `${row.earlyMins}p` : '—'}
+                          </td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 'bold', color: '#2563eb' }}>{row.workCredit}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700 }}>{row.totalHours ? `${row.totalHours}h` : '—'}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#475569' }}>{row.locationName}</td>
+                        </tr>
+                      );
+                    })}
                     {/* Bottom Summary Row */}
                     <tr style={{ fontWeight: 'bold', background: '#e2e8f0', color: '#0f172a' }}>
-                      <td colSpan="10" style={{ border: '1px solid #1e293b', padding: '6px', textAlign: 'left' }}>
-                        Tổng công: {indSum.total_work_hours} giờ
+                      <td colSpan="10" style={{ border: '1px solid #1e293b', padding: '6px 10px', textAlign: 'left' }}>
+                        TỔNG CỘNG THÁNG {month}/{year}:
                       </td>
-                      <td colSpan="6" style={{ border: '1px solid #1e293b', padding: '6px', textAlign: 'center' }}>
-                        {indSum.total_work_hours}
+                      <td colSpan="3" style={{ border: '1px solid #1e293b', padding: '6px', textAlign: 'center', color: '#059669', fontSize: '12px' }}>
+                        {indSum.total_work_hours} giờ làm việc
                       </td>
                     </tr>
                   </tbody>
@@ -922,9 +878,10 @@ export default function ReportPage() {
 
                 {/* Signature Block */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', textAlign: 'center' }}>
-                  <div style={{ minWidth: '200px' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '50px', color: '#0f172a' }}>Kí tên</div>
-                    <div style={{ fontWeight: 'bold', textDecoration: 'underline', color: '#0f172a' }}>{indUser.full_name}</div>
+                  <div style={{ minWidth: '220px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>XÁC NHẬN CỦA NHÂN VIÊN</div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '45px' }}>(Ký và ghi rõ họ tên)</div>
+                    <div style={{ fontWeight: 'bold', textDecoration: 'underline', color: '#0f172a', fontSize: '13px' }}>{indUser.full_name}</div>
                   </div>
                 </div>
               </div>
@@ -934,47 +891,111 @@ export default function ReportPage() {
 
         {/* TAB 3: OVERVIEW */}
         {tab === 'overview' && report?.summary && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-              <div className="card" style={{ padding: '12px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>TỔNG NHÂN VIÊN</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>{report.summary.total_users}</div>
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Top Stat Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+              <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>TỔNG NHÂN VIÊN</div>
+                  <UserCheck size={18} color="var(--primary)" />
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)', marginTop: '6px' }}>{report.summary.total_users}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Đang hoạt động trong hệ thống</div>
               </div>
-              <div className="card" style={{ padding: '12px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--green)' }}>ĐÚNG GIỜ TẬP THỂ</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--green)' }}>{report.summary.on_time_rate}%</div>
+
+              <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase' }}>TỶ LỆ ĐÚNG GIỜ</div>
+                  <CheckCircle2 size={18} color="var(--green)" />
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--green)', marginTop: '6px' }}>{report.summary.on_time_rate}%</div>
+                <div style={{ fontSize: '11px', color: 'var(--green)', marginTop: '4px' }}>Thống kê toàn công ty</div>
               </div>
-              <div className="card" style={{ padding: '12px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--yellow)' }}>TỔNG LƯỢT MUỘN</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--yellow)' }}>{report.summary.total_late_days}</div>
+
+              <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--yellow)', textTransform: 'uppercase' }}>LƯỢT ĐI MUỘN</div>
+                  <AlertTriangle size={18} color="var(--yellow)" />
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--yellow)', marginTop: '6px' }}>{report.summary.total_late_days}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Lượt trễ trong Tháng {month}</div>
               </div>
             </div>
+
+            {/* Attendance Trend Chart */}
+            {trend?.monthly_stats && trend.monthly_stats.length > 0 && (
+              <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={18} color="var(--primary)" /> Biểu đồ xu hướng đúng giờ 6 tháng gần nhất
+                </div>
+                <div style={{ width: '100%', height: 260 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trend.monthly_stats}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" />
+                      <XAxis dataKey="month" stroke="var(--text-secondary)" fontSize={12} />
+                      <YAxis stroke="var(--text-secondary)" fontSize={12} domain={[0, 100]} />
+                      <Tooltip
+                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                        formatter={(val) => [`${val}%`, 'Tỷ lệ đúng giờ']}
+                      />
+                      <Bar dataKey="on_time_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
+                        {trend.monthly_stats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.on_time_rate >= 90 ? '#10b981' : entry.on_time_rate >= 80 ? '#3b82f6' : '#f59e0b'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* TAB 4: PAYROLL */}
         {tab === 'payroll' && payroll?.payroll && (
-          <div className="card" style={{ padding: '12px', overflowX: 'auto' }}>
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="card animate-fade-in" style={{ padding: '16px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calculator size={18} /> Bảng Tổng Hợp Công Tính Lương — Tháng {month}/{year}
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Tổng nhân sự: <strong>{payroll.payroll.length}</strong>
+              </div>
+            </div>
+
+            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '8px' }}>Họ tên</th>
-                  <th style={{ padding: '8px' }}>Phòng ban</th>
-                  <th style={{ padding: '8px' }}>Công đi làm</th>
-                  <th style={{ padding: '8px' }}>Lượt muộn</th>
-                  <th style={{ padding: '8px' }}>Trừ công muộn</th>
-                  <th style={{ padding: '8px' }}>CÔNG TÍNH LƯƠNG</th>
+                <tr style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border)' }}>
+                  <th style={{ padding: '10px 12px' }}>HỌ VÀ TÊN</th>
+                  <th style={{ padding: '10px 12px' }}>PHÒNG BAN</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>CÔNG ĐI LÀM</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>LƯỢT ĐI MUỘN</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>TRỪ CÔNG MUỘN</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>CÔNG THỰC NHẬN</th>
                 </tr>
               </thead>
               <tbody>
                 {payroll.payroll.map((p, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border-muted)' }}>
-                    <td style={{ padding: '8px', fontWeight: 700 }}>{p.full_name}</td>
-                    <td style={{ padding: '8px' }}>{p.department_name}</td>
-                    <td style={{ padding: '8px', color: 'var(--green)' }}>{p.work_days_credit}</td>
-                    <td style={{ padding: '8px', color: 'var(--yellow)' }}>{p.late_days}</td>
-                    <td style={{ padding: '8px', color: 'var(--red)' }}>-{p.late_penalty_credit}</td>
-                    <td style={{ padding: '8px', fontWeight: 800, color: 'var(--primary)' }}>{p.final_payroll_credit} công</td>
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border-muted)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
+                          {p.full_name?.charAt(0)}
+                        </div>
+                        {p.full_name}
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{p.department_name || 'KTS'}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800, color: 'var(--green)' }}>{p.work_days_credit} công</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_days > 0 ? 'var(--yellow)' : 'var(--text-muted)' }}>{p.late_days} lần</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_penalty_credit > 0 ? 'var(--red)' : 'var(--text-muted)', fontWeight: 700 }}>
+                      {p.late_penalty_credit > 0 ? `-${p.late_penalty_credit}` : '0'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 900, fontSize: '13px' }}>
+                        {p.final_payroll_credit} công
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -982,24 +1003,54 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* TAB 5: RANKING */}
+        {/* TAB 5: RANKING LEADERBOARD */}
         {tab === 'ranking' && ranking?.rankings && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {ranking.rankings.map((r) => (
-              <div key={r.user_id} className="card" style={{ padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ fontSize: '20px' }}>{RANK_MEDALS[r.rank] || `#${r.rank}`}</div>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700 }}>{r.full_name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.department_name}</div>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--primary)' }}>{r.score} điểm</div>
-                  <div style={{ fontSize: '11px', color: 'var(--green)' }}>Tỷ lệ đúng giờ: {r.on_time_rate}%</div>
-                </div>
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Top Header Card */}
+            <div className="card" style={{ padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Trophy size={20} color="var(--yellow)" /> Bảng Xếp Hạng Kỷ Luật Chấm Công — Tháng {month}/{year}
               </div>
-            ))}
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                Cập nhật tự động theo tỷ lệ đúng giờ
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+              {ranking.rankings.map((r) => {
+                const medal = RANK_MEDALS[r.rank];
+                const scoreColor = r.on_time_rate >= 90 ? 'var(--green)' : r.on_time_rate >= 75 ? 'var(--yellow)' : 'var(--red)';
+
+                return (
+                  <div
+                    key={r.user_id}
+                    className="card"
+                    style={{
+                      padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      background: r.rank === 1 ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-card)',
+                      border: r.rank === 1 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ fontSize: '24px', fontWeight: 900, width: '32px', textAlign: 'center' }}>
+                        {medal || <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>#{r.rank}</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)' }}>{r.full_name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{r.department_name || 'KTS'}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)' }}>{r.score} điểm</div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: scoreColor, marginTop: '2px' }}>
+                        Đúng giờ: {r.on_time_rate}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
