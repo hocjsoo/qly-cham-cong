@@ -111,21 +111,23 @@ export default function DashboardPage() {
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">Dashboard</div>
+            <div className="header__title">
+              Xin chào, {user?.full_name?.split(' ').pop() || 'bạn'}! 👋
+            </div>
             <div className="header__subtitle">
-              {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' })}
+              {new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button onClick={() => exportAttendanceToCSV(staff, data?.date)} className="btn btn--ghost" style={{ padding: '7px 10px', fontSize: '12px' }}>
+            <button onClick={() => exportAttendanceToCSV(staff, data?.date)} className="btn btn--ghost" style={{ padding: '7px 10px', fontSize: '12px', gap: '4px' }}>
               <Download size={14} /> CSV
             </button>
-            <button onClick={fetchData} disabled={loading} className="theme-toggle-btn">
+            <button onClick={fetchData} disabled={loading} className="theme-toggle-btn" title="Làm mới dữ liệu">
               <RefreshCw size={16} style={{ animation: loading ? 'spin 0.6s linear infinite' : 'none' }} />
             </button>
             <HeaderActions />
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+              <img src={user.avatar_url} alt={user.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }} />
             ) : (
               <div className="avatar">{initials}</div>
             )}
@@ -138,18 +140,18 @@ export default function DashboardPage() {
         {data && (
           <div className="grid-desktop-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '14px' }}>
             {[
-              { icon: <Users size={20} />, label: 'Tổng nhân sự', value: s.total, color: 'var(--primary)', bg: 'var(--primary-soft)', border: '1px solid var(--primary-glow)' },
-              { icon: <UserCheck size={20} />, label: 'Có mặt hôm nay', value: s.present_total, color: 'var(--green)', bg: 'var(--green-soft)', border: '1px solid rgba(16, 185, 129, 0.3)' },
-              { icon: <Clock size={20} />, label: 'Đang làm việc', value: s.checked_in, color: 'var(--blue)', bg: 'var(--blue-soft)', border: '1px solid rgba(6, 182, 212, 0.3)' },
-              { icon: <UserX size={20} />, label: 'Vắng mặt', value: s.absent, color: 'var(--red)', bg: 'var(--red-soft)', border: '1px solid rgba(244, 63, 94, 0.3)' },
+              { icon: <Users size={22} />, label: 'TỔNG NHÂN SỰ', value: s.total, color: 'var(--primary)', bg: 'var(--primary-soft)', border: '1px solid var(--primary-glow)' },
+              { icon: <UserCheck size={22} />, label: 'CÓ MẶT HÔM NAY', value: s.present_total, color: 'var(--green)', bg: 'var(--green-soft)', border: '1px solid rgba(16, 185, 129, 0.3)' },
+              { icon: <Clock size={22} />, label: 'ĐANG LÀM VIỆC', value: s.checked_in, color: 'var(--blue)', bg: 'var(--blue-soft)', border: '1px solid rgba(6, 182, 212, 0.3)' },
+              { icon: <UserX size={22} />, label: 'VẮNG MẶT', value: s.absent, color: 'var(--red)', bg: 'var(--red-soft)', border: '1px solid rgba(244, 63, 94, 0.3)' },
             ].map((item, i) => (
-              <div key={i} className="stat-card card--interactive animate-fade-in" style={{ border: item.border }}>
-                <div className="stat-card__icon" style={{ background: item.bg, color: item.color }}>
+              <div key={i} className="stat-card card--interactive animate-fade-in" style={{ border: item.border, borderRadius: '14px', padding: '14px' }}>
+                <div className="stat-card__icon" style={{ background: item.bg, color: item.color, borderRadius: '12px' }}>
                   {item.icon}
                 </div>
                 <div>
-                  <div className="stat-card__value">{item.value}</div>
-                  <div className="stat-card__label">{item.label}</div>
+                  <div className="stat-card__value" style={{ fontSize: '24px', fontWeight: 900 }}>{item.value}</div>
+                  <div className="stat-card__label" style={{ fontSize: '10px', letterSpacing: '0.5px' }}>{item.label}</div>
                 </div>
               </div>
             ))}
@@ -158,27 +160,29 @@ export default function DashboardPage() {
 
         {/* Visual attendance ratio bar */}
         {s.total > 0 && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>
-              <span>Tỷ lệ có mặt hôm nay</span>
-              <span style={{ color: 'var(--green)' }}>{Math.round((s.present_total / s.total) * 100)}%</span>
+          <div className="card animate-fade-in" style={{ marginBottom: '14px', padding: '14px', borderRadius: '14px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
+              <span style={{ color: 'var(--text)' }}>Tỷ lệ đi làm toàn công ty</span>
+              <span style={{ color: 'var(--green)', background: 'var(--green-soft)', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 900 }}>
+                {Math.round((s.present_total / s.total) * 100)}% CÓ MẶT
+              </span>
             </div>
-            <div className="progress-bar" style={{ height: '8px', background: 'var(--bg-input)' }}>
+            <div className="progress-bar" style={{ height: '10px', background: 'var(--bg-input)', borderRadius: '6px', padding: '2px' }}>
               <div style={{ display: 'flex', height: '100%', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: `${(s.checked_in / s.total) * 100}%`, background: 'var(--green)', transition: 'width 0.5s' }} title="Đang làm" />
                 <div style={{ width: `${(s.checked_out / s.total) * 100}%`, background: 'var(--blue)', transition: 'width 0.5s' }} title="Đã về" />
                 <div style={{ width: `${(s.absent / s.total) * 100}%`, background: 'var(--red-soft)', transition: 'width 0.5s' }} title="Vắng" />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '8px', flexWrap: 'wrap' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--green)' }} /> Đang làm ({s.checked_in})
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--blue)' }} /> Đã về ({s.checked_out})
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--red)' }} /> Vắng ({s.absent})
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--red)' }} /> Vắng mặt ({s.absent})
               </span>
             </div>
           </div>
