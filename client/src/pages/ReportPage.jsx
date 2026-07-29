@@ -805,9 +805,9 @@ export default function ReportPage() {
                     </div>
                   </div>
                   <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>ĐI TRỄ / VỀ SỚM</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: indSum.late_count > 0 ? '#dc2626' : '#059669', marginTop: '2px' }}>
-                      {indSum.late_count} lần ({indSum.late_minutes}p)
+                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>ĐẦY ĐỦ CÔNG</div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
+                      {indLogs.filter(r => parseFloat(r.workCredit) >= 1 || r.workCredit === 'x').length} ngày
                     </div>
                   </div>
                 </div>
@@ -816,60 +816,58 @@ export default function ReportPage() {
                 <div style={{ fontSize: '12px', marginBottom: '8px', fontWeight: 800, color: '#1e293b' }}>
                   📋 Nhật ký điểm danh chi tiết từng ngày
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '10px', textAlign: 'center' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px', textAlign: 'center' }}>
                   <thead>
                     <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Ngày</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Thứ</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Ca sáng</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Ca chiều</th>
-                      <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>Tăng ca</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Trễ</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Sớm</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Công</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Giờ</th>
-                      <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Nơi làm việc</th>
-                    </tr>
-                    <tr style={{ background: '#334155', color: '#ffffff', fontWeight: 'bold' }}>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Vào</th>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Ra</th>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Vào</th>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Ra</th>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Vào</th>
-                      <th style={{ border: '1px solid #475569', padding: '3px' }}>Ra</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Ngày</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Thứ</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#34d399' }}>Giờ vào</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#60a5fa' }}>Giờ ra</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Loại công</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Đủ công ngày</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Giờ làm ngày</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#c084fc' }}>Giờ OT ngày</th>
+                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Nơi làm việc</th>
                     </tr>
                   </thead>
                   <tbody>
                     {indLogs.map((row) => {
                       const isSun = row.weekday === 'CN' || row.weekday === 'Chủ Nhật';
+                      const inTime = row.shift1?.in || row.shift2?.in || row.shift3?.in || '—';
+                      const outTime = row.shift3?.out || row.shift2?.out || row.shift1?.out || '—';
+                      const otVal = (row.ot1 || 0) + (row.ot2 || 0) + (row.ot3 || 0);
+                      const otStr = otVal > 0 ? `${otVal.toFixed(1)}h` : '—';
+                      const numCredit = parseFloat(row.workCredit || 0);
+
+                      let creditBadge = <span style={{ color: '#94a3b8' }}>0 công (Vắng)</span>;
+                      if (numCredit >= 1 || row.workCredit === '1.0' || row.workCredit === 'x') {
+                        creditBadge = <span style={{ color: '#059669', fontWeight: 800 }}>1.0 công (Đủ công)</span>;
+                      } else if (numCredit > 0) {
+                        creditBadge = <span style={{ color: '#d97706', fontWeight: 800 }}>{numCredit} công (Nửa ngày)</span>;
+                      } else if (row.workCredit && row.workCredit !== '0' && row.workCredit !== '—') {
+                        creditBadge = <span style={{ color: '#7c3aed', fontWeight: 800 }}>{row.workCredit}</span>;
+                      }
+
                       return (
                         <tr key={row.day} style={{ background: isSun ? '#fef2f2' : row.isWeekend ? '#f8fafc' : '#ffffff', color: '#0f172a' }}>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700 }}>{row.dateFormatted}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700, color: isSun ? '#dc2626' : '#0f172a' }}>{row.weekday}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#059669' }}>{row.shift1.in}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#059669' }}>{row.shift1.out}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#2563eb' }}>{row.shift2.in}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#2563eb' }}>{row.shift2.out}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#7c3aed' }}>{row.shift3.in}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#7c3aed' }}>{row.shift3.out}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.lateMins ? '#dc2626' : '#94a3b8', fontWeight: row.lateMins ? 'bold' : 'normal' }}>
-                            {row.lateMins ? `${row.lateMins}p` : '—'}
-                          </td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.earlyMins ? '#d97706' : '#94a3b8' }}>
-                            {row.earlyMins ? `${row.earlyMins}p` : '—'}
-                          </td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 'bold', color: '#2563eb' }}>{row.workCredit}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 700 }}>{row.totalHours ? `${row.totalHours}h` : '—'}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: '#475569' }}>{row.locationName}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700 }}>{row.dateFormatted}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700, color: isSun ? '#dc2626' : '#0f172a' }}>{row.weekday}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#059669', fontWeight: 700 }}>{inTime}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#2563eb', fontWeight: 700 }}>{outTime}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700, color: '#475569' }}>{row.workCredit || '—'}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px' }}>{creditBadge}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 800 }}>{row.totalHours ? `${row.totalHours}h` : '—'}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 800, color: otVal > 0 ? '#7c3aed' : '#cbd5e1' }}>{otStr}</td>
+                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#475569' }}>{row.locationName}</td>
                         </tr>
                       );
                     })}
                     {/* Bottom Summary Row */}
                     <tr style={{ fontWeight: 'bold', background: '#e2e8f0', color: '#0f172a' }}>
-                      <td colSpan="10" style={{ border: '1px solid #1e293b', padding: '6px 10px', textAlign: 'left' }}>
+                      <td colSpan="6" style={{ border: '1px solid #1e293b', padding: '8px 10px', textAlign: 'left' }}>
                         TỔNG CỘNG THÁNG {month}/{year}:
                       </td>
-                      <td colSpan="3" style={{ border: '1px solid #1e293b', padding: '6px', textAlign: 'center', color: '#059669', fontSize: '12px' }}>
+                      <td colSpan="3" style={{ border: '1px solid #1e293b', padding: '8px', textAlign: 'center', color: '#059669', fontSize: '12px' }}>
                         {indSum.total_work_hours} giờ làm việc
                       </td>
                     </tr>
@@ -1300,57 +1298,56 @@ export default function ReportPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px', textAlign: 'center' }}>
             <thead>
               <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Ngày</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Thứ</th>
-                <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>1</th>
-                <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>2</th>
-                <th colSpan="2" style={{ border: '1px solid #334155', padding: '4px' }}>3</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Trễ</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Sớm</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Công</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Giờ</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca1</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca2</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>T.Ca3</th>
-                <th rowSpan="2" style={{ border: '1px solid #334155', padding: '6px 4px' }}>Nơi làm việc</th>
-              </tr>
-              <tr style={{ background: '#334155', color: '#ffffff', fontWeight: 'bold' }}>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Vào</th>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Ra</th>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Vào</th>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Ra</th>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Vào</th>
-                <th style={{ border: '1px solid #475569', padding: '4px' }}>Ra</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Ngày</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Thứ</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#34d399' }}>Giờ vào</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#60a5fa' }}>Giờ ra</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Loại công</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Đủ công ngày</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Giờ làm ngày</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#c084fc' }}>Giờ OT ngày</th>
+                <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Nơi làm việc</th>
               </tr>
             </thead>
             <tbody>
-              {indLogs.map((row) => (
-                <tr key={row.day} style={{ background: row.isWeekend ? '#f1f5f9' : '#ffffff', color: '#0f172a' }}>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.dateFormatted}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: row.isWeekend ? 'bold' : 'normal' }}>{row.weekday}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift1.in}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift1.out}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift2.in}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift2.out}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift3.in}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.shift3.out}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px', color: row.lateMins ? '#ef4444' : '#0f172a', fontWeight: row.lateMins ? 'bold' : 'normal' }}>{row.lateMins}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.earlyMins}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px', fontWeight: 'bold' }}>{row.workCredit}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.totalHours || ''}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot1}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot2}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.ot3}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '4px' }}>{row.locationName}</td>
-                </tr>
-              ))}
+              {indLogs.map((row) => {
+                const isSun = row.weekday === 'CN' || row.weekday === 'Chủ Nhật';
+                const inTime = row.shift1?.in || row.shift2?.in || row.shift3?.in || '—';
+                const outTime = row.shift3?.out || row.shift2?.out || row.shift1?.out || '—';
+                const otVal = (row.ot1 || 0) + (row.ot2 || 0) + (row.ot3 || 0);
+                const otStr = otVal > 0 ? `${otVal.toFixed(1)}h` : '—';
+                const numCredit = parseFloat(row.workCredit || 0);
+
+                let creditBadge = <span style={{ color: '#64748b' }}>0 công (Vắng)</span>;
+                if (numCredit >= 1 || row.workCredit === '1.0' || row.workCredit === 'x') {
+                  creditBadge = <span style={{ color: '#059669', fontWeight: 800 }}>1.0 công (Đủ công)</span>;
+                } else if (numCredit > 0) {
+                  creditBadge = <span style={{ color: '#d97706', fontWeight: 800 }}>{numCredit} công (Nửa ngày)</span>;
+                } else if (row.workCredit && row.workCredit !== '0' && row.workCredit !== '—') {
+                  creditBadge = <span style={{ color: '#7c3aed', fontWeight: 800 }}>{row.workCredit}</span>;
+                }
+
+                return (
+                  <tr key={row.day} style={{ background: isSun ? '#fef2f2' : row.isWeekend ? '#f8fafc' : '#ffffff', color: '#0f172a' }}>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 700 }}>{row.dateFormatted}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 700, color: isSun ? '#dc2626' : '#0f172a' }}>{row.weekday}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', color: '#059669', fontWeight: 700 }}>{inTime}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', color: '#2563eb', fontWeight: 700 }}>{outTime}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 700, color: '#475569' }}>{row.workCredit || '—'}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px' }}>{creditBadge}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 800 }}>{row.totalHours ? `${row.totalHours}h` : '—'}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', fontWeight: 800, color: otVal > 0 ? '#7c3aed' : '#cbd5e1' }}>{otStr}</td>
+                    <td style={{ border: '1px solid #cbd5e1', padding: '5px 4px', color: '#475569' }}>{row.locationName}</td>
+                  </tr>
+                );
+              })}
               {/* Bottom Summary Row */}
               <tr style={{ fontWeight: 'bold', background: '#e2e8f0', color: '#0f172a' }}>
-                <td colSpan="10" style={{ border: '1.5px solid #1e293b', padding: '7px', textAlign: 'left' }}>
-                  Tổng công: {indSum.total_work_hours} giờ
+                <td colSpan="6" style={{ border: '1.5px solid #1e293b', padding: '7px 10px', textAlign: 'left' }}>
+                  TỔNG CỘNG THÁNG {month}/{year}:
                 </td>
-                <td colSpan="6" style={{ border: '1.5px solid #1e293b', padding: '7px', textAlign: 'center' }}>
-                  {indSum.total_work_hours}
+                <td colSpan="3" style={{ border: '1.5px solid #1e293b', padding: '7px', textAlign: 'center', color: '#059669', fontSize: '12px' }}>
+                  {indSum.total_work_hours} giờ làm việc
                 </td>
               </tr>
             </tbody>
