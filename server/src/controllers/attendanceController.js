@@ -43,6 +43,30 @@ function calculateLateTier(checkInDate, workStartStr = '08:30', minorMins = 10, 
   }
 }
 
+// Helper tính giờ tăng ca (OT) dựa theo giờ kết thúc ca làm làm việc (mặc định 17:30 hoặc trong Cài đặt hệ thống)
+function calculateOT(checkInDate, checkOutDate, workEndTime = '17:30') {
+  if (!checkInDate || !checkOutDate) return 0;
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+  if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime()) || checkOut <= checkIn) return 0;
+
+  // Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam Asia/Ho_Chi_Minh
+  const dateStr = checkOut.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const timePart = (workEndTime && workEndTime.includes(':')) ? workEndTime.trim() : '17:30';
+  const [endH, endM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
+
+  // Mốc bắt đầu tính OT chuẩn trong múi giờ +07:00
+  const otThreshold = new Date(`${dateStr}T${endH}:${endM}:00+07:00`);
+
+  if (checkOut > otThreshold) {
+    const otStartMs = Math.max(checkIn.getTime(), otThreshold.getTime());
+    const otMs = checkOut.getTime() - otStartMs;
+    const otHours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
+    return Math.max(0, otHours);
+  }
+  return 0;
+}
+
 // POST /api/attendance/checkin
 // GPS bắt buộc với MỌI loại check-in.
 // - type=office: bắt buộc nằm trong bán kính geofence văn phòng
@@ -219,18 +243,13 @@ const checkOut = async (req, res) => {
       return res.status(400).json({ error: 'Bạn chưa check-in hôm nay.' });
     }
 
+    const settings = await SystemSetting.findOne({ key: 'global' });
+    const workEndTime = settings?.work_end_time || '17:30';
+
     const checkInTime = new Date(attendance.check_in_time);
     const diffMs = now - checkInTime;
     const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
-
-    // OT tính từ 18:00
-    const otStart = new Date(now);
-    otStart.setHours(18, 0, 0, 0);
-    let otHours = 0;
-    if (now > otStart) {
-      const otMs = now - Math.max(checkInTime.getTime(), otStart.getTime());
-      otHours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
-    }
+    const otHours = calculateOT(checkInTime, now, workEndTime);
 
     // Kiểm tra khoảng cách VP khi Check-out
     let distanceMeters = null;
@@ -363,6 +382,19 @@ const getHistory = async (req, res) => {
       .populate('user_id', 'full_name employee_code avatar_url email')
       .sort({ date: -1 });
 
+    const settings = await SystemSetting.findOne({ key: 'global' });
+    const workEndTime = settings?.work_end_time || '17:30';
+
+    for (const r of records) {
+      if (r.check_in_time && r.check_out_time) {
+        const correctOt = calculateOT(r.check_in_time, r.check_out_time, workEndTime);
+        if (r.ot_hours !== correctOt) {
+          r.ot_hours = correctOt;
+          await Attendance.updateOne({ _id: r._id }, { ot_hours: correctOt });
+        }
+      }
+    }
+
     const presentDays = records.filter(r => !r.is_late).length;
     const lateDays = records.filter(r => r.is_late).length;
     const totalHours = parseFloat(records.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
@@ -437,16 +469,7 @@ const overrideAttendance = async (req, res) => {
       const diffMs = new Date(attendance.check_out_time) - new Date(attendance.check_in_time);
       const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
       attendance.total_hours = Math.max(0, totalHours);
-
-      // OT tính từ 18:00
-      const otStart = new Date(attendance.check_out_time);
-      otStart.setHours(18, 0, 0, 0);
-      if (attendance.check_out_time > otStart) {
-        const otMs = attendance.check_out_time - Math.max(attendance.check_in_time.getTime(), otStart.getTime());
-        attendance.ot_hours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
-      } else {
-        attendance.ot_hours = 0;
-      }
+      attendance.ot_hours = calculateOT(attendance.check_in_time, attendance.check_out_time, settings?.work_end_time || '17:30');
     }
 
     await attendance.save();
