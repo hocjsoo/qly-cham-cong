@@ -362,16 +362,45 @@ export default function SettingsPage() {
                               return;
                             }
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setShiftForm(p => ({ ...p, company_logo_url: reader.result }));
-                              toast.success('Đã tải ảnh logo!');
+                            reader.onloadend = async () => {
+                              const logoUrl = reader.result;
+                              setShiftForm(p => ({ ...p, company_logo_url: logoUrl }));
+                              useSettingsStore.getState().setCompanyLogo(logoUrl);
+
+                              try {
+                                const payload = { ...shiftForm, company_logo_url: logoUrl };
+                                const { data } = await api.put('/settings', payload);
+                                if (data.settings) {
+                                  useSettingsStore.getState().updateSettingsState(data.settings);
+                                }
+                                toast.success('Đã tải và lưu logo công ty!');
+                              } catch {
+                                toast.error('Lỗi lưu logo lên hệ thống');
+                              }
                             };
                             reader.readAsDataURL(file);
                           }}
                         />
                       </label>
                       {shiftForm.company_logo_url && (
-                        <button onClick={() => setShiftForm(p => ({ ...p, company_logo_url: '' }))} className="btn btn--ghost" style={{ color: 'var(--red)', fontSize: '12px' }}>
+                        <button
+                          onClick={async () => {
+                            setShiftForm(p => ({ ...p, company_logo_url: '' }));
+                            useSettingsStore.getState().setCompanyLogo('');
+                            try {
+                              const payload = { ...shiftForm, company_logo_url: '' };
+                              const { data } = await api.put('/settings', payload);
+                              if (data.settings) {
+                                useSettingsStore.getState().updateSettingsState(data.settings);
+                              }
+                              toast.success('Đã xóa logo công ty!');
+                            } catch {
+                              toast.error('Lỗi xóa logo');
+                            }
+                          }}
+                          className="btn btn--ghost"
+                          style={{ color: 'var(--red)', fontSize: '12px' }}
+                        >
                           Xóa logo
                         </button>
                       )}

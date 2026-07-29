@@ -303,5 +303,23 @@ export async function mockRequest(method, url, data = {}) {
     return { data: { message: 'Cập nhật nhân viên thành công!', user: u } };
   }
 
+  // === SYSTEM SETTINGS ===
+  if (url.includes('/settings')) {
+    let systemSettings = getMockStorage('system_settings', {
+      company_name: 'ET Architects',
+      company_logo_url: '',
+      work_start_time: '08:30',
+      work_end_time: '17:30',
+      minor_late_mins: 10,
+      medium_late_mins: 30,
+    });
+    if (method === 'put' || method === 'post') {
+      systemSettings = { ...systemSettings, ...data };
+      setMockStorage('system_settings', systemSettings);
+      return { data: { message: 'Đã lưu cấu hình hệ thống!', settings: systemSettings } };
+    }
+    return { data: systemSettings };
+  }
+
   return { data: {} };
 }
