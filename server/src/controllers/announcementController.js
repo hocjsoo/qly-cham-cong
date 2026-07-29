@@ -1,4 +1,4 @@
-﻿// controllers/announcementController.js
+// controllers/announcementController.js
 // Quan ly thong bao noi bo (ghim) & sinh nhat nhan su
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
@@ -16,7 +16,10 @@ const getBirthdays = async (req, res) => {
       dob: { $ne: null, $exists: true },
       employment_status: { $ne: 'Da nghi viec' },
       is_active: true,
-    }).select('full_name dob position department_id avatar_url employee_code employee_type');
+    })
+      .select('full_name email phone dob position department_id department_ids avatar_url employee_code employee_type')
+      .populate('department_id', 'name')
+      .populate('department_ids', 'name');
 
     const birthdays = users.filter(u => {
       if (!u.dob) return false;
@@ -35,14 +38,24 @@ const getBirthdays = async (req, res) => {
       let day = '';
       if (d.includes('-')) day = d.split('-')[2];
       else if (d.includes('/')) day = d.split('/')[0];
+
+      const deptNames = (u.department_ids && u.department_ids.length > 0)
+        ? u.department_ids.map(dep => dep.name)
+        : (u.department_id?.name ? [u.department_id.name] : []);
+
       return {
         _id: u._id,
+        user_id: u._id,
+        id: u._id,
         full_name: u.full_name,
+        email: u.email || '',
+        phone: u.phone || '',
         dob: u.dob,
         day,
-        position: u.position,
+        position: u.position || 'Nhân viên',
+        department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
         avatar_url: u.avatar_url,
-        employee_code: u.employee_code,
+        employee_code: u.employee_code || 'NS-000',
         employee_type: u.employee_type,
       };
     }).sort((a, b) => parseInt(a.day) - parseInt(b.day));
