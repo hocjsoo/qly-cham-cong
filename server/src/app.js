@@ -37,13 +37,20 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // ==============================================
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 5000, // Tăng lên 5000 request / 15 phút
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.ip === '127.0.0.1' ||
+    req.ip === '::1' ||
+    req.ip === '::ffff:127.0.0.1' ||
+    process.env.NODE_ENV !== 'production',
   message: { error: 'Quá nhiều yêu cầu từ IP này, thử lại sau 15 phút.' }
 });
 
 const checkInLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 100,
   message: { error: 'Thao tác quá nhanh, vui lòng chờ 1 phút.' }
 });
 
