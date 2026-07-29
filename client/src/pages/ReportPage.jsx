@@ -312,10 +312,13 @@ export default function ReportPage() {
     setTimeout(async () => {
       try {
         const canvas = await html2canvas(printEl, {
-          scale: 3, // 3x ultra-sharp resolution
+          scale: 2.5, // 2.5x ultra-sharp resolution
           useCORS: true,
           backgroundColor: '#ffffff',
           logging: false,
+          windowWidth: isIndividual ? 1000 : 2200,
+          scrollX: 0,
+          scrollY: 0,
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.96);
@@ -324,20 +327,22 @@ export default function ReportPage() {
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
 
+        const margin = 5; // 5mm margin around PDF page
+        const printableWidth = pdfWidth - (margin * 2);
         const imgProps = pdf.getImageProperties(imgData);
-        const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        const imgHeight = (imgProps.height * printableWidth) / imgProps.width;
 
         let heightLeft = imgHeight;
-        let position = 0;
+        let position = margin;
 
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-        heightLeft -= pdfHeight;
+        pdf.addImage(imgData, 'JPEG', margin, position, printableWidth, imgHeight);
+        heightLeft -= (pdfHeight - (margin * 2));
 
         while (heightLeft >= 10) {
-          position = heightLeft - imgHeight;
+          position = heightLeft - imgHeight + margin;
           pdf.addPage();
-          pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
-          heightLeft -= pdfHeight;
+          pdf.addImage(imgData, 'JPEG', margin, position, printableWidth, imgHeight);
+          heightLeft -= (pdfHeight - (margin * 2));
         }
 
         const blobUrl = pdf.output('bloburl');
@@ -1053,9 +1058,9 @@ export default function ReportPage() {
         )}
       </div>
 
-      {/* OFF-SCREEN HIGH-DEF PRINT WRAPPER FOR PDF MATRIX GENERATION (1480px Expanded Width, No Scrollbar Clipping) */}
-<div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1480px', pointerEvents: 'none' }}>
-        <div ref={pdfMatrixPrintRef} style={{ background: '#ffffff', color: '#0f172a', padding: '20px', fontFamily: 'Arial, sans-serif', width: '1480px' }}>
+      {/* OFF-SCREEN HIGH-DEF PRINT WRAPPER FOR PDF MATRIX GENERATION (2150px Expanded Width for All 31 Days) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '2150px', pointerEvents: 'none' }}>
+        <div ref={pdfMatrixPrintRef} style={{ background: '#ffffff', color: '#0f172a', padding: '20px', fontFamily: 'Arial, sans-serif', width: '2150px' }}>
           {/* Corporate Header Banner */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '3px solid #1e293b', paddingBottom: '10px' }}>
             <div>
