@@ -2,7 +2,7 @@
 // Trang Đơn Từ — Premium Request Portal (Form, KPI Cards, Status Filters & Manager Workflow)
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight } from 'lucide-react';
+import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -44,8 +44,10 @@ export default function RequestsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  // Status Filter
+  // Status & Search Filters
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [search, setSearch] = useState('');
 
   // Reject Modal State
   const [rejectTarget, setRejectTarget] = useState(null);
@@ -149,7 +151,19 @@ export default function RequestsPage() {
   };
 
   const rawList = tab === 'mine' ? mine : pending;
-  const list = rawList.filter(r => statusFilter === 'all' || r.status === statusFilter);
+  const list = rawList.filter(r => {
+    const matchStatus = statusFilter === 'all' || r.status === statusFilter;
+    const matchType = typeFilter === 'all' || r.type === typeFilter;
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q ||
+                        r.user_name?.toLowerCase().includes(q) ||
+                        r.user_code?.toLowerCase().includes(q) ||
+                        r.reason?.toLowerCase().includes(q) ||
+                        r.project_name?.toLowerCase().includes(q) ||
+                        TYPE_CONFIG[r.type]?.label?.toLowerCase().includes(q);
+
+    return matchStatus && matchType && matchSearch;
+  });
 
   // Summary counts
   const pendingCount = rawList.filter(r => r.status === 'pending').length;
@@ -227,6 +241,32 @@ export default function RequestsPage() {
             </button>
           </div>
         )}
+
+        {/* Search Bar + Type Select */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              className="form-input"
+              style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
+              placeholder="🔍 Tìm theo Tên, Mã NS, Lý do, Dự án..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px' }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+            <option value="all">📂 Loại đơn: Tất cả</option>
+            <option value="annual_leave">🌴 Nghỉ phép năm</option>
+            <option value="business_trip">🏗️ Đi công tác</option>
+            <option value="wfh">🏠 Làm WFH</option>
+            <option value="attendance_override">⚡ Chấm công bổ sung</option>
+            <option value="late">⏰ Giải trình muộn/về sớm</option>
+            <option value="overtime">💪 Đơn tăng ca (OT)</option>
+            <option value="unpaid_leave">📄 Nghỉ không lương</option>
+            <option value="sick_leave">🤒 Nghỉ ốm</option>
+          </select>
+        </div>
 
         {/* Status Filter Pills */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>

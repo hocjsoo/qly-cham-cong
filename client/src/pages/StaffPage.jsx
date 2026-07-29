@@ -46,6 +46,8 @@ export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterEmpType, setFilterEmpType] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -137,12 +139,23 @@ export default function StaffPage() {
   };
 
   const filtered = staff.filter(s => {
-    const matchSearch = s.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-                        s.email?.toLowerCase().includes(search.toLowerCase());
+    const q = search.trim().toLowerCase();
+    const matchSearch = !q ||
+                        s.full_name?.toLowerCase().includes(q) ||
+                        s.email?.toLowerCase().includes(q) ||
+                        s.employee_code?.toLowerCase().includes(q) ||
+                        s.phone?.includes(q) ||
+                        s.position?.toLowerCase().includes(q) ||
+                        s.hometown?.toLowerCase().includes(q) ||
+                        s.cccd?.includes(q);
+
     const userDeptIds = s.department_ids?.map(d => d._id || d) || [s.department_id?._id || s.department_id];
     const matchDept = !filterDept || userDeptIds.includes(filterDept);
     const matchRole = !filterRole || s.role === filterRole || (filterRole === 'leader' && s.role === 'manager') || (filterRole === 'employee' && s.role === 'staff');
-    return matchSearch && matchDept && matchRole;
+    const matchStatus = !filterStatus || s.employment_status === filterStatus;
+    const matchEmpType = !filterEmpType || s.employee_type === filterEmpType;
+
+    return matchSearch && matchDept && matchRole && matchStatus && matchEmpType;
   });
 
   const openCreate = () => {
@@ -277,25 +290,43 @@ export default function StaffPage() {
           ))}
         </div>
 
-        {/* Search + Filter */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
+        {/* Search + Multi-type Filters */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ position: 'relative', width: '100%' }}>
             <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
             <input
               type="text"
               className="form-input"
               style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-              placeholder="Tìm tên, email..."
+              placeholder="🔍 Tìm kiếm theo Tên, Mã NS, Email, SĐT, Chức vụ..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <select className="form-input" style={{ width: 'auto', padding: '8px 10px', fontSize: '12px' }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
-            <option value="">Tất cả vai trò</option>
-            <option value="employee">Nhân viên</option>
-            <option value="leader">Leader</option>
-            <option value="admin">Admin</option>
-          </select>
+
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+              <option value="">👤 Vai trò: Tất cả</option>
+              <option value="employee">Nhân viên</option>
+              <option value="leader">Leader</option>
+              <option value="admin">Admin</option>
+            </select>
+
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">📌 Trạng thái: Tất cả</option>
+              <option value="Dang lam viec">🟢 Đang làm việc</option>
+              <option value="Da nghi viec">⚪ Đã nghỉ việc</option>
+              <option value="Nghi om">🟡 Nghỉ ốm</option>
+              <option value="Nghi thai san">🔵 Nghỉ thai sản</option>
+            </select>
+
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterEmpType} onChange={e => setFilterEmpType(e.target.value)}>
+              <option value="">🏷️ Loại NS: Tất cả</option>
+              <option value="NS">NS - Chính thức</option>
+              <option value="TV">TV - Thử việc</option>
+              <option value="TTS">TTS - Thực tập sinh</option>
+            </select>
+          </div>
         </div>
 
         {/* Dept filter chips */}
