@@ -345,12 +345,7 @@ export default function StaffPage() {
                       <img
                         src={u.avatar_url}
                         alt={u.full_name}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setFullAvatarImage({ url: u.avatar_url, title: u.full_name });
-                        }}
-                        title="Click để phóng to ảnh"
-                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)' }}
                         onError={e => { e.target.onerror=null; e.target.src=''; }}
                       />
                     ) : (
@@ -681,29 +676,35 @@ export default function StaffPage() {
       {/* Staff Account & Detail Profile Modal */}
       {viewingStaffDetail && (
         <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 16px' }}>
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800 }}>👤 Hồ Sơ Nhân Viên</h3>
+
+            {/* Title Header Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>👤 Hồ Sơ Nhân Viên</h3>
               <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {/* Large Avatar Header */}
-            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            {/* Avatar Header Section */}
+            <div style={{ textAlign: 'center', marginBottom: '18px', padding: '4px 0' }}>
               <div
-                style={{ position: 'relative', width: '96px', height: '96px', margin: '0 auto 8px', cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default' }}
+                style={{
+                  position: 'relative', width: '96px', height: '96px', margin: '0 auto 10px',
+                  cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default',
+                  display: 'block'
+                }}
                 onClick={() => {
                   if (viewingStaffDetail.avatar_url) {
                     setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
                   }
                 }}
-                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh phóng to' : ''}
+                title={viewingStaffDetail.avatar_url ? 'Click để phóng to ảnh đại diện' : ''}
               >
                 {viewingStaffDetail.avatar_url ? (
                   <img
                     src={viewingStaffDetail.avatar_url}
                     alt={viewingStaffDetail.full_name}
-                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: 'var(--shadow-sm)' }}
+                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)', display: 'block' }}
                   />
                 ) : (
                   <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto' }}>
@@ -711,12 +712,19 @@ export default function StaffPage() {
                   </div>
                 )}
               </div>
+
               {viewingStaffDetail.avatar_url && (
-                <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer' }} onClick={() => setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name })}>
-                  🔍 Xem ảnh kích thước đầy đủ
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name })}
+                  className="btn btn--ghost"
+                  style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, padding: '4px 10px', marginBottom: '8px' }}
+                >
+                  🔍 Phóng to ảnh đại diện
+                </button>
               )}
-              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px' }}>{viewingStaffDetail.full_name}</h2>
+
+              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px', marginBottom: '2px', color: 'var(--text)' }}>{viewingStaffDetail.full_name}</h2>
               <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{viewingStaffDetail.employee_code || 'NS-000'}</div>
             </div>
 

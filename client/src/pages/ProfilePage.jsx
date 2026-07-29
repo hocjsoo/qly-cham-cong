@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const [showChangePass, setShowChangePass] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   // Edit info state
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -145,28 +146,59 @@ export default function ProfilePage() {
       <div className="container" style={{ paddingTop: '20px' }}>
         {/* Profile header */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }} className="animate-fade-in">
-          <div style={{ position: 'relative', width: '72px', height: '72px', margin: '0 auto 10px', cursor: 'pointer' }} onClick={handleAvatarSelect} title="Click để tải ảnh đại diện">
+          <div
+            style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 10px', cursor: 'pointer' }}
+            onClick={() => {
+              if (user?.avatar_url) {
+                setFullAvatarImage({ url: user.avatar_url, title: user.full_name });
+              } else {
+                handleAvatarSelect();
+              }
+            }}
+            title={user?.avatar_url ? 'Click để xem ảnh phóng to' : 'Click để tải ảnh'}
+          >
             {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.full_name} style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
+              <img src={user.avatar_url} alt={user.full_name} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
             ) : (
-              <div className="avatar" style={{ width: '72px', height: '72px', fontSize: '24px' }}>
+              <div className="avatar" style={{ width: '80px', height: '80px', fontSize: '26px', margin: '0 auto' }}>
                 {initials}
               </div>
             )}
-            <div style={{
-              position: 'absolute', bottom: '0', right: '0', background: 'var(--primary)', color: '#fff',
-              borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '2px solid var(--bg)', fontSize: '11px',
-            }}>
-              {uploadingAvatar ? <span className="spinner" style={{ width: '12px', height: '12px' }} /> : <Camera size={12} />}
+            <div
+              onClick={(e) => { e.stopPropagation(); handleAvatarSelect(); }}
+              style={{
+                position: 'absolute', bottom: '0', right: '0', background: 'var(--primary)', color: '#fff',
+                borderRadius: '50%', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: '2px solid var(--bg)', fontSize: '12px', cursor: 'pointer',
+              }}
+              title="Đổi ảnh đại diện"
+            >
+              {uploadingAvatar ? <span className="spinner" style={{ width: '12px', height: '12px' }} /> : <Camera size={13} />}
             </div>
           </div>
 
-          <div style={{ fontSize: '11px', color: 'var(--primary)', cursor: 'pointer', marginBottom: '6px', fontWeight: 600 }} onClick={handleAvatarSelect}>
-            📸 Đổi ảnh đại diện
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '8px' }}>
+            {user?.avatar_url && (
+              <button
+                type="button"
+                onClick={() => setFullAvatarImage({ url: user.avatar_url, title: user.full_name })}
+                className="btn btn--ghost"
+                style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--primary)', fontWeight: 600 }}
+              >
+                🔍 Xem ảnh phóng to
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleAvatarSelect}
+              className="btn btn--ghost"
+              style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--text-secondary)', fontWeight: 600 }}
+            >
+              📸 Đổi ảnh đại diện
+            </button>
           </div>
 
-          <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{user?.full_name}</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: 800 }}>{user?.full_name}</h2>
           <span className={`badge ${user?.role === 'admin' ? 'badge--danger' : (user?.role === 'leader' || user?.role === 'manager') ? 'badge--warning' : 'badge--info'}`}>
             {ROLE_VI[user?.role]}
           </span>
@@ -288,6 +320,32 @@ export default function ProfilePage() {
             <button onClick={handleChangePass} disabled={submittingPass} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
               {submittingPass ? <span className="spinner" /> : 'Xác nhận đổi'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Avatar Lightbox Modal */}
+      {fullAvatarImage && (
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
+                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+              📸 {fullAvatarImage.title}
+            </div>
           </div>
         </div>
       )}
