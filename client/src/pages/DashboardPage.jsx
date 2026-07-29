@@ -561,7 +561,7 @@ export default function DashboardPage() {
 
       {/* Fullsize Avatar Lightbox Modal */}
       {fullAvatarImage && (
-        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.85)', zIndex: 1000 }}>
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.9)', zIndex: 999999, alignItems: 'center', justifyContent: 'center' }}>
           <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
             <button
               onClick={() => setFullAvatarImage(null)}
