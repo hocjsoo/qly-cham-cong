@@ -31,10 +31,23 @@ const getMyRequests = async (req, res) => {
     if (type) filter.type = type;
 
     const requests = await Request.find(filter)
+      .populate('user_id', 'full_name email department_id avatar_url employee_code')
       .populate('approved_by', 'full_name')
       .sort({ created_at: -1 });
 
-    res.json(requests);
+    const formatted = requests.map(r => {
+      const obj = r.toObject();
+      return {
+        ...obj,
+        id: obj._id,
+        user_name: obj.user_id?.full_name || req.user.full_name,
+        user_avatar: obj.user_id?.avatar_url || req.user.avatar_url,
+        user_code: obj.user_id?.employee_code || req.user.employee_code,
+        email: obj.user_id?.email || req.user.email,
+      };
+    });
+
+    res.json(formatted);
   } catch (error) {
     console.error('GetMyRequests error:', error);
     res.status(500).json({ error: 'Lỗi lấy danh sách đơn.' });
@@ -124,7 +137,7 @@ const getPendingRequests = async (req, res) => {
     let requests;
     if (req.user.role === 'admin') {
       requests = await Request.find({ status: 'pending' })
-        .populate('user_id', 'full_name email department_id')
+        .populate('user_id', 'full_name email department_id department_ids avatar_url employee_code')
         .sort({ created_at: -1 });
     } else {
       const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
@@ -140,7 +153,7 @@ const getPendingRequests = async (req, res) => {
       }).distinct('_id');
 
       requests = await Request.find({ status: 'pending', user_id: { $in: teamUserIds } })
-        .populate('user_id', 'full_name email department_id department_ids')
+        .populate('user_id', 'full_name email department_id department_ids avatar_url employee_code')
         .sort({ created_at: -1 });
     }
 
@@ -150,6 +163,8 @@ const getPendingRequests = async (req, res) => {
         ...obj,
         id: obj._id,
         user_name: obj.user_id?.full_name,
+        user_avatar: obj.user_id?.avatar_url,
+        user_code: obj.user_id?.employee_code,
         email: obj.user_id?.email,
       };
     });

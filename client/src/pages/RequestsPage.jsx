@@ -53,6 +53,7 @@ export default function RequestsPage() {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   // Form State
   const [type, setType] = useState('annual_leave');
@@ -303,7 +304,9 @@ export default function RequestsPage() {
             {list.map(r => {
               const typeCfg = TYPE_CONFIG[r.type] || TYPE_CONFIG.other;
               const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
-              const initials = (r.user_name || user?.full_name || '?').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
+              const displayName = r.user_name || (tab === 'mine' ? user?.full_name : 'Nhân viên');
+              const avatarUrl = r.user_avatar || r.user_id?.avatar_url || (tab === 'mine' ? user?.avatar_url : null);
+              const initials = displayName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
 
               return (
                 <div
@@ -315,24 +318,42 @@ export default function RequestsPage() {
                     background: 'var(--bg-card)',
                   }}
                 >
-                  {/* Top Row: Type Tag + Status Badge */}
+                  {/* Top Row: Type Tag + Avatar + Status Badge */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {tab === 'pending' && (
-                        <div className="avatar" style={{ width: '28px', height: '28px', fontSize: '11px', background: 'var(--primary)' }}>
-                          {initials}
-                        </div>
-                      )}
-                      <div>
-                        <span style={{
-                          fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: typeCfg.bg,
-                          padding: '3px 8px', borderRadius: '6px', border: `1px solid ${typeCfg.color}22`
-                        }}>
-                          {typeCfg.label}
-                        </span>
-                        {r.user_name && tab === 'pending' && (
-                          <span style={{ fontSize: '12px', fontWeight: 600, marginLeft: '8px' }}>{r.user_name}</span>
+                      <div
+                        className="avatar"
+                        style={{
+                          width: '32px', height: '32px', fontSize: '11px', flexShrink: 0,
+                          borderRadius: '50%', overflow: 'hidden', cursor: avatarUrl ? 'zoom-in' : 'default',
+                          border: '1.5px solid var(--border)', background: 'var(--bg-raised)', display: 'flex',
+                          alignItems: 'center', justifyContent: 'center'
+                        }}
+                        onClick={() => {
+                          if (avatarUrl) {
+                            setFullAvatarImage({ url: avatarUrl, title: displayName });
+                          }
+                        }}
+                        title={avatarUrl ? 'Click để xem ảnh lớn' : ''}
+                      >
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          initials
                         )}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{
+                            fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: typeCfg.bg,
+                            padding: '3px 8px', borderRadius: '6px', border: `1px solid ${typeCfg.color}22`
+                          }}>
+                            {typeCfg.label}
+                          </span>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>
+                            {displayName} {r.user_code ? `(#${r.user_code})` : ''}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -538,6 +559,32 @@ export default function RequestsPage() {
               <button onClick={handleConfirmReject} disabled={rejecting} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 700 }}>
                 {rejecting ? <span className="spinner" /> : 'Xác nhận từ chối'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Avatar Lightbox Modal */}
+      {fullAvatarImage && (
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.9)', zIndex: 999999, alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
+                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+              📸 {fullAvatarImage.title}
             </div>
           </div>
         </div>
