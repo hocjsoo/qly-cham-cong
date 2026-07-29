@@ -7,12 +7,19 @@ import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, 
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
 
+import useSettingsStore from '../stores/settingsStore';
+
 export default function Layout() {
   const { user, logout } = useAuthStore();
+  const { company_name, company_logo_url, fetchSettings } = useSettingsStore();
   const navigate = useNavigate();
   const isStaff = user?.role === 'staff' || user?.role === 'employee';
   const isAdmin = user?.role === 'admin';
   const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     if (!isStaff) {
@@ -48,9 +55,17 @@ export default function Layout() {
       {/* Desktop Navigation Sidebar (visible >= 1024px) */}
       <aside className="desktop-sidebar">
         <div className="desktop-sidebar__brand">
-          <div className="desktop-sidebar__logo">ET</div>
+          {company_logo_url ? (
+            <img
+              src={company_logo_url}
+              alt={company_name || 'Logo'}
+              style={{ height: '38px', maxWidth: '120px', objectFit: 'contain', borderRadius: '6px' }}
+            />
+          ) : (
+            <div className="desktop-sidebar__logo">ET</div>
+          )}
           <div>
-            <div className="desktop-sidebar__title">ET Office Portal</div>
+            <div className="desktop-sidebar__title">{company_name || 'ET Office Portal'}</div>
             <div className="desktop-sidebar__subtitle">Chấm Công Thông Minh</div>
           </div>
         </div>

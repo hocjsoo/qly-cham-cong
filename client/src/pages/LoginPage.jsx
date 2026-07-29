@@ -1,16 +1,22 @@
 // src/pages/LoginPage.jsx
 // Trang đăng nhập — Clean, professional, hỗ trợ Quên mật khẩu
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, ArrowRight, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
+import useSettingsStore from '../stores/settingsStore';
 import ThemeToggle from '../components/ThemeToggle';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isLoading } = useAuthStore();
+  const { company_name, company_logo_url, fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,22 +59,30 @@ export default function LoginPage() {
       <div className="animate-slide-up" style={{ width: '100%', maxWidth: '380px' }}>
         {/* Branding */}
         <div style={{ marginBottom: '28px', textAlign: 'center' }}>
-          <div style={{
-            width: '56px', height: '56px',
-            background: 'var(--primary)',
-            color: '#fff',
-            borderRadius: '16px',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '26px', marginBottom: '16px',
-            boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-          }}>
-            🏗️
-          </div>
+          {company_logo_url ? (
+            <img
+              src={company_logo_url}
+              alt={company_name || 'Logo'}
+              style={{ height: '64px', maxWidth: '200px', objectFit: 'contain', marginBottom: '16px', display: 'inline-block' }}
+            />
+          ) : (
+            <div style={{
+              width: '56px', height: '56px',
+              background: 'var(--primary)',
+              color: '#fff',
+              borderRadius: '16px',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '26px', marginBottom: '16px',
+              boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+            }}>
+              🏗️
+            </div>
+          )}
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text)', marginBottom: '6px', letterSpacing: '-0.02em' }}>
-            ET Office Portal
+            {company_name || 'ET Office Portal'}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-            Hệ thống Quản lý Chấm công & Nhân sự ET Architects
+            Hệ thống Quản lý Chấm công & Nhân sự thông minh
           </p>
         </div>
 
