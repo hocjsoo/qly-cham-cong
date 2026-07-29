@@ -90,6 +90,10 @@ export default function StaffPage() {
   };
 
   const handleGenerateResetCode = async (user) => {
+    if (user.role === 'admin' && currentUser?.role !== 'admin') {
+      toast.error('Leader không có quyền reset mật khẩu tài khoản Admin.');
+      return;
+    }
     try {
       const { data } = await api.post('/auth/forgot-password', { email: user.email });
       setResetCodeModal({ user, code: data.reset_code });
@@ -165,6 +169,10 @@ export default function StaffPage() {
   };
 
   const openEdit = (user) => {
+    if (user.role === 'admin' && currentUser?.role !== 'admin') {
+      toast.error('Leader không có quyền sửa thông tin của tài khoản Admin.');
+      return;
+    }
     setEditing(user);
     const userDeptIds = user.department_ids?.map(d => d._id || d) || (user.department_id?._id || user.department_id ? [user.department_id._id || user.department_id] : []);
     setForm({
@@ -217,6 +225,10 @@ export default function StaffPage() {
 
   // Delete with safe confirm dialog
   const handleDelete = (user) => {
+    if (user.role === 'admin' && currentUser?.role !== 'admin') {
+      toast.error('Leader không có quyền xóa tài khoản Admin.');
+      return;
+    }
     setConfirm({
       title: 'Xóa nhân viên',
       message: `Bạn sắp xóa tài khoản "${user.full_name}" (${user.email}). Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu liên quan.`,
@@ -235,6 +247,10 @@ export default function StaffPage() {
 
   // Toggle active with safe confirm dialog
   const handleToggleActive = (user) => {
+    if (user.role === 'admin' && currentUser?.role !== 'admin') {
+      toast.error('Leader không có quyền vô hiệu hóa tài khoản Admin.');
+      return;
+    }
     const isDeactivating = user.is_active !== false;
     setConfirm({
       title: isDeactivating ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt tài khoản',
@@ -403,33 +419,41 @@ export default function StaffPage() {
                     </div>
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                      {currentUser?.role === 'admin' && (
-                        <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
-                          📝
-                        </button>
-                      )}
-                      <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
-                        🔑
-                      </button>
-                      <button onClick={() => openEdit(u)} title="Sửa thông tin" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(u)}
-                        title={isInactive ? 'Kích hoạt' : 'Vô hiệu hóa'}
-                        style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: isInactive ? 'var(--green)' : 'var(--yellow)', display: 'flex', alignItems: 'center' }}
-                      >
-                        {isInactive ? <UserCheck size={14} /> : <UserX size={14} />}
-                      </button>
-                      {currentUser?.role === 'admin' && u._id !== currentUser?._id && (
-                        <button
-                          onClick={() => handleDelete(u)}
-                          title="Xóa vĩnh viễn"
-                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--red)', display: 'flex', alignItems: 'center' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                      {u.role === 'admin' && currentUser?.role !== 'admin' ? (
+                        <span className="badge badge--neutral" style={{ fontSize: '10px', padding: '4px 8px', opacity: 0.8 }} title="Chỉ Admin mới có quyền thao tác trên tài khoản Admin">
+                          🔒 Admin
+                        </span>
+                      ) : (
+                        <>
+                          {currentUser?.role === 'admin' && (
+                            <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
+                              📝
+                            </button>
+                          )}
+                          <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
+                            🔑
+                          </button>
+                          <button onClick={() => openEdit(u)} title="Sửa thông tin" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            title={isInactive ? 'Kích hoạt' : 'Vô hiệu hóa'}
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: isInactive ? 'var(--green)' : 'var(--yellow)', display: 'flex', alignItems: 'center' }}
+                          >
+                            {isInactive ? <UserCheck size={14} /> : <UserX size={14} />}
+                          </button>
+                          {currentUser?.role === 'admin' && u._id !== currentUser?._id && (
+                            <button
+                              onClick={() => handleDelete(u)}
+                              title="Xóa vĩnh viễn"
+                              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--red)', display: 'flex', alignItems: 'center' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -514,11 +538,11 @@ export default function StaffPage() {
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Vai tro *</label>
+              <label className="form-label">Vai trò *</label>
               <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="employee">Nhan vien</option>
-                <option value="leader">Leader (Truong nhom)</option>
-                <option value="admin">Admin (Quan tri vien)</option>
+                <option value="employee">Nhân viên (Employee)</option>
+                <option value="leader">Leader (Trưởng nhóm)</option>
+                {currentUser?.role === 'admin' && <option value="admin">Admin (Quản trị viên)</option>}
               </select>
             </div>
             <div className="form-group">

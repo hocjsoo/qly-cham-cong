@@ -76,6 +76,11 @@ const createUser = async (req, res) => {
     return res.status(400).json({ error: 'Mat khau phai it nhat 6 ky tu.' });
   }
 
+  // Safety check: Leader cannot create Admin account
+  if (role === 'admin' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Admin mới có quyền tạo tài khoản Admin.' });
+  }
+
   const deptIds = Array.isArray(department_ids) && department_ids.length > 0
     ? department_ids
     : (department_id ? [department_id] : []);
@@ -151,6 +156,19 @@ const updateUser = async (req, res) => {
   } = req.body;
 
   try {
+    const targetUser = await User.findById(id);
+    if (!targetUser) return res.status(404).json({ error: 'Không tìm thấy nhân viên.' });
+
+    // Safety Rule: Leader/Manager cannot edit Admin profiles
+    if (targetUser.role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Leader không có quyền sửa thông tin của tài khoản Admin.' });
+    }
+
+    // Safety Rule: Only Admin can assign Admin role
+    if (role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ Admin mới có quyền gán vai trò Admin.' });
+    }
+
     const updateData = {};
     if (full_name !== undefined) updateData.full_name = full_name;
     if (email !== undefined) updateData.email = email.toLowerCase().trim();
@@ -193,10 +211,10 @@ const updateUser = async (req, res) => {
     const user = await User.findByIdAndUpdate(id, updateData, { new: true }).select('-password_hash');
     if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
 
-    res.json({ message: 'Cap nhat thong tin thanh cong!', user });
+    res.json({ message: 'Cập nhật thông tin thành công!', user });
   } catch (error) {
     console.error('UpdateUser error:', error);
-    res.status(500).json({ error: 'Loi cap nhat nhan vien.' });
+    res.status(500).json({ error: 'Lỗi cập nhật nhân viên.' });
   }
 };
 
@@ -230,6 +248,9 @@ const deleteUser = async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
 
     if (user.role === 'admin') {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Leader không có quyền xóa tài khoản Admin.' });
+      }
       const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
       if (activeAdminCount <= 1) {
         return res.status(400).json({ error: 'He thong can it nhat 1 tai khoan Admin dang hoat dong.' });
@@ -251,6 +272,10 @@ const toggleActive = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ error: 'Khong tim thay nhan vien.' });
+
+    if (user.role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Leader không có quyền vô hiệu hóa tài khoản Admin.' });
+    }
 
     if (user.role === 'admin' && user.is_active) {
       const activeAdminCount = await User.countDocuments({ role: 'admin', is_active: true });
