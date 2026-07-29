@@ -273,8 +273,8 @@ export default function HistoryPage() {
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const rec = records.find(r => r.date === dateStr);
-    calendarDays.push({ day: d, dateStr, record: rec });
+    const dayRecs = records.filter(r => (r.date === dateStr || r.check_in_time?.startsWith(dateStr)));
+    calendarDays.push({ day: d, dateStr, records: dayRecs, record: dayRecs[0] || null });
   }
 
   return (
@@ -576,10 +576,11 @@ export default function HistoryPage() {
                       return <div key={idx} style={{ height: '48px', borderRadius: '8px', background: 'transparent' }} />;
                     }
 
-                    const rec = item.record;
-                    const hasAtt = Boolean(rec);
-                    const isLate = rec?.is_late;
-                    const isOt = rec?.ot_hours > 0;
+                    const dayRecs = item.records || [];
+                    const rec = dayRecs[0];
+                    const hasAtt = dayRecs.length > 0;
+                    const isLate = dayRecs.some(r => r.is_late);
+                    const isOt = dayRecs.some(r => r.ot_hours > 0);
                     const holidayObj = holidays.find(h => item.dateStr >= h.date && item.dateStr <= (h.end_date || h.date));
                     const isHoliday = Boolean(holidayObj);
 
@@ -608,7 +609,6 @@ export default function HistoryPage() {
                         key={idx}
                         onClick={() => {
                           setSelectedDayDate(item.dateStr);
-                          setSelectedDayRecord(rec || null);
                         }}
                         style={{
                           height: '52px', borderRadius: '8px', background: bg, border,
@@ -624,7 +624,7 @@ export default function HistoryPage() {
                           </div>
                         ) : hasAtt ? (
                           <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, marginTop: '2px' }}>
-                            {getTimesheetSymbol(rec)} {isOt && '🔥'}
+                            {dayRecs.length > 1 ? `👥 ${dayRecs.length}` : getTimesheetSymbol(rec)} {isOt && '🔥'}
                           </div>
                         ) : (
                           <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>—</span>
@@ -753,6 +753,7 @@ export default function HistoryPage() {
 
             {(() => {
               const currentHoliday = holidays.find(h => selectedDayDate >= h.date && selectedDayDate <= (h.end_date || h.date));
+              const dayRecs = records.filter(r => (r.date === selectedDayDate || r.check_in_time?.startsWith(selectedDayDate)));
 
               return (
                 <div>
@@ -794,56 +795,69 @@ export default function HistoryPage() {
                     </div>
                   )}
 
-                  {selectedDayRecord ? (
-                    <div>
-                      <div className="card" style={{ padding: '12px', marginBottom: '12px', background: selectedDayRecord.is_late ? 'var(--yellow-soft)' : 'var(--green-soft)' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: selectedDayRecord.is_late ? 'var(--yellow)' : 'var(--green)', marginBottom: '4px' }}>
-                          {selectedDayRecord.is_late ? `⚠️ Đi muộn ${selectedDayRecord.late_minutes || 0} phút` : '✅ Chấm công đúng giờ'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          {TYPE_MAP[selectedDayRecord.check_in_type] || 'Văn phòng'}
-                        </div>
-                      </div>
+                  {dayRecs.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto' }}>
+                      {dayRecs.map((selectedDayRecord, recIdx) => (
+                        <div key={selectedDayRecord._id || recIdx} className="card" style={{ padding: '12px', border: '1px solid var(--border)' }}>
+                          {selectedDayRecord.user_id?.full_name && (
+                            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span>👤 {selectedDayRecord.user_id.full_name}</span>
+                              {selectedDayRecord.user_id.employee_code && (
+                                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>#{selectedDayRecord.user_id.employee_code}</span>
+                              )}
+                            </div>
+                          )}
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <div className="card" style={{ padding: '10px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ VÀO (CHECK-IN)</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green)' }}>{fmt(selectedDayRecord.check_in_time)}</div>
-                        </div>
-                        <div className="card" style={{ padding: '10px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ RA (CHECK-OUT)</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>{fmt(selectedDayRecord.check_out_time)}</div>
-                        </div>
-                      </div>
+                          <div className="card" style={{ padding: '10px', marginBottom: '8px', background: selectedDayRecord.is_late ? 'var(--yellow-soft)' : 'var(--green-soft)', border: 'none' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: selectedDayRecord.is_late ? 'var(--yellow)' : 'var(--green)', marginBottom: '2px' }}>
+                              {selectedDayRecord.is_late ? `⚠️ Đi muộn ${selectedDayRecord.late_minutes || 0} phút` : '✅ Chấm công đúng giờ'}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                              {TYPE_MAP[selectedDayRecord.check_in_type] || 'Văn phòng'} {selectedDayRecord.project_name ? `· ${selectedDayRecord.project_name}` : ''}
+                            </div>
+                          </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <div className="card" style={{ padding: '10px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>TỔNG GIỜ LÀM</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)' }}>{selectedDayRecord.total_hours || 0} giờ</div>
-                        </div>
-                        <div className="card" style={{ padding: '10px' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ TĂNG CA (OT)</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--blue)' }}>{selectedDayRecord.ot_hours || 0} giờ</div>
-                        </div>
-                      </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ VÀO</div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--green)' }}>{fmt(selectedDayRecord.check_in_time)}</div>
+                            </div>
+                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ RA</div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>{fmt(selectedDayRecord.check_out_time)}</div>
+                            </div>
+                          </div>
 
-                      {selectedDayRecord.notes && (
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                          <strong>Ghi chú:</strong> {selectedDayRecord.notes}
-                        </div>
-                      )}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '8px' }}>
+                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>TỔNG GIỜ LÀM</div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)' }}>{selectedDayRecord.total_hours || 0} giờ</div>
+                            </div>
+                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ TĂNG CA (OT)</div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--blue)' }}>{selectedDayRecord.ot_hours || 0} giờ</div>
+                            </div>
+                          </div>
 
-                      {isAdmin && (
-                        <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '12px' }}>
-                          <Edit2 size={14} /> Điều chỉnh ca làm này
-                        </button>
-                      )}
+                          {selectedDayRecord.notes && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                              <strong>Ghi chú:</strong> {selectedDayRecord.notes}
+                            </div>
+                          )}
+
+                          {isAdminOrManager && (
+                            <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '8px', padding: '6px', fontSize: '12px' }}>
+                              <Edit2 size={13} /> Điều chỉnh ca làm này
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <div className="empty-state">
+                    <div className="empty-state" style={{ padding: '24px 12px' }}>
                       <div className="empty-state__icon">⚪</div>
                       <div className="empty-state__title">Không có ca làm</div>
-                      <div className="empty-state__desc">Nhân viên không chấm công trong ngày {selectedDayDate}</div>
+                      <div className="empty-state__desc">Không có dữ liệu chấm công trong ngày {selectedDayDate}</div>
                     </div>
                   )}
 
