@@ -194,11 +194,12 @@ export default function SettingsPage() {
     });
   };
 
-  const handleSeedHolidays = async () => {
+  const handleSeedVietnamHolidays = async () => {
     setSeedingHolidays(true);
     try {
-      const { data } = await api.post('/holidays/seed');
-      toast.success(data.message || 'Đã tự động nạp các ngày nghỉ lễ!');
+      const year = new Date().getFullYear();
+      const { data } = await api.post(`/holidays/seed-vietnam?year=${year}`);
+      toast.success(data.message || 'Đã tự động nạp các ngày nghỉ lễ Việt Nam!');
       loadData();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi nạp ngày nghỉ lễ');

@@ -36,6 +36,7 @@ export default function NotificationCenter() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [filterType, setFilterType] = useState('all'); // 'all' | 'unread' | 'announcement' | 'request'
   const [selectedNotifForDetail, setSelectedNotifForDetail] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const dropdownRef = useRef(null);
 
   // Admin Broadcast / Holiday Modal State
@@ -333,7 +334,7 @@ export default function NotificationCenter() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteNotification(n._id);
+                            setConfirmDeleteId(n._id);
                           }}
                           style={{
                             background: 'none', border: 'none', color: 'var(--red)',
@@ -495,6 +496,35 @@ export default function NotificationCenter() {
                   Mở trang liên quan →
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Delete Notification */}
+      {confirmDeleteId && (
+        <div className="modal-overlay" style={{ zIndex: 999999 }} onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}>
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '340px', margin: '0 auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <AlertTriangle size={22} color="var(--red)" />
+              <strong style={{ fontSize: '15px' }}>Xác nhận xóa thông báo</strong>
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.4 }}>
+              Bạn có chắc chắn muốn xóa thông báo này không? Thao tác này không thể hoàn tác.
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setConfirmDeleteId(null)} className="btn btn--ghost btn--full" style={{ fontSize: '12px' }}>Hủy</button>
+              <button
+                onClick={() => {
+                  const id = confirmDeleteId;
+                  setConfirmDeleteId(null);
+                  handleDeleteNotification(id);
+                }}
+                className="btn btn--full"
+                style={{ background: 'var(--red)', color: '#fff', border: 'none', fontSize: '12px' }}
+              >
+                Xóa ngay
+              </button>
             </div>
           </div>
         </div>
