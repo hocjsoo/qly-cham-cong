@@ -98,6 +98,11 @@ export default function HistoryPage() {
     medium_late_mins: 30,
   });
 
+  const startTime = settings?.work_start_time || '08:30';
+  const endTime = settings?.work_end_time || '17:30';
+  const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 10);
+  const mediumLateTime = addMinsToTime(startTime, settings?.medium_late_mins ?? 30);
+
   useEffect(() => {
     api.get('/settings').then(r => {
       if (r.data) {
