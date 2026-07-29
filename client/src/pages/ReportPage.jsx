@@ -1005,7 +1005,7 @@ export default function ReportPage() {
       </div>
 
       {/* OFF-SCREEN HIGH-DEF PRINT WRAPPER FOR PDF MATRIX GENERATION (1480px Expanded Width, No Scrollbar Clipping) */}
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1480px', pointerEvents: 'none' }}>
+<div style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1480px', pointerEvents: 'none' }}>
         <div ref={pdfMatrixPrintRef} style={{ background: '#ffffff', color: '#0f172a', padding: '20px', fontFamily: 'Arial, sans-serif', width: '1480px' }}>
           {/* Corporate Header Banner */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '3px solid #1e293b', paddingBottom: '10px' }}>
@@ -1030,75 +1030,125 @@ export default function ReportPage() {
                 <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', border: '1px solid #334155' }}>NHÂN SỰ</th>
                 <th style={{ padding: '8px 10px', minWidth: '70px', border: '1px solid #334155' }}>NV</th>
 
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>NLV tại VP</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Trong nước</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Nước ngoài</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Work from home</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ phép</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ ốm</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ không lương</th>
-                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Khác</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#10b981' }}>NLV tại VP</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#3b82f6' }}>CT Trong nước</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#8b5cf6' }}>CT Nước ngoài</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#06b6d4' }}>Work from home</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#8b5cf6' }}>Nghỉ phép</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#ef4444' }}>Nghỉ ốm</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#64748b' }}>Nghỉ không lương</th>
+                <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}>Khác</th>
 
-                {matrixData?.header_days?.map(hd => (
-                  <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#475569' : '#334155', minWidth: '28px', border: '1px solid #334155' }}>
-                    {hd.weekday}
-                  </th>
-                ))}
+                {matrixData?.header_days?.map(hd => {
+                  const isSun = hd.weekday === 'CN' || hd.isSunday;
+                  return (
+                    <th key={hd.day} style={{ padding: '4px 6px', background: isSun ? '#991b1b' : '#334155', color: isSun ? '#fca5a5' : '#ffffff', minWidth: '28px', border: '1px solid #334155' }}>
+                      {hd.weekday}
+                    </th>
+                  );
+                })}
               </tr>
 
               <tr style={{ background: '#0f172a', color: '#ffffff', fontWeight: 800 }}>
                 <th colSpan="3" style={{ padding: '6px 10px', textAlign: 'left', border: '1px solid #334155' }}>BẢNG CHẤM CÔNG THÁNG</th>
                 <th colSpan="8" style={{ padding: '6px 8px', fontSize: '10px', color: '#94a3b8', border: '1px solid #334155' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
 
-                {matrixData?.header_days?.map(hd => (
-                  <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#334155' : '#0f172a', border: '1px solid #334155' }}>
-                    {hd.dayStr}
-                  </th>
-                ))}
+                {matrixData?.header_days?.map(hd => {
+                  const isSun = hd.weekday === 'CN' || hd.isSunday;
+                  return (
+                    <th key={hd.day} style={{ padding: '4px 6px', background: isSun ? '#7f1d1d' : '#0f172a', color: isSun ? '#fca5a5' : '#ffffff', border: '1px solid #334155' }}>
+                      {hd.dayStr}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
             <tbody>
-              {displayedStaffRows.map((r, idx) => (
-                <tr key={r.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', color: '#0f172a', borderBottom: '1px solid #cbd5e1' }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: '#2563eb', border: '1px solid #cbd5e1' }}>{r.code}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#0f172a', border: '1px solid #cbd5e1' }}>{r.full_name}</td>
-                  <td style={{ padding: '8px 10px', color: '#475569', border: '1px solid #cbd5e1' }}>{r.role_label}</td>
+              {displayedStaffRows.map((r, idx) => {
+                const renderPdfSum = (val, color) => {
+                  if (!val || val === 0) return <span style={{ color: '#cbd5e1', opacity: 0.3 }}>—</span>;
+                  return <span style={{ fontWeight: 800, color }}>{val.toFixed(2)}</span>;
+                };
 
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#059669', border: '1px solid #cbd5e1' }}>{r.nlv_office.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#2563eb', border: '1px solid #cbd5e1' }}>{r.ct_domestic.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#7c3aed', border: '1px solid #cbd5e1' }}>{r.ct_foreign.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#0891b2', border: '1px solid #cbd5e1' }}>{r.wfh.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#059669', border: '1px solid #cbd5e1' }}>{r.annual_leave.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#dc2626', border: '1px solid #cbd5e1' }}>{r.sick_leave.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#475569', border: '1px solid #cbd5e1' }}>{r.unpaid_leave.toFixed(2)}</td>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#64748b', border: '1px solid #cbd5e1' }}>{r.other_leave.toFixed(2)}</td>
+                return (
+                  <tr key={r.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', color: '#0f172a', borderBottom: '1px solid #cbd5e1' }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: '#2563eb', border: '1px solid #cbd5e1' }}>{r.code}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: '#0f172a', border: '1px solid #cbd5e1' }}>{r.full_name}</td>
+                    <td style={{ padding: '8px 10px', color: '#475569', border: '1px solid #cbd5e1' }}>{r.role_label}</td>
 
-                  {r.days.map(d => {
-                    const isWk = matrixData?.header_days?.find(hd => hd.day === d.day)?.isWeekend;
-                    return (
-                      <td
-                        key={d.day}
-                        style={{
-                          padding: '6px 4px', fontWeight: 800, border: '1px solid #cbd5e1',
-                          background: isWk ? '#edf2f7' : 'transparent',
-                          color: d.symbol === 'x' || d.symbol === '0,75x' ? '#059669' :
-                                 d.symbol === '0,5x' ? '#d97706' :
-                                 d.symbol === 'CT1' ? '#2563eb' :
-                                 d.symbol === 'CT2' ? '#7c3aed' :
-                                 d.symbol === 'WFH' ? '#0891b2' :
-                                 d.symbol === 'P' ? '#059669' :
-                                 d.symbol === 'O' ? '#dc2626' :
-                                 d.symbol === 'KL' ? '#475569' : '#0f172a'
-                        }}
-                      >
-                        {d.symbol || '—'}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.nlv_office, '#059669')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.ct_domestic, '#2563eb')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.ct_foreign, '#7c3aed')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.wfh, '#0891b2')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.annual_leave, '#7c3aed')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.sick_leave, '#dc2626')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.unpaid_leave, '#475569')}</td>
+                    <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.other_leave, '#64748b')}</td>
+
+                    {r.days.map(d => {
+                      const hdObj = matrixData?.header_days?.find(hd => hd.day === d.day);
+                      const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
+                      return (
+                        <td
+                          key={d.day}
+                          style={{
+                            padding: '6px 4px', fontWeight: 800, border: '1px solid #cbd5e1',
+                            background: isSun ? '#fef2f2' : 'transparent',
+                            color: d.symbol === 'x' || d.symbol === '0,75x' ? '#059669' :
+                                   d.symbol === '0,5x' ? '#d97706' :
+                                   d.symbol === 'CT1' ? '#2563eb' :
+                                   d.symbol === 'CT2' ? '#7c3aed' :
+                                   d.symbol === 'WFH' ? '#0891b2' :
+                                   d.symbol === 'P' ? '#7c3aed' :
+                                   d.symbol === 'O' ? '#dc2626' :
+                                   d.symbol === 'KL' ? '#475569' : '#0f172a'
+                          }}
+                        >
+                          {d.symbol || '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
+
+            {/* Total Footer Row for PDF */}
+            <tfoot>
+              <tr style={{ background: '#f1f5f9', fontWeight: 800, color: '#0f172a', borderTop: '2px solid #1e293b' }}>
+                <td colSpan="3" style={{ padding: '8px 10px', textAlign: 'left', color: '#1e293b', border: '1px solid #cbd5e1' }}>
+                  TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#059669' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#2563eb' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#7c3aed' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#0891b2' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.wfh, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#7c3aed' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#dc2626' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#475569' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0).toFixed(2)}
+                </td>
+                <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#64748b' }}>
+                  {displayedStaffRows.reduce((s, r) => s + r.other_leave, 0).toFixed(2)}
+                </td>
+                {matrixData?.header_days?.map(hd => (
+                  <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: '#94a3b8', border: '1px solid #cbd5e1' }}>—</td>
+                ))}
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
