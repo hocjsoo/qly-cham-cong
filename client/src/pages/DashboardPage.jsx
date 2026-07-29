@@ -230,7 +230,6 @@ export default function DashboardPage() {
                 <span>Sinh nhật nhân sự tháng {new Date().getMonth() + 1}</span>
                 <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>{birthdays.length} sự kiện</span>
               </div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Bấm để xem & gửi lời chúc →</span>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -487,55 +486,46 @@ export default function DashboardPage() {
       {/* Staff Account & Detail Profile Modal Sheet */}
       {viewingStaffDetail && (
         <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 16px' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 18px' }}>
             <div className="modal-sheet__handle" />
 
-            {/* Header Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+            {/* Header Bar with distinct border */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>👤 Thông Tin Nhân Viên</h3>
               <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {/* Avatar Header Section */}
-            <div style={{ textAlign: 'center', marginBottom: '18px', padding: '4px 0' }}>
+            {/* Avatar Header Section - Clean Block with no overlap */}
+            <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '20px', clear: 'both' }}>
               <div
                 style={{
-                  position: 'relative', width: '96px', height: '96px', margin: '0 auto 10px',
-                  cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default',
-                  display: 'block'
+                  width: '96px', height: '96px', margin: '0 auto 12px',
+                  borderRadius: '50%', border: '4px solid var(--primary)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.25)', overflow: 'hidden',
+                  display: 'block', background: 'var(--bg-raised)',
+                  cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default'
                 }}
                 onClick={() => {
                   if (viewingStaffDetail.avatar_url) {
                     setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
                   }
                 }}
-                title={viewingStaffDetail.avatar_url ? 'Click để phóng to ảnh đại diện' : ''}
+                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
                 {viewingStaffDetail.avatar_url ? (
                   <img
                     src={viewingStaffDetail.avatar_url}
                     alt={viewingStaffDetail.full_name}
-                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)', display: 'block' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                 ) : (
-                  <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto' }}>
+                  <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                   </div>
                 )}
               </div>
 
-              {viewingStaffDetail.avatar_url && (
-                <button
-                  type="button"
-                  onClick={() => setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name })}
-                  className="btn btn--ghost"
-                  style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, padding: '4px 10px', marginBottom: '8px' }}
-                >
-                  🔍 Phóng to ảnh đại diện
-                </button>
-              )}
-
-              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px', marginBottom: '2px', color: 'var(--text)' }}>{viewingStaffDetail.full_name}</h2>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '6px', marginBottom: '2px', color: 'var(--text)' }}>{viewingStaffDetail.full_name}</h2>
               <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{viewingStaffDetail.employee_code || 'NS-000'}</div>
             </div>
 
@@ -598,11 +588,11 @@ export default function DashboardPage() {
       {/* Birthday Celebration & Event Detail Modal Sheet */}
       {selectedBirthday && (
         <div className="modal-overlay" onClick={() => setSelectedBirthday(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 16px' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 18px' }}>
             <div className="modal-sheet__handle" />
 
             {/* Header Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Gift size={20} color="var(--yellow)" />
                 <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--yellow)' }}>🎉 Sự Kiện Sinh Nhật</h3>
@@ -610,53 +600,45 @@ export default function DashboardPage() {
               <button onClick={() => setSelectedBirthday(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            {/* Large Avatar Header Block */}
-            <div style={{ textAlign: 'center', marginBottom: '16px', padding: '4px 0' }}>
+            {/* Avatar Header Block — Clean non-overlapping layout */}
+            <div style={{ textAlign: 'center', marginTop: '10px', marginBottom: '20px', clear: 'both' }}>
               <div
                 style={{
-                  position: 'relative', width: '96px', height: '96px', margin: '0 auto 10px',
-                  cursor: selectedBirthday.avatar_url ? 'zoom-in' : 'default', display: 'block'
+                  width: '96px', height: '96px', margin: '0 auto 12px',
+                  borderRadius: '50%', border: '4px solid var(--yellow)',
+                  boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25)', overflow: 'hidden',
+                  display: 'block', background: 'var(--bg-raised)',
+                  cursor: selectedBirthday.avatar_url ? 'zoom-in' : 'default'
                 }}
                 onClick={() => {
                   if (selectedBirthday.avatar_url) {
                     setFullAvatarImage({ url: selectedBirthday.avatar_url, title: selectedBirthday.full_name });
                   }
                 }}
-                title={selectedBirthday.avatar_url ? 'Click để xem ảnh phóng to' : ''}
+                title={selectedBirthday.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
                 {selectedBirthday.avatar_url ? (
                   <img
                     src={selectedBirthday.avatar_url}
                     alt={selectedBirthday.full_name}
-                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)', display: 'block' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                 ) : (
-                  <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto', background: 'var(--yellow)', color: '#000' }}>
+                  <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--yellow)', color: '#000' }}>
                     {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                   </div>
                 )}
               </div>
 
-              {selectedBirthday.avatar_url && (
-                <button
-                  type="button"
-                  onClick={() => setFullAvatarImage({ url: selectedBirthday.avatar_url, title: selectedBirthday.full_name })}
-                  className="btn btn--ghost"
-                  style={{ fontSize: '12px', color: 'var(--yellow)', fontWeight: 700, padding: '4px 10px', marginBottom: '8px' }}
-                >
-                  🔍 Phóng to ảnh đại diện
-                </button>
-              )}
-
               <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
-                🎂 Chúc mừng sinh nhật tháng {new Date().getMonth() + 1}!
+                🎂 Sinh nhật tháng {new Date().getMonth() + 1}
               </div>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '2px' }}>{selectedBirthday.full_name}</h2>
               <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{selectedBirthday.employee_code || 'NS-000'}</div>
             </div>
 
             {/* Event Details Grid */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
               <div style={{ background: 'var(--yellow-soft)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--yellow)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '16px' }}>🎈</span>
                 <div>
@@ -681,30 +663,19 @@ export default function DashboardPage() {
             </div>
 
             {/* Actions */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setSelectedBirthday(null)} className="btn btn--ghost btn--full">Đóng</button>
               <button
                 onClick={() => {
-                  toast.success(`🎉 Đã gửi lời chúc mừng sinh nhật đến ${selectedBirthday.full_name}! 🎂✨`);
+                  const target = selectedBirthday;
+                  setSelectedBirthday(null);
+                  setViewingStaffDetail(target);
                 }}
-                className="btn btn--primary btn--full btn--lg"
-                style={{ background: 'linear-gradient(135deg, var(--yellow), #d97706)', border: 'none', fontWeight: 800, color: '#000' }}
+                className="btn btn--primary btn--full"
+                style={{ fontWeight: 700 }}
               >
-                📩 Gửi Lời Chúc Mừng Sinh Nhật
+                👤 Xem tài khoản đầy đủ
               </button>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => setSelectedBirthday(null)} className="btn btn--ghost btn--full">Đóng</button>
-                <button
-                  onClick={() => {
-                    const target = selectedBirthday;
-                    setSelectedBirthday(null);
-                    setViewingStaffDetail(target);
-                  }}
-                  className="btn btn--ghost btn--full"
-                  style={{ color: 'var(--primary)', fontWeight: 700 }}
-                >
-                  👤 Xem tài khoản đầy đủ
-                </button>
-              </div>
             </div>
           </div>
         </div>
