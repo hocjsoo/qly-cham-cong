@@ -8,6 +8,7 @@ import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import MapGpsPicker from '../components/MapGpsPicker';
+import useSettingsStore from '../stores/settingsStore';
 
 const WORKING_DAYS_OPTIONS = [
   { key: 'Mon', label: 'T2' }, { key: 'Tue', label: 'T3' }, { key: 'Wed', label: 'T4' },
@@ -155,9 +156,12 @@ export default function SettingsPage() {
     setSubmitting(true);
     try {
       const { data } = await api.put('/settings', shiftForm);
-      if (data.settings) setShiftForm(prev => ({ ...prev, ...data.settings }));
-      toast.success('Da luu cau hinh ca lam!');
-    } catch { toast.error('Loi luu cau hinh'); }
+      if (data.settings) {
+        setShiftForm(prev => ({ ...prev, ...data.settings }));
+        useSettingsStore.getState().updateSettingsState(data.settings);
+      }
+      toast.success('Đã lưu cấu hình công ty và ca làm!');
+    } catch { toast.error('Lỗi lưu cấu hình'); }
     finally { setSubmitting(false); }
   };
 
