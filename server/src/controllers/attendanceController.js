@@ -294,40 +294,43 @@ const getHistory = async (req, res) => {
     const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const mode = req.query.mode || 'month';
-    let targetUserId = req.user._id;
 
-    // Admin / Leader / Manager có thể xem lịch sử của nhân viên
-    if (req.query.user_id && ['admin', 'leader', 'manager'].includes(req.user.role)) {
-      if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
-        const targetUser = await User.findById(req.query.user_id).select('department_id department_ids manager_id');
-        if (targetUser) {
-          const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
-            ? req.user.department_ids.map(id => id.toString())
-            : (req.user.department_id ? [req.user.department_id.toString()] : []);
-          const targetDeptIds = (targetUser.department_ids && targetUser.department_ids.length > 0)
-            ? targetUser.department_ids.map(id => id.toString())
-            : (targetUser.department_id ? [targetUser.department_id.toString()] : []);
+    let userQueryFilter = { user_id: req.user._id };
+    const isLeaderOrAdmin = ['admin', 'leader', 'manager'].includes(req.user.role);
 
-          const isSelf = targetUser._id.toString() === req.user._id.toString();
-          const isSameDept = targetDeptIds.some(id => leaderDeptIds.includes(id));
-          const isManagerOfUser = targetUser.manager_id && targetUser.manager_id.toString() === req.user._id.toString();
-
-          // Cho phép xem nếu là chính mình, cùng phòng ban, hoặc quản lý trực tiếp, hoặc nếu danh sách nhân viên hợp lệ
-          if (isSelf || isSameDept || isManagerOfUser || leaderDeptIds.length === 0 || true) {
-            targetUserId = req.query.user_id;
-          }
-        }
+    if (isLeaderOrAdmin) {
+      if (req.query.user_id && req.query.user_id !== 'all') {
+        userQueryFilter = { user_id: req.query.user_id };
       } else {
-        targetUserId = req.query.user_id;
+        // Nếu là Leader / Manager và user_id là 'all' hoặc không truyền -> lấy toàn bộ nhân viên thuộc phòng ban
+        if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
+          const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
+            ? req.user.department_ids
+            : (req.user.department_id ? [req.user.department_id] : []);
+
+          const deptUsers = await User.find({
+            $or: [
+              { _id: req.user._id },
+              { department_ids: { $in: leaderDeptIds } },
+              { department_id: { $in: leaderDeptIds } }
+            ]
+          }).select('_id');
+
+          const userIds = deptUsers.map(u => u._id);
+          userQueryFilter = { user_id: { $in: userIds } };
+        } else if (req.query.user_id === 'all') {
+          // Admin xem tất cả nhân viên hệ thống
+          userQueryFilter = {};
+        }
       }
     }
 
     if (mode === 'year') {
       // Trả về dữ liệu 12 tháng trong năm cho màn hình xem theo Năm
       const yearlyRecords = await Attendance.find({
-        user_id: targetUserId,
+        ...userQueryFilter,
         date: { $regex: `^${y}-` }
-      });
+      }).populate('user_id', 'full_name employee_code avatar_url email');
 
       const monthsData = Array.from({ length: 12 }, (_, i) => {
         const monthNum = i + 1;
@@ -354,9 +357,11 @@ const getHistory = async (req, res) => {
     // Default month mode
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
     const records = await Attendance.find({
-      user_id: targetUserId,
+      ...userQueryFilter,
       date: { $regex: `^${monthStr}` }
-    }).sort({ date: -1 });
+    })
+      .populate('user_id', 'full_name employee_code avatar_url email')
+      .sort({ date: -1 });
 
     const presentDays = records.filter(r => !r.is_late).length;
     const lateDays = records.filter(r => r.is_late).length;
