@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [birthdays, setBirthdays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
@@ -212,25 +213,56 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Birthdays this month */}
+        {/* Birthdays this month — Redesigned SaaS Festive Theme */}
         {birthdays.length > 0 && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--yellow)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Gift size={16} /> Sinh nhật nhân sự tháng {new Date().getMonth() + 1} ({birthdays.length})
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: '14px', padding: '14px 16px',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              boxShadow: '0 4px 20px rgba(245, 158, 11, 0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
+                <span>Sinh nhật nhân sự tháng {new Date().getMonth() + 1}</span>
+                <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>{birthdays.length} sự kiện</span>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Bấm để xem & gửi lời chúc →</span>
             </div>
-            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
               {birthdays.map(b => (
-                <div key={b._id} style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <div
+                  key={b._id}
+                  onClick={() => setSelectedBirthday(b)}
+                  className="card--interactive"
+                  style={{
+                    background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                    border: '1px solid var(--border)', fontSize: '12px', display: 'flex',
+                    alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                    boxShadow: 'var(--shadow-xs)'
+                  }}
+                  title="Click để xem chi tiết sự kiện & gửi lời chúc"
+                >
                   {b.avatar_url ? (
-                    <img src={b.avatar_url} alt={b.full_name} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                    <img src={b.avatar_url} alt={b.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
                   ) : (
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                      {b.full_name.slice(0, 1)}
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                      {b.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                     </div>
                   )}
                   <div>
-                    <div style={{ fontWeight: 600 }}>{b.full_name}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>🎂 {b.dob} (ngày {b.day})</div>
+                    <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span>{b.full_name}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{b.employee_code || 'NS'}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                      <span>🎂 Ngày {b.day}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>· {b.department_name}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -558,6 +590,121 @@ export default function DashboardPage() {
             />
             <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
               📸 {fullAvatarImage.title}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Birthday Celebration & Event Detail Modal Sheet */}
+      {selectedBirthday && (
+        <div className="modal-overlay" onClick={() => setSelectedBirthday(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 16px' }}>
+            <div className="modal-sheet__handle" />
+
+            {/* Header Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Gift size={20} color="var(--yellow)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--yellow)' }}>🎉 Sự Kiện Sinh Nhật</h3>
+              </div>
+              <button onClick={() => setSelectedBirthday(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            {/* Large Avatar Header Block */}
+            <div style={{ textAlign: 'center', marginBottom: '16px', padding: '4px 0' }}>
+              <div
+                style={{
+                  position: 'relative', width: '96px', height: '96px', margin: '0 auto 10px',
+                  cursor: selectedBirthday.avatar_url ? 'zoom-in' : 'default', display: 'block'
+                }}
+                onClick={() => {
+                  if (selectedBirthday.avatar_url) {
+                    setFullAvatarImage({ url: selectedBirthday.avatar_url, title: selectedBirthday.full_name });
+                  }
+                }}
+                title={selectedBirthday.avatar_url ? 'Click để xem ảnh phóng to' : ''}
+              >
+                {selectedBirthday.avatar_url ? (
+                  <img
+                    src={selectedBirthday.avatar_url}
+                    alt={selectedBirthday.full_name}
+                    style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)', boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)', display: 'block' }}
+                  />
+                ) : (
+                  <div className="avatar" style={{ width: '96px', height: '96px', fontSize: '32px', margin: '0 auto', background: 'var(--yellow)', color: '#000' }}>
+                    {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              {selectedBirthday.avatar_url && (
+                <button
+                  type="button"
+                  onClick={() => setFullAvatarImage({ url: selectedBirthday.avatar_url, title: selectedBirthday.full_name })}
+                  className="btn btn--ghost"
+                  style={{ fontSize: '12px', color: 'var(--yellow)', fontWeight: 700, padding: '4px 10px', marginBottom: '8px' }}
+                >
+                  🔍 Phóng to ảnh đại diện
+                </button>
+              )}
+
+              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
+                🎂 Chúc mừng sinh nhật tháng {new Date().getMonth() + 1}!
+              </div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '2px' }}>{selectedBirthday.full_name}</h2>
+              <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>#{selectedBirthday.employee_code || 'NS-000'}</div>
+            </div>
+
+            {/* Event Details Grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
+              <div style={{ background: 'var(--yellow-soft)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--yellow)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>🎈</span>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 700 }}>NGÀY SINH NHẬT</div>
+                  <strong style={{ fontSize: '14px', color: 'var(--text)' }}>Ngày {selectedBirthday.day} tháng {new Date().getMonth() + 1} ({selectedBirthday.dob})</strong>
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Phòng ban: </span>
+                <strong>{selectedBirthday.department_name}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Chức danh: </span>
+                <strong>{selectedBirthday.position || 'Nhân viên'}</strong>
+              </div>
+              {selectedBirthday.email && (
+                <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Email: </span>
+                  <strong>{selectedBirthday.email}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                onClick={() => {
+                  toast.success(`🎉 Đã gửi lời chúc mừng sinh nhật đến ${selectedBirthday.full_name}! 🎂✨`);
+                }}
+                className="btn btn--primary btn--full btn--lg"
+                style={{ background: 'linear-gradient(135deg, var(--yellow), #d97706)', border: 'none', fontWeight: 800, color: '#000' }}
+              >
+                📩 Gửi Lời Chúc Mừng Sinh Nhật
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setSelectedBirthday(null)} className="btn btn--ghost btn--full">Đóng</button>
+                <button
+                  onClick={() => {
+                    const target = selectedBirthday;
+                    setSelectedBirthday(null);
+                    setViewingStaffDetail(target);
+                  }}
+                  className="btn btn--ghost btn--full"
+                  style={{ color: 'var(--primary)', fontWeight: 700 }}
+                >
+                  👤 Xem tài khoản đầy đủ
+                </button>
+              </div>
             </div>
           </div>
         </div>
