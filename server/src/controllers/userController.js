@@ -90,9 +90,16 @@ const createUser = async (req, res) => {
       return res.status(409).json({ error: 'Email da ton tai trong he thong.' });
     }
 
+    if (employee_code && employee_code.trim()) {
+      const codeExist = await User.findOne({ employee_code: employee_code.trim() });
+      if (codeExist) {
+        return res.status(409).json({ error: `Mã nhân sự "${employee_code.trim()}" đã tồn tại trong hệ thống.` });
+      }
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
     const empType = employee_type || 'NS';
-    const empCode = employee_code || await generateEmployeeCode(empType);
+    const empCode = (employee_code && employee_code.trim()) ? employee_code.trim() : await generateEmployeeCode(empType);
 
     const user = await User.create({
       email: email.toLowerCase().trim(),
@@ -138,7 +145,7 @@ const updateUser = async (req, res) => {
   const { id } = req.params;
   const {
     full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password,
-    employee_type, position, employment_status,
+    employee_type, employee_code, position, employment_status,
     dob, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
   } = req.body;
@@ -152,6 +159,13 @@ const updateUser = async (req, res) => {
     if (position !== undefined) updateData.position = position;
     if (employment_status !== undefined) updateData.employment_status = employment_status;
     if (employee_type !== undefined) updateData.employee_type = employee_type;
+    if (employee_code !== undefined && employee_code.trim()) {
+      const codeExist = await User.findOne({ employee_code: employee_code.trim(), _id: { $ne: id } });
+      if (codeExist) {
+        return res.status(409).json({ error: `Mã nhân sự "${employee_code.trim()}" đã được dùng bởi nhân viên khác.` });
+      }
+      updateData.employee_code = employee_code.trim();
+    }
     if (department_ids !== undefined && Array.isArray(department_ids)) {
       updateData.department_ids = department_ids;
       updateData.department_id = department_ids[0] || null;

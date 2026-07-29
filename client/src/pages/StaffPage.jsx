@@ -51,7 +51,7 @@ export default function StaffPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
-    position: '', dob: '', employee_type: 'NS', employment_status: 'Dang lam viec', avatar_url: '',
+    position: '', dob: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -147,7 +147,7 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', employee_type: 'NS', employment_status: 'Dang lam viec', avatar_url: '' });
+    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '' });
     setShowForm(true);
   };
 
@@ -165,6 +165,7 @@ export default function StaffPage() {
       position: user.position || '',
       dob: user.dob || '',
       employee_type: user.employee_type || 'NS',
+      employee_code: user.employee_code || '',
       employment_status: user.employment_status || 'Dang lam viec',
       avatar_url: user.avatar_url || '',
     });
@@ -444,27 +445,40 @@ export default function StaffPage() {
                 <input type="date" className="form-input" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} />
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Chuc vu / Vi tri</label>
-              <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kien truc su, Truong phong..." />
-            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
-                <label className="form-label">Loai nhan su</label>
+                <label className="form-label">Mã nhân sự / ID (Tùy chọn)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.employee_code}
+                  onChange={e => setForm({ ...form, employee_code: e.target.value })}
+                  placeholder="VD: NS-001, TV-002, ET-88 (để trống tự sinh)"
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Chức vụ / Vị trí</label>
+                <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kiến trúc sư, Trưởng phòng..." />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group">
+                <label className="form-label">Loại nhân sự</label>
                 <select className="form-input" value={form.employee_type} onChange={e => setForm({ ...form, employee_type: e.target.value })}>
-                  <option value="NS">NS - Nhan su chinh thuc</option>
-                  <option value="TV">TV - Thu viec</option>
-                  <option value="TTS">TTS - Thuc tap sinh</option>
+                  <option value="NS">NS - Nhân sự chính thức</option>
+                  <option value="TV">TV - Thử việc</option>
+                  <option value="TTS">TTS - Thực tập sinh</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Trang thai</label>
+                <label className="form-label">Trạng thái</label>
                 <select className="form-input" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })}>
-                  <option value="Dang lam viec">Dang lam viec</option>
-                  <option value="Da nghi viec">Da nghi viec</option>
-                  <option value="Nghi om">Nghi om</option>
-                  <option value="Nghi thai san">Nghi thai san</option>
-                  <option value="Khac">Khac</option>
+                  <option value="Dang lam viec">Đang làm việc</option>
+                  <option value="Da nghi viec">Đã nghỉ việc</option>
+                  <option value="Nghi om">Nghỉ ốm</option>
+                  <option value="Nghi thai san">Nghỉ thai sản</option>
+                  <option value="Khac">Khác</option>
                 </select>
               </div>
             </div>
