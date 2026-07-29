@@ -323,34 +323,6 @@ export default function SettingsPage() {
             }
           </div>
 
-        ) : tab === 'projects' ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Quan ly du an & Cong trinh ({projects.length})</span>
-              {isAdmin && <button onClick={() => { setProjForm({ id: null, name: '', code: '', address: '', client_name: '', status: 'active' }); setShowProjModal(true); }} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '12px' }}><Plus size={14} /> Tao du an</button>}
-            </div>
-            {projects.length === 0
-              ? <div className="empty-state"><div className="empty-state__icon">🏗️</div><div className="empty-state__title">Chua co du an</div></div>
-              : projects.map(p => (
-                <div key={p._id} style={rowStyle}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 700 }}>{p.name} <span style={{ fontSize: '11px', color: 'var(--primary)' }}>({p.code || 'DA'})</span></div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{p.address || 'Chua ghi dia chi'}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <span className={`badge ${p.status === 'active' ? 'badge--success' : p.status === 'paused' ? 'badge--warning' : 'badge--neutral'}`}>
-                      {p.status === 'active' ? 'Dang chay' : p.status === 'paused' ? 'Tam dung' : 'Hoan thanh'}
-                    </span>
-                    {isAdmin && <>
-                      <button onClick={() => { setProjForm({ id: p._id, name: p.name, code: p.code||'', address: p.address||'', client_name: p.client_name||'', status: p.status||'active' }); setShowProjModal(true); }} style={iconBtn('var(--primary)')}><Edit2 size={14} /></button>
-                      <button onClick={() => handleDeleteProject(p._id, p.name)} style={iconBtn()}><Trash2 size={14} /></button>
-                    </>}
-                  </div>
-                </div>
-              ))
-            }
-          </div>
-
         ) : tab === 'shift' ? (
           <div>
             <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
@@ -625,41 +597,6 @@ export default function SettingsPage() {
             </div>
             <button onClick={handleSaveLocation} disabled={submitting || !locForm.lat} className="btn btn--primary btn--full btn--lg">
               {submitting ? <span className="spinner" /> : !locForm.lat ? 'Can chon vi tri GPS truoc' : (locForm.id ? 'Luu cap nhat vi tri' : 'Luu vi tri van phong')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showProjModal && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '420px', margin: '0 auto' }}>
-            <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{projForm.id ? 'Sua du an' : 'Tao du an moi'}</h3>
-              <button onClick={() => setShowProjModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Ten du an / cong trinh *</label>
-              <input type="text" className="form-input" value={projForm.name} onChange={e => setProjForm({...projForm, name: e.target.value})} placeholder="VD: Biet thu Palm City" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Ma du an</label>
-              <input type="text" className="form-input" value={projForm.code} onChange={e => setProjForm({...projForm, code: e.target.value})} placeholder="CT-PALM" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Dia chi cong trinh</label>
-              <input type="text" className="form-input" value={projForm.address} onChange={e => setProjForm({...projForm, address: e.target.value})} placeholder="Dia chi..." />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Trang thai</label>
-              <select className="form-input" value={projForm.status} onChange={e => setProjForm({...projForm, status: e.target.value})}>
-                <option value="active">Dang hoat dong (Cho phep cham cong)</option>
-                <option value="paused">Tam dung</option>
-                <option value="completed">Hoan thanh</option>
-              </select>
-            </div>
-            <button onClick={handleSaveProject} disabled={submitting} className="btn btn--primary btn--full btn--lg">
-              {submitting ? <span className="spinner" /> : 'Luu du an'}
             </button>
           </div>
         </div>
