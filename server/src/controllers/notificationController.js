@@ -112,4 +112,16 @@ const broadcastAnnouncement = async (req, res) => {
   }
 };
 
-module.exports = { getNotifications, markAsRead, markAllAsRead, broadcastAnnouncement };
+// DELETE /api/notifications/:id - Xóa thông báo
+const deleteNotification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Notification.findByIdAndDelete(id);
+    res.json({ message: 'Đã xóa thông báo thành công' });
+  } catch (error) {
+    console.error('DeleteNotification error:', error);
+    res.status(500).json({ error: 'Lỗi xóa thông báo.' });
+  }
+};
+
+module.exports = { getNotifications, markAsRead, markAllAsRead, broadcastAnnouncement, deleteNotification };

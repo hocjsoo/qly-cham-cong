@@ -16,31 +16,38 @@ const getHolidays = async (req, res) => {
 
 // POST /api/holidays
 const createHoliday = async (req, res) => {
-  const { name, date, end_date, is_paid = false, note } = req.body;
-  if (!name || !date) return res.status(400).json({ error: 'Ten ngay le va ngay bat dau la bat buoc.' });
+  const { name, date, end_date, is_paid = false, note, send_notification = true } = req.body;
+  if (!name || !date) return res.status(400).json({ error: 'Tên ngày lễ và ngày bắt đầu là bắt buộc.' });
 
   try {
     const holiday = await Holiday.create({
       name: name.trim(), date, end_date: end_date || date,
       is_paid: Boolean(is_paid), note: note?.trim() || null, created_by: req.user._id,
     });
-    const dateText = end_date && end_date !== date ? `tu ${date} den ${end_date}` : `ngay ${date}`;
-    await Notification.create({
-      user_id: null,
-      title: `THONG BAO NGHI LE: ${name.toUpperCase()}`,
-      message: `Cong ty thong bao lich nghi le "${name}" (${dateText}).`,
-      type: 'announcement',
+
+    if (send_notification) {
+      const dateText = end_date && end_date !== date ? `từ ${date} đến ${end_date}` : `ngày ${date}`;
+      await Notification.create({
+        user_id: null,
+        title: `📢 THÔNG BÁO NGHỈ LỄ: ${name.toUpperCase()}`,
+        message: `Công ty thông báo lịch nghỉ lễ "${name}" (${dateText}).`,
+        type: 'announcement',
+      });
+    }
+
+    res.status(201).json({
+      message: send_notification ? 'Đã thêm ngày lễ & phát thông báo!' : 'Đã thêm ngày lễ (không phát thông báo)!',
+      holiday
     });
-    res.status(201).json({ message: 'Da them ngay le & tu dong phat thong bao!', holiday });
   } catch (error) {
     console.error('CreateHoliday error:', error);
-    res.status(500).json({ error: 'Loi tao ngay nghi le.' });
+    res.status(500).json({ error: 'Lỗi tạo ngày nghỉ lễ.' });
   }
 };
 
 // PUT /api/holidays/:id
 const updateHoliday = async (req, res) => {
-  const { name, date, end_date, is_paid, note } = req.body;
+  const { name, date, end_date, is_paid, note, send_notification = false } = req.body;
   try {
     const updateData = {};
     if (name) updateData.name = name.trim();
@@ -51,6 +58,16 @@ const updateHoliday = async (req, res) => {
 
     const holiday = await Holiday.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!holiday) return res.status(404).json({ error: 'Không tìm thấy ngày lễ.' });
+
+    if (send_notification) {
+      const dateText = holiday.end_date && holiday.end_date !== holiday.date ? `từ ${holiday.date} đến ${holiday.end_date}` : `ngày ${holiday.date}`;
+      await Notification.create({
+        user_id: null,
+        title: `📢 CẬP NHẬT LỊCH NGHỈ LỄ: ${holiday.name.toUpperCase()}`,
+        message: `Công ty cập nhật lịch nghỉ lễ "${holiday.name}" (${dateText}).`,
+        type: 'announcement',
+      });
+    }
 
     res.json({ message: 'Đã cập nhật ngày nghỉ lễ thành công!', holiday });
   } catch (error) {
