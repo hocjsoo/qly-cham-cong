@@ -481,142 +481,223 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* BẢNG CHẤM CÔNG KHỚP 100% MẪU ET_STAFF 2026 */}
-            {loading ? (
-              <div className="skeleton-card" style={{ height: '300px', borderRadius: '16px' }} />
-            ) : !matrixData || !matrixData.staff_rows ? (
-              <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
-            ) : (
-              <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '12px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
-                {/* Corporate Header Banner */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid var(--primary)', paddingBottom: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Building2 size={24} color="var(--primary)" />
-                    <div>
-                      <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
-                        BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
+            {/* Helper UI functions for Timesheet Matrix */}
+            {(() => {
+              const renderSummaryVal = (val, color) => {
+                if (!val || val === 0) {
+                  return <span style={{ opacity: 0.2, color: 'var(--text-muted)', fontWeight: 500 }}>—</span>;
+                }
+                return (
+                  <span style={{
+                    fontWeight: 800, color: color, padding: '2px 6px',
+                    borderRadius: '6px', background: `${color}1e`, fontSize: '11px', display: 'inline-block'
+                  }}>
+                    {val.toFixed(2)}
+                  </span>
+                );
+              };
+
+              const renderDaySymbol = (symbol, isWeekend) => {
+                if (!symbol || symbol === '—') {
+                  return <span style={{ opacity: isWeekend ? 0.15 : 0.25, color: 'var(--text-muted)' }}>—</span>;
+                }
+
+                let bg = 'transparent';
+                let color = 'var(--text)';
+
+                if (symbol === 'x' || symbol === '1.0x') {
+                  bg = 'var(--green-soft)'; color = 'var(--green)';
+                } else if (symbol === '0,75x' || symbol === '0.75x') {
+                  bg = 'var(--green-soft)'; color = 'var(--green)';
+                } else if (symbol === '0,5x' || symbol === '0.5x') {
+                  bg = 'var(--yellow-soft)'; color = 'var(--yellow)';
+                } else if (symbol === 'CT1') {
+                  bg = 'var(--blue-soft)'; color = 'var(--blue)';
+                } else if (symbol === 'CT2') {
+                  bg = 'rgba(139, 92, 246, 0.15)'; color = '#8b5cf6';
+                } else if (symbol === 'WFH') {
+                  bg = 'rgba(6, 182, 212, 0.15)'; color = '#06b6d4';
+                } else if (symbol === 'P') {
+                  bg = 'rgba(139, 92, 246, 0.15)'; color = '#8b5cf6';
+                } else if (symbol === 'O') {
+                  bg = 'var(--red-soft)'; color = 'var(--red)';
+                } else if (symbol === 'KL') {
+                  bg = 'rgba(148, 163, 184, 0.15)'; color = 'var(--text-muted)';
+                }
+
+                return (
+                  <span style={{
+                    display: 'inline-block', padding: '1px 5px', borderRadius: '4px',
+                    background: bg, color: color, fontWeight: 800, fontSize: '10px'
+                  }}>
+                    {symbol}
+                  </span>
+                );
+              };
+
+              return (
+                /* BẢNG CHẤM CÔNG KHỚP 100% MẪU ET_STAFF 2026 */
+                loading ? (
+                  <div className="skeleton-card" style={{ height: '300px', borderRadius: '16px' }} />
+                ) : !matrixData || !matrixData.staff_rows ? (
+                  <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
+                ) : (
+                  <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '12px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+                    {/* Corporate Header Banner */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid var(--primary)', paddingBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Building2 size={24} color="var(--primary)" />
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                            BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
+                          </div>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                            THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                        THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+                      <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                        <div>Mẫu quản lý: <strong>ET_Staff {year}</strong></div>
+                        <div>Trạng thái: <strong style={{ color: matrixData.global_locked ? 'var(--red)' : 'var(--green)' }}>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
                       </div>
                     </div>
-                  </div>
-                  <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                    <div>Mẫu quản lý: <strong>ET_Staff {year}</strong></div>
-                    <div>Trạng thái: <strong style={{ color: matrixData.global_locked ? 'var(--red)' : 'var(--green)' }}>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
-                  </div>
-                </div>
 
-                <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  <thead>
-                    {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
-                    <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 800 }}>
-                      <th className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '55px', background: '#1e293b', border: '1px solid #334155' }}>ID</th>
-                      <th className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', background: '#1e293b', border: '1px solid #334155' }}>NHÂN SỰ</th>
-                      <th className="table-sticky-col-3" style={{ padding: '8px 10px', minWidth: '70px', background: '#1e293b', border: '1px solid #334155' }}>NV</th>
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <thead>
+                        {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
+                        <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
+                          <th className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '55px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                          <th className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                          <th className="table-sticky-col-3" style={{ padding: '8px 10px', minWidth: '70px', borderBottom: '1px solid var(--border)' }}>NV</th>
 
-                      {/* Summary Columns Header */}
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>NLV tại VP</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Trong nước</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>CT Nước ngoài</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Work from home</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ phép</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ ốm</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Nghỉ không lương</th>
-                      <th style={{ padding: '6px 8px', background: '#0f172a', border: '1px solid #334155' }}>Khác</th>
+                          {/* Summary Columns Header */}
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>NLV tại VP</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }}>CT Trong nước</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }}>CT Nước ngoài</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }}>Work from home</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }}>Nghỉ phép</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }}>Nghỉ ốm</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }}>Nghỉ không lương</th>
+                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }}>Khác</th>
 
-                      {/* Days Weekday Row */}
-                      {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#475569' : '#334155', minWidth: '28px', border: '1px solid #334155' }}>
-                          {hd.weekday}
-                        </th>
-                      ))}
+                          {/* Days Weekday Row */}
+                          {matrixData.header_days.map(hd => (
+                            <th key={hd.day} style={{
+                              padding: '4px 6px',
+                              background: hd.isWeekend ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
+                              color: hd.isWeekend ? '#ef4444' : 'var(--text-muted)',
+                              minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
+                            }}>
+                              {hd.weekday}
+                            </th>
+                          ))}
 
-                      {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '50px', border: '1px solid #334155' }}>Chốt</th>}
-                    </tr>
+                          {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
+                        </tr>
 
-                    {/* Row 2 Header: Days 01..31 */}
-                    <tr style={{ background: '#0f172a', color: '#ffffff', fontWeight: 800 }}>
-                      <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 10px', textAlign: 'left', background: '#0f172a', border: '1px solid #334155' }}>BẢNG CHẤM CÔNG THÁNG</th>
-                      <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: '#94a3b8', border: '1px solid #334155' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
+                        {/* Row 2 Header: Days 01..31 */}
+                        <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
+                          <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 10px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG THÁNG</th>
+                          <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
 
-                      {matrixData.header_days.map(hd => (
-                        <th key={hd.day} style={{ padding: '4px 6px', background: hd.isWeekend ? '#334155' : '#0f172a', border: '1px solid #334155' }}>
-                          {hd.dayStr}
-                        </th>
-                      ))}
+                          {matrixData.header_days.map(hd => (
+                            <th key={hd.day} style={{
+                              padding: '4px 6px',
+                              background: hd.isWeekend ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                              color: hd.isWeekend ? '#ef4444' : 'var(--text)',
+                              borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
+                            }}>
+                              {hd.dayStr}
+                            </th>
+                          ))}
 
-                      {isAdminOrManager && <th style={{ padding: '4px', border: '1px solid #334155' }}>—</th>}
-                    </tr>
-                  </thead>
+                          {isAdminOrManager && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
+                        </tr>
+                      </thead>
 
-                  <tbody>
-                    {displayedStaffRows.map((r, idx) => (
-                      <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)' }}>
-                        <td className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
-                        <td className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
-                        <td className="table-sticky-col-3" style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
+                      <tbody>
+                        {displayedStaffRows.map((r, idx) => (
+                          <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                            <td className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
+                            <td className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
+                            <td className="table-sticky-col-3" style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
 
-                        {/* Summary Column Values */}
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{r.nlv_office.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#3b82f6' }}>{r.ct_domestic.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#8b5cf6' }}>{r.ct_foreign.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#06b6d4' }}>{r.wfh.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#10b981' }}>{r.annual_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#ef4444' }}>{r.sick_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#64748b' }}>{r.unpaid_leave.toFixed(2)}</td>
-                        <td style={{ padding: '8px 6px', fontWeight: 700, color: '#94a3b8' }}>{r.other_leave.toFixed(2)}</td>
+                            {/* Summary Column Values */}
+                            <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_domestic, '#3b82f6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_foreign, '#8b5cf6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.wfh, '#06b6d4')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.annual_leave, '#8b5cf6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
 
-                        {/* Day Cell Symbols */}
-                        {r.days.map(d => {
-                          const isWk = matrixData.header_days.find(hd => hd.day === d.day)?.isWeekend;
-                          return (
-                            <td
-                              key={d.day}
-                              onClick={() => {
-                                if (isAdminOrManager) {
-                                  setSelectedCell({ user_id: r.id, staff_name: r.full_name, dateStr: d.dateStr, current_symbol: d.symbol });
-                                  setCellSymbol(d.symbol || 'x');
-                                  setCellReason('');
-                                }
-                              }}
-                              style={{
-                                padding: '6px 4px', fontWeight: 800, cursor: isAdminOrManager ? 'pointer' : 'default',
-                                background: isWk ? 'rgba(255,255,255,0.03)' : 'transparent',
-                                color: d.symbol === 'x' || d.symbol === '0,75x' ? '#10b981' :
-                                       d.symbol === '0,5x' ? '#f59e0b' :
-                                       d.symbol === 'CT1' ? '#3b82f6' :
-                                       d.symbol === 'CT2' ? '#8b5cf6' :
-                                       d.symbol === 'WFH' ? '#06b6d4' :
-                                       d.symbol === 'P' ? '#10b981' :
-                                       d.symbol === 'O' ? '#ef4444' :
-                                       d.symbol === 'KL' ? '#64748b' : 'var(--text)'
-                              }}
-                              title={isAdminOrManager ? `Bấm để chỉnh sửa ô công ngày ${d.dateStr}` : d.symbol}
-                            >
-                              {d.symbol || '—'}
-                            </td>
-                          );
-                        })}
+                            {/* Day Cell Symbols */}
+                            {r.days.map(d => {
+                              const isWk = matrixData.header_days.find(hd => hd.day === d.day)?.isWeekend;
+                              return (
+                                <td
+                                  key={d.day}
+                                  onClick={() => {
+                                    if (isAdminOrManager) {
+                                      setSelectedCell({ user_id: r.id, staff_name: r.full_name, dateStr: d.dateStr, current_symbol: d.symbol });
+                                      setCellSymbol(d.symbol || 'x');
+                                      setCellReason('');
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '6px 2px', cursor: isAdminOrManager ? 'pointer' : 'default',
+                                    background: isWk ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                                    borderLeft: '1px solid var(--border-muted)'
+                                  }}
+                                  title={isAdminOrManager ? `Bấm để chỉnh sửa ô công ngày ${d.dateStr}` : d.symbol}
+                                >
+                                  {renderDaySymbol(d.symbol, isWk)}
+                                </td>
+                              );
+                            })}
 
-                        {/* Lock Action Button per Staff */}
-                        {isAdminOrManager && (
-                          <td style={{ padding: '6px' }}>
-                            <button
-                              onClick={() => handleToggleLock(r.id, r.is_locked)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
-                              title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
-                            >
-                              {r.is_locked ? '🔒' : '🔓'}
-                            </button>
+                            {/* Lock Action Button per Staff */}
+                            {isAdminOrManager && (
+                              <td style={{ padding: '6px' }}>
+                                <button
+                                  onClick={() => handleToggleLock(r.id, r.is_locked)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+                                  title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
+                                >
+                                  {r.is_locked ? '🔒' : '🔓'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+
+                      {/* System Total Footer Row */}
+                      <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
+                        <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
+                          <td colSpan="3" className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
+                            TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
                           </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                          <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.wfh, 0), '#06b6d4')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0), '#8b5cf6')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
+                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
+                          {matrixData.header_days.map(hd => (
+                            <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                          ))}
+                          {isAdminOrManager && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )
+              );
+            })()}
           </div>
         )}
 
