@@ -21,15 +21,29 @@ const CATEGORIES = [
 ];
 
 const STATUS_MAP = {
-  'Chưa bắt đầu': { cls: 'badge--neutral', label: '⚪ Chưa bắt đầu' },
-  'Chờ': { cls: 'badge--neutral', label: '⏸️ Chờ' },
-  'Cần thực hiện': { cls: 'badge--warning', label: '⏳ Cần thực hiện' },
   'Đang tiến hành': { cls: 'badge--success', label: '🚀 Đang tiến hành' },
+  'active': { cls: 'badge--success', label: '🚀 Đang tiến hành' },
+  'Cần thực hiện': { cls: 'badge--warning', label: '⏳ Cần thực hiện' },
+  'paused': { cls: 'badge--warning', label: '⏸️ Tạm dừng' },
+  'Chờ': { cls: 'badge--neutral', label: '⏸️ Chờ' },
+  'Chưa bắt đầu': { cls: 'badge--neutral', label: '⚪ Chưa bắt đầu' },
   'Đã hoàn thành': { cls: 'badge--info', label: '✅ Đã hoàn thành' },
+  'completed': { cls: 'badge--info', label: '✅ Đã hoàn thành' },
   'Đã lưu trữ': { cls: 'badge--neutral', label: '📦 Đã lưu trữ' },
-  'Khác': { cls: 'badge--neutral', label: '⚙️ Khác' },
   'Backlog': { cls: 'badge--warning', label: '📋 Backlog' },
+  'Khác': { cls: 'badge--neutral', label: '⚙️ Khác' },
 };
+
+const SELECT_STATUSES = [
+  'Đang tiến hành',
+  'Cần thực hiện',
+  'Chờ',
+  'Chưa bắt đầu',
+  'Đã hoàn thành',
+  'Đã lưu trữ',
+  'Backlog',
+  'Khác'
+];
 
 export default function ProjectsPage() {
   const { user } = useAuthStore();
@@ -93,6 +107,11 @@ export default function ProjectsPage() {
 
   const handleOpenEdit = (proj) => {
     setEditingProject(proj);
+    let st = proj.status || 'Đang tiến hành';
+    if (st === 'active') st = 'Đang tiến hành';
+    if (st === 'paused') st = 'Chờ';
+    if (st === 'completed') st = 'Đã hoàn thành';
+
     setForm({
       code: proj.code || '',
       name: proj.name || '',
@@ -102,7 +121,7 @@ export default function ProjectsPage() {
       pm_name: proj.pm_name || '',
       address: proj.address || '',
       note: proj.note || '',
-      status: proj.status || 'Đang tiến hành',
+      status: st,
     });
     setShowModal(true);
   };
@@ -116,10 +135,13 @@ export default function ProjectsPage() {
     setSubmitting(true);
     try {
       if (editingProject) {
-        await api.put(`/projects/${editingProject._id || editingProject.id}`, form);
+        const { data } = await api.put(`/projects/${editingProject._id || editingProject.id}`, form);
+        const updatedProj = data.project || { ...editingProject, ...form };
+        setProjects(prev => prev.map(p => (p._id || p.id) === (editingProject._id || editingProject.id) ? updatedProj : p));
         toast.success('Đã cập nhật dự án thành công ✅');
       } else {
-        await api.post('/projects', form);
+        const { data } = await api.post('/projects', form);
+        if (data.project) setProjects(prev => [data.project, ...prev]);
         toast.success('Đã thêm dự án mới thành công 🎉');
       }
       setShowModal(false);
@@ -166,7 +188,7 @@ export default function ProjectsPage() {
             <div className="header__subtitle">{totalCount} dự án · Khớp 100% Bảng Mẫu THÔNG TIN NS+DA</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {isAdmin && (
+            {isAdminOrManager && (
               <button onClick={handleOpenCreate} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
                 <Plus size={15} /> Thêm dự án
               </button>
@@ -283,7 +305,7 @@ export default function ProjectsPage() {
                   <th style={{ padding: '10px 12px' }}>PM (quản lý dự án)</th>
                   <th style={{ padding: '10px 12px' }}>NOTE</th>
                   <th style={{ padding: '10px 12px' }}>TRẠNG THÁI</th>
-                  {isAdmin && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
+                  {isAdminOrManager && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
                 </tr>
               </thead>
               <tbody>
@@ -346,7 +368,7 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* THAO TÁC */}
-                      {isAdmin && (
+                      {isAdminOrManager && (
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                             <button
@@ -508,7 +530,7 @@ export default function ProjectsPage() {
               <div className="form-group">
                 <label className="form-label">TRẠNG THÁI *</label>
                 <select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  {Object.keys(STATUS_MAP).map(s => <option key={s} value={s}>{s}</option>)}
+                  {SELECT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
