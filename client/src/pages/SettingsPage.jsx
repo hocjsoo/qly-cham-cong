@@ -130,15 +130,22 @@ export default function SettingsPage() {
     });
   };
 
-  const handleAddLocation = async () => {
-    if (!locForm.name.trim()) { toast.error('Ten vi tri la bat buoc'); return; }
-    if (!locForm.lat || !locForm.lng) { toast.error('Vui long chon vi tri GPS truoc'); return; }
+  const handleSaveLocation = async () => {
+    if (!locForm.name.trim()) { toast.error('Tên vị trí là bắt buộc'); return; }
+    if (!locForm.lat || !locForm.lng) { toast.error('Vui lòng chọn vị trí GPS trước'); return; }
     setSubmitting(true);
     try {
-      await api.post('/locations', locForm);
-      toast.success('Da them vi tri van phong!'); setShowLocModal(false);
-      setLocForm({ name: '', address: '', lat: '', lng: '', radius_m: 100 }); loadData();
-    } catch (err) { toast.error(err?.response?.data?.error || 'Loi them vi tri'); }
+      if (locForm.id) {
+        await api.put(`/locations/${locForm.id}`, locForm);
+        toast.success('Đã cập nhật vị trí văn phòng!');
+      } else {
+        await api.post('/locations', locForm);
+        toast.success('Đã thêm vị trí văn phòng!');
+      }
+      setShowLocModal(false);
+      setLocForm({ id: null, name: '', address: '', lat: '', lng: '', radius_m: 100 });
+      loadData();
+    } catch (err) { toast.error(err?.response?.data?.error || 'Lỗi lưu vị trí'); }
     finally { setSubmitting(false); }
   };
 
@@ -187,14 +194,21 @@ export default function SettingsPage() {
     });
   };
 
-  const handleAddHoliday = async () => {
-    if (!holidayForm.name.trim() || !holidayForm.date) { toast.error('Ten va ngay la bat buoc'); return; }
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.name.trim() || !holidayForm.date) { toast.error('Tên và ngày là bắt buộc'); return; }
     setSubmitting(true);
     try {
-      await api.post('/holidays', { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
-      toast.success('Da them ngay le!');
-      setHolidayForm({ name: '', date: '', end_date: '' }); setShowHolidayForm(false); loadData();
-    } catch (err) { toast.error(err?.response?.data?.error || 'Loi them ngay le'); }
+      if (holidayForm.id) {
+        await api.put(`/holidays/${holidayForm.id}`, { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
+        toast.success('Đã cập nhật ngày lễ!');
+      } else {
+        await api.post('/holidays', { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
+        toast.success('Đã thêm ngày lễ!');
+      }
+      setHolidayForm({ id: null, name: '', date: '', end_date: '' });
+      setShowHolidayForm(false);
+      loadData();
+    } catch (err) { toast.error(err?.response?.data?.error || 'Lỗi lưu ngày lễ'); }
     finally { setSubmitting(false); }
   };
 
@@ -304,7 +318,20 @@ export default function SettingsPage() {
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>{l.name}</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{l.address || 'Chua ghi dia chi'}</div>
                     </div>
-                    {isAdmin && <button onClick={() => handleDeleteLocation(l._id, l.name)} style={iconBtn()}><Trash2 size={14} /></button>}
+                    {isAdmin && (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={() => {
+                            setLocForm({ id: l._id, name: l.name, address: l.address || '', lat: l.lat || '', lng: l.lng || '', radius_m: l.radius_m || 100 });
+                            setShowLocModal(true);
+                          }}
+                          style={iconBtn('var(--primary)')}
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button onClick={() => handleDeleteLocation(l._id, l.name)} style={iconBtn()}><Trash2 size={14} /></button>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', fontSize: '11px', flexWrap: 'wrap' }}>
                     <span className="badge badge--info">Ban kinh: {l.radius_m}m</span>
@@ -513,10 +540,10 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <button onClick={handleAddHoliday} disabled={submitting} className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '7px' }}>
-                    {submitting ? <span className="spinner" /> : 'Luu ngay le'}
+                  <button onClick={handleSaveHoliday} disabled={submitting} className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '7px' }}>
+                    {submitting ? <span className="spinner" /> : 'Lưu ngày lễ'}
                   </button>
-                  <button onClick={() => setShowHolidayForm(false)} className="btn btn--ghost" style={{ fontSize: '12px', padding: '7px' }}>Huy</button>
+                  <button onClick={() => setShowHolidayForm(false)} className="btn btn--ghost" style={{ fontSize: '12px', padding: '7px' }}>Hủy</button>
                 </div>
               </div>
             )}
@@ -525,8 +552,8 @@ export default function SettingsPage() {
               ? (
                 <div className="empty-state">
                   <div className="empty-state__icon">🎌</div>
-                  <div className="empty-state__title">Chua co ngay le nao</div>
-                  <div className="empty-state__desc">Nhan "Nap le VN" de tu dong them ngay le Viet Nam cho nam hien tai</div>
+                  <div className="empty-state__title">Chưa có ngày lễ nào</div>
+                  <div className="empty-state__desc">Nhấn "Nạp lễ VN" để tự động thêm ngày lễ Việt Nam cho năm hiện tại</div>
                 </div>
               )
               : holidays.map(h => (
@@ -535,10 +562,23 @@ export default function SettingsPage() {
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>{h.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {h.date}{h.end_date && h.end_date !== h.date ? ` - ${h.end_date}` : ''}
-                      <span className="badge badge--neutral" style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 5px' }}>Nghỉ lễ (Không hưởng lương)</span>
+                      <span className="badge badge--neutral" style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 5px' }}>Nghỉ lễ</span>
                     </div>
                   </div>
-                  {isAdmin && <button onClick={() => handleDeleteHoliday(h._id, h.name)} style={iconBtn()}><Trash2 size={14} /></button>}
+                  {isAdmin && (
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        onClick={() => {
+                          setHolidayForm({ id: h._id, name: h.name, date: h.date, end_date: h.end_date || h.date, is_paid: h.is_paid || false, note: h.note || '' });
+                          setShowHolidayForm(true);
+                        }}
+                        style={iconBtn('var(--primary)')}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => handleDeleteHoliday(h._id, h.name)} style={iconBtn()}><Trash2 size={14} /></button>
+                    </div>
+                  )}
                 </div>
               ))
             }
@@ -577,7 +617,7 @@ export default function SettingsPage() {
           <div className="modal-sheet animate-slide-up" style={{ maxWidth: '500px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Them vi tri van phong (Geofencing)</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>{locForm.id ? 'Sửa vị trí văn phòng (Geofencing)' : 'Thêm vị trí văn phòng (Geofencing)'}</h3>
               <button onClick={() => setShowLocModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
             <div className="form-group">
@@ -597,8 +637,8 @@ export default function SettingsPage() {
               <input type="range" min="30" max="500" step="10" value={locForm.radius_m} onChange={e => setLocForm({...locForm, radius_m: parseInt(e.target.value)})} style={{ width: '100%' }} />
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>30m = rat chat | 100m = binh thuong | 200m+ = thoang</div>
             </div>
-            <button onClick={handleAddLocation} disabled={submitting || !locForm.lat} className="btn btn--primary btn--full btn--lg">
-              {submitting ? <span className="spinner" /> : !locForm.lat ? 'Can chon vi tri GPS truoc' : 'Luu vi tri van phong'}
+            <button onClick={handleSaveLocation} disabled={submitting || !locForm.lat} className="btn btn--primary btn--full btn--lg">
+              {submitting ? <span className="spinner" /> : !locForm.lat ? 'Can chon vi tri GPS truoc' : (locForm.id ? 'Luu cap nhat vi tri' : 'Luu vi tri van phong')}
             </button>
           </div>
         </div>

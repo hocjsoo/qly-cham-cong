@@ -38,13 +38,34 @@ const createHoliday = async (req, res) => {
   }
 };
 
+// PUT /api/holidays/:id
+const updateHoliday = async (req, res) => {
+  const { name, date, end_date, is_paid, note } = req.body;
+  try {
+    const updateData = {};
+    if (name) updateData.name = name.trim();
+    if (date) updateData.date = date;
+    if (end_date !== undefined) updateData.end_date = end_date || date;
+    if (is_paid !== undefined) updateData.is_paid = Boolean(is_paid);
+    if (note !== undefined) updateData.note = note?.trim() || null;
+
+    const holiday = await Holiday.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!holiday) return res.status(404).json({ error: 'Không tìm thấy ngày lễ.' });
+
+    res.json({ message: 'Đã cập nhật ngày nghỉ lễ thành công!', holiday });
+  } catch (error) {
+    console.error('UpdateHoliday error:', error);
+    res.status(500).json({ error: 'Lỗi sửa ngày nghỉ lễ.' });
+  }
+};
+
 // DELETE /api/holidays/:id
 const deleteHoliday = async (req, res) => {
   try {
     await Holiday.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Da xoa ngay nghi le' });
+    res.json({ message: 'Đã xóa ngày nghỉ lễ' });
   } catch (error) {
-    res.status(500).json({ error: 'Loi xoa ngay nghi le.' });
+    res.status(500).json({ error: 'Lỗi xóa ngày nghỉ lễ.' });
   }
 };
 
@@ -90,4 +111,4 @@ const seedVietnamHolidays = async (req, res) => {
   }
 };
 
-module.exports = { getHolidays, createHoliday, deleteHoliday, seedVietnamHolidays };
+module.exports = { getHolidays, createHoliday, updateHoliday, deleteHoliday, seedVietnamHolidays };
