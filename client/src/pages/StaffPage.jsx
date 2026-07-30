@@ -61,6 +61,37 @@ export default function StaffPage() {
   const [resetCodeModal, setResetCodeModal] = useState(null); // { user, code }
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [userDevices, setUserDevices] = useState(null);
+  const [loadingDevices, setLoadingDevices] = useState(false);
+
+  const loadUserDevices = async (userId) => {
+    try {
+      setLoadingDevices(true);
+      const { data } = await api.get(`/users/${userId}/devices`);
+      setUserDevices(data);
+    } catch { setUserDevices(null); }
+    finally { setLoadingDevices(false); }
+  };
+
+  const handleSetTrustDevice = async (userId, sessionId) => {
+    try {
+      const { data } = await api.put(`/users/${userId}/devices/${sessionId}/trust`);
+      toast.success(data.message || 'Đã thiết lập máy chính!');
+      loadUserDevices(userId);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi thiết lập máy chính');
+    }
+  };
+
+  const handleDeleteUserDevice = async (userId, sessionId) => {
+    try {
+      const { data } = await api.delete(`/users/${userId}/devices/${sessionId}`);
+      toast.success(data.message || 'Đã xóa thiết bị!');
+      loadUserDevices(userId);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xóa thiết bị');
+    }
+  };
 
   // Attendance Override Modal
   const [showOverrideModal, setShowOverrideModal] = useState(false);
@@ -78,6 +109,14 @@ export default function StaffPage() {
   const [confirm, setConfirm] = useState(null); // { title, message, onConfirm, confirmLabel, danger }
 
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    if (viewingStaffDetail?._id) {
+      loadUserDevices(viewingStaffDetail._id);
+    } else {
+      setUserDevices(null);
+    }
+  }, [viewingStaffDetail]);
 
   const loadData = async () => {
     try {
@@ -810,6 +849,67 @@ export default function StaffPage() {
                 <span style={{ color: 'var(--text-muted)' }}>Trạng thái làm việc: </span>
                 <strong style={{ color: 'var(--green)' }}>{viewingStaffDetail.employment_status || 'Đang làm việc'}</strong>
               </div>
+            </div>
+
+            {/* Devices Section — Chống chấm hộ & Thiết bị chính */}
+            <div style={{ marginTop: '14px', marginBottom: '18px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>📱 Thiết bị đã đăng ký ({userDevices?.sessions?.length || 0})</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Chống chấm công hộ</span>
+              </div>
+
+              {loadingDevices ? (
+                <div style={{ textAlign: 'center', padding: '12px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Đang kiểm tra thiết bị...
+                </div>
+              ) : !userDevices?.sessions || userDevices.sessions.length === 0 ? (
+                <div style={{ background: 'var(--bg-input)', padding: '10px', borderRadius: '8px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  Chưa đăng ký thiết bị chính chủ nào.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {userDevices.sessions.map((sess) => (
+                    <div key={sess._id} style={{
+                      background: sess.is_trusted ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
+                      border: sess.is_trusted ? '1px solid var(--green)' : '1px solid var(--border)',
+                      borderRadius: '8px', padding: '10px', fontSize: '12px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <strong style={{ color: 'var(--text)' }}>💻 {sess.device_name || 'Thiết bị vật lý'}</strong>
+                        {sess.is_trusted ? (
+                          <span className="badge badge--success" style={{ fontSize: '10px' }}>⭐ MÁY CHÍNH</span>
+                        ) : (
+                          <span className="badge badge--warning" style={{ fontSize: '10px' }}>⚠️ Máy phụ</span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                        {sess.screen_info ? `Màn hình: ${sess.screen_info} · ` : ''}
+                        Lần cuối: {new Date(sess.last_used_at).toLocaleDateString('vi-VN')} ({sess.check_in_count || 1} lần check-in)
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        {!sess.is_trusted && (
+                          <button
+                            onClick={() => handleSetTrustDevice(viewingStaffDetail._id, sess._id)}
+                            className="btn btn--ghost"
+                            style={{ padding: '3px 8px', fontSize: '10px', color: 'var(--green)', borderColor: 'var(--green)' }}
+                          >
+                            ⭐ Đặt làm máy chính
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteUserDevice(viewingStaffDetail._id, sess._id)}
+                          className="btn btn--ghost"
+                          style={{ padding: '3px 8px', fontSize: '10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                        >
+                          🗑️ Xóa máy này
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>

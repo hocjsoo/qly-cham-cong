@@ -69,6 +69,9 @@ export default function DashboardPage() {
   const [flaggedList, setFlaggedList] = useState([]);
   const [verifyingId, setVerifyingId] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [rejectTarget, setRejectTarget] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [allowRecheckin, setAllowRecheckin] = useState(true);
 
   const fetchFlagged = async () => {
     if (['admin', 'leader', 'manager'].includes(user?.role)) {
@@ -88,6 +91,27 @@ export default function DashboardPage() {
       fetchData();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi xử lý xác minh');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectTarget) return;
+    setVerifyingId(rejectTarget._id);
+    try {
+      const { data } = await api.put(`/attendance/approve-flagged/${rejectTarget._id}`, {
+        action: 'reject',
+        reviewer_note: rejectReason || 'Từ chối bởi Quản lý',
+        allow_recheckin: allowRecheckin
+      });
+      toast.success(data.message || 'Đã xử lý từ chối!');
+      setRejectTarget(null);
+      setRejectReason('');
+      fetchFlagged();
+      fetchData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý từ chối');
     } finally {
       setVerifyingId(null);
     }
@@ -338,7 +362,7 @@ export default function DashboardPage() {
                       ✅ Duyệt ca này
                     </button>
                     <button
-                      onClick={() => handleVerifyAttendance(item._id, 'reject')}
+                      onClick={() => setRejectTarget(item)}
                       disabled={verifyingId === item._id}
                       className="btn btn--ghost"
                       style={{ flex: 1, fontSize: '12px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
@@ -934,6 +958,76 @@ export default function DashboardPage() {
             <button onClick={() => setSelectedHoliday(null)} className="btn btn--primary btn--full" style={{ fontWeight: 700 }}>
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Flagged Attendance Modal Sheet */}
+      {rejectTarget && (
+        <div className="modal-overlay" onClick={() => setRejectTarget(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={20} color="var(--red)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--red)' }}>
+                  Từ chối ca chấm công
+                </h3>
+              </div>
+              <button onClick={() => setRejectTarget(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '10px', marginBottom: '14px', border: '1px solid var(--border)' }}>
+              <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>
+                👤 Nhân viên: {rejectTarget.user_id?.full_name || 'Nhân viên'} (#{rejectTarget.user_id?.code || 'NS'})
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Lúc: {fmt(rejectTarget.check_in_time)} · Ngày: {rejectTarget.date}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                Lý do từ chối / Ghi chú:
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="VD: Dùng chung máy, Ảnh không đúng chính chủ..."
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                style={{ width: '100%', fontSize: '13px' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '18px', background: 'var(--bg-card)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+                <input
+                  type="checkbox"
+                  checked={allowRecheckin}
+                  onChange={e => setAllowRecheckin(e.target.checked)}
+                  style={{ width: '16px', height: '16px' }}
+                />
+                <span>🗑️ Xóa dữ liệu hôm nay để nhân viên CHẤM CÔNG LẠI</span>
+              </label>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', marginLeft: '26px' }}>
+                (Nếu chọn, nhân viên có thể dùng điện thoại/máy tính chính chủ để bấm Check-in lại ngay)
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setRejectTarget(null)} className="btn btn--ghost" style={{ flex: 1 }}>
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmReject}
+                disabled={verifyingId === rejectTarget._id}
+                className="btn btn--primary"
+                style={{ flex: 1, background: 'var(--red)', borderColor: 'var(--red)' }}
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
           </div>
         </div>
       )}

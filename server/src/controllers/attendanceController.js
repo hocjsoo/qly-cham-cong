@@ -714,7 +714,7 @@ const getFlaggedAttendance = async (req, res) => {
 // PUT /api/attendance/approve-flagged/:id — Admin/Leader duyệt hoặc từ chối selfie / cảnh báo
 const verifyFlaggedAttendance = async (req, res) => {
   const { id } = req.params;
-  const { action, reviewer_note } = req.body; // action: 'approve' | 'reject'
+  const { action, reviewer_note, allow_recheckin } = req.body; // action: 'approve' | 'reject'
 
   try {
     const attendance = await Attendance.findById(id);
@@ -725,14 +725,37 @@ const verifyFlaggedAttendance = async (req, res) => {
     if (action === 'approve') {
       attendance.verification_status = 'approved';
       attendance.is_flagged = false;
-      if (reviewer_note) attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp đã duyệt: ${reviewer_note}`;
+      if (reviewer_note) {
+        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp đã duyệt: ${reviewer_note}`;
+      }
       await attendance.save();
-      return res.json({ message: 'Đã duyệt chấm công thành công! ✅', attendance });
+
+      // Đánh dấu thiết bị này là thiết bị tin cậy (Primary Device) trong DeviceSession
+      if (attendance.user_id && attendance.hardware_uuid) {
+        await DeviceSession.findOneAndUpdate(
+          { user_id: attendance.user_id, device_fingerprint: attendance.hardware_uuid },
+          { is_trusted: true, last_used_at: new Date() },
+          { upsert: true }
+        );
+      }
+
+      return res.json({ message: 'Đã duyệt ca chấm công thành công! ✅', attendance });
     } else if (action === 'reject') {
-      attendance.verification_status = 'rejected';
-      if (reviewer_note) attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp từ chối: ${reviewer_note}`;
-      await attendance.save();
-      return res.json({ message: 'Đã từ chối chấm công. Bản ghi bị đánh dấu không hợp lệ! ❌', attendance });
+      const { user_id, date } = attendance;
+
+      if (allow_recheckin) {
+        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại từ máy chính chủ
+        await Attendance.findByIdAndDelete(id);
+        if (user_id && date) {
+          await DeviceRegistry.deleteMany({ user_id, date });
+        }
+        return res.json({ message: 'Đã từ chối & xóa bản ghi thành công. Nhân viên đã có thể chấm công lại! 🗑️', id });
+      } else {
+        attendance.verification_status = 'rejected';
+        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp từ chối: ${reviewer_note || 'Nghi vấn gian lận'}`;
+        await attendance.save();
+        return res.json({ message: 'Đã từ chối chấm công. Ca này bị đánh dấu không hợp lệ! ❌', attendance });
+      }
     } else {
       return res.status(400).json({ error: 'Hành động không hợp lệ (approve hoặc reject).' });
     }
