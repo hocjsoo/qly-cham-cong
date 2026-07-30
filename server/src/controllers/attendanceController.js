@@ -101,44 +101,50 @@ const checkIn = async (req, res) => {
     let isFlagged = false;
     const flagReasons = [];
 
-    // --- Deep Hardware & Multi-Account Anti-Fraud Validation (Safe Run) ---
-    try {
-      if (effectiveHardwareUuid) {
-        const otherUserLogs = await DeviceRegistry.find({
+    // --- Deep Hardware & Multi-Account Anti-Fraud Validation ---
+    if (effectiveHardwareUuid) {
+      const [otherRegLogs, otherAttLogs] = await Promise.all([
+        DeviceRegistry.find({
           hardware_uuid: effectiveHardwareUuid,
           date: dateStr,
           user_id: { $ne: userId },
-        }).populate('user_id', 'full_name code');
+        }).populate('user_id', 'full_name code'),
+        Attendance.find({
+          date: dateStr,
+          user_id: { $ne: userId },
+          hardware_uuid: effectiveHardwareUuid,
+        }).populate('user_id', 'full_name code'),
+      ]);
 
-        if (otherUserLogs.length > 0) {
-          isFlagged = true;
-          flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
+      const otherUserLogs = [...otherRegLogs, ...otherAttLogs];
 
-          const otherName = otherUserLogs[0]?.user_id?.full_name || 'tài khoản khác';
+      if (otherUserLogs.length > 0) {
+        isFlagged = true;
+        flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
 
-          if (!selfie_url && !step_up_confirmed) {
-            return res.status(400).json({
-              error: `Phát hiện thiết bị này đã được sử dụng bởi [${otherName}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để hoàn tất.`,
-              step_up_required: true,
-              reason: 'MULTI_ACCOUNT_SAME_DEVICE',
-              other_user: otherName,
-            });
-          }
+        const otherUserObj = otherUserLogs[0]?.user_id;
+        const otherName = typeof otherUserObj === 'object' ? otherUserObj?.full_name : 'tài khoản khác';
+
+        if (!selfie_url && !step_up_confirmed) {
+          return res.status(400).json({
+            error: `🚨 CẢNH BÁO GIAN LẬN: Thiết bị này vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
+            step_up_required: true,
+            reason: 'MULTI_ACCOUNT_SAME_DEVICE',
+            other_user: otherName,
+          });
         }
-
-        await DeviceRegistry.findOneAndUpdate(
-          { hardware_uuid: effectiveHardwareUuid, user_id: userId, date: dateStr },
-          {
-            device_name: device_name || 'Unknown',
-            user_agent: req.headers['user-agent'] || '',
-            screen_resolution: screen_info || null,
-            check_in_time: now,
-          },
-          { upsert: true, new: true }
-        );
       }
-    } catch (fraudErr) {
-      console.warn('Anti-fraud registry check non-critical warning:', fraudErr.message);
+
+      await DeviceRegistry.findOneAndUpdate(
+        { hardware_uuid: effectiveHardwareUuid, user_id: userId, date: dateStr },
+        {
+          device_name: device_name || 'Unknown',
+          user_agent: req.headers['user-agent'] || '',
+          screen_resolution: screen_info || null,
+          check_in_time: now,
+        },
+        { upsert: true, new: true }
+      );
     }
 
     // --- Device Fingerprint Session Validation (Safe Run) ---
