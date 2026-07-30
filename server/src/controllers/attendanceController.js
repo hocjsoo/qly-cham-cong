@@ -25,23 +25,27 @@ const getClientIP = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '127.0.0.1';
 };
 
-// Phân loại mức đi muộn theo quy định công ty từ cài đặt thực tế
+// Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00
 function calculateLateTier(checkInDate, workStartStr = '08:30', minorMins = 10, mediumMins = 30) {
-  const [targetH, targetM] = workStartStr.split(':').map(Number);
-  const targetDate = new Date(checkInDate);
-  targetDate.setHours(targetH, targetM, 0, 0);
+  const dateStr = new Date(checkInDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const timePart = (workStartStr && workStartStr.includes(':')) ? workStartStr.trim() : '08:30';
+  const [startH, startM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
 
-  const diffMs = checkInDate - targetDate;
+  // Mốc bắt đầu ca làm việc chuẩn theo múi giờ Việt Nam +07:00
+  const targetDate = new Date(`${dateStr}T${startH}:${startM}:00+07:00`);
+
+  const checkIn = new Date(checkInDate);
+  const diffMs = checkIn.getTime() - targetDate.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMins <= 0) {
     return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: `Đúng giờ (≤ ${workStartStr})` };
   } else if (diffMins <= minorMins) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: `Muộn nhẹ (≤ +${minorMins}p)` };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: `Muộn nhẹ (+${diffMins}p)` };
   } else if (diffMins <= mediumMins) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: `Muộn (≤ +${mediumMins}p)` };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: `Muộn vừa (+${diffMins}p)` };
   } else {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: `Muộn nhiều (> +${mediumMins}p)` };
+    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: `Muộn nặng (+${diffMins}p)` };
   }
 }
 
@@ -690,4 +694,55 @@ const deleteAttendance = async (req, res) => {
   }
 };
 
-module.exports = { checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance, deleteAttendance };
+// GET /api/attendance/flagged — Admin/Leader lấy danh sách chấm công nghi vấn / chờ duyệt Selfie
+const getFlaggedAttendance = async (req, res) => {
+  try {
+    const list = await Attendance.find({
+      $or: [
+        { verification_status: 'pending_review' },
+        { is_flagged: true }
+      ]
+    }).populate('user_id', 'full_name code email department_name role').sort({ createdAt: -1 });
+
+    res.json({ flagged: list });
+  } catch (error) {
+    console.error('GetFlaggedAttendance error:', error);
+    res.status(500).json({ error: 'Lỗi tải danh sách chấm công chờ duyệt.' });
+  }
+};
+
+// PUT /api/attendance/approve-flagged/:id — Admin/Leader duyệt hoặc từ chối selfie / cảnh báo
+const verifyFlaggedAttendance = async (req, res) => {
+  const { id } = req.params;
+  const { action, reviewer_note } = req.body; // action: 'approve' | 'reject'
+
+  try {
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
+    }
+
+    if (action === 'approve') {
+      attendance.verification_status = 'approved';
+      attendance.is_flagged = false;
+      if (reviewer_note) attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp đã duyệt: ${reviewer_note}`;
+      await attendance.save();
+      return res.json({ message: 'Đã duyệt chấm công thành công! ✅', attendance });
+    } else if (action === 'reject') {
+      attendance.verification_status = 'rejected';
+      if (reviewer_note) attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp từ chối: ${reviewer_note}`;
+      await attendance.save();
+      return res.json({ message: 'Đã từ chối chấm công. Bản ghi bị đánh dấu không hợp lệ! ❌', attendance });
+    } else {
+      return res.status(400).json({ error: 'Hành động không hợp lệ (approve hoặc reject).' });
+    }
+  } catch (error) {
+    console.error('VerifyFlaggedAttendance error:', error);
+    res.status(500).json({ error: 'Lỗi xử lý xác minh chấm công.' });
+  }
+};
+
+module.exports = {
+  checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
+  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance
+};
