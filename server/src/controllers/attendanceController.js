@@ -651,4 +651,30 @@ const overrideAttendance = async (req, res) => {
   }
 };
 
-module.exports = { checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance };
+// DELETE /api/attendance/:id — Admin/Leader xóa bản ghi chấm công để nhân viên chấm lại
+const deleteAttendance = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const attendance = await Attendance.findById(id);
+    if (!attendance) {
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công cần xóa.' });
+    }
+
+    const { user_id, date } = attendance;
+
+    // 1. Xóa bản ghi chấm công
+    await Attendance.findByIdAndDelete(id);
+
+    // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại không bị vướng
+    if (user_id && date) {
+      await DeviceRegistry.deleteMany({ user_id, date });
+    }
+
+    res.json({ message: 'Đã xóa bản ghi chấm công thành công! Nhân viên có thể thực hiện chấm công lại.', id });
+  } catch (error) {
+    console.error('DeleteAttendance error:', error);
+    res.status(500).json({ error: 'Lỗi khi xóa bản ghi chấm công.' });
+  }
+};
+
+module.exports = { checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance, deleteAttendance };
