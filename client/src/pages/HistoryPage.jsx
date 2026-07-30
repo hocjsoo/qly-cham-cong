@@ -2,7 +2,7 @@
 // Lịch sử chấm công — Xem theo Tuần / Tháng / Năm, Chế độ Lịch Ô (Calendar Grid View), Xem Chi Tiết Ngày, Admin Override
 
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, MapPin, Building, CheckCircle2, Info, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, MapPin, Building, CheckCircle2, Info, ChevronDown, ChevronUp, FileText, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
