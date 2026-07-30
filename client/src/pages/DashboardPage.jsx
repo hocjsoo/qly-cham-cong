@@ -60,7 +60,31 @@ export default function DashboardPage() {
   const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
-  const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [flaggedList, setFlaggedList] = useState([]);
+  const [verifyingId, setVerifyingId] = useState(null);
+
+  const fetchFlagged = async () => {
+    if (['admin', 'leader', 'manager'].includes(user?.role)) {
+      try {
+        const { data } = await api.get('/attendance/flagged');
+        setFlaggedList(Array.isArray(data?.flagged) ? data.flagged : []);
+      } catch { setFlaggedList([]); }
+    }
+  };
+
+  const handleVerifyAttendance = async (id, action) => {
+    setVerifyingId(id);
+    try {
+      const { data } = await api.put(`/attendance/approve-flagged/${id}`, { action });
+      toast.success(data.message || 'Đã xử lý xác minh!');
+      fetchFlagged();
+      fetchData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý xác minh');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -72,6 +96,7 @@ export default function DashboardPage() {
       setData(d.data);
       setPendingCount(p.data.pending_count);
       setLastRefresh(new Date());
+      fetchFlagged();
 
       // Load 6-month trend in background (admin/manager only)
       api.get('/reports/trend?months=6').then(r => setTrend(r.data)).catch(() => {});
@@ -184,6 +209,91 @@ export default function DashboardPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--red)' }} /> Vắng mặt ({s.absent})
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Flagged Attendance & Selfie Verification Card */}
+        {flaggedList.length > 0 && (
+          <div className="card animate-fade-in" style={{
+            marginBottom: '14px', padding: '14px 16px',
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '14px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} />
+                <span>🛡️ CẢNH BÁO THIẾT BỊ & DUYỆT XÁC MINH SELFIE</span>
+                <span className="badge badge--danger" style={{ fontSize: '11px', fontWeight: 900 }}>
+                  {flaggedList.length} CẦN DUYỆT
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {flaggedList.map(item => (
+                <div key={item._id} style={{
+                  background: 'var(--bg-card)', padding: '12px', borderRadius: '12px',
+                  border: '1px solid var(--border)', display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '220px' }}>
+                    {item.selfie_url ? (
+                      <img
+                        src={item.selfie_url}
+                        alt="Selfie"
+                        onClick={() => setFullAvatarImage(item.selfie_url)}
+                        style={{
+                          width: 52, height: 52, borderRadius: '10px', objectFit: 'cover',
+                          border: '2px solid var(--red)', cursor: 'pointer'
+                        }}
+                        title="Click để phóng to ảnh Selfie"
+                      />
+                    ) : (
+                      <div style={{
+                        width: 52, height: 52, borderRadius: '10px', background: 'var(--red-soft)',
+                        color: 'var(--red)', fontSize: '10px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontWeight: 700, textAlign: 'center', padding: '4px'
+                      }}>
+                        Chưa có Selfie
+                      </div>
+                    )}
+
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>
+                        👤 {item.user_id?.full_name || 'Nhân viên'}
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>#{item.user_id?.code || 'NS'}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 700, marginTop: '2px' }}>
+                        🚨 Cảnh báo: Dùng chung máy / Chấm hộ
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Lúc: {fmt(item.check_in_time)} · Ngày: {item.date} {item.check_in_note ? `· ${item.check_in_note}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '240px' }}>
+                    <button
+                      onClick={() => handleVerifyAttendance(item._id, 'approve')}
+                      disabled={verifyingId === item._id}
+                      className="btn btn--primary"
+                      style={{ flex: 1, fontSize: '12px', padding: '6px 10px', background: 'var(--green)', borderColor: 'var(--green)' }}
+                    >
+                      ✅ Duyệt ca này
+                    </button>
+                    <button
+                      onClick={() => handleVerifyAttendance(item._id, 'reject')}
+                      disabled={verifyingId === item._id}
+                      className="btn btn--ghost"
+                      style={{ flex: 1, fontSize: '12px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                    >
+                      ❌ Từ chối
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
