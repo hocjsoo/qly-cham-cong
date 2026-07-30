@@ -145,7 +145,7 @@ export async function mockRequest(method, url, data = {}) {
     const updated = [newRec, ...attendance.filter((a) => !(a.user_id === (user._id || user.id) && a.date === todayStr))];
     setMockStorage('attendance', updated);
 
-    return { data: { message: `Check-in thành công! (Offline Mode)`, data: newRec, is_late: isLate } };
+    return { data: { message: `Check-in thành công! (Offline Mode)`, attendance: newRec, data: newRec, is_late: isLate } };
   }
 
   // === CHECKOUT ===

@@ -154,12 +154,14 @@ export default function CheckInPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleCheckIn = async (overrideSelfie = null) => {
+  const handleCheckIn = async (overrideSelfie = null, overrideType = null) => {
     if (!gpsPosition) {
       toast.error('BẮT BUỘC có vị trí GPS để chấm công. Vui lòng bật GPS thiết bị.');
       acquireGPS();
       return;
     }
+
+    const checkInType = overrideType || selected;
 
     setSubmitting(true);
     try {
@@ -173,7 +175,7 @@ export default function CheckInPage() {
       const payload = {
         lat: gpsPosition.lat,
         lng: gpsPosition.lng,
-        type: selected,
+        type: checkInType,
         project_id: selectedProject || null,
         note: note.trim() || null,
         device_fingerprint: deviceInfo.fingerprint,
@@ -189,7 +191,7 @@ export default function CheckInPage() {
 
       const { data } = await api.post('/attendance/checkin', payload);
 
-      toast.success(data.message);
+      toast.success(data.message || 'Check-in thành công!');
       setToday(data.attendance);
       setShowSelfieModal(false);
       setSelfieImage(null);
@@ -202,30 +204,36 @@ export default function CheckInPage() {
         toast(data.device_warning, { icon: '🛡️', duration: 8000 });
       }
 
-      if (data.attendance?.is_late || selected === 'wfh') {
+      if (data.far_warning) {
+        toast(data.far_warning, { icon: '⚠️', duration: 6000 });
+      }
+
+      if (data.attendance?.is_late || checkInType === 'wfh') {
         setExplanationType(data.attendance?.is_late ? 'late' : 'business_trip');
         setShowExplanationModal(true);
       }
     } catch (err) {
-      const errorData = err?.response?.data;
+      const errorData = err?.response?.data || err?.data;
+      const errorMsg = errorData?.error || errorData?.message || err?.message || 'Lỗi chấm công';
+
       if (errorData?.step_up_required) {
-        setSelfieReason(errorData.error);
+        setSelfieReason(errorMsg);
         setShowSelfieModal(true);
-        toast.error(errorData.error, { duration: 6000 });
+        toast.error(errorMsg, { duration: 6000 });
       } else if (errorData?.suggest_business_trip) {
-        toast.error(errorData.error, { duration: 8000 });
+        toast.error(errorMsg, { duration: 8000 });
         setTimeout(() => {
           toast((t) => (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '6px' }}>Chuyển sang WFH hoặc Công tác?</div>
+              <div style={{ fontWeight: 600, marginBottom: '6px' }}>Vị trí ngoài bán kính văn phòng! Chấm dạng WFH?</div>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '6px' }}
-                  onClick={() => { toast.dismiss(t.id); setSelected('wfh'); }}>
-                  WFH
+                  onClick={() => { toast.dismiss(t.id); setSelected('wfh'); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>
+                  🏠 Chấm WFH Ngay
                 </button>
                 <button className="btn btn--ghost" style={{ flex: 1, fontSize: '12px', padding: '6px' }}
                   onClick={() => { toast.dismiss(t.id); navigate('/requests'); }}>
-                  Tạo đơn
+                  📝 Tạo Đơn
                 </button>
               </div>
             </div>
