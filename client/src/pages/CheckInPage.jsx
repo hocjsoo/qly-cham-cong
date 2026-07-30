@@ -84,13 +84,17 @@ export default function CheckInPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [todayRes, settingsRes, projRes] = await Promise.all([
+      const [todayRes, settingsRes, projRes, locRes] = await Promise.all([
         api.get('/attendance/today'),
         api.get('/settings'),
         api.get('/projects'),
+        api.get('/locations'),
       ]);
       setToday(todayRes.data.attendance || null);
-      if (settingsRes.data.office) setOffice(settingsRes.data.office);
+
+      const activeOffice = todayRes.data.office || locRes?.data?.locations?.find(l => l.is_active) || locRes?.data?.locations?.[0] || settingsRes.data?.setting?.office;
+      if (activeOffice) setOffice(activeOffice);
+
       if (projRes.data.projects) setProjects(projRes.data.projects.filter(p => p.status === 'active'));
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
