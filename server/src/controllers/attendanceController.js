@@ -1,4 +1,4 @@
-// controllers/attendanceController.js - GPS bắt buộc, Geofencing, Device Fingerprint chống gian lận
+const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const OfficeLocation = require('../models/OfficeLocation');
 const Project = require('../models/Project');
@@ -238,12 +238,18 @@ const checkIn = async (req, res) => {
       }
     }
 
-    // Lấy thông tin dự án
+    // Validate & Lấy thông tin dự án an toàn
     let projectName = null;
-    if (['site', 'client'].includes(type) && project_id) {
-      const proj = await Project.findById(project_id);
-      if (proj) projectName = proj.name;
+    let validProjectId = null;
+    if (project_id && mongoose.Types.ObjectId.isValid(project_id)) {
+      validProjectId = project_id;
+      if (['site', 'client'].includes(type)) {
+        const proj = await Project.findById(project_id);
+        if (proj) projectName = proj.name;
+      }
     }
+
+    const validCheckInType = ['office', 'site', 'client', 'wfh'].includes(type) ? type : 'office';
 
     const lateInfo = calculateLateTier(
       now,
@@ -262,10 +268,10 @@ const checkIn = async (req, res) => {
 
     if (attendance) {
       attendance.check_in_time = now;
-      attendance.check_in_lat = parseFloat(lat);
-      attendance.check_in_lng = parseFloat(lng);
-      attendance.check_in_type = type;
-      attendance.project_id = project_id || null;
+      attendance.check_in_lat = userLat;
+      attendance.check_in_lng = userLng;
+      attendance.check_in_type = validCheckInType;
+      attendance.project_id = validProjectId;
       attendance.project_name = projectName;
       attendance.is_late = lateInfo.is_late;
       attendance.late_minutes = lateInfo.late_minutes;
@@ -291,26 +297,53 @@ const checkIn = async (req, res) => {
       });
     }
 
-    attendance = await Attendance.create({
-      user_id: userId,
-      date: dateStr,
-      check_in_time: now,
-      check_in_lat: parseFloat(lat),
-      check_in_lng: parseFloat(lng),
-      check_in_type: type,
-      project_id: project_id || null,
-      project_name: projectName,
-      check_in_note: combinedNote,
-      is_late: lateInfo.is_late,
-      late_minutes: lateInfo.late_minutes,
-      late_tier: lateInfo.late_tier,
-      status: lateInfo.is_late ? 'late' : 'present',
-      hardware_uuid: effectiveHardwareUuid || null,
-      is_flagged: isFlagged,
-      flag_reasons: flagReasons,
-      selfie_url: selfie_url || null,
-      verification_status: isFlagged ? 'pending_review' : 'auto_approved',
-    });
+    try {
+      attendance = await Attendance.create({
+        user_id: userId,
+        date: dateStr,
+        check_in_time: now,
+        check_in_lat: userLat,
+        check_in_lng: userLng,
+        check_in_type: validCheckInType,
+        project_id: validProjectId,
+        project_name: projectName,
+        check_in_note: combinedNote,
+        is_late: lateInfo.is_late,
+        late_minutes: lateInfo.late_minutes,
+        late_tier: lateInfo.late_tier,
+        status: lateInfo.is_late ? 'late' : 'present',
+        hardware_uuid: effectiveHardwareUuid || null,
+        is_flagged: isFlagged,
+        flag_reasons: flagReasons,
+        selfie_url: selfie_url || null,
+        verification_status: isFlagged ? 'pending_review' : 'auto_approved',
+      });
+    } catch (createErr) {
+      if (createErr.code === 11000) {
+        attendance = await Attendance.findOneAndUpdate(
+          { user_id: userId, date: dateStr },
+          {
+            check_in_time: now,
+            check_in_lat: userLat,
+            check_in_lng: userLng,
+            check_in_type: validCheckInType,
+            project_id: validProjectId,
+            project_name: projectName,
+            check_in_note: combinedNote,
+            is_late: lateInfo.is_late,
+            late_minutes: lateInfo.late_minutes,
+            late_tier: lateInfo.late_tier,
+            hardware_uuid: effectiveHardwareUuid || null,
+            is_flagged: isFlagged,
+            flag_reasons: flagReasons,
+            verification_status: isFlagged ? 'pending_review' : 'auto_approved',
+          },
+          { new: true }
+        );
+      } else {
+        throw createErr;
+      }
+    }
 
     res.status(201).json({
       message: isFlagged
