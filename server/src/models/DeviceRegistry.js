@@ -35,6 +35,11 @@ const deviceRegistrySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    client_ip: {
+      type: String,
+      default: null,
+      index: true,
+    },
     check_in_time: {
       type: Date,
       default: Date.now,

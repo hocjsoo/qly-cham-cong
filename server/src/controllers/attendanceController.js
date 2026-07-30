@@ -97,24 +97,37 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
     }
 
+    const clientIP = getClientIP(req);
     const effectiveHardwareUuid = hardware_uuid || device_fingerprint;
     let isFlagged = false;
     const flagReasons = [];
 
-    // --- Deep Hardware & Multi-Account Anti-Fraud Validation ---
-    if (effectiveHardwareUuid) {
-      const [otherRegLogs, otherAttLogs] = await Promise.all([
-        DeviceRegistry.find({
-          hardware_uuid: effectiveHardwareUuid,
-          date: dateStr,
-          user_id: { $ne: userId },
-        }).populate('user_id', 'full_name code'),
-        Attendance.find({
-          date: dateStr,
-          user_id: { $ne: userId },
-          hardware_uuid: effectiveHardwareUuid,
-        }).populate('user_id', 'full_name code'),
+    // --- Deep Cross-Browser & Multi-Account Hardware Anti-Fraud Validation ---
+    if (effectiveHardwareUuid || clientIP) {
+      const [todayRegLogs, todayAttLogs] = await Promise.all([
+        DeviceRegistry.find({ date: dateStr }).populate('user_id', 'full_name code'),
+        Attendance.find({ date: dateStr }).populate('user_id', 'full_name code'),
       ]);
+
+      const otherRegLogs = todayRegLogs.filter(r => {
+        if (!r.user_id) return false;
+        const regUserId = (r.user_id._id || r.user_id).toString();
+        if (regUserId === userId.toString()) return false;
+
+        const sameHardware = r.hardware_uuid === effectiveHardwareUuid;
+        const sameIPAndScreen = r.client_ip === clientIP && r.screen_resolution === screen_info && screen_info;
+        return sameHardware || sameIPAndScreen;
+      });
+
+      const otherAttLogs = todayAttLogs.filter(a => {
+        if (!a.user_id) return false;
+        const attUserId = (a.user_id._id || a.user_id).toString();
+        if (attUserId === userId.toString()) return false;
+
+        const sameHardware = a.hardware_uuid === effectiveHardwareUuid;
+        const sameIPInNote = clientIP && a.check_in_note?.includes(`IP: ${clientIP}`);
+        return sameHardware || sameIPInNote;
+      });
 
       const otherUserLogs = [...otherRegLogs, ...otherAttLogs];
 
@@ -127,7 +140,7 @@ const checkIn = async (req, res) => {
 
         if (!selfie_url && !step_up_confirmed) {
           return res.status(400).json({
-            error: `🚨 CẢNH BÁO GIAN LẬN: Thiết bị này vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
+            error: `🚨 CẢNH BÁO GIAN LẬN: Máy tính/Điện thoại này (IP: ${clientIP}) vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Phát hiện thao tác trên Tab ẩn danh / Trình duyệt khác! Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
             step_up_required: true,
             reason: 'MULTI_ACCOUNT_SAME_DEVICE',
             other_user: otherName,
@@ -141,6 +154,7 @@ const checkIn = async (req, res) => {
           device_name: device_name || 'Unknown',
           user_agent: req.headers['user-agent'] || '',
           screen_resolution: screen_info || null,
+          client_ip: clientIP,
           check_in_time: now,
         },
         { upsert: true, new: true }

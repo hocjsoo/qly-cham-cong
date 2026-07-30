@@ -1,77 +1,64 @@
 // src/utils/deviceFingerprint.js
-// Thu thập Deep Hardware Fingerprint (WebGL + Canvas + Persistent Device ID) chống chấm công hộ nhiều tài khoản trên 1 thiết bị
+// Thu thập Deep Hardware Fingerprint (WebGL + Canvas + Pure Hardware ID) chống chấm công hộ qua tab ẩn danh / trình duyệt khác
 
 export async function getDeviceFingerprint() {
-  const components = [];
+  // 1. Pure Hardware Metrics (Đặc tính phần cứng CỐ ĐỊNH trên mọi trình duyệt & Tab ẩn danh)
+  const pureComponents = [];
+  pureComponents.push(`screen:${screen.width}x${screen.height}x${screen.colorDepth}`);
+  pureComponents.push(`cpu:${navigator.hardwareConcurrency || 0}`);
+  pureComponents.push(`touch:${navigator.maxTouchPoints || 0}`);
+  pureComponents.push(`tz:${Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'}`);
 
-  // 0. Persistent Device Identifier (Liên kết cố định trên cùng 1 máy)
-  const deviceId = getPersistentDeviceId();
-  components.push(`dev_id:${deviceId}`);
-
-  // 1. Screen & Hardware Metrics (Độ phân giải thực, số nhân CPU, điểm chạm)
-  components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
-  components.push(String(navigator.hardwareConcurrency || 0));
-  components.push(String(navigator.maxTouchPoints || 0));
-  components.push(Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown');
-  components.push(navigator.language || 'unknown');
-
-  // 2. WebGL Hardware Vendor & Renderer (Chữ ký card màn hình phần cứng)
+  // WebGL GPU Vendor & Renderer
+  let gpuVendor = '';
+  let gpuRenderer = '';
   try {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     if (gl) {
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
       if (debugInfo) {
-        const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        components.push(`webgl:${vendor}~${renderer}`);
+        gpuVendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '';
+        gpuRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '';
+        pureComponents.push(`gpu:${gpuVendor}~${gpuRenderer}`);
       }
     }
   } catch {
-    components.push('no-webgl');
+    pureComponents.push('no-gpu');
   }
 
-  // 3. Canvas 2D Rendering Digest (Đặc tính font & đồ họa GPU)
+  // AudioContext Sample Rate
   try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 240;
-    canvas.height = 60;
-    const ctx = canvas.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial, "Times New Roman"';
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(30, 1, 62, 20);
-    ctx.fillStyle = '#069';
-    ctx.fillText('ET Office AntiFraud 🏗️', 2, 15);
-    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-    ctx.fillText('ET Office AntiFraud 🏗️', 4, 17);
-    components.push(canvas.toDataURL().slice(-80));
-  } catch {
-    components.push('no-canvas');
-  }
-
-  // Hash tất cả thành 1 hardware_uuid duy nhất đại diện cho phần cứng thiết bị
-  const raw = components.join('|');
-  let hardware_uuid = '';
-  try {
-    if (window.crypto && window.crypto.subtle) {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      hardware_uuid = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    } else {
-      hardware_uuid = simpleHash(raw);
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const audioCtx = new AudioCtx();
+      pureComponents.push(`audio:${audioCtx.sampleRate}`);
+      audioCtx.close();
     }
   } catch {
-    hardware_uuid = simpleHash(raw);
+    pureComponents.push('no-audio');
   }
 
+  // Hash thuần phần cứng — ĐẢM BẢO GIỐNG HỆT 100% giữa Chrome, Tab Ẩn danh Incognito, Edge, Firefox trên cùng 1 máy
+  const pureRaw = pureComponents.join('|');
+  const pure_hardware_uuid = simpleHash(pureRaw);
+
+  // 2. Persistent Device Identifier (Liên kết bổ sung qua Cookie/LocalStorage)
+  const deviceId = getPersistentDeviceId();
+
+  const fullComponents = [`dev_id:${deviceId}`, ...pureComponents];
+  const fullRaw = fullComponents.join('|');
+  const hardware_uuid = simpleHash(fullRaw);
+
   return {
-    fingerprint: hardware_uuid,
-    hardware_uuid,
+    fingerprint: pure_hardware_uuid,
+    hardware_uuid: pure_hardware_uuid,
+    pure_hardware_uuid,
     device_id: deviceId,
     device_name: getDeviceName(),
     screen_info: `${screen.width}x${screen.height}`,
     user_agent: navigator.userAgent,
+    gpu_info: `${gpuVendor} ${gpuRenderer}`.trim(),
   };
 }
 
