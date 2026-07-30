@@ -161,31 +161,53 @@ const checkIn = async (req, res) => {
       }
     }
 
-    // Kiểm tra khoảng cách với văn phòng
+    // Kiểm tra khoảng cách với các văn phòng hoạt động (Hỗ trợ nhiều chi nhánh / địa điểm)
     let officeLoc = null;
     let distanceMeters = null;
     let farWarning = null;
 
-    officeLoc = await OfficeLocation.findOne({ is_active: true });
-    if (officeLoc && officeLoc.lat && officeLoc.lng) {
-      distanceMeters = Math.round(getDistanceMeters(
-        parseFloat(lat), parseFloat(lng),
-        officeLoc.lat, officeLoc.lng
-      ));
+    const activeOffices = await OfficeLocation.find({ is_active: true });
+    if (activeOffices.length > 0) {
+      let minDistance = Infinity;
+      let closestOffice = null;
 
-      if (type === 'office') {
-        if (distanceMeters > officeLoc.radius_m) {
-          return res.status(400).json({
-            error: `Bạn đang cách văn phòng ${distanceMeters}m (bán kính cho phép: ${officeLoc.radius_m}m). Hãy chọn loại WFH hoặc Công tác nếu làm việc ngoài công ty.`,
-            suggest_business_trip: true,
-            distance_meters: distanceMeters,
-            radius_m: officeLoc.radius_m,
-            office_name: officeLoc.name,
-          });
+      for (const loc of activeOffices) {
+        if (loc.lat && loc.lng) {
+          const d = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), loc.lat, loc.lng));
+          if (d < minDistance) {
+            minDistance = d;
+            closestOffice = loc;
+          }
         }
-      } else if (type !== 'wfh') {
-        if (distanceMeters > 50000) {
-          farWarning = `Vị trí hiện tại của bạn cách văn phòng ${Math.round(distanceMeters / 1000)}km — vui lòng xác nhận đúng dự án.`;
+      }
+
+      if (closestOffice) {
+        distanceMeters = minDistance;
+        officeLoc = closestOffice;
+
+        if (type === 'office') {
+          // Kiểm tra xem vị trí hiện tại có NẰM TRONG BÁN KÍNH CỦA BẤT KỲ VĂN PHÒNG NÀO HOẠT ĐỘNG không
+          const validOffice = activeOffices.find(loc => {
+            const d = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), loc.lat, loc.lng));
+            return d <= loc.radius_m;
+          });
+
+          if (!validOffice) {
+            return res.status(400).json({
+              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${closestOffice.radius_m}m). Vui lòng chọn WFH hoặc Công tác nếu không làm việc tại văn phòng.`,
+              suggest_business_trip: true,
+              distance_meters: minDistance,
+              radius_m: closestOffice.radius_m,
+              office_name: closestOffice.name,
+            });
+          } else {
+            officeLoc = validOffice;
+            distanceMeters = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), validOffice.lat, validOffice.lng));
+          }
+        } else if (type !== 'wfh') {
+          if (minDistance > 50000) {
+            farWarning = `Vị trí hiện tại của bạn cách địa điểm [${closestOffice.name}] ${Math.round(minDistance / 1000)}km — vui lòng xác nhận đúng dự án.`;
+          }
         }
       }
     }
@@ -357,8 +379,12 @@ const getTodayStatus = async (req, res) => {
     const userId = req.user._id;
     const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
-    const officeLoc = await OfficeLocation.findOne({ is_active: true });
-    res.json({ attendance, office: officeLoc ? { name: officeLoc.name, radius_m: officeLoc.radius_m, lat: officeLoc.lat, lng: officeLoc.lng } : null });
+    const activeOffices = await OfficeLocation.find({ is_active: true });
+    res.json({
+      attendance,
+      offices: activeOffices.map(l => ({ _id: l._id, name: l.name, radius_m: l.radius_m, lat: l.lat, lng: l.lng })),
+      office: activeOffices[0] ? { name: activeOffices[0].name, radius_m: activeOffices[0].radius_m, lat: activeOffices[0].lat, lng: activeOffices[0].lng } : null
+    });
   } catch (error) {
     res.status(500).json({ error: 'Lỗi lấy trạng thái hôm nay.' });
   }

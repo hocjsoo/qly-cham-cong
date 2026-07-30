@@ -1,7 +1,7 @@
 // src/pages/CheckInPage.jsx
 // GPS bắt buộc — Auto-acquire GPS khi mở trang, Hiển thị khoảng cách văn phòng, Block check-in nếu thiếu GPS
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -45,6 +45,7 @@ export default function CheckInPage() {
 
   const [today, setToday] = useState(null);
   const [office, setOffice] = useState(null);
+  const [offices, setOffices] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('office');
@@ -92,7 +93,10 @@ export default function CheckInPage() {
       ]);
       setToday(todayRes.data.attendance || null);
 
-      const activeOffice = todayRes.data.office || locRes?.data?.locations?.find(l => l.is_active) || locRes?.data?.locations?.[0] || settingsRes.data?.setting?.office;
+      const allActiveOffices = todayRes.data.offices || locRes?.data?.locations?.filter(l => l.is_active) || locRes?.data?.locations || [];
+      setOffices(allActiveOffices);
+
+      const activeOffice = todayRes.data.office || allActiveOffices[0] || settingsRes.data?.setting?.office;
       if (activeOffice) setOffice(activeOffice);
 
       if (projRes.data.projects) setProjects(projRes.data.projects.filter(p => p.status === 'active'));
@@ -293,12 +297,31 @@ export default function CheckInPage() {
     }
   };
 
-  // Real-time distance from office
-  const distanceFromOffice = gpsPosition && office?.lat && office?.lng
-    ? Math.round(getDistanceMeters(gpsPosition.lat, gpsPosition.lng, office.lat, office.lng))
+  // Real-time distance from closest office / branch / home location
+  const closestOffice = useMemo(() => {
+    if (!offices || offices.length === 0) return office;
+    if (!gpsPosition) return offices[0] || office;
+    let minD = Infinity;
+    let best = offices[0] || office;
+    for (const loc of offices) {
+      if (loc.lat && loc.lng) {
+        const d = getDistanceMeters(gpsPosition.lat, gpsPosition.lng, loc.lat, loc.lng);
+        if (d < minD) {
+          minD = d;
+          best = loc;
+        }
+      }
+    }
+    return best;
+  }, [gpsPosition, offices, office]);
+
+  const targetOffice = closestOffice || office;
+
+  const distanceFromOffice = gpsPosition && targetOffice?.lat && targetOffice?.lng
+    ? Math.round(getDistanceMeters(gpsPosition.lat, gpsPosition.lng, targetOffice.lat, targetOffice.lng))
     : null;
-  const isInOfficeRange = distanceFromOffice !== null && office?.radius_m
-    ? distanceFromOffice <= office.radius_m
+  const isInOfficeRange = distanceFromOffice !== null && targetOffice?.radius_m
+    ? distanceFromOffice <= targetOffice.radius_m
     : null;
 
   const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -344,9 +367,9 @@ export default function CheckInPage() {
                 <>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: isInOfficeRange === true ? 'var(--green)' : isInOfficeRange === false ? 'var(--yellow)' : 'var(--text)' }}>
                     {isInOfficeRange === true
-                      ? `✅ Trong văn phòng (${distanceFromOffice}m cách ${office?.name || 'VP'})`
+                      ? `✅ Trong văn phòng (${distanceFromOffice}m cách ${targetOffice?.name || 'VP'})`
                       : isInOfficeRange === false
-                        ? `⚠️ Cách văn phòng ${distanceFromOffice}m (bán kính: ${office?.radius_m}m)`
+                        ? `⚠️ Cách ${targetOffice?.name || 'Văn phòng'} ${distanceFromOffice}m (bán kính cho phép: ${targetOffice?.radius_m}m)`
                         : `📍 GPS: ${gpsPosition.lat.toFixed(4)}, ${gpsPosition.lng.toFixed(4)}`}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Độ chính xác: ±{gpsPosition.accuracy}m</div>
