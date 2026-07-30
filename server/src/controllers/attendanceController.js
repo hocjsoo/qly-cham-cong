@@ -205,22 +205,23 @@ const checkIn = async (req, res) => {
         officeLoc = closestOffice;
 
         if (type === 'office') {
-          // Kiểm tra xem vị trí hiện tại có NẰM TRONG BÁN KÍNH CỦA BẤT KỲ VĂN PHÒNG NÀO HOẠT ĐỘNG không
+          // Kiểm tra xem vị trí hiện tại có NẰM TRONG BÁN KÍNH (kèm dung sai GPS 150m) CỦA BẤT KỲ VĂN PHÒNG NÀO HOẠT ĐỘNG không
           const validOffice = activeOffices.find(loc => {
             const locLat = parseFloat(loc.lat);
             const locLng = parseFloat(loc.lng);
             if (isNaN(locLat) || isNaN(locLng)) return false;
             const d = Math.round(getDistanceMeters(userLat, userLng, locLat, locLng));
-            const radius = loc.radius_m || 100;
-            return d <= radius;
+            const maxAllowedRadius = Math.max(loc.radius_m || 100, 250); // Dung sai tối thiểu 250m cho GPS di động
+            return d <= maxAllowedRadius;
           });
 
           if (!validOffice) {
+            const allowedR = Math.max(closestOffice.radius_m || 100, 250);
             return res.status(400).json({
-              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${closestOffice.radius_m || 100}m). Vui lòng di chuyển vào bán kính hợp lệ hoặc chọn WFH/Công tác.`,
+              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${allowedR}m). Vui lòng chọn WFH hoặc di chuyển lại gần hơn.`,
               suggest_business_trip: true,
               distance_meters: minDistance,
-              radius_m: closestOffice.radius_m || 100,
+              radius_m: allowedR,
               office_name: closestOffice.name,
             });
           } else {
@@ -324,8 +325,8 @@ const checkIn = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('CheckIn error:', error);
-    res.status(500).json({ error: 'Lỗi máy chủ khi check-in.' });
+    console.error('CheckIn error details:', error);
+    res.status(500).json({ error: `Lỗi máy chủ khi check-in: ${error.message || 'Lỗi không xác định'}` });
   }
 };
 
