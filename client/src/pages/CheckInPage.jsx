@@ -93,7 +93,11 @@ export default function CheckInPage() {
       ]);
       setToday(todayRes.data.attendance || null);
 
-      const allActiveOffices = todayRes.data.offices || locRes?.data?.locations?.filter(l => l.is_active) || locRes?.data?.locations || [];
+      const rawLocations = Array.isArray(locRes?.data) ? locRes.data : locRes?.data?.locations || [];
+      const allActiveOffices = (todayRes.data.offices && todayRes.data.offices.length > 0)
+        ? todayRes.data.offices
+        : rawLocations.filter(l => l.is_active !== false);
+
       setOffices(allActiveOffices);
 
       const activeOffice = todayRes.data.office || allActiveOffices[0] || settingsRes.data?.setting?.office;

@@ -5,6 +5,7 @@ const Project = require('../models/Project');
 const SystemSetting = require('../models/SystemSetting');
 const DeviceSession = require('../models/DeviceSession');
 const DeviceRegistry = require('../models/DeviceRegistry');
+const User = require('../models/User');
 
 // Helper tính khoảng cách GPS (Haversine)
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
