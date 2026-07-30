@@ -1,8 +1,12 @@
 // src/utils/deviceFingerprint.js
-// Thu thập Deep Hardware Fingerprint (WebGL + Canvas + Audio + Screen) chống chấm công hộ nhiều tài khoản trên 1 thiết bị
+// Thu thập Deep Hardware Fingerprint (WebGL + Canvas + Persistent Device ID) chống chấm công hộ nhiều tài khoản trên 1 thiết bị
 
 export async function getDeviceFingerprint() {
   const components = [];
+
+  // 0. Persistent Device Identifier (Liên kết cố định trên cùng 1 máy)
+  const deviceId = getPersistentDeviceId();
+  components.push(`dev_id:${deviceId}`);
 
   // 1. Screen & Hardware Metrics (Độ phân giải thực, số nhân CPU, điểm chạm)
   components.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
@@ -46,19 +50,6 @@ export async function getDeviceFingerprint() {
     components.push('no-canvas');
   }
 
-  // 4. AudioContext Oscillator Fingerprint (Đặc tính card âm thanh phần cứng)
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtx) {
-      const audioCtx = new AudioCtx();
-      const sampleRate = audioCtx.sampleRate;
-      components.push(`audio:${sampleRate}`);
-      audioCtx.close();
-    }
-  } catch {
-    components.push('no-audio');
-  }
-
   // Hash tất cả thành 1 hardware_uuid duy nhất đại diện cho phần cứng thiết bị
   const raw = components.join('|');
   let hardware_uuid = '';
@@ -77,10 +68,30 @@ export async function getDeviceFingerprint() {
   return {
     fingerprint: hardware_uuid,
     hardware_uuid,
+    device_id: deviceId,
     device_name: getDeviceName(),
     screen_info: `${screen.width}x${screen.height}`,
     user_agent: navigator.userAgent,
   };
+}
+
+function getPersistentDeviceId() {
+  try {
+    let devId = localStorage.getItem('et_device_uuid');
+    if (!devId) {
+      const match = document.cookie.match(/et_device_uuid=([^;]+)/);
+      if (match) {
+        devId = match[1];
+      } else {
+        devId = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+        document.cookie = `et_device_uuid=${devId}; max-age=315360000; path=/`;
+      }
+      localStorage.setItem('et_device_uuid', devId);
+    }
+    return devId;
+  } catch {
+    return 'dev_fallback_' + screen.width + 'x' + screen.height;
+  }
 }
 
 function simpleHash(str) {
