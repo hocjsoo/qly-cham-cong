@@ -90,76 +90,88 @@ const checkIn = async (req, res) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+
+    if (isNaN(userLat) || isNaN(userLng)) {
+      return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
+    }
+
     const effectiveHardwareUuid = hardware_uuid || device_fingerprint;
     let isFlagged = false;
     const flagReasons = [];
 
-    // --- Deep Hardware & Multi-Account Anti-Fraud Validation ---
-    if (effectiveHardwareUuid) {
-      // Đối soát xem thiết bị phần cứng này đã được tài khoản KHÁC dùng để chấm công hôm nay chưa
-      const otherUserLogs = await DeviceRegistry.find({
-        hardware_uuid: effectiveHardwareUuid,
-        date: dateStr,
-        user_id: { $ne: userId },
-      }).populate('user_id', 'full_name code');
+    // --- Deep Hardware & Multi-Account Anti-Fraud Validation (Safe Run) ---
+    try {
+      if (effectiveHardwareUuid) {
+        const otherUserLogs = await DeviceRegistry.find({
+          hardware_uuid: effectiveHardwareUuid,
+          date: dateStr,
+          user_id: { $ne: userId },
+        }).populate('user_id', 'full_name code');
 
-      if (otherUserLogs.length > 0) {
-        isFlagged = true;
-        flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
+        if (otherUserLogs.length > 0) {
+          isFlagged = true;
+          flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
 
-        const otherName = otherUserLogs[0]?.user_id?.full_name || 'tài khoản khác';
+          const otherName = otherUserLogs[0]?.user_id?.full_name || 'tài khoản khác';
 
-        // Nếu chưa có selfie_url hoặc xác nhận step-up -> Trả lỗi 400 bắt buộc chụp ảnh xác thực khuôn mặt
-        if (!selfie_url && !step_up_confirmed) {
-          return res.status(400).json({
-            error: `Phát hiện thiết bị này đã được sử dụng bởi [${otherName}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để hoàn tất.`,
-            step_up_required: true,
-            reason: 'MULTI_ACCOUNT_SAME_DEVICE',
-            other_user: otherName,
-          });
+          if (!selfie_url && !step_up_confirmed) {
+            return res.status(400).json({
+              error: `Phát hiện thiết bị này đã được sử dụng bởi [${otherName}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để hoàn tất.`,
+              step_up_required: true,
+              reason: 'MULTI_ACCOUNT_SAME_DEVICE',
+              other_user: otherName,
+            });
+          }
         }
-      }
 
-      // Lưu/cập nhật DeviceRegistry cho User hiện tại trên thiết bị này hôm nay
-      await DeviceRegistry.findOneAndUpdate(
-        { hardware_uuid: effectiveHardwareUuid, user_id: userId, date: dateStr },
-        {
-          device_name: device_name || 'Unknown',
-          user_agent: req.headers['user-agent'] || '',
-          screen_resolution: screen_info || null,
-          check_in_time: now,
-        },
-        { upsert: true, new: true }
-      );
+        await DeviceRegistry.findOneAndUpdate(
+          { hardware_uuid: effectiveHardwareUuid, user_id: userId, date: dateStr },
+          {
+            device_name: device_name || 'Unknown',
+            user_agent: req.headers['user-agent'] || '',
+            screen_resolution: screen_info || null,
+            check_in_time: now,
+          },
+          { upsert: true, new: true }
+        );
+      }
+    } catch (fraudErr) {
+      console.warn('Anti-fraud registry check non-critical warning:', fraudErr.message);
     }
 
-    // --- Device Fingerprint Session Validation ---
+    // --- Device Fingerprint Session Validation (Safe Run) ---
     let deviceWarning = null;
-    if (device_fingerprint) {
-      const userAgentStr = req.headers['user-agent'] || '';
-      let session = await DeviceSession.findOne({ user_id: userId, device_fingerprint });
-      if (session) {
-        session.last_used_at = now;
-        session.check_in_count += 1;
-        await session.save();
-      } else {
-        const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
-        if (totalDevices >= 3) {
-          deviceWarning = `Cảnh báo: Tài khoản đã đăng nhập trên ${totalDevices} thiết bị khác nhau. Quản trị viên đã được thông báo.`;
-        }
-        session = await DeviceSession.create({
-          user_id: userId,
-          device_fingerprint,
-          device_name: device_name || 'Unknown',
-          user_agent: userAgentStr,
-          screen_info: screen_info || null,
-          is_trusted: totalDevices < 2,
-          check_in_count: 1,
-        });
-        if (totalDevices >= 2) {
-          deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}). Thiết bị thứ ${totalDevices + 1} — cần Admin xác nhận.`;
+    try {
+      if (device_fingerprint) {
+        const userAgentStr = req.headers['user-agent'] || '';
+        let session = await DeviceSession.findOne({ user_id: userId, device_fingerprint });
+        if (session) {
+          session.last_used_at = now;
+          session.check_in_count += 1;
+          await session.save();
+        } else {
+          const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
+          if (totalDevices >= 3) {
+            deviceWarning = `Cảnh báo: Tài khoản đã đăng nhập trên ${totalDevices} thiết bị khác nhau. Quản trị viên đã được thông báo.`;
+          }
+          session = await DeviceSession.create({
+            user_id: userId,
+            device_fingerprint,
+            device_name: device_name || 'Unknown',
+            user_agent: userAgentStr,
+            screen_info: screen_info || null,
+            is_trusted: totalDevices < 2,
+            check_in_count: 1,
+          });
+          if (totalDevices >= 2) {
+            deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}). Thiết bị thứ ${totalDevices + 1} — cần Admin xác nhận.`;
+          }
         }
       }
+    } catch (sessionErr) {
+      console.warn('Device session non-critical warning:', sessionErr.message);
     }
 
     // Kiểm tra khoảng cách với các văn phòng hoạt động (Hỗ trợ nhiều chi nhánh / địa điểm)
@@ -167,14 +179,20 @@ const checkIn = async (req, res) => {
     let distanceMeters = null;
     let farWarning = null;
 
-    const activeOffices = await OfficeLocation.find({ is_active: true });
+    let activeOffices = await OfficeLocation.find({ is_active: { $ne: false } });
+    if (!activeOffices || activeOffices.length === 0) {
+      activeOffices = await OfficeLocation.find();
+    }
+
     if (activeOffices.length > 0) {
       let minDistance = Infinity;
       let closestOffice = null;
 
       for (const loc of activeOffices) {
-        if (loc.lat && loc.lng) {
-          const d = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), loc.lat, loc.lng));
+        const locLat = parseFloat(loc.lat);
+        const locLng = parseFloat(loc.lng);
+        if (!isNaN(locLat) && !isNaN(locLng)) {
+          const d = Math.round(getDistanceMeters(userLat, userLng, locLat, locLng));
           if (d < minDistance) {
             minDistance = d;
             closestOffice = loc;
@@ -189,21 +207,27 @@ const checkIn = async (req, res) => {
         if (type === 'office') {
           // Kiểm tra xem vị trí hiện tại có NẰM TRONG BÁN KÍNH CỦA BẤT KỲ VĂN PHÒNG NÀO HOẠT ĐỘNG không
           const validOffice = activeOffices.find(loc => {
-            const d = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), loc.lat, loc.lng));
-            return d <= loc.radius_m;
+            const locLat = parseFloat(loc.lat);
+            const locLng = parseFloat(loc.lng);
+            if (isNaN(locLat) || isNaN(locLng)) return false;
+            const d = Math.round(getDistanceMeters(userLat, userLng, locLat, locLng));
+            const radius = loc.radius_m || 100;
+            return d <= radius;
           });
 
           if (!validOffice) {
             return res.status(400).json({
-              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${closestOffice.radius_m}m). Vui lòng chọn WFH hoặc Công tác nếu không làm việc tại văn phòng.`,
+              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${closestOffice.radius_m || 100}m). Vui lòng di chuyển vào bán kính hợp lệ hoặc chọn WFH/Công tác.`,
               suggest_business_trip: true,
               distance_meters: minDistance,
-              radius_m: closestOffice.radius_m,
+              radius_m: closestOffice.radius_m || 100,
               office_name: closestOffice.name,
             });
           } else {
             officeLoc = validOffice;
-            distanceMeters = Math.round(getDistanceMeters(parseFloat(lat), parseFloat(lng), validOffice.lat, validOffice.lng));
+            const vLat = parseFloat(validOffice.lat);
+            const vLng = parseFloat(validOffice.lng);
+            distanceMeters = Math.round(getDistanceMeters(userLat, userLng, vLat, vLng));
           }
         } else if (type !== 'wfh') {
           if (minDistance > 50000) {
