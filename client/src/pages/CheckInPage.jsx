@@ -490,16 +490,14 @@ export default function CheckInPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
               {LOCATION_TYPES.map(t => {
-                const isDisabled = t.value === 'office' && isInOfficeRange === false;
                 return (
                   <button
                     key={t.value}
                     type="button"
-                    onClick={() => !isDisabled && setSelected(t.value)}
+                    onClick={() => setSelected(t.value)}
                     style={{
                       padding: '12px 10px', borderRadius: '10px', border: '1px solid',
-                      textAlign: 'left', cursor: isDisabled ? 'not-allowed' : 'pointer',
-                      opacity: isDisabled ? 0.5 : 1,
+                      textAlign: 'left', cursor: 'pointer',
                       transition: 'all 0.15s',
                       background: selected === t.value ? 'var(--primary-soft)' : 'var(--bg)',
                       borderColor: selected === t.value ? 'var(--primary)' : 'var(--border)',
@@ -531,8 +529,8 @@ export default function CheckInPage() {
             </div>
 
             <button
-              onClick={handleCheckIn}
-              disabled={submitting || gpsLoading || !gpsPosition || (selected === 'office' && isInOfficeRange === false)}
+              onClick={() => handleCheckIn()}
+              disabled={submitting || gpsLoading || !gpsPosition}
               className="btn btn--primary btn--full btn--lg"
               style={{ opacity: (!gpsPosition || gpsLoading) ? 0.6 : 1 }}
             >

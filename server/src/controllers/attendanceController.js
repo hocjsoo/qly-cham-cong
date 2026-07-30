@@ -389,17 +389,40 @@ const checkOut = async (req, res) => {
     const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
     const otHours = calculateOT(checkInTime, now, workEndTime);
 
-    // Kiểm tra khoảng cách VP khi Check-out
+    // Kiểm tra khoảng cách với các văn phòng hoạt động khi Check-out
     let distanceMeters = null;
     let outsideOfficeRadius = false;
-    const officeLoc = await OfficeLocation.findOne({ is_active: true });
-    if (officeLoc && officeLoc.lat && officeLoc.lng) {
-      distanceMeters = Math.round(getDistanceMeters(
-        parseFloat(lat), parseFloat(lng),
-        officeLoc.lat, officeLoc.lng
-      ));
-      if (distanceMeters > (officeLoc.radius_m || 100)) {
-        outsideOfficeRadius = true;
+    let activeOffices = await OfficeLocation.find({ is_active: { $ne: false } });
+    if (!activeOffices || activeOffices.length === 0) {
+      activeOffices = await OfficeLocation.find();
+    }
+
+    if (activeOffices.length > 0) {
+      const userLat = parseFloat(lat);
+      const userLng = parseFloat(lng);
+      if (!isNaN(userLat) && !isNaN(userLng)) {
+        let minDistance = Infinity;
+        let closestLoc = null;
+
+        for (const loc of activeOffices) {
+          const lLat = parseFloat(loc.lat);
+          const lLng = parseFloat(loc.lng);
+          if (!isNaN(lLat) && !isNaN(lLng)) {
+            const d = Math.round(getDistanceMeters(userLat, userLng, lLat, lLng));
+            if (d < minDistance) {
+              minDistance = d;
+              closestLoc = loc;
+            }
+          }
+        }
+
+        if (closestLoc) {
+          distanceMeters = minDistance;
+          const allowedR = Math.max(closestLoc.radius_m || 100, 250);
+          if (minDistance > allowedR) {
+            outsideOfficeRadius = true;
+          }
+        }
       }
     }
 
