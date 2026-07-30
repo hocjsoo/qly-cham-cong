@@ -118,11 +118,10 @@ export default function DashboardPage() {
 
   // Load birthdays, holidays and announcements
   useEffect(() => {
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-    api.get(`/announcements/birthdays?month=${month}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
-    api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const [yearVal, monthVal] = todayVN.split('-').map(Number);
+    api.get(`/announcements/birthdays?month=${monthVal}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+    api.get(`/holidays?year=${yearVal}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
@@ -369,9 +368,10 @@ export default function DashboardPage() {
 
         {/* Birthdays & Events this month — Redesigned SaaS Festive Theme */}
         {(() => {
-          const nowObj = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-          const monthNum = nowObj.getMonth() + 1;
-          const monthStr = `${nowObj.getFullYear()}-${String(monthNum).padStart(2, '0')}`;
+          const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+          const [yearStr, monthStrNum] = todayVN.split('-');
+          const monthNum = parseInt(monthStrNum, 10);
+          const monthStr = `${yearStr}-${monthStrNum}`;
           const currentMonthHolidays = holidays.filter(h =>
             (h.date && h.date.startsWith(monthStr)) || (h.end_date && h.end_date.startsWith(monthStr))
           );
