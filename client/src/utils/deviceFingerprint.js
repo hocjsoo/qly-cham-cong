@@ -61,9 +61,18 @@ export async function getDeviceFingerprint() {
 
   // Hash tất cả thành 1 hardware_uuid duy nhất đại diện cho phần cứng thiết bị
   const raw = components.join('|');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hardware_uuid = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  let hardware_uuid = '';
+  try {
+    if (window.crypto && window.crypto.subtle) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      hardware_uuid = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } else {
+      hardware_uuid = simpleHash(raw);
+    }
+  } catch {
+    hardware_uuid = simpleHash(raw);
+  }
 
   return {
     fingerprint: hardware_uuid,
@@ -72,6 +81,18 @@ export async function getDeviceFingerprint() {
     screen_info: `${screen.width}x${screen.height}`,
     user_agent: navigator.userAgent,
   };
+}
+
+function simpleHash(str) {
+  let h1 = 0xdeadbeef ^ 0, h2 = 0x41c6ce57 ^ 0;
+  for (let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(16, '0');
 }
 
 function getDeviceName() {
