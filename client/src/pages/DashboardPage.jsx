@@ -137,6 +137,36 @@ export default function DashboardPage() {
 
   const initials = user?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?';
 
+  if (loading && !data) {
+    return (
+      <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)', marginBottom: '12px' }} />
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+            Đang tải dữ liệu Dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data && !loading) {
+    return (
+      <div className="page" style={{ padding: '40px 16px' }}>
+        <div className="empty-state" style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'center' }}>
+          <div className="empty-state__icon" style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
+          <div className="empty-state__title" style={{ fontSize: '16px', fontWeight: 800 }}>Chưa thể kết nối tới máy chủ</div>
+          <div className="empty-state__desc" style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '8px 0 16px' }}>
+            Hệ thống trên Render đang khởi động lại. Vui lòng bấm thử lại bên dưới.
+          </div>
+          <button onClick={fetchData} className="btn btn--primary" style={{ padding: '8px 18px', fontSize: '13px' }}>
+            <RefreshCw size={14} /> Thử lại ngay
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       <div className="header">
