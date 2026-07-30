@@ -278,7 +278,6 @@ const checkIn = async (req, res) => {
       settings.medium_late_mins ?? 30
     );
     let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
-    const clientIP = getClientIP(req);
     const combinedNote = [
       note,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
