@@ -297,4 +297,60 @@ const toggleActive = async (req, res) => {
   }
 };
 
-module.exports = { getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive };
+const DeviceSession = require('../models/DeviceSession');
+const DeviceRegistry = require('../models/DeviceRegistry');
+
+// GET /api/users/:id/devices — Admin/Leader lấy danh sách thiết bị chính chủ đã đăng ký của nhân viên
+const getUserDevices = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [sessions, registries] = await Promise.all([
+      DeviceSession.find({ user_id: id }).sort({ last_used_at: -1 }),
+      DeviceRegistry.find({ user_id: id }).sort({ createdAt: -1 }).limit(10)
+    ]);
+
+    res.json({
+      sessions,
+      recent_registries: registries
+    });
+  } catch (error) {
+    console.error('GetUserDevices error:', error);
+    res.status(500).json({ error: 'Lỗi tải danh sách thiết bị của nhân viên.' });
+  }
+};
+
+// DELETE /api/users/:id/devices/:sessionId — Admin/Leader xóa / hủy ràng buộc thiết bị của nhân viên
+const deleteUserDevice = async (req, res) => {
+  const { id, sessionId } = req.params;
+  try {
+    await DeviceSession.findOneAndDelete({ _id: sessionId, user_id: id });
+    res.json({ message: 'Đã xóa thiết bị thành công! Nhân viên có thể đăng ký thiết bị mới.' });
+  } catch (error) {
+    console.error('DeleteUserDevice error:', error);
+    res.status(500).json({ error: 'Lỗi xóa thiết bị.' });
+  }
+};
+
+// PUT /api/users/:id/devices/:sessionId/trust — Admin/Leader đặt thiết bị làm thiết bị chính (Primary)
+const trustUserDevice = async (req, res) => {
+  const { id, sessionId } = req.params;
+  try {
+    // 1. Untrust all other devices for this user
+    await DeviceSession.updateMany({ user_id: id }, { is_trusted: false });
+    // 2. Trust target device
+    const updated = await DeviceSession.findOneAndUpdate(
+      { _id: sessionId, user_id: id },
+      { is_trusted: true, last_used_at: new Date() },
+      { new: true }
+    );
+    res.json({ message: 'Đã thiết lập làm Thiết bị chính (Primary Device) thành công! 📱', device: updated });
+  } catch (error) {
+    console.error('TrustUserDevice error:', error);
+    res.status(500).json({ error: 'Lỗi thiết lập thiết bị chính.' });
+  }
+};
+
+module.exports = {
+  getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive,
+  getUserDevices, deleteUserDevice, trustUserDevice
+};
