@@ -19,16 +19,34 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor Response: Tự động dùng Offline Mock Engine nếu server sập
+// Interceptor Response: Tự động dùng Offline Mock Engine nếu server sập hoặc trả HTML
 api.interceptors.response.use(
-  (response) => response,
+  async (response) => {
+    // Nếu API trả về chuỗi HTML (<!DOCTYPE html>), đây là do Vercel rewrite route chưa kết nối tới backend
+    if (typeof response.data === 'string' && response.data.trim().startsWith('<!DOCTYPE')) {
+      console.warn('⚠️ API trả về HTML index.html thay vì JSON. Chuyển sang OFFLINE MOCK MODE!');
+      try {
+        const config = response.config;
+        const method = (config.method || 'get').toLowerCase();
+        const url = config.url || '';
+        let data = {};
+        if (config.data) {
+          data = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+        }
+        return await mockRequest(method, url, data);
+      } catch (mockErr) {
+        return response;
+      }
+    }
+    return response;
+  },
   async (error) => {
     const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
 
     if (isNetworkError || error.response?.status >= 500 || error.response?.status === 404) {
       console.warn('⚠️ Server Backend không phản hồi. Tự động chuyển sang OFFLINE MOCK MODE!');
       try {
-        const config = error.config;
+        const config = error.config || {};
         const method = (config.method || 'get').toLowerCase();
         const url = config.url || '';
         let data = {};

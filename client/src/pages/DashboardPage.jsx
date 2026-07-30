@@ -99,15 +99,33 @@ export default function DashboardPage() {
         api.get('/dashboard/today'),
         api.get('/dashboard/pending-count'),
       ]);
-      setData(d.data);
-      setPendingCount(p.data.pending_count);
+      const resData = d?.data;
+      if (resData && typeof resData === 'object' && resData.summary) {
+        setData(resData);
+      } else {
+        console.warn('Dashboard received invalid payload:', resData);
+        setData({
+          date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+          summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
+          staff: []
+        });
+      }
+      setPendingCount(typeof p?.data?.pending_count === 'number' ? p.data.pending_count : 0);
       setLastRefresh(new Date());
       fetchFlagged();
 
-      // Load 6-month trend in background (admin/manager only)
       api.get('/reports/trend?months=6').then(r => setTrend(r.data)).catch(() => {});
-    } catch { toast.error('Lỗi tải dashboard'); }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error('FetchData error:', err);
+      toast.error('Lỗi tải dashboard');
+      setData({
+        date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+        summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
+        staff: []
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchData(); }, []);
