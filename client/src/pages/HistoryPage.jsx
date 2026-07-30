@@ -257,6 +257,23 @@ export default function HistoryPage() {
     }
   };
 
+  const handleDeleteAttendance = async (recordId, dateStr) => {
+    const confirmMsg = dateStr
+      ? `XÓA BẢN GHI CHẤM CÔNG NGÀY ${dateStr}?\n\nSau khi xóa, nhân viên sẽ có thể thực hiện chấm công lại từ đầu!`
+      : `XÓA BẢN GHI CHẤM CÔNG NÀY?\n\nNhân viên sẽ có thể thực hiện chấm công lại!`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const { data: resData } = await api.delete(`/attendance/${recordId}`);
+      toast.success(resData.message || 'Đã xóa bản ghi chấm công thành công!');
+      setSelectedDayDate('');
+      setOverrideRecord(null);
+      load();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi khi xóa bản ghi chấm công');
+    }
+  };
+
   const s = data?.summary || {};
   const records = data?.records || [];
   const workDays = s.total_days || 22;
@@ -846,9 +863,14 @@ export default function HistoryPage() {
                           )}
 
                           {isAdminOrManager && (
-                            <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary btn--full" style={{ marginTop: '8px', padding: '6px', fontSize: '12px' }}>
-                              <Edit2 size={13} /> Điều chỉnh ca làm này
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                              <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary" style={{ flex: 1, padding: '7px', fontSize: '12px' }}>
+                                <Edit2 size={13} /> Điều chỉnh ca làm
+                              </button>
+                              <button onClick={() => handleDeleteAttendance(selectedDayRecord._id, selectedDayRecord.date || selectedDayDate)} className="btn btn--ghost" style={{ padding: '7px 12px', fontSize: '12px', color: 'var(--red)', borderColor: 'var(--red)' }}>
+                                <Trash2 size={13} /> Xóa (Cho chấm lại)
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
@@ -934,10 +956,19 @@ export default function HistoryPage() {
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleSaveOverride} disabled={submittingOverride} className="btn btn--primary btn--full">
-                {submittingOverride ? <span className="spinner" /> : 'Lưu điều chỉnh'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost btn--full">Hủy</button>
+                <button onClick={handleSaveOverride} disabled={submittingOverride} className="btn btn--primary btn--full">
+                  {submittingOverride ? <span className="spinner" /> : 'Lưu điều chỉnh'}
+                </button>
+              </div>
+              <button
+                onClick={() => handleDeleteAttendance(overrideRecord._id, overrideRecord.date)}
+                className="btn btn--ghost btn--full"
+                style={{ color: 'var(--red)', borderColor: 'var(--red)', fontSize: '12px' }}
+              >
+                <Trash2 size={14} /> Xóa hẳn ca làm này (Cho phép nhân viên chấm lại)
               </button>
             </div>
           </div>

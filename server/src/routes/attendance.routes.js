@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance
+  checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate, overrideAttendance, deleteAttendance
 } = require('../controllers/attendanceController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
@@ -26,6 +26,9 @@ router.get('/history', getHistory);
 router.get('/record', getRecordByUserAndDate);
 
 // PUT /api/attendance/override/:id — Admin override
-router.put('/override/:id', requireRole('admin'), overrideAttendance);
+router.put('/override/:id', requireRole('admin', 'manager'), overrideAttendance);
+
+// DELETE /api/attendance/:id — Admin/Leader xóa bản ghi chấm công
+router.delete('/:id', requireRole('admin', 'manager'), deleteAttendance);
 
 module.exports = router;
