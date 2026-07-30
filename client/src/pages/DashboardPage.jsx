@@ -15,7 +15,13 @@ import { exportAttendanceToCSV } from '../utils/exportCsv';
 
 const fmt = (iso) => {
   if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+  } catch {
+    return '—';
+  }
 };
 
 const STATUS_MAP = {
