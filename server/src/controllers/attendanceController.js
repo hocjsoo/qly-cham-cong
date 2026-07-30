@@ -4,6 +4,7 @@ const OfficeLocation = require('../models/OfficeLocation');
 const Project = require('../models/Project');
 const SystemSetting = require('../models/SystemSetting');
 const DeviceSession = require('../models/DeviceSession');
+const DeviceRegistry = require('../models/DeviceRegistry');
 
 // Helper tính khoảng cách GPS (Haversine)
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -72,7 +73,7 @@ function calculateOT(checkInDate, checkOutDate, workEndTime = '17:30') {
 // - type=office: bắt buộc nằm trong bán kính geofence văn phòng
 // - type=wfh/site/client: ghi nhận GPS nhưng cảnh báo nếu quá xa (> 50km), không block
 const checkIn = async (req, res) => {
-  const { lat, lng, type = 'office', project_id, note, device_fingerprint, device_name, screen_info } = req.body;
+  const { lat, lng, type = 'office', project_id, note, device_fingerprint, hardware_uuid, device_name, screen_info, selfie_url, step_up_confirmed } = req.body;
   const userId = req.user._id;
 
   // BẮT BUỘC GPS cho mọi loại
@@ -88,18 +89,59 @@ const checkIn = async (req, res) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    // --- Device Fingerprint Validation ---
+    const effectiveHardwareUuid = hardware_uuid || device_fingerprint;
+    let isFlagged = false;
+    const flagReasons = [];
+
+    // --- Deep Hardware & Multi-Account Anti-Fraud Validation ---
+    if (effectiveHardwareUuid) {
+      // Đối soát xem thiết bị phần cứng này đã được tài khoản KHÁC dùng để chấm công hôm nay chưa
+      const otherUserLogs = await DeviceRegistry.find({
+        hardware_uuid: effectiveHardwareUuid,
+        date: dateStr,
+        user_id: { $ne: userId },
+      }).populate('user_id', 'full_name code');
+
+      if (otherUserLogs.length > 0) {
+        isFlagged = true;
+        flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
+
+        const otherName = otherUserLogs[0]?.user_id?.full_name || 'tài khoản khác';
+
+        // Nếu chưa có selfie_url hoặc xác nhận step-up -> Trả lỗi 400 bắt buộc chụp ảnh xác thực khuôn mặt
+        if (!selfie_url && !step_up_confirmed) {
+          return res.status(400).json({
+            error: `Phát hiện thiết bị này đã được sử dụng bởi [${otherName}] để chấm công hôm nay. Vui lòng chụp ảnh khuôn mặt xác thực để hoàn tất.`,
+            step_up_required: true,
+            reason: 'MULTI_ACCOUNT_SAME_DEVICE',
+            other_user: otherName,
+          });
+        }
+      }
+
+      // Lưu/cập nhật DeviceRegistry cho User hiện tại trên thiết bị này hôm nay
+      await DeviceRegistry.findOneAndUpdate(
+        { hardware_uuid: effectiveHardwareUuid, user_id: userId, date: dateStr },
+        {
+          device_name: device_name || 'Unknown',
+          user_agent: req.headers['user-agent'] || '',
+          screen_resolution: screen_info || null,
+          check_in_time: now,
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    // --- Device Fingerprint Session Validation ---
     let deviceWarning = null;
     if (device_fingerprint) {
       const userAgentStr = req.headers['user-agent'] || '';
       let session = await DeviceSession.findOne({ user_id: userId, device_fingerprint });
       if (session) {
-        // Thiết bị đã biết — cập nhật last_used
         session.last_used_at = now;
         session.check_in_count += 1;
         await session.save();
       } else {
-        // Thiết bị MỚI — kiểm tra số lượng
         const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
         if (totalDevices >= 3) {
           deviceWarning = `Cảnh báo: Tài khoản đã đăng nhập trên ${totalDevices} thiết bị khác nhau. Quản trị viên đã được thông báo.`;
@@ -110,7 +152,7 @@ const checkIn = async (req, res) => {
           device_name: device_name || 'Unknown',
           user_agent: userAgentStr,
           screen_info: screen_info || null,
-          is_trusted: totalDevices < 2, // Auto-trust first 2 devices
+          is_trusted: totalDevices < 2,
           check_in_count: 1,
         });
         if (totalDevices >= 2) {
@@ -119,7 +161,7 @@ const checkIn = async (req, res) => {
       }
     }
 
-    // Kiểm tra khoảng cách với văn phòng (cho TẤT CẢ các loại)
+    // Kiểm tra khoảng cách với văn phòng
     let officeLoc = null;
     let distanceMeters = null;
     let farWarning = null;
@@ -132,7 +174,6 @@ const checkIn = async (req, res) => {
       ));
 
       if (type === 'office') {
-        // Văn phòng: BẮT BUỘC trong bán kính, không thì từ chối
         if (distanceMeters > officeLoc.radius_m) {
           return res.status(400).json({
             error: `Bạn đang cách văn phòng ${distanceMeters}m (bán kính cho phép: ${officeLoc.radius_m}m). Hãy chọn loại WFH hoặc Công tác nếu làm việc ngoài công ty.`,
@@ -143,7 +184,6 @@ const checkIn = async (req, res) => {
           });
         }
       } else if (type !== 'wfh') {
-        // Site/Client: cảnh báo nếu > 50km (bất thường)
         if (distanceMeters > 50000) {
           farWarning = `Vị trí hiện tại của bạn cách văn phòng ${Math.round(distanceMeters / 1000)}km — vui lòng xác nhận đúng dự án.`;
         }
@@ -169,6 +209,7 @@ const checkIn = async (req, res) => {
       note,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
       `IP: ${clientIP}`,
+      isFlagged ? `🚨 Cảnh báo: Dùng chung thiết bị` : null,
     ].filter(Boolean).join(' | ');
 
     if (attendance) {
@@ -182,15 +223,23 @@ const checkIn = async (req, res) => {
       attendance.late_minutes = lateInfo.late_minutes;
       attendance.late_tier = lateInfo.late_tier;
       attendance.check_in_note = combinedNote;
+      attendance.hardware_uuid = effectiveHardwareUuid || null;
+      attendance.is_flagged = isFlagged;
+      attendance.flag_reasons = flagReasons;
+      if (selfie_url) attendance.selfie_url = selfie_url;
+      attendance.verification_status = isFlagged ? 'pending_review' : 'auto_approved';
       await attendance.save();
 
       return res.json({
-        message: `Đã cập nhật check-in hôm nay (${lateInfo.label})`,
+        message: isFlagged
+          ? `Đã cập nhật check-in (Đang chờ Sếp xác nhận do dùng chung máy)`
+          : `Đã cập nhật check-in hôm nay (${lateInfo.label})`,
         attendance,
         late_info: lateInfo,
         distance_meters: distanceMeters,
         far_warning: farWarning,
         device_warning: deviceWarning,
+        is_flagged: isFlagged,
       });
     }
 
@@ -208,15 +257,23 @@ const checkIn = async (req, res) => {
       late_minutes: lateInfo.late_minutes,
       late_tier: lateInfo.late_tier,
       status: lateInfo.is_late ? 'late' : 'present',
+      hardware_uuid: effectiveHardwareUuid || null,
+      is_flagged: isFlagged,
+      flag_reasons: flagReasons,
+      selfie_url: selfie_url || null,
+      verification_status: isFlagged ? 'pending_review' : 'auto_approved',
     });
 
     res.status(201).json({
-      message: `Check-in thành công! ${lateInfo.label}`,
+      message: isFlagged
+        ? `Check-in được ghi nhận! (Chờ Sếp xác nhận do dùng chung thiết bị)`
+        : `Check-in thành công! ${lateInfo.label}`,
       attendance,
       late_info: lateInfo,
       distance_meters: distanceMeters,
       far_warning: farWarning,
       device_warning: deviceWarning,
+      is_flagged: isFlagged,
     });
 
   } catch (error) {

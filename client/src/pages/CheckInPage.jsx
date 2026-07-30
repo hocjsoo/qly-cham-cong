@@ -59,6 +59,12 @@ export default function CheckInPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState(null);
 
+  // Anti-fraud Step-Up Selfie state
+  const [showSelfieModal, setShowSelfieModal] = useState(false);
+  const [selfieReason, setSelfieReason] = useState('');
+  const [selfieImage, setSelfieImage] = useState(null);
+  const fileInputRef = useRef(null);
+
   // Explanation suggestion modal
   const [showExplanationModal, setShowExplanationModal] = useState(false);
   const [explanationReason, setExplanationReason] = useState('');
@@ -78,13 +84,14 @@ export default function CheckInPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [tRes, pRes] = await Promise.all([
+      const [todayRes, settingsRes, projRes] = await Promise.all([
         api.get('/attendance/today'),
-        api.get('/projects?active_only=true'),
+        api.get('/settings'),
+        api.get('/projects'),
       ]);
-      setToday(tRes.data.attendance);
-      setOffice(tRes.data.office);
-      setProjects(Array.isArray(pRes.data) ? pRes.data : []);
+      setToday(todayRes.data.attendance || null);
+      if (settingsRes.data.office) setOffice(settingsRes.data.office);
+      if (projRes.data.projects) setProjects(projRes.data.projects.filter(p => p.status === 'active'));
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
     } finally {
@@ -94,11 +101,13 @@ export default function CheckInPage() {
 
   const acquireGPS = () => {
     if (!navigator.geolocation) {
-      setGpsError('Thiết bị này không hỗ trợ GPS.');
+      setGpsError('Trình duyệt không hỗ trợ GPS Geolocation.');
+      toast.error('Trình duyệt không hỗ trợ GPS Geolocation.');
       return;
     }
     setGpsLoading(true);
     setGpsError(null);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGpsPosition({
@@ -109,24 +118,34 @@ export default function CheckInPage() {
         setGpsLoading(false);
       },
       (err) => {
-        const msg = err.code === 1
-          ? 'Bạn chưa cấp quyền định vị. Vui lòng bật GPS và cấp quyền cho trình duyệt.'
-          : 'Không thể lấy GPS. Vui lòng thử lại.';
-        setGpsError(msg);
         setGpsLoading(false);
+        let msg = 'Không thể lấy vị trí GPS.';
+        if (err.code === 1) msg = 'Bạn đã từ chối quyền truy cập vị trí. Vui lòng cho phép quyền GPS trong Cài đặt trình duyệt.';
+        else if (err.code === 2) msg = 'Không xác định được vị trí GPS (mất sóng/tín hiệu yếu).';
+        else if (err.code === 3) msg = 'Quá thời gian chờ lấy vị trí GPS (Timeout).';
+        setGpsError(msg);
+        toast.error(msg, { duration: 6000 });
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   };
 
-  const handleCheckIn = async () => {
+  const handleSelfieFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result;
+      setSelfieImage(base64);
+      handleCheckIn(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCheckIn = async (overrideSelfie = null) => {
     if (!gpsPosition) {
-      toast.error('Cần có GPS để chấm công. Đang lấy vị trí...');
+      toast.error('BẮT BUỘC có vị trí GPS để chấm công. Vui lòng bật GPS thiết bị.');
       acquireGPS();
-      return;
-    }
-    if (['site', 'client'].includes(selected) && !selectedProject) {
-      toast.error('Vui lòng chọn dự án / công trình');
       return;
     }
 
@@ -139,26 +158,36 @@ export default function CheckInPage() {
         console.warn('Fingerprint error:', fpErr);
       }
 
-      const { data } = await api.post('/attendance/checkin', {
+      const payload = {
         lat: gpsPosition.lat,
         lng: gpsPosition.lng,
         type: selected,
         project_id: selectedProject || null,
         note: note.trim() || null,
         device_fingerprint: deviceInfo.fingerprint,
+        hardware_uuid: deviceInfo.hardware_uuid || deviceInfo.fingerprint,
         device_name: deviceInfo.device_name,
         screen_info: deviceInfo.screen_info,
-      });
+      };
+
+      if (overrideSelfie || selfieImage) {
+        payload.selfie_url = overrideSelfie || selfieImage;
+        payload.step_up_confirmed = true;
+      }
+
+      const { data } = await api.post('/attendance/checkin', payload);
 
       toast.success(data.message);
       setToday(data.attendance);
+      setShowSelfieModal(false);
+      setSelfieImage(null);
+
+      if (data.is_flagged) {
+        toast('Ghi nhận chấm công trên thiết bị dùng chung! Đã gửi thông báo cho Sếp xác nhận.', { icon: '🛡️', duration: 8000 });
+      }
 
       if (data.device_warning) {
         toast(data.device_warning, { icon: '🛡️', duration: 8000 });
-      }
-
-      if (data.far_warning) {
-        toast(data.far_warning, { icon: '⚠️', duration: 6000 });
       }
 
       if (data.attendance?.is_late || selected === 'wfh') {
@@ -167,9 +196,12 @@ export default function CheckInPage() {
       }
     } catch (err) {
       const errorData = err?.response?.data;
-      if (errorData?.suggest_business_trip) {
+      if (errorData?.step_up_required) {
+        setSelfieReason(errorData.error);
+        setShowSelfieModal(true);
+        toast.error(errorData.error, { duration: 6000 });
+      } else if (errorData?.suggest_business_trip) {
         toast.error(errorData.error, { duration: 8000 });
-        // Auto-switch to WFH suggestion
         setTimeout(() => {
           toast((t) => (
             <div>
@@ -516,6 +548,50 @@ export default function CheckInPage() {
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setShowExplanationModal(false)} className="btn btn--ghost btn--full">Để sau</button>
               <button onClick={handleCreateExplanationRequest} className="btn btn--primary btn--full">Gửi đơn</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Anti-fraud Step-Up Selfie Modal */}
+      {showSelfieModal && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '440px', margin: '0 auto', textAlign: 'center', padding: '24px' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ fontSize: '36px', marginBottom: '8px' }}>📸</div>
+            <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text)', marginBottom: '8px' }}>
+              Xác thực khuôn mặt chấm công
+            </div>
+            <div style={{ fontSize: '12px', color: '#dc2626', background: '#fef2f2', padding: '10px 14px', borderRadius: '10px', border: '1px solid #fecaca', marginBottom: '18px', lineHeight: 1.4, textAlign: 'left' }}>
+              {selfieReason || 'Phát hiện thiết bị này đã được tài khoản khác dùng để chấm công hôm nay.'}
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="user"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleSelfieFileSelect}
+            />
+
+            {selfieImage ? (
+              <div style={{ marginBottom: '18px' }}>
+                <img src={selfieImage} alt="Selfie Verification" style={{ width: '130px', height: '130px', objectFit: 'cover', borderRadius: '50%', border: '4px solid #10b981', margin: '0 auto', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }} />
+                <div style={{ fontSize: '12px', color: '#059669', marginTop: '6px', fontWeight: 700 }}>✓ Đã chụp ảnh xác thực thành công</div>
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button onClick={() => setShowSelfieModal(false)} className="btn btn--ghost" style={{ flex: 1 }}>Hủy</button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={submitting}
+                className="btn btn--primary"
+                style={{ flex: 2, gap: '6px', fontSize: '13px' }}
+              >
+                {submitting ? <span className="spinner" /> : <>📷 Chụp ảnh & Hoàn tất</>}
+              </button>
             </div>
           </div>
         </div>

@@ -100,6 +100,28 @@ const attendanceSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Các trường chống gian lận & xác thực phần cứng
+    hardware_uuid: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    is_flagged: {
+      type: Boolean,
+      default: false,
+    },
+    flag_reasons: [{
+      type: String, // 'MULTI_ACCOUNT_SAME_DEVICE', 'SUSPICIOUS_LOCATION'
+    }],
+    selfie_url: {
+      type: String,
+      default: null,
+    },
+    verification_status: {
+      type: String,
+      enum: ['auto_approved', 'pending_review', 'rejected'],
+      default: 'auto_approved',
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
