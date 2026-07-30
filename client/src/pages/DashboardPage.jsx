@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [flaggedList, setFlaggedList] = useState([]);
   const [verifyingId, setVerifyingId] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   const fetchFlagged = async () => {
     if (['admin', 'leader', 'manager'].includes(user?.role)) {
@@ -296,7 +297,7 @@ export default function DashboardPage() {
                       <img
                         src={item.selfie_url}
                         alt="Selfie"
-                        onClick={() => setFullAvatarImage(item.selfie_url)}
+                        onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${item.user_id?.full_name || 'Nhân viên'}` })}
                         style={{
                           width: 52, height: 52, borderRadius: '10px', objectFit: 'cover',
                           border: '2px solid var(--red)', cursor: 'pointer'
