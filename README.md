@@ -8,8 +8,8 @@
 
 # 🏢 ET Office Portal
 
-> **Hệ thống quản lý chấm công thông minh** dành cho doanh nghiệp vừa và nhỏ (~20–50 nhân viên).
-> Mobile-first PWA · GPS Geofencing · Báo cáo PDF · Dashboard thời gian thực
+> **Hệ thống quản lý chấm công thông minh** được thiết kế & phát triển độc quyền bởi duy nhất **[hocjsoo](https://github.com/hocjsoo)** dành cho doanh nghiệp vừa và nhỏ (~20–50 nhân viên).
+> Mobile-first PWA · GPS Geofencing · Anti-Fraud Chữ Ký Phần Cứng · Báo cáo PDF · Dashboard thời gian thực
 
 ---
 
@@ -317,5 +317,5 @@ Dự án được phân phối theo giấy phép [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/hocjsoo">ET Architects Team</a></sub>
+  <sub>Designed & Developed with ❤️ by <strong><a href="https://github.com/hocjsoo">hocjsoo</a></strong> (Sole Developer)</sub>
 </p>
