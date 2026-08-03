@@ -88,7 +88,7 @@ export default function CheckInPage() {
       const [todayRes, settingsRes, projRes, locRes] = await Promise.all([
         api.get('/attendance/today'),
         api.get('/settings'),
-        api.get('/projects'),
+        api.get('/projects?active_only=true'),
         api.get('/locations'),
       ]);
       setToday(todayRes.data.attendance || null);
@@ -103,7 +103,9 @@ export default function CheckInPage() {
       const activeOffice = todayRes.data.office || allActiveOffices[0] || settingsRes.data?.setting?.office;
       if (activeOffice) setOffice(activeOffice);
 
-      if (projRes.data.projects) setProjects(projRes.data.projects.filter(p => p.status === 'active'));
+      const rawProjects = Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []);
+      const activeProjects = rawProjects.filter(p => p.is_active !== false && p.status !== 'Hoàn thành' && p.status !== 'Tạm dừng' && p.status !== 'cancelled');
+      setProjects(activeProjects);
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
     } finally {
@@ -162,6 +164,11 @@ export default function CheckInPage() {
     }
 
     const checkInType = overrideType || selected;
+
+    if (['site', 'client'].includes(checkInType) && !selectedProject) {
+      toast.error('Vui lòng chọn dự án / công trình đang hoạt động!');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -514,12 +521,23 @@ export default function CheckInPage() {
 
             {/* Project selector */}
             {['site', 'client'].includes(selected) && (
-              <div className="form-group">
-                <label className="form-label">Chọn dự án *</label>
-                <select className="form-input" value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
+              <div className="form-group animate-fade-in" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  🏗️ Chọn dự án / công trình đang hoạt động * ({projects.length} dự án)
+                </label>
+                <select className="form-input" value={selectedProject} onChange={e => setSelectedProject(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px' }}>
                   <option value="">-- Chọn dự án đang hoạt động --</option>
-                  {projects.map(p => <option key={p._id} value={p._id}>{p.name} ({p.code || 'DA'})</option>)}
+                  {projects.map(p => (
+                    <option key={p._id || p.id} value={p._id || p.id}>
+                      {p.name} ({p.code || 'DA'}) — {p.category || 'Công trình'}
+                    </option>
+                  ))}
                 </select>
+                {projects.length === 0 && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Chưa có dự án nào đang hoạt động. Vui lòng nhờ Admin thêm dự án mới.
+                  </div>
+                )}
               </div>
             )}
 
