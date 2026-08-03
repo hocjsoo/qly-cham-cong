@@ -2,7 +2,7 @@
 
 ## Tổng quan dự án
 
-Hệ thống quản lý chấm công thông minh cho công ty kiến trúc ET Architects (~30 nhân viên).
+Hệ thống quản lý chấm công thông minh dành cho doanh nghiệp (~30–50 nhân viên), được xây dựng & phát triển độc quyền bởi duy nhất **[hocjsoo](https://github.com/hocjsoo)**.
 
 - **Stack**: React 19 (Vite 8) + Node.js (Express 4) + MongoDB Atlas (Mongoose 9)
 - **Deploy**: Vercel (frontend) + Render.com (backend) + MongoDB Atlas (DB)
