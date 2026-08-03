@@ -8,8 +8,11 @@ const getTodaySummary = async (req, res) => {
   try {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    // Filter users
-    let userFilter = { is_active: true };
+    // Filter users (Chỉ lấy nhân viên đang làm việc, bỏ qua người đã nghỉ việc / nghỉ thai sản / nghỉ ốm / khác)
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
       const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
         ? req.user.department_ids

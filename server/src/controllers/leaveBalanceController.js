@@ -41,7 +41,10 @@ const getMyBalance = async (req, res) => {
 const getAllBalances = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
-    const users = await User.find({ is_active: { $ne: false } }).select('full_name email department_id');
+    const users = await User.find({
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    }).select('full_name email department_id');
     
     const results = await Promise.all(users.map(async (u) => {
       const bal = await getOrCreateBalance(u._id, year);

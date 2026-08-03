@@ -12,7 +12,10 @@ const getMonthlyReport = async (req, res) => {
     const y = parseInt(year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = { is_active: true, employment_status: { $ne: 'Da nghi viec' } };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (['manager', 'leader'].includes(req.user.role)) {
       const leaderDeptIds = req.user.department_ids && req.user.department_ids.length > 0 ? req.user.department_ids : (req.user.department_id ? [req.user.department_id] : []);
       userFilter.$or = [
@@ -113,7 +116,10 @@ const getTrend = async (req, res) => {
   const months = parseInt(req.query.months) || 6;
 
   try {
-    let userFilter = { is_active: true };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (req.user.role === 'manager') {
       userFilter.manager_id = req.user._id;
     }
@@ -164,7 +170,10 @@ const getAttendanceStats = async (req, res) => {
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    let userFilter = { is_active: true };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (req.user.role === 'manager') {
       userFilter.manager_id = req.user._id;
     }
@@ -208,7 +217,10 @@ const getRanking = async (req, res) => {
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = { is_active: true };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
 
     const users = await User.find(userFilter).select('full_name email department_id').populate('department_id', 'name');
@@ -263,7 +275,10 @@ const getPayroll = async (req, res) => {
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = { is_active: true };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
 
     const users = await User.find(userFilter)
