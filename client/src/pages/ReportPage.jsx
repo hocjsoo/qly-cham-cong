@@ -899,11 +899,13 @@ export default function ReportPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
               <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>TỔNG NHÂN VIÊN</div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>TỔNG NHÂN VIÊN ĐANG LÀM</div>
                   <UserCheck size={18} color="var(--primary)" />
                 </div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)', marginTop: '6px' }}>{report.summary.total_users}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Đang hoạt động trong hệ thống</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)', marginTop: '6px' }}>
+                  {report.summary.total_employees ?? report.summary.total_users ?? 0}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Chỉ tính nhân viên đang làm việc</div>
               </div>
 
               <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
@@ -911,7 +913,11 @@ export default function ReportPage() {
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase' }}>TỶ LỆ ĐÚNG GIỜ</div>
                   <CheckCircle2 size={18} color="var(--green)" />
                 </div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--green)', marginTop: '6px' }}>{report.summary.on_time_rate}%</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--green)', marginTop: '6px' }}>
+                  {report.summary.total_attendance_days > 0 
+                    ? Math.round(((report.summary.total_attendance_days - (report.summary.total_late_cases || 0)) / report.summary.total_attendance_days) * 100)
+                    : 100}%
+                </div>
                 <div style={{ fontSize: '11px', color: 'var(--green)', marginTop: '4px' }}>Thống kê toàn công ty</div>
               </div>
 
@@ -920,30 +926,32 @@ export default function ReportPage() {
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--yellow)', textTransform: 'uppercase' }}>LƯỢT ĐI MUỘN</div>
                   <AlertTriangle size={18} color="var(--yellow)" />
                 </div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--yellow)', marginTop: '6px' }}>{report.summary.total_late_days}</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--yellow)', marginTop: '6px' }}>
+                  {report.summary.total_late_cases ?? report.summary.total_late_days ?? 0}
+                </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Lượt trễ trong Tháng {month}</div>
               </div>
             </div>
 
             {/* Attendance Trend Chart */}
-            {trend?.monthly_stats && trend.monthly_stats.length > 0 && (
+            {(trend?.months || trend?.monthly_stats) && (trend?.months || trend?.monthly_stats).length > 0 && (
               <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <BarChart3 size={18} color="var(--primary)" /> Biểu đồ xu hướng đúng giờ 6 tháng gần nhất
                 </div>
                 <div style={{ width: '100%', height: 260 }}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trend.monthly_stats}>
+                    <BarChart data={trend.months || trend.monthly_stats}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" />
-                      <XAxis dataKey="month" stroke="var(--text-secondary)" fontSize={12} />
+                      <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
                       <YAxis stroke="var(--text-secondary)" fontSize={12} domain={[0, 100]} />
                       <Tooltip
                         contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
                         formatter={(val) => [`${val}%`, 'Tỷ lệ đúng giờ']}
                       />
-                      <Bar dataKey="on_time_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
-                        {trend.monthly_stats.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.on_time_rate >= 90 ? '#10b981' : entry.on_time_rate >= 80 ? '#3b82f6' : '#f59e0b'} />
+                      <Bar dataKey="attendance_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
+                        {(trend.months || trend.monthly_stats).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={(entry.attendance_rate ?? entry.on_time_rate) >= 90 ? '#10b981' : (entry.attendance_rate ?? entry.on_time_rate) >= 80 ? '#3b82f6' : '#f59e0b'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -959,10 +967,10 @@ export default function ReportPage() {
           <div className="card animate-fade-in" style={{ padding: '16px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px' }}>
               <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calculator size={18} /> Bảng Tổng Hợp Công Tính Lương — Tháng {month}/{year}
+                <Calculator size={18} /> Bảng Tổng Hợp Công Tính Lương (Nhân Sự Đang Làm Việc) — Tháng {month}/{year}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Tổng nhân sự: <strong>{payroll.payroll.length}</strong>
+                Nhân sự đang làm việc: <strong>{payroll.payroll.length}</strong>
               </div>
             </div>
 
@@ -971,7 +979,8 @@ export default function ReportPage() {
                 <tr style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border)' }}>
                   <th style={{ padding: '10px 12px' }}>HỌ VÀ TÊN</th>
                   <th style={{ padding: '10px 12px' }}>PHÒNG BAN</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>CÔNG ĐI LÀM</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>NGÀY ĐI LÀM</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>GIỜ OT</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>LƯỢT ĐI MUỘN</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>TRỪ CÔNG MUỘN</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>CÔNG THỰC NHẬN</th>
@@ -989,14 +998,15 @@ export default function ReportPage() {
                       </div>
                     </td>
                     <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{p.department_name || 'KTS'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800, color: 'var(--green)' }}>{p.work_days_credit} công</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_days > 0 ? 'var(--yellow)' : 'var(--text-muted)' }}>{p.late_days} lần</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_penalty_credit > 0 ? 'var(--red)' : 'var(--text-muted)', fontWeight: 700 }}>
-                      {p.late_penalty_credit > 0 ? `-${p.late_penalty_credit}` : '0'}
+                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800, color: 'var(--green)' }}>{p.present_days ?? p.work_days_credit ?? 0} ngày</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#8b5cf6' }}>{p.ot_hours || 0}h</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_days > 0 ? 'var(--yellow)' : 'var(--text-muted)' }}>{p.late_days || 0} lần ({p.total_late_minutes || 0}p)</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'center', color: (p.penalty_days > 0 || p.late_penalty_credit > 0) ? 'var(--red)' : 'var(--text-muted)', fontWeight: 700 }}>
+                      {(p.penalty_days > 0 || p.late_penalty_credit > 0) ? `-${p.penalty_days || p.late_penalty_credit}` : '0'}
                     </td>
                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                       <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 900, fontSize: '13px' }}>
-                        {p.final_payroll_credit} công
+                        {p.total_work_days ?? p.final_payroll_credit ?? 0} công
                       </span>
                     </td>
                   </tr>
@@ -1007,12 +1017,12 @@ export default function ReportPage() {
         )}
 
         {/* TAB 5: RANKING LEADERBOARD */}
-        {tab === 'ranking' && ranking?.rankings && (
+        {tab === 'ranking' && (ranking?.ranking || ranking?.rankings) && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Top Header Card */}
             <div className="card" style={{ padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Trophy size={20} color="var(--yellow)" /> Bảng Xếp Hạng Kỷ Luật Chấm Công — Tháng {month}/{year}
+                <Trophy size={20} color="var(--yellow)" /> Bảng Xếp Hạng Kỷ Luật Chấm Công (Đang Làm Việc) — Tháng {month}/{year}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 Cập nhật tự động theo tỷ lệ đúng giờ
@@ -1020,9 +1030,10 @@ export default function ReportPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-              {ranking.rankings.map((r) => {
+              {(ranking.ranking || ranking.rankings).map((r) => {
                 const medal = RANK_MEDALS[r.rank];
-                const scoreColor = r.on_time_rate >= 90 ? 'var(--green)' : r.on_time_rate >= 75 ? 'var(--yellow)' : 'var(--red)';
+                const pRate = r.punctuality_rate ?? r.on_time_rate ?? 0;
+                const scoreColor = pRate >= 90 ? 'var(--green)' : pRate >= 75 ? 'var(--yellow)' : 'var(--red)';
 
                 return (
                   <div
@@ -1047,7 +1058,7 @@ export default function ReportPage() {
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)' }}>{r.score} điểm</div>
                       <div style={{ fontSize: '11px', fontWeight: 700, color: scoreColor, marginTop: '2px' }}>
-                        Đúng giờ: {r.on_time_rate}%
+                        Đúng giờ: {pRate}%
                       </div>
                     </div>
                   </div>
