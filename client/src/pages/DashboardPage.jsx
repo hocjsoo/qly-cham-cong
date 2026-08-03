@@ -343,13 +343,16 @@ export default function DashboardPage() {
                     <div>
                       <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>
                         👤 {item.user_id?.full_name || 'Nhân viên'}
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>#{item.user_id?.code || 'NS'}</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>#{item.user_id?.code || item.user_id?.employee_code || 'NS'}</span>
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 700, marginTop: '2px' }}>
-                        🚨 Cảnh báo: Dùng chung máy / Chấm hộ
+                        🚨 Cảnh báo: Dùng chung thiết bị (Tab ẩn danh / Trình duyệt khác)
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Lúc: {fmt(item.check_in_time)} · Ngày: {item.date} {item.check_in_note ? `· ${item.check_in_note}` : ''}
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', background: 'var(--bg-raised)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                        <strong>📱 Thiết bị:</strong> {item.hardware_uuid ? `ID phần cứng [${item.hardware_uuid.slice(0, 8)}]` : 'Chưa định danh'} {item.check_in_note ? `· ${item.check_in_note}` : ''}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        🕒 Lúc: {fmt(item.check_in_time)} · Ngày: {item.date}
                       </div>
                     </div>
                   </div>
