@@ -74,11 +74,13 @@ export default function DashboardPage() {
   const [allowRecheckin, setAllowRecheckin] = useState(true);
 
   const fetchFlagged = async () => {
-    if (['admin', 'leader', 'manager'].includes(user?.role)) {
+    if (user?.role === 'admin') {
       try {
         const { data } = await api.get('/attendance/flagged');
         setFlaggedList(Array.isArray(data?.flagged) ? data.flagged : []);
       } catch { setFlaggedList([]); }
+    } else {
+      setFlaggedList([]);
     }
   };
 
@@ -291,8 +293,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Flagged Attendance & Selfie Verification Card */}
-        {flaggedList.length > 0 && (
+        {/* Flagged Attendance & Selfie Verification Card (Admin Only) */}
+        {user?.role === 'admin' && flaggedList.length > 0 && (
           <div className="card animate-fade-in" style={{
             marginBottom: '14px', padding: '14px 16px',
             background: 'rgba(239, 68, 68, 0.08)',
