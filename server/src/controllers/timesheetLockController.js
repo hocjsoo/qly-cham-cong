@@ -29,8 +29,11 @@ const getFullMatrix = async (req, res) => {
     const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    // Lấy danh sách nhân viên active
-    const users = await User.find({ is_active: { $ne: false } })
+    // Lấy danh sách nhân viên đang làm việc (bỏ qua đã nghỉ việc, nghỉ thai sản, nghỉ ốm, khác)
+    const users = await User.find({
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    })
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
       .sort({ employee_code: 1, full_name: 1 });

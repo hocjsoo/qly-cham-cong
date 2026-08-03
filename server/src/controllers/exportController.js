@@ -29,7 +29,10 @@ const exportAttendanceExcel = async (req, res) => {
     const department_id = req.query.department_id;
     const user_id = req.query.user_id;
 
-    let userFilter = { is_active: true };
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
     if (req.user.role === 'manager') {
       userFilter.manager_id = req.user._id;
     }
