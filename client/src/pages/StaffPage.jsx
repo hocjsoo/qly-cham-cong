@@ -40,6 +40,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 
 export default function StaffPage() {
   const { user: currentUser } = useAuthStore();
+  const isAdmin = currentUser?.role === 'admin';
   const [staff, setStaff] = useState([]);
   const [depts, setDepts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,7 @@ export default function StaffPage() {
   const [loadingDevices, setLoadingDevices] = useState(false);
 
   const loadUserDevices = async (userId) => {
+    if (!isAdmin) return;
     try {
       setLoadingDevices(true);
       const { data } = await api.get(`/users/${userId}/devices`);
