@@ -15,11 +15,24 @@
 
 ## ✨ Tính năng chính
 
-### 📱 Chấm Công Thông Minh
-- **Check-in / Check-out** qua GPS với geofencing (bán kính tuỳ chỉnh)
-- Hỗ trợ **nhiều loại hình làm việc**: Văn phòng, Công tác trong nước/ngoài nước, Work From Home
-- **Chống gian lận**: Device fingerprint + GPS validation
-- Tự động tính **đi trễ / về sớm** theo ca làm việc
+### 📱 Chấm Công Thông Minh & Anti-Fraud Cao Cấp
+- **Check-in / Check-out** qua GPS với geofencing (bán kính geofence tuỳ chỉnh từng văn phòng)
+- Hỗ trợ **nhiều loại hình làm việc**: Văn phòng (Office), Công trình (Site), Khách hàng (Client), Work From Home (WFH)
+- **Chống gian lận đa tầng (Pure Hardware Signature)**: 
+  - Vân tay phần cứng vật lý `pure_hardware_uuid` (Card màn hình WebGL, CPU cores, Độ phân giải màn hình, Audio context, Múi giờ).
+  - Chống 100% việc **gian lận qua Tab ẩn danh (Incognito)** hoặc **chuyển sang Trình duyệt khác (Edge/Firefox)** trên cùng 1 máy.
+  - Tự động bắt chụp **Ảnh Selfie xác thực** khi phát hiện dùng chung thiết bị hoặc đăng nhập nhiều nick.
+- **Tự động phân loại đi muộn / về sớm / OT**: Thuật toán chuẩn múi giờ Việt Nam `Asia/Ho_Chi_Minh (+07:00)` (*Đúng giờ, Muộn nhẹ, Muộn vừa, Muộn nặng*).
+
+### 🛡️ Trung Tâm Duyệt Cảnh Báo & Cho Phép Chấm Lại (Admin Only)
+- Dashboard dành riêng cho Admin hiển thị khung **Cảnh báo thiết bị nghi vấn & Ảnh Selfie xác thực**.
+- **Duyệt ca (`✅ Duyệt ca này`)**: Tự động đánh dấu hợp lệ và đăng ký máy chính chính thức cho nhân viên.
+- **Từ chối (`❌ Từ chối`)**: Mở Popup nhập lý do và tích chọn **"Xóa dữ liệu hôm nay để nhân viên chấm công lại"**.
+
+### 📱 Quản Lý Thiết Bị Chính Chủ (Device Management)
+- Quản lý danh sách máy tính / điện thoại đã đăng ký của từng nhân viên.
+- Phân biệt nhãn **`⭐ MÁY CHÍNH (PRIMARY)`** và **`⚠️ Máy phụ`**.
+- Cho phép Admin **Đặt làm máy chính** hoặc **Xóa bỏ máy cũ** khi nhân viên đổi thiết bị.
 
 ### 📊 Dashboard & Báo cáo
 - Dashboard tổng quan theo thời gian thực (Admin/Leader)
