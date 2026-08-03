@@ -95,14 +95,30 @@ function simpleHash(str) {
 
 function getDeviceName() {
   const ua = navigator.userAgent;
-  if (/iPhone/i.test(ua)) return 'iPhone';
-  if (/iPad/i.test(ua)) return 'iPad';
-  if (/Android/i.test(ua)) {
+
+  // OS Detection
+  let os = 'Thiết bị di động/PC';
+  if (/Windows NT 10.0/i.test(ua)) os = 'Windows 10/11';
+  else if (/Windows/i.test(ua)) os = 'Windows PC';
+  else if (/iPhone/i.test(ua)) os = 'iPhone';
+  else if (/iPad/i.test(ua)) os = 'iPad';
+  else if (/Android/i.test(ua)) {
     const match = ua.match(/;\s*([^;]+)\s*Build/);
-    return match ? match[1].trim() : 'Android Device';
-  }
-  if (/Macintosh/i.test(ua)) return 'MacBook / Mac';
-  if (/Windows/i.test(ua)) return 'Windows PC';
-  if (/Linux/i.test(ua)) return 'Linux PC';
-  return 'Thiết bị di động/PC';
+    os = match ? `Android (${match[1].trim()})` : 'Điện thoại Android';
+  } else if (/Macintosh/i.test(ua)) os = 'MacBook / Mac OS';
+  else if (/Linux/i.test(ua)) os = 'Linux PC';
+
+  // Browser Detection
+  let browser = '';
+  if (/CocCoc/i.test(ua)) browser = 'Cốc Cốc';
+  else if (/Edg/i.test(ua)) browser = 'Edge';
+  else if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) browser = 'Chrome';
+  else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Safari';
+  else if (/Firefox/i.test(ua)) browser = 'Firefox';
+  else if (/Zalo/i.test(ua)) browser = 'Zalo App';
+
+  const res = `${screen.width}x${screen.height}`;
+  const icon = (/iPhone|iPad|Android/i.test(ua)) ? '📱' : '💻';
+
+  return `${icon} ${os}${browser ? ' · ' + browser : ''} [${res}]`;
 }

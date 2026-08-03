@@ -871,29 +871,32 @@ export default function StaffPage() {
                   {userDevices.sessions.map((sess) => (
                     <div key={sess._id} style={{
                       background: sess.is_trusted ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
-                      border: sess.is_trusted ? '1px solid var(--green)' : '1px solid var(--border)',
-                      borderRadius: '8px', padding: '10px', fontSize: '12px'
+                      border: sess.is_trusted ? '1.5px solid var(--green)' : '1px solid var(--border)',
+                      borderRadius: '10px', padding: '10px 12px', fontSize: '12px'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                        <strong style={{ color: 'var(--text)' }}>💻 {sess.device_name || 'Thiết bị vật lý'}</strong>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ color: 'var(--text)', fontSize: '13px' }}>
+                          {sess.device_name ? sess.device_name : '💻 Thiết bị phần cứng'}
+                        </strong>
                         {sess.is_trusted ? (
-                          <span className="badge badge--success" style={{ fontSize: '10px' }}>⭐ MÁY CHÍNH</span>
+                          <span className="badge badge--success" style={{ fontSize: '10px', fontWeight: 800 }}>⭐ MÁY CHÍNH CHỦ</span>
                         ) : (
-                          <span className="badge badge--warning" style={{ fontSize: '10px' }}>⚠️ Máy phụ</span>
+                          <span className="badge badge--warning" style={{ fontSize: '10px', fontWeight: 700 }}>⚠️ Thiết bị phụ</span>
                         )}
                       </div>
 
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                        {sess.screen_info ? `Màn hình: ${sess.screen_info} · ` : ''}
-                        Lần cuối: {new Date(sess.last_used_at).toLocaleDateString('vi-VN')} ({sess.check_in_count || 1} lần check-in)
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '6px 8px', borderRadius: '6px', marginBottom: '8px', border: '1px solid var(--border-muted)' }}>
+                        <div><strong>🔑 Mã vân tay (ID):</strong> <code style={{ fontSize: '10px', color: 'var(--primary)' }}>{sess.device_fingerprint ? sess.device_fingerprint.slice(0, 16) + '...' : '—'}</code></div>
+                        {sess.screen_info && <div><strong>🖥️ Màn hình:</strong> {sess.screen_info} px</div>}
+                        <div><strong>🕒 Check-in lần cuối:</strong> {new Date(sess.last_used_at).toLocaleString('vi-VN')} ({sess.check_in_count || 1} lần điểm danh)</div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
                         {!sess.is_trusted && (
                           <button
                             onClick={() => handleSetTrustDevice(viewingStaffDetail._id, sess._id)}
                             className="btn btn--ghost"
-                            style={{ padding: '3px 8px', fontSize: '10px', color: 'var(--green)', borderColor: 'var(--green)' }}
+                            style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--green)', borderColor: 'var(--green)', fontWeight: 700 }}
                           >
                             ⭐ Đặt làm máy chính
                           </button>
@@ -901,9 +904,9 @@ export default function StaffPage() {
                         <button
                           onClick={() => handleDeleteUserDevice(viewingStaffDetail._id, sess._id)}
                           className="btn btn--ghost"
-                          style={{ padding: '3px 8px', fontSize: '10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                          style={{ padding: '4px 10px', fontSize: '11px', color: 'var(--red)', borderColor: 'var(--red)' }}
                         >
-                          🗑️ Xóa máy này
+                          🗑️ Xóa thiết bị này
                         </button>
                       </div>
                     </div>
