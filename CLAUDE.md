@@ -206,12 +206,20 @@ User model có 2 trường:
 
 ---
 
-## Bảo mật
+## Bảo mật & Anti-Fraud Cao Cấp
 
 - JWT token trong header `Authorization: Bearer <token>`
 - Mật khẩu hash: bcrypt (10 rounds)
-- GPS bắt buộc khi chấm công (tất cả loại check-in)
-- Device fingerprint ghi nhận mỗi lần check-in (chống chấm công hộ)
+- GPS bắt buộc khi chấm công (tất cả loại check-in office, site, client, wfh)
+- **Anti-Fraud Chữ Ký Phần Cứng Vật Lý (`pure_hardware_uuid`)**:
+  - Mã hóa từ GPU WebGL unmasked renderer, CPU cores, Screen resolution, Audio sample rate, Timezone.
+  - Chống 100% việc gian lận qua Tab ẩn danh (Incognito) hoặc chuyển trình duyệt (Chrome vs Edge) trên cùng 1 máy.
+  - Tự động bắt chụp ảnh Selfie khi phát hiện dùng chung máy hoặc nhiều tài khoản.
+- **Trung Tâm Duyệt Cảnh Báo (Admin Only)**:
+  - Khung duyệt selfie & thiết bị nghi vấn dành riêng cho `admin` (`requireRole('admin')`).
+  - Hỗ trợ Duyệt (`verification_status = 'approved'`, tự động lưu máy chính) và Từ Chối kèm tùy chọn **"Xóa dữ liệu để nhân viên chấm công lại"** (`allow_recheckin: true`).
+- **Quản Lý Thiết Bị Chính Chủ (Device Management)**:
+  - API `GET/PUT/DELETE /api/users/:id/devices` xem danh sách thiết bị, đặt **`⭐ MÁY CHÍNH`** (`trustUserDevice`) hoặc xóa thiết bị cũ (`deleteUserDevice`).
 - Rate limiting: 5000 req/15min (general, auto-skip localhost/dev mode), 100 req/min (check-in)
 - CORS: `origin: true` (frontend/backend tách domain)
 - `password_hash` KHÔNG BAO GIỜ trả về trong API response
