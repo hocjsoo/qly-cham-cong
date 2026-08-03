@@ -14,14 +14,14 @@ router.use(requireRole('admin', 'manager'));
 // GET /api/users
 router.get('/', getAllUsers);
 
-// GET /api/users/:id/devices — Admin/Leader xem danh sách thiết bị
-router.get('/:id/devices', getUserDevices);
+// GET /api/users/:id/devices — CHỈ ADMIN xem danh sách thiết bị
+router.get('/:id/devices', requireRole('admin'), getUserDevices);
 
-// PUT /api/users/:id/devices/:sessionId/trust — Admin/Leader đặt thiết bị chính
-router.put('/:id/devices/:sessionId/trust', trustUserDevice);
+// PUT /api/users/:id/devices/:sessionId/trust — CHỈ ADMIN đặt thiết bị chính
+router.put('/:id/devices/:sessionId/trust', requireRole('admin'), trustUserDevice);
 
-// DELETE /api/users/:id/devices/:sessionId — Admin/Leader xóa thiết bị
-router.delete('/:id/devices/:sessionId', deleteUserDevice);
+// DELETE /api/users/:id/devices/:sessionId — CHỈ ADMIN xóa thiết bị
+router.delete('/:id/devices/:sessionId', requireRole('admin'), deleteUserDevice);
 
 // POST /api/users
 router.post('/', createUser);
