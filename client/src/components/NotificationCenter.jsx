@@ -449,51 +449,104 @@ export default function NotificationCenter() {
         </div>
       )}
 
-      {/* Notification Detail Modal Sheet */}
+      {/* Notification Detail Modal Sheet — Redesigned Spacious & Premium */}
       {selectedNotifForDetail && (
-        <div className="modal-overlay" onClick={() => setSelectedNotifForDetail(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedNotifForDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
-                  Chi tiết thông báo
-                </h3>
+
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                }}>
+                  <Megaphone size={20} color="var(--primary)" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    {selectedNotifForDetail.type === 'announcement' ? '📢 Thông Báo Công Ty' : '🔔 Chi Tiết Thông Báo'}
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                    Nội dung thông báo
+                  </h3>
+                </div>
               </div>
-              <button onClick={() => setSelectedNotifForDetail(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button
+                onClick={() => setSelectedNotifForDetail(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px' }}>
-              {selectedNotifForDetail.title}
-            </div>
-
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px' }}>
-              📅 Thời gian: {selectedNotifForDetail.created_at ? new Date(selectedNotifForDetail.created_at).toLocaleString('vi-VN') : ''}
-            </div>
-
+            {/* Title & Metadata */}
             <div style={{
-              background: 'var(--bg-input)', padding: '14px', borderRadius: '10px',
-              border: '1px solid var(--border)', fontSize: '13px', color: 'var(--text)',
-              lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: '18px'
+              background: 'var(--primary-soft)', padding: '12px 16px', borderRadius: '12px',
+              border: '1px solid rgba(99, 102, 241, 0.2)', marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.4, marginBottom: '6px' }}>
+                {selectedNotifForDetail.title}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                <span>📅 {selectedNotifForDetail.created_at ? new Date(selectedNotifForDetail.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Hôm nay'}</span>
+                <span>•</span>
+                <span>👤 Ban Giám Đốc</span>
+                <span className="badge badge--info" style={{ fontSize: '10px', padding: '2px 8px' }}>Chính thức</span>
+              </div>
+            </div>
+
+            {/* Message Body Content */}
+            <div style={{
+              background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
+              border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
+              lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: '22px',
+              maxHeight: '360px', overflowY: 'auto'
             }}>
               {selectedNotifForDetail.message}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setSelectedNotifForDetail(null)} className="btn btn--ghost btn--full">
+            {/* Footer Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setSelectedNotifForDetail(null)}
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+              >
                 Đóng
               </button>
-              {selectedNotifForDetail.link && (
+              {selectedNotifForDetail.link ? (
                 <button
                   onClick={() => {
                     const link = selectedNotifForDetail.link;
                     setSelectedNotifForDetail(null);
                     navigate(link);
                   }}
-                  className="btn btn--primary btn--full"
+                  className="btn btn--primary"
+                  style={{ flex: 1.5, padding: '10px', fontSize: '13px', fontWeight: 700 }}
                 >
                   Mở trang liên quan →
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectedNotifForDetail(null)}
+                  className="btn btn--primary"
+                  style={{ flex: 1.5, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+                >
+                  Đã ghi nhận ✓
                 </button>
               )}
             </div>

@@ -1187,6 +1187,84 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Announcement Detail Modal — Redesigned Spacious & Premium */}
+      {selectedAnnouncement && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedAnnouncement(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px', height: '38px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1px solid rgba(99, 102, 241, 0.3)'
+                }}>
+                  <Megaphone size={20} color="var(--primary)" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    📢 Thông Báo Công Ty
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                    Nội dung thông báo
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAnnouncement(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'var(--primary-soft)', padding: '12px 16px', borderRadius: '12px',
+              border: '1px solid rgba(99, 102, 241, 0.2)', marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.4, marginBottom: '6px' }}>
+                {selectedAnnouncement.title}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '11px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                <span>📅 {selectedAnnouncement.created_at ? new Date(selectedAnnouncement.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Hôm nay'}</span>
+                <span>•</span>
+                <span>👤 Ban Giám Đốc</span>
+                <span className="badge badge--info" style={{ fontSize: '10px', padding: '2px 8px' }}>Chính thức</span>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
+              border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
+              lineHeight: 1.7, whiteSpace: 'pre-line', marginBottom: '22px',
+              maxHeight: '360px', overflowY: 'auto'
+            }}>
+              {selectedAnnouncement.content}
+            </div>
+
+            <button
+              onClick={() => setSelectedAnnouncement(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đã hiểu & Xác nhận ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
