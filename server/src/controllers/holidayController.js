@@ -6,11 +6,21 @@ const Notification = require('../models/Notification');
 const getHolidays = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
-    const holidays = await Holiday.find({ date: { $regex: `^${year}` } }).sort({ date: 1 });
+    const month = req.query.month ? String(req.query.month).padStart(2, '0') : null;
+    let query = { date: { $regex: `^${year}` } };
+    if (month) {
+      query = {
+        $or: [
+          { date: { $regex: `^${year}-${month}` } },
+          { end_date: { $regex: `^${year}-${month}` } }
+        ]
+      };
+    }
+    const holidays = await Holiday.find(query).sort({ date: 1 });
     res.json(holidays);
   } catch (error) {
     console.error('GetHolidays error:', error);
-    res.status(500).json({ error: 'Loi lay danh sach ngay nghi le.' });
+    res.status(500).json({ error: 'Lỗi lấy danh sách ngày nghỉ lễ.' });
   }
 };
 

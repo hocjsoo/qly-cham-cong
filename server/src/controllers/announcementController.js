@@ -163,20 +163,25 @@ const getAnniversaries = async (req, res) => {
       .populate('department_id', 'name')
       .populate('department_ids', 'name');
 
+    const targetMonth = req.query.month ? parseInt(req.query.month) : currentMonth;
+
     const anniversaries = [];
     for (const u of users) {
       let joinYear = null;
       let joinMonth = null;
 
-      if (u.start_year && !isNaN(parseInt(u.start_year))) {
-        joinYear = parseInt(u.start_year);
-      } else if (u.created_at) {
+      if (u.created_at) {
         const joinDate = new Date(u.created_at);
         joinYear = joinDate.getFullYear();
         joinMonth = joinDate.getMonth() + 1;
+      } else if (u.start_year && !isNaN(parseInt(u.start_year))) {
+        joinYear = parseInt(u.start_year);
       }
 
-      if (joinYear && currentYear >= joinYear) {
+      // Chỉ lấy kỷ niệm gắn bó đúng trong tháng hiện tại (nếu biết tháng) và ít nhất 1 năm
+      const isSameMonth = joinMonth ? joinMonth === targetMonth : true;
+
+      if (joinYear && currentYear > joinYear && isSameMonth) {
         const yearsCount = currentYear - joinYear;
         if (yearsCount >= 1) {
           const deptNames = (u.department_ids && u.department_ids.length > 0)

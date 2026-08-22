@@ -102,14 +102,22 @@ export default function CheckInPage() {
         api.get('/locations'),
         api.get('/announcements/pinned').catch(() => ({ data: [] })),
         api.get(`/announcements/birthdays?month=${monthVal}`).catch(() => ({ data: { birthdays: [] } })),
-        api.get('/announcements/anniversaries').catch(() => ({ data: { anniversaries: [] } })),
-        api.get(`/holidays?year=${yearVal}`).catch(() => ({ data: [] })),
+        api.get(`/announcements/anniversaries?month=${monthVal}`).catch(() => ({ data: { anniversaries: [] } })),
+        api.get(`/holidays?year=${yearVal}&month=${monthVal}`).catch(() => ({ data: [] })),
       ]);
       setToday(todayRes.data.attendance || null);
       setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
       setBirthdays(bdayRes.data?.birthdays || []);
       setAnniversaries(annivRes.data?.anniversaries || []);
-      setHolidays(Array.isArray(holRes?.data) ? holRes.data : []);
+      
+      const currentMonthStr = String(monthVal).padStart(2, '0');
+      const rawHolidays = Array.isArray(holRes?.data) ? holRes.data : [];
+      const monthHolidays = rawHolidays.filter(h => {
+        const d = h.date || '';
+        const ed = h.end_date || '';
+        return d.includes(`-${currentMonthStr}-`) || ed.includes(`-${currentMonthStr}-`);
+      });
+      setHolidays(monthHolidays);
 
       const rawLocations = Array.isArray(locRes?.data) ? locRes.data : locRes?.data?.locations || [];
       const allActiveOffices = (todayRes.data.offices && todayRes.data.offices.length > 0)

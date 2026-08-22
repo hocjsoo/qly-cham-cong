@@ -1255,20 +1255,34 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
   /* Modal Overlay & Bottom Sheet for Mobile */
   .modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.75) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    z-index: 999999 !important;
+    display: flex !important;
     align-items: flex-end !important;
+    justify-content: center !important;
     padding: 0 !important;
   }
 
   .modal-sheet {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 88vh !important;
+    max-height: 85vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 16px)) !important;
-    border-radius: 22px 22px 0 0 !important;
+    padding: 20px 16px calc(30px + env(safe-area-inset-bottom, 16px)) !important;
+    border-radius: 24px 24px 0 0 !important;
     margin: 0 !important;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4) !important;
+    box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.6) !important;
+  }
+
+  /* Automatically hide bottom nav when any modal or sheet is open so buttons are never obstructed */
+  body:has(.modal-overlay) .bottom-nav,
+  html:has(.modal-overlay) .bottom-nav {
+    display: none !important;
   }
 
   .modal-sheet__handle {
@@ -1277,7 +1291,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     background: var(--text-muted) !important;
     opacity: 0.4 !important;
     border-radius: 3px !important;
-    margin: 4px auto 14px !important;
+    margin: 2px auto 14px !important;
     display: block !important;
   }
 
@@ -1319,6 +1333,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   .bottom-nav {
     height: calc(58px + env(safe-area-inset-bottom, 10px)) !important;
     padding-bottom: env(safe-area-inset-bottom, 10px) !important;
+    z-index: 100 !important;
   }
 
   .bottom-nav__item {

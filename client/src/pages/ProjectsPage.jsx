@@ -48,16 +48,20 @@ const SELECT_STATUSES = [
 export default function ProjectsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isLeader = user?.role === 'leader' || user?.role === 'manager';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
+  const isStaff = !isAdminOrManager;
 
   const [projects, setProjects] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState(isStaff ? 'my' : 'all'); // 'my' | 'all'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date_desc'); // 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
   const [viewMode, setViewMode] = useState('table'); // 'table' (Bảng Excel) | 'grid' (Thẻ Card)
+  const [selectedProjectDetail, setSelectedProjectDetail] = useState(null);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -202,14 +206,26 @@ export default function ProjectsPage() {
     }
   };
 
+  const myProjectsList = projects.filter(p => {
+    const uid = user?._id || user?.id;
+    const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
+    const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
+    return isMember || isPm;
+  });
+
   const filteredProjects = projects.filter(p => {
+    const uid = user?._id || user?.id;
+    const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
+    const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
+    const matchScope = scope === 'all' ? true : (isMember || isPm);
+
     const matchSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (p.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (p.pm_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                         (p.client_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchStat = selectedStatus === 'all' || p.status === selectedStatus;
-    return matchSearch && matchCat && matchStat;
+    return matchScope && matchSearch && matchCat && matchStat;
   }).sort((a, b) => {
     if (sortBy === 'name_asc') {
       return (a.name || '').localeCompare(b.name || '', 'vi');
@@ -250,6 +266,34 @@ export default function ProjectsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
+        {/* Role Scope Switcher Tabs */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setScope('my')}
+            style={{
+              flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+              background: scope === 'my' ? 'var(--bg-card)' : 'transparent',
+              color: scope === 'my' ? 'var(--primary)' : 'var(--text-secondary)',
+              boxShadow: scope === 'my' ? 'var(--shadow-xs)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            🚀 Dự án của tôi ({myProjectsList.length})
+          </button>
+          <button
+            onClick={() => setScope('all')}
+            style={{
+              flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+              background: scope === 'all' ? 'var(--bg-card)' : 'transparent',
+              color: scope === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
+              boxShadow: scope === 'all' ? 'var(--shadow-xs)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            🏢 Tất cả dự án công ty ({totalCount})
+          </button>
+        </div>
+
         {/* Stat KPI Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
           <div className="card" style={{ padding: '12px 14px', background: 'var(--bg-card)' }}>
@@ -381,10 +425,13 @@ export default function ProjectsPage() {
                   return (
                     <tr
                       key={p._id || p.id}
+                      onClick={() => setSelectedProjectDetail(p)}
                       style={{
                         borderBottom: '1px solid var(--border-muted)',
-                        background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)'
+                        background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)',
+                        cursor: 'pointer'
                       }}
+                      title="Click để xem chi tiết dự án"
                     >
                       {/* NO. (Mã dự án) */}
                       <td style={{ padding: '10px 12px', fontWeight: 800, color: 'var(--primary)' }}>
@@ -482,7 +529,7 @@ export default function ProjectsPage() {
 
                       {/* THAO TÁC */}
                       {isAdminOrManager && (
-                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                             <button
                               onClick={() => handleOpenEdit(p)}
@@ -516,10 +563,11 @@ export default function ProjectsPage() {
               return (
                 <div
                   key={p._id || p.id}
+                  onClick={() => setSelectedProjectDetail(p)}
                   className="card card--interactive animate-fade-in"
                   style={{
                     padding: '14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                    borderLeft: '4px solid var(--primary)', transition: 'all 0.15s ease-in-out'
+                    borderLeft: '4px solid var(--primary)', transition: 'all 0.15s ease-in-out', cursor: 'pointer'
                   }}
                 >
                   <div>
@@ -560,7 +608,7 @@ export default function ProjectsPage() {
                   </div>
 
                   {isAdminOrManager && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-muted)' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-muted)' }} onClick={e => e.stopPropagation()}>
                       <button
                         onClick={() => handleOpenEdit(p)}
                         className="btn btn--ghost"
@@ -765,6 +813,166 @@ export default function ProjectsPage() {
               <button onClick={handleSubmit} disabled={submitting} className="btn btn--primary btn--full">
                 {submitting ? <span className="spinner" /> : editingProject ? 'Lưu thông tin' : 'Tạo dự án'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-Only Project Detail Modal Sheet (for all staff & managers) */}
+      {selectedProjectDetail && (
+        <div className="modal-overlay" onClick={() => setSelectedProjectDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '520px', margin: '0 auto', padding: '24px 22px' }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge badge--info" style={{ fontSize: '12px', fontWeight: 800 }}>
+                  {selectedProjectDetail.code}
+                </span>
+                <span className={`badge ${STATUS_MAP[selectedProjectDetail.status]?.cls || 'badge--neutral'}`} style={{ fontSize: '11px' }}>
+                  {STATUS_MAP[selectedProjectDetail.status]?.label || selectedProjectDetail.status}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedProjectDetail(null)}
+                className="btn btn--ghost"
+                style={{ width: '32px', height: '32px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '4px', lineHeight: 1.3 }}>
+              {selectedProjectDetail.name}
+            </h2>
+
+            {selectedProjectDetail.sub_project && (
+              <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginBottom: '12px' }}>
+                🔖 Dự án thành phần: {selectedProjectDetail.sub_project}
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '14px 0' }}>
+              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Phân loại</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                  🎨 {selectedProjectDetail.category || 'Kiến trúc'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Trưởng dự án (PM)</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                  👷 {selectedProjectDetail.pm_name || 'Chưa phân công'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hạn chót (Deadline)</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: selectedProjectDetail.deadline ? 'var(--yellow)' : 'var(--text-muted)' }}>
+                  ⏱️ {selectedProjectDetail.deadline || 'Không có'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Khách hàng</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                  👤 {selectedProjectDetail.client_name || 'Nội bộ'}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Tiến độ hoàn thành</span>
+                <span style={{ color: (selectedProjectDetail.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)' }}>
+                  {selectedProjectDetail.progress || 0}%
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(100, Math.max(0, selectedProjectDetail.progress || 0))}%`, height: '100%',
+                  background: (selectedProjectDetail.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)',
+                  borderRadius: '4px', transition: 'width 0.3s'
+                }} />
+              </div>
+            </div>
+
+            {/* Members List */}
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                👥 Thành viên tham gia ({Array.isArray(selectedProjectDetail.members) ? selectedProjectDetail.members.length : 0} nhân sự)
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                {Array.isArray(selectedProjectDetail.members) && selectedProjectDetail.members.length > 0 ? (
+                  selectedProjectDetail.members.map((m, idx) => (
+                    <div
+                      key={m._id || idx}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        background: 'var(--bg-raised)', padding: '4px 10px', borderRadius: '20px',
+                        border: '1px solid var(--border)', fontSize: '12px'
+                      }}
+                    >
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)',
+                        color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {m.avatar_url ? (
+                          <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          (m.full_name || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <span style={{ fontWeight: 600 }}>{m.full_name || 'Thành viên'}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chưa có thành viên cụ thể.</div>
+                )}
+              </div>
+            </div>
+
+            {/* Address & Note */}
+            {selectedProjectDetail.address && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                📍 <strong>Địa điểm:</strong> {selectedProjectDetail.address}
+              </div>
+            )}
+
+            {selectedProjectDetail.note && (
+              <div style={{
+                background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px',
+                border: '1px solid var(--border)', fontSize: '12px', color: 'var(--text)',
+                lineHeight: 1.5, marginBottom: '18px'
+              }}>
+                📝 <strong>Ghi chú:</strong> {selectedProjectDetail.note}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setSelectedProjectDetail(null)}
+                className="btn btn--primary btn--full"
+                style={{ padding: '10px', fontWeight: 700 }}
+              >
+                Đóng
+              </button>
+              {isAdminOrManager && (
+                <button
+                  onClick={() => {
+                    const target = selectedProjectDetail;
+                    setSelectedProjectDetail(null);
+                    handleOpenEdit(target);
+                  }}
+                  className="btn btn--ghost"
+                  style={{ padding: '10px 16px', fontWeight: 700 }}
+                >
+                  <Edit2 size={14} /> Chỉnh sửa
+                </button>
+              )}
             </div>
           </div>
         </div>

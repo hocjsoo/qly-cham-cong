@@ -175,9 +175,14 @@ export default function DashboardPage() {
   useEffect(() => {
     const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const [yearVal, monthVal] = todayVN.split('-').map(Number);
+    const monthStr = String(monthVal).padStart(2, '0');
     api.get(`/announcements/birthdays?month=${monthVal}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
-    api.get('/announcements/anniversaries').then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
-    api.get(`/holidays?year=${yearVal}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get(`/announcements/anniversaries?month=${monthVal}`).then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
+    api.get(`/holidays?year=${yearVal}&month=${monthVal}`).then(r => {
+      const raw = Array.isArray(r.data) ? r.data : [];
+      const monthHols = raw.filter(h => (h.date && h.date.includes(`-${monthStr}-`)) || (h.end_date && h.end_date.includes(`-${monthStr}-`)));
+      setHolidays(monthHols);
+    }).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
