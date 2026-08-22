@@ -56,7 +56,7 @@ const getMyRequests = async (req, res) => {
 
 // POST /api/requests
 const createRequest = async (req, res) => {
-  const { type, start_date, end_date, start_time, end_time, reason, project_id, project_name } = req.body;
+  const { type, start_date, end_date, start_time, end_time, reason, project_id, project_name, attachment_url } = req.body;
   const userId = req.user._id;
 
   if (!type || !start_date || !reason) {
@@ -92,7 +92,7 @@ const createRequest = async (req, res) => {
       start_time: start_time || null,
       end_time: end_time || null,
       reason: reason.trim(),
-      attachment_url: project_id || null,
+      attachment_url: attachment_url || null,
     });
 
     // Gửi thông báo đến tất cả Admin & Trưởng phòng để duyệt đơn

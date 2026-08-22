@@ -2,7 +2,7 @@
 // Trang Đơn Từ — Premium Request Portal (Form, KPI Cards, Status Filters & Manager Workflow)
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search } from 'lucide-react';
+import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -64,6 +64,7 @@ export default function RequestsPage() {
   const [endTime, setEndTime] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
   const [reason, setReason] = useState('');
+  const [attachmentUrl, setAttachmentUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -89,6 +90,20 @@ export default function RequestsPage() {
     }
   };
 
+  const handleImagePick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Kích thước ảnh tối đa là 8MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setAttachmentUrl(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateRequest = async () => {
     if (!startDate) {
       toast.error('Vui lòng chọn ngày áp dụng');
@@ -109,11 +124,12 @@ export default function RequestsPage() {
         end_time: endTime || null,
         project_id: selectedProject || null,
         reason: reason.trim(),
+        attachment_url: attachmentUrl || null,
       });
 
       toast.success('Gửi đơn thành công! 📝');
       setShowForm(false);
-      setStartDate(''); setEndDate(''); setStartTime(''); setEndTime(''); setReason(''); setSelectedProject('');
+      setStartDate(''); setEndDate(''); setStartTime(''); setEndTime(''); setReason(''); setSelectedProject(''); setAttachmentUrl('');
       loadData();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi gửi đơn');
@@ -368,6 +384,25 @@ export default function RequestsPage() {
                     "{r.reason}"
                   </div>
 
+                  {/* Attachment Photo Thumbnail if present */}
+                  {r.attachment_url && (
+                    <div style={{ margin: '8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img
+                        src={r.attachment_url}
+                        alt="Minh chứng"
+                        onClick={() => setFullAvatarImage({ url: r.attachment_url, title: `Minh chứng đính kèm: ${displayName}` })}
+                        style={{
+                          width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover',
+                          border: '2px solid var(--primary)', cursor: 'pointer'
+                        }}
+                        title="Click để phóng to ảnh minh chứng"
+                      />
+                      <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600 }}>
+                        📸 Ảnh minh chứng đính kèm (Click để phóng to)
+                      </div>
+                    </div>
+                  )}
+
                   {/* Time & Location Details */}
                   <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: 'var(--text-muted)', flexWrap: 'wrap', marginBottom: '6px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -534,6 +569,43 @@ export default function RequestsPage() {
                 onChange={e => setReason(e.target.value)}
                 placeholder="Nhập lý do xin phép hoặc giải trình..."
               />
+            </div>
+
+            {/* Ảnh minh chứng đính kèm (Ảnh selfie, vé xe, đơn thuốc, ảnh công trình) */}
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>📸 Ảnh minh chứng đính kèm (Không bắt buộc)</span>
+                {attachmentUrl && (
+                  <button type="button" onClick={() => setAttachmentUrl('')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: '11px', cursor: 'pointer' }}>
+                    Xóa ảnh
+                  </button>
+                )}
+              </label>
+
+              {attachmentUrl ? (
+                <div style={{ position: 'relative', display: 'inline-block', marginTop: '4px' }}>
+                  <img
+                    src={attachmentUrl}
+                    alt="Preview"
+                    style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                  />
+                </div>
+              ) : (
+                <label style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  padding: '12px', borderRadius: '10px', border: '1px dashed var(--border)',
+                  background: 'var(--bg-raised)', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)'
+                }}>
+                  <Camera size={18} color="var(--primary)" />
+                  <span>Chạm để chọn ảnh / chụp từ camera</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImagePick}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
