@@ -1,8 +1,6 @@
-// src/pages/RequestsPage.jsx
-// Trang Đơn Từ — Premium Request Portal (Form, KPI Cards, Status Filters & Manager Workflow)
-
 import { useState, useEffect } from 'react';
-import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search, Camera } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search, Camera, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -32,18 +30,36 @@ const formatDate = (iso) => {
   return new Date(iso + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const fmtTime = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function RequestsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'mine';
+
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'leader';
 
-  const [tab, setTab] = useState('mine'); // 'mine' | 'pending'
+  const [tab, setTab] = useState(isManager && initialTab === 'flagged' ? 'flagged' : isManager && initialTab === 'pending' ? 'pending' : 'mine'); // 'mine' | 'pending' | 'flagged'
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
   const [projects, setProjects] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+
+  // Flagged Attendance & Photo Verification State
+  const [flaggedList, setFlaggedList] = useState([]);
+  const [flaggedCounts, setFlaggedCounts] = useState({ pending: 0, approved: 0, rejected: 0, with_photo: 0, total: 0 });
+  const [flaggedTab, setFlaggedTab] = useState('pending');
+  const [flaggedLoading, setFlaggedLoading] = useState(false);
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [rejectFlaggedTarget, setRejectFlaggedTarget] = useState(null);
+  const [rejectFlaggedReason, setRejectFlaggedReason] = useState('');
+  const [allowRecheckin, setAllowRecheckin] = useState(false);
 
   // Status & Search Filters
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
@@ -71,6 +87,9 @@ export default function RequestsPage() {
     loadData();
     api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get('/leave-balance/me').then(r => setLeaveBalance(r.data?.annual_leave)).catch(() => {});
+    if (isManager) {
+      fetchFlagged();
+    }
   }, [tab]);
 
   const loadData = async () => {
@@ -168,6 +187,61 @@ export default function RequestsPage() {
     }
   };
 
+  const fetchFlagged = async (targetStatus) => {
+    try {
+      setFlaggedLoading(true);
+      const st = targetStatus || flaggedTab;
+      const res = await api.get(`/attendance/flagged?status=${st}`);
+      if (res.data) {
+        setFlaggedList(res.data.flagged || []);
+        if (res.data.counts) {
+          setFlaggedCounts(res.data.counts);
+        }
+      }
+    } catch {
+      toast.error('Lỗi tải danh sách cảnh báo chấm công');
+    } finally {
+      setFlaggedLoading(false);
+    }
+  };
+
+  const handleVerifyFlagged = async (recordId, action) => {
+    try {
+      setVerifyingId(recordId);
+      await api.put(`/attendance/flagged/verify/${recordId}`, {
+        action,
+        reviewer_note: action === 'approve' ? 'Đã duyệt qua Portal Phê Duyệt' : 'Bị từ chối'
+      });
+      toast.success(action === 'approve' ? 'Đã duyệt ca chấm công thành công! ✅' : 'Đã từ chối ca chấm công! ❌');
+      fetchFlagged();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý xác minh ca');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
+  const handleConfirmRejectFlagged = async () => {
+    if (!rejectFlaggedTarget) return;
+    try {
+      setVerifyingId(rejectFlaggedTarget._id);
+      await api.put(`/attendance/flagged/verify/${rejectFlaggedTarget._id}`, {
+        action: 'reject',
+        reviewer_note: rejectFlaggedReason.trim() || 'Từ chối ca chấm công',
+        reset_today: allowRecheckin
+      });
+      toast.success(allowRecheckin ? 'Đã từ chối & Xóa ca để nhân viên chấm lại! 🗑️' : 'Đã từ chối ca chấm công! ❌');
+      setRejectFlaggedTarget(null);
+      setRejectFlaggedReason('');
+      setAllowRecheckin(false);
+      fetchFlagged();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý từ chối ca');
+    } finally {
+      setVerifyingId(null);
+    }
+  };
+
   const rawList = tab === 'mine' ? mine : pending;
   const list = rawList.filter(r => {
     const matchStatus = statusFilter === 'all' || r.status === statusFilter;
@@ -209,7 +283,7 @@ export default function RequestsPage() {
       {/* Top Header */}
       <div className="header">
         <div className="header__inner">
-          <div className="header__title">Portal Đơn Từ</div>
+          <div className="header__title">Portal Phê Duyệt & Đơn Từ</div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
               <Plus size={15} /> Tạo đơn mới
@@ -220,25 +294,35 @@ export default function RequestsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* KPI Stat Cards Header (Đã bỏ Phép còn lại theo yêu cầu) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
+        {/* KPI Stat Cards Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: isManager ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '8px', marginBottom: '14px' }}>
           <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>⏳ ĐƠN CHỜ DUYỆT</div>
             <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--yellow)' }}>{pendingCount}</div>
           </div>
           <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>✅ ĐÃ DUYỆT</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>✅ ĐƠN ĐÃ DUYỆT</div>
             <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green)' }}>{approvedCount}</div>
           </div>
+          {isManager && (
+            <div className="card" style={{ padding: '10px 12px', textAlign: 'center', background: flaggedCounts.pending > 0 ? 'var(--yellow-soft)' : 'var(--bg-card)', border: flaggedCounts.pending > 0 ? '1px solid var(--yellow)' : '1px solid var(--border)' }}>
+              <div style={{ fontSize: '11px', color: flaggedCounts.pending > 0 ? 'var(--yellow)' : 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
+                🛡️ CẢNH BÁO / ẢNH
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: flaggedCounts.pending > 0 ? 'var(--yellow)' : 'var(--primary)' }}>
+                {flaggedCounts.pending}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Primary Role Tabs */}
         {isManager && (
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
             <button
               onClick={() => { setTab('mine'); setStatusFilter('all'); }}
               style={{
-                flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                flex: 1, padding: '8px 8px', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
                 background: tab === 'mine' ? 'var(--bg-card)' : 'transparent',
                 color: tab === 'mine' ? 'var(--primary)' : 'var(--text-secondary)',
                 boxShadow: tab === 'mine' ? 'var(--shadow-xs)' : 'none',
@@ -249,135 +333,307 @@ export default function RequestsPage() {
             <button
               onClick={() => { setTab('pending'); setStatusFilter('all'); }}
               style={{
-                flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                flex: 1, padding: '8px 8px', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
                 background: tab === 'pending' ? 'var(--bg-card)' : 'transparent',
                 color: tab === 'pending' ? 'var(--primary)' : 'var(--text-secondary)',
                 boxShadow: tab === 'pending' ? 'var(--shadow-xs)' : 'none',
               }}
             >
-              📋 Cần duyệt nhân viên ({pending.length})
+              📋 Đơn nhân viên ({pending.length})
+            </button>
+            <button
+              onClick={() => { setTab('flagged'); fetchFlagged(); }}
+              style={{
+                flex: 1, padding: '8px 8px', border: 'none', borderRadius: '8px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                background: tab === 'flagged' ? 'var(--bg-card)' : 'transparent',
+                color: tab === 'flagged' ? 'var(--yellow)' : 'var(--text-secondary)',
+                boxShadow: tab === 'flagged' ? 'var(--shadow-xs)' : 'none',
+                position: 'relative'
+              }}
+            >
+              🛡️ Cảnh báo & Ảnh {flaggedCounts.pending > 0 && <span className="badge badge--warning" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '4px' }}>{flaggedCounts.pending}</span>}
             </button>
           </div>
         )}
 
-        {/* Search Bar + Type Select */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input
-              type="text"
-              className="form-input"
-              style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-              placeholder="🔍 Tìm theo Tên, Mã NS, Lý do, Dự án..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px' }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
-            <option value="all">📂 Loại đơn: Tất cả</option>
-            <option value="annual_leave">🌴 Nghỉ phép năm</option>
-            <option value="business_trip">🏗️ Đi công tác</option>
-            <option value="wfh">🏠 Làm WFH</option>
-            <option value="attendance_override">⚡ Chấm công bổ sung</option>
-            <option value="late">⏰ Giải trình muộn/về sớm</option>
-            <option value="overtime">💪 Đơn tăng ca (OT)</option>
-            <option value="unpaid_leave">📄 Nghỉ không lương</option>
-            <option value="sick_leave">🤒 Nghỉ ốm</option>
-          </select>
-        </div>
-
-        {/* Status Filter Pills */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
-          {[
-            { key: 'all', label: 'Tất cả' },
-            { key: 'pending', label: '⏳ Chờ duyệt' },
-            { key: 'approved', label: '✅ Đã duyệt' },
-            { key: 'rejected', label: '❌ Từ chối' },
-          ].map(sf => (
-            <button
-              key={sf.key}
-              onClick={() => setStatusFilter(sf.key)}
-              className={`chip${statusFilter === sf.key ? ' active' : ''}`}
-              style={{ fontSize: '12px', padding: '6px 14px' }}
-            >
-              {sf.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Request List */}
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '96px', borderRadius: '12px' }} />)}
-          </div>
-        ) : list.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__icon">📄</div>
-            <div className="empty-state__title">Không tìm thấy đơn từ</div>
-            <div className="empty-state__desc">Bấm "Tạo đơn mới" để gửi yêu cầu xin nghỉ phép, giải trình đi muộn hoặc tăng ca</div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {list.map(r => {
-              const typeCfg = TYPE_CONFIG[r.type] || TYPE_CONFIG.other;
-              const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
-              const displayName = r.user_name || (tab === 'mine' ? user?.full_name : 'Nhân viên');
-              const avatarUrl = r.user_avatar || r.user_id?.avatar_url || (tab === 'mine' ? user?.avatar_url : null);
-              const initials = displayName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
-
-              return (
-                <div
-                  key={r._id}
-                  className="card animate-fade-in"
-                  style={{
-                    padding: '14px',
-                    borderLeft: `4px solid ${statusCfg.border}`,
-                    background: 'var(--bg-card)',
+        {tab === 'flagged' ? (
+          /* =========================================================================
+             FLAGGED ATTENDANCE & SELFIE PHOTO VERIFICATION TAB
+             ========================================================================= */
+          <div>
+            {/* Filter Tabs for Flagged Attendance */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { key: 'pending', label: `⏳ Chờ duyệt (${flaggedCounts.pending})` },
+                { key: 'approved', label: `✅ Đã duyệt (${flaggedCounts.approved})` },
+                { key: 'rejected', label: `❌ Đã từ chối (${flaggedCounts.rejected})` },
+                { key: 'photo', label: `📸 Kèm ảnh Selfie (${flaggedCounts.with_photo})` },
+                { key: 'all', label: `Tất cả (${flaggedCounts.total})` },
+              ].map(ft => (
+                <button
+                  key={ft.key}
+                  onClick={() => {
+                    setFlaggedTab(ft.key);
+                    fetchFlagged(ft.key);
                   }}
+                  className={`chip${flaggedTab === ft.key ? ' active' : ''}`}
+                  style={{ fontSize: '11.5px', padding: '6px 12px', whiteSpace: 'nowrap' }}
                 >
-                  {/* Top Row: Type Tag + Avatar + Status Badge */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div
-                        className="avatar"
-                        style={{
-                          width: '32px', height: '32px', fontSize: '11px', flexShrink: 0,
-                          borderRadius: '50%', overflow: 'hidden', cursor: avatarUrl ? 'zoom-in' : 'default',
-                          border: '1.5px solid var(--border)', background: 'var(--bg-raised)', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center'
-                        }}
-                        onClick={() => {
-                          if (avatarUrl) {
-                            setFullAvatarImage({ url: avatarUrl, title: displayName });
-                          }
-                        }}
-                        title={avatarUrl ? 'Click để xem ảnh lớn' : ''}
-                      >
-                        {avatarUrl ? (
-                          <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  {ft.label}
+                </button>
+              ))}
+            </div>
+
+            {flaggedLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '110px', borderRadius: '12px' }} />)}
+              </div>
+            ) : flaggedList.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__icon">🛡️</div>
+                <div className="empty-state__title">Không có ca cảnh báo nào</div>
+                <div className="empty-state__desc">Tất cả các ca chấm công đã được xác thực an toàn</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {flaggedList.map(item => {
+                  const isPending = item.verification_status === 'pending_review' || item.is_flagged;
+                  const isApproved = item.verification_status === 'approved';
+                  const isRejected = item.verification_status === 'rejected';
+
+                  return (
+                    <div key={item._id} className="card animate-fade-in" style={{
+                      padding: '14px', borderRadius: '14px',
+                      borderLeft: `4px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
+                      background: 'var(--bg-card)'
+                    }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        {/* Selfie Photo Thumbnail with Zoom Click */}
+                        {item.selfie_url ? (
+                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <img
+                              src={item.selfie_url}
+                              alt="Selfie"
+                              onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${item.user_id?.full_name || 'Nhân viên'}` })}
+                              style={{
+                                width: 68, height: 68, borderRadius: '12px', objectFit: 'cover',
+                                border: `2px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
+                                cursor: 'pointer', display: 'block'
+                              }}
+                              title="Click để phóng to ảnh Selfie"
+                            />
+                            <span style={{
+                              position: 'absolute', bottom: '-4px', right: '-4px',
+                              background: 'var(--primary)', color: '#fff', fontSize: '9px',
+                              borderRadius: '6px', padding: '1px 4px', fontWeight: 800
+                            }}>
+                              📸 Zoom
+                            </span>
+                          </div>
                         ) : (
-                          initials
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{
-                            fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: typeCfg.bg,
-                            padding: '3px 8px', borderRadius: '6px', border: `1px solid ${typeCfg.color}22`
+                          <div style={{
+                            width: 68, height: 68, borderRadius: '12px', background: 'var(--bg-raised)',
+                            color: 'var(--text-muted)', fontSize: '10px', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontWeight: 700, textAlign: 'center', padding: '4px', flexShrink: 0,
+                            border: '1px dashed var(--border)'
                           }}>
-                            {typeCfg.label}
-                          </span>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>
-                            {displayName} {r.user_code ? `(#${r.user_code})` : ''}
-                          </span>
+                            Không có ảnh
+                          </div>
+                        )}
+
+                        {/* Details */}
+                        <div style={{ flex: 1, minWidth: '220px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                                👤 {item.user_id?.full_name || 'Nhân viên'}
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>
+                                #{item.user_id?.employee_code || item.user_id?.code || 'NS'}
+                              </span>
+                            </div>
+                            <span className={`badge ${isApproved ? 'badge--success' : isRejected ? 'badge--danger' : 'badge--warning'}`} style={{ fontSize: '10px' }}>
+                              {isApproved ? '✅ Đã duyệt' : isRejected ? '❌ Bị từ chối' : '⏳ Chờ duyệt'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '12px', color: isApproved ? 'var(--green)' : isPending ? 'var(--yellow)' : 'var(--red)', fontWeight: 700, margin: '2px 0 6px 0' }}>
+                            {item.flag_reasons?.includes('GPS_OUTSIDE_PHOTO_FALLBACK')
+                              ? '📸 Chấm công ảnh xác thực dự phòng (Ngoài bán kính GPS)'
+                              : item.is_flagged
+                                ? '🚨 Cảnh báo thiết bị / Nghi vấn chấm hộ'
+                                : '📋 Bản ghi xác thực hình ảnh'}
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', lineHeight: 1.4 }}>
+                            <strong>📱 Thiết bị:</strong> {item.hardware_uuid ? `ID phần cứng [${item.hardware_uuid.slice(0, 10)}]` : 'Chưa định danh'} {item.check_in_note ? `· Ghi chú: ${item.check_in_note}` : ''}
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <span>🕒 Lúc: <strong>{fmtTime(item.check_in_time)}</strong></span>
+                            <span>📅 Ngày: <strong>{formatDate(item.date)}</strong></span>
+                            {item.reviewed_at && (
+                              <span style={{ color: 'var(--green)', fontWeight: 600 }}>
+                                ✍️ Duyệt bởi: {item.reviewed_by?.full_name || 'Admin'} ({new Date(item.reviewed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <span className={`badge ${statusCfg.cls}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      {statusCfg.icon} {statusCfg.label}
-                    </span>
-                  </div>
+                      {/* Admin Quick Action Panel */}
+                      {isAdmin && isPending && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
+                          <button
+                            onClick={() => handleVerifyFlagged(item._id, 'approve')}
+                            disabled={verifyingId === item._id}
+                            className="btn btn--primary"
+                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
+                          >
+                            <Check size={14} /> Duyệt ca hợp lệ
+                          </button>
+                          <button
+                            onClick={() => {
+                              setRejectFlaggedTarget(item);
+                              setRejectFlaggedReason('');
+                              setAllowRecheckin(false);
+                            }}
+                            disabled={verifyingId === item._id}
+                            className="btn btn--ghost"
+                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
+                          >
+                            <X size={14} /> Từ chối ca
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* =========================================================================
+             STANDARD REQUESTS TAB (MINE / PENDING)
+             ========================================================================= */
+          <div>
+            {/* Search Bar + Type Select */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
+                  placeholder="🔍 Tìm theo Tên, Mã NS, Lý do, Dự án..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px' }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                <option value="all">📂 Loại đơn: Tất cả</option>
+                <option value="annual_leave">🌴 Nghỉ phép năm</option>
+                <option value="business_trip">🏗️ Đi công tác</option>
+                <option value="wfh">🏠 Làm WFH</option>
+                <option value="late">⏰ Giải trình muộn/về sớm</option>
+                <option value="overtime">💪 Đơn tăng ca (OT)</option>
+                <option value="unpaid_leave">📄 Nghỉ không lương</option>
+                <option value="sick_leave">🤒 Nghỉ ốm</option>
+              </select>
+            </div>
+
+            {/* Status Filter Pills */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { key: 'all', label: 'Tất cả' },
+                { key: 'pending', label: '⏳ Chờ duyệt' },
+                { key: 'approved', label: '✅ Đã duyệt' },
+                { key: 'rejected', label: '❌ Từ chối' },
+              ].map(sf => (
+                <button
+                  key={sf.key}
+                  onClick={() => setStatusFilter(sf.key)}
+                  className={`chip${statusFilter === sf.key ? ' active' : ''}`}
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  {sf.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Request List */}
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '96px', borderRadius: '12px' }} />)}
+              </div>
+            ) : list.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__icon">📄</div>
+                <div className="empty-state__title">Không tìm thấy đơn từ</div>
+                <div className="empty-state__desc">Bấm "Tạo đơn mới" để gửi yêu cầu xin nghỉ phép, giải trình đi muộn hoặc tăng ca</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {list.map(r => {
+                  const typeCfg = TYPE_CONFIG[r.type] || TYPE_CONFIG.other;
+                  const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
+                  const displayName = r.user_name || (tab === 'mine' ? user?.full_name : 'Nhân viên');
+                  const avatarUrl = r.user_avatar || r.user_id?.avatar_url || (tab === 'mine' ? user?.avatar_url : null);
+                  const initials = displayName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
+
+                  return (
+                    <div
+                      key={r._id}
+                      className="card animate-fade-in"
+                      style={{
+                        padding: '14px',
+                        borderLeft: `4px solid ${statusCfg.border}`,
+                        background: 'var(--bg-card)',
+                      }}
+                    >
+                      {/* Top Row: Type Tag + Avatar + Status Badge */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div
+                            className="avatar"
+                            style={{
+                              width: '32px', height: '32px', fontSize: '11px', flexShrink: 0,
+                              borderRadius: '50%', overflow: 'hidden', cursor: avatarUrl ? 'zoom-in' : 'default',
+                              border: '1.5px solid var(--border)', background: 'var(--bg-raised)', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center'
+                            }}
+                            onClick={() => {
+                              if (avatarUrl) {
+                                setFullAvatarImage({ url: avatarUrl, title: displayName });
+                              }
+                            }}
+                            title={avatarUrl ? 'Click để xem ảnh lớn' : ''}
+                          >
+                            {avatarUrl ? (
+                              <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{
+                                fontSize: '12px', fontWeight: 700, color: typeCfg.color, background: typeCfg.bg,
+                                padding: '3px 8px', borderRadius: '6px', border: `1px solid ${typeCfg.color}22`
+                              }}>
+                                {typeCfg.label}
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>
+                                {displayName} {r.user_code ? `(#${r.user_code})` : ''}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className={`badge ${statusCfg.cls}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {statusCfg.icon} {statusCfg.label}
+                        </span>
+                      </div>
 
                   {/* Reason Details */}
                   <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500, margin: '6px 0 8px 0', lineHeight: 1.5 }}>
@@ -464,6 +720,8 @@ export default function RequestsPage() {
                 </div>
               );
             })}
+          </div>
+        )}
           </div>
         )}
       </div>
@@ -643,6 +901,56 @@ export default function RequestsPage() {
               <button onClick={() => setRejectTarget(null)} className="btn btn--ghost btn--full">Hủy</button>
               <button onClick={handleConfirmReject} disabled={rejecting} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 700 }}>
                 {rejecting ? <span className="spinner" /> : 'Xác nhận từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Flagged Attendance Modal */}
+      {rejectFlaggedTarget && (
+        <div className="modal-overlay" onClick={() => setRejectFlaggedTarget(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertTriangle size={18} color="var(--red)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--red)' }}>Từ chối ca chấm công</h3>
+              </div>
+              <button onClick={() => setRejectFlaggedTarget(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.4 }}>
+              Xác nhận từ chối ca chấm công của nhân sự <strong>{rejectFlaggedTarget.user_id?.full_name || 'Nhân viên'}</strong> vào ngày <strong>{formatDate(rejectFlaggedTarget.date)}</strong>.
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Lý do từ chối *</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={rejectFlaggedReason}
+                onChange={e => setRejectFlaggedReason(e.target.value)}
+                placeholder="Nhập lý do (ví dụ: Ảnh không rõ mặt, vị trí ngoài văn phòng không báo trước...)"
+              />
+            </div>
+
+            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
+                <input
+                  type="checkbox"
+                  checked={allowRecheckin}
+                  onChange={e => setAllowRecheckin(e.target.checked)}
+                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                />
+                <span>Xóa ca hôm nay để nhân viên được phép chấm công lại</span>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
+              <button onClick={() => setRejectFlaggedTarget(null)} className="btn btn--ghost btn--full">Hủy</button>
+              <button onClick={handleConfirmRejectFlagged} disabled={verifyingId === rejectFlaggedTarget._id} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 700 }}>
+                {verifyingId === rejectFlaggedTarget._id ? <span className="spinner" /> : 'Xác nhận từ chối'}
               </button>
             </div>
           </div>
