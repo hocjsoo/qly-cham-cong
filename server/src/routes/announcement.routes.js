@@ -5,6 +5,7 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 const {
   getBirthdays,
+  getAnniversaries,
   getPinned,
   getAll,
   createAnnouncement,
@@ -14,6 +15,7 @@ const {
 
 // Tat ca users dang nhap deu co the xem
 router.get('/birthdays', authMiddleware, getBirthdays);
+router.get('/anniversaries', authMiddleware, getAnniversaries);
 router.get('/pinned', authMiddleware, getPinned);
 router.get('/', authMiddleware, getAll);
 

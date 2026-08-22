@@ -183,6 +183,8 @@ export default function StaffPage() {
     }
   };
 
+  const [sortBy, setSortBy] = useState('name_asc'); // 'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'code_asc'
+
   const filtered = staff.filter(s => {
     const q = search.trim().toLowerCase();
     const matchSearch = !q ||
@@ -201,6 +203,19 @@ export default function StaffPage() {
     const matchEmpType = !filterEmpType || s.employee_type === filterEmpType;
 
     return matchSearch && matchDept && matchRole && matchStatus && matchEmpType;
+  }).sort((a, b) => {
+    if (sortBy === 'name_asc') {
+      return (a.full_name || '').localeCompare(b.full_name || '', 'vi');
+    } else if (sortBy === 'name_desc') {
+      return (b.full_name || '').localeCompare(a.full_name || '', 'vi');
+    } else if (sortBy === 'date_desc') {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    } else if (sortBy === 'date_asc') {
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    } else if (sortBy === 'code_asc') {
+      return (a.employee_code || '').localeCompare(b.employee_code || '', 'vi');
+    }
+    return 0;
   });
 
   const openCreate = () => {
@@ -324,9 +339,11 @@ export default function StaffPage() {
             <div className="header__subtitle">{staff.length} người · {depts.length} phòng ban</div>
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button onClick={openCreate} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
-              <Plus size={14} /> Thêm mới
-            </button>
+            {isAdmin && (
+              <button onClick={openCreate} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
+                <Plus size={14} /> Thêm mới
+              </button>
+            )}
             <HeaderActions />
           </div>
         </div>
@@ -362,6 +379,14 @@ export default function StaffPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0, fontWeight: 600, color: 'var(--primary)' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="name_asc">🔤 Tên A → Z</option>
+              <option value="name_desc">🔤 Tên Z → A</option>
+              <option value="date_desc">📅 Ngày vào (Mới nhất)</option>
+              <option value="date_asc">📅 Ngày vào (Cũ nhất)</option>
+              <option value="code_asc">🏷️ Mã nhân viên</option>
+            </select>
+
             <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
               <option value="">👤 Vai trò: Tất cả</option>
               <option value="employee">Nhân viên</option>
@@ -459,19 +484,13 @@ export default function StaffPage() {
                       </div>
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions (Admin Only) */}
                     <div style={{ display: 'flex', gap: '4px', flexShrink: 0, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                      {u.role === 'admin' && currentUser?.role !== 'admin' ? (
-                        <span className="badge badge--neutral" style={{ fontSize: '10px', padding: '4px 8px', opacity: 0.8 }} title="Chỉ Admin mới có quyền thao tác trên tài khoản Admin">
-                          🔒 Admin
-                        </span>
-                      ) : (
+                      {isAdmin ? (
                         <>
-                          {currentUser?.role === 'admin' && (
-                            <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
-                              📝
-                            </button>
-                          )}
+                          <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
+                            📝
+                          </button>
                           <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
                             🔑
                           </button>
@@ -485,7 +504,7 @@ export default function StaffPage() {
                           >
                             {isInactive ? <UserCheck size={14} /> : <UserX size={14} />}
                           </button>
-                          {currentUser?.role === 'admin' && u._id !== currentUser?._id && (
+                          {u._id !== currentUser?._id && (
                             <button
                               onClick={() => handleDelete(u)}
                               title="Xóa vĩnh viễn"
@@ -495,6 +514,14 @@ export default function StaffPage() {
                             </button>
                           )}
                         </>
+                      ) : (
+                        <button
+                          onClick={() => { setViewingStaffDetail(u); }}
+                          className="btn btn--ghost"
+                          style={{ fontSize: '11px', padding: '4px 8px' }}
+                        >
+                          👁️ Chi tiết
+                        </button>
                       )}
                     </div>
                   </div>

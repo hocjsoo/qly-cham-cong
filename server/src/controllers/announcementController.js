@@ -146,16 +146,78 @@ const updateAnnouncement = async (req, res) => {
   }
 };
 
+// GET /api/announcements/anniversaries
+// Danh sách nhân sự kỷ niệm 1, 2, 3+ năm gắn bó & sinh nhật
+const getAnniversaries = async (req, res) => {
+  try {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentMonthStr = String(currentMonth).padStart(2, '0');
+
+    const users = await User.find({
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] },
+      is_active: { $ne: false },
+    })
+      .select('full_name email phone position start_year created_at dob department_id department_ids avatar_url employee_code')
+      .populate('department_id', 'name')
+      .populate('department_ids', 'name');
+
+    const anniversaries = [];
+    for (const u of users) {
+      let joinYear = null;
+      let joinMonth = null;
+
+      if (u.start_year && !isNaN(parseInt(u.start_year))) {
+        joinYear = parseInt(u.start_year);
+      } else if (u.created_at) {
+        const joinDate = new Date(u.created_at);
+        joinYear = joinDate.getFullYear();
+        joinMonth = joinDate.getMonth() + 1;
+      }
+
+      if (joinYear && currentYear >= joinYear) {
+        const yearsCount = currentYear - joinYear;
+        if (yearsCount >= 1) {
+          const deptNames = (u.department_ids && u.department_ids.length > 0)
+            ? u.department_ids.map(dep => dep.name)
+            : (u.department_id?.name ? [u.department_id.name] : []);
+
+          anniversaries.push({
+            user_id: u._id,
+            id: u._id,
+            full_name: u.full_name,
+            email: u.email,
+            avatar_url: u.avatar_url,
+            employee_code: u.employee_code,
+            position: u.position || 'Nhân viên',
+            department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
+            years_count: yearsCount,
+            start_year: joinYear,
+            badge: yearsCount >= 5 ? '🏆 5+ Năm Gắn Bó' : yearsCount >= 3 ? '🎖️ 3+ Năm Cống Hiến' : `${yearsCount} Năm Đồng Hành`,
+          });
+        }
+      }
+    }
+
+    // Sắp xếp người gắn bó nhiều năm nhất lên đầu
+    anniversaries.sort((a, b) => b.years_count - a.years_count);
+
+    res.json({
+      current_year: currentYear,
+      current_month: currentMonth,
+      anniversaries,
+    });
 // DELETE /api/announcements/:id
 const deleteAnnouncement = async (req, res) => {
   try {
     const ann = await Announcement.findByIdAndDelete(req.params.id);
-    if (!ann) return res.status(404).json({ error: 'Khong tim thay thong bao.' });
-    res.json({ message: 'Da xoa thong bao.' });
+    if (!ann) return res.status(404).json({ error: 'Không tìm thấy thông báo.' });
+    res.json({ message: 'Đã xóa thông báo.' });
   } catch (error) {
     console.error('DeleteAnnouncement error:', error);
-    res.status(500).json({ error: 'Loi xoa thong bao.' });
+    res.status(500).json({ error: 'Lỗi xóa thông báo.' });
   }
 };
 
-module.exports = { getBirthdays, getPinned, getAll, createAnnouncement, updateAnnouncement, deleteAnnouncement };
+module.exports = { getBirthdays, getAnniversaries, getPinned, getAll, createAnnouncement, updateAnnouncement, deleteAnnouncement };

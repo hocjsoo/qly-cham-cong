@@ -51,10 +51,12 @@ export default function ProjectsPage() {
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const [projects, setProjects] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('date_desc'); // 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
   const [viewMode, setViewMode] = useState('table'); // 'table' (Bảng Excel) | 'grid' (Thẻ Card)
 
   // Modal State
@@ -70,11 +72,15 @@ export default function ProjectsPage() {
     address: '',
     note: '',
     status: 'Đang tiến hành',
+    members: [],
+    deadline: '',
+    progress: 0,
   });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
+    fetchStaff();
   }, []);
 
   const fetchProjects = async () => {
@@ -89,18 +95,31 @@ export default function ProjectsPage() {
     }
   };
 
+  const fetchStaff = async () => {
+    try {
+      const { data } = await api.get('/users').catch(() => ({ data: [] }));
+      const users = Array.isArray(data) ? data : (data?.users || []);
+      setStaffList(users.filter(u => u.is_active !== false));
+    } catch {
+      setStaffList([]);
+    }
+  };
+
   const handleOpenCreate = () => {
     setEditingProject(null);
     setForm({
-      code: `NS ${String(projects.length + 1).padStart(2, '0')}`,
+      code: `DA-${Date.now().toString().slice(-4)}`,
       name: '',
       sub_project: '',
       category: 'Kiến trúc',
       client_name: '',
-      pm_name: '',
+      pm_name: user?.full_name || '',
       address: '',
       note: '',
       status: 'Đang tiến hành',
+      members: [user?._id || user?.id].filter(Boolean),
+      deadline: '',
+      progress: 0,
     });
     setShowModal(true);
   };
@@ -112,6 +131,10 @@ export default function ProjectsPage() {
     if (st === 'paused') st = 'Chờ';
     if (st === 'completed') st = 'Đã hoàn thành';
 
+    const memberIds = Array.isArray(proj.members)
+      ? proj.members.map(m => m?._id || m?.id || m)
+      : [];
+
     setForm({
       code: proj.code || '',
       name: proj.name || '',
@@ -122,8 +145,23 @@ export default function ProjectsPage() {
       address: proj.address || '',
       note: proj.note || '',
       status: st,
+      members: memberIds,
+      deadline: proj.deadline || '',
+      progress: proj.progress || 0,
     });
     setShowModal(true);
+  };
+
+  const toggleMemberSelection = (userId) => {
+    setForm(prev => {
+      const exists = prev.members.includes(userId);
+      return {
+        ...prev,
+        members: exists
+          ? prev.members.filter(id => id !== userId)
+          : [...prev.members, userId]
+      };
+    });
   };
 
   const handleSubmit = async () => {
@@ -172,6 +210,19 @@ export default function ProjectsPage() {
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchStat = selectedStatus === 'all' || p.status === selectedStatus;
     return matchSearch && matchCat && matchStat;
+  }).sort((a, b) => {
+    if (sortBy === 'name_asc') {
+      return (a.name || '').localeCompare(b.name || '', 'vi');
+    } else if (sortBy === 'name_desc') {
+      return (b.name || '').localeCompare(a.name || '', 'vi');
+    } else if (sortBy === 'date_desc') {
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    } else if (sortBy === 'date_asc') {
+      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+    } else if (sortBy === 'progress_desc') {
+      return (b.progress || 0) - (a.progress || 0);
+    }
+    return 0;
   });
 
   const totalCount = projects.length;
@@ -225,11 +276,25 @@ export default function ProjectsPage() {
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '32px', fontSize: '13px', padding: '7px 10px 7px 32px' }}
-                placeholder="Tìm mã dự án, tên dự án, PM, ghi chú..."
+                placeholder="Tìm mã dự án, tên dự án, PM, thành viên..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* Sort Dropdown */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+            >
+              <option value="date_desc">📅 Mới nhất</option>
+              <option value="date_asc">📅 Cũ nhất</option>
+              <option value="name_asc">🔤 Tên A → Z</option>
+              <option value="name_desc">🔤 Tên Z → A</option>
+              <option value="progress_desc">📊 Tiến độ cao</option>
+            </select>
 
             {/* Category Filter */}
             <select
@@ -300,10 +365,10 @@ export default function ProjectsPage() {
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '2px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
                   <th style={{ padding: '10px 12px', width: '110px' }}>NO. (Mã dự án)</th>
                   <th style={{ padding: '10px 12px' }}>DỰ ÁN</th>
-                  <th style={{ padding: '10px 12px' }}>DA THÀNH PHẦN</th>
+                  <th style={{ padding: '10px 12px' }}>THÀNH VIÊN</th>
+                  <th style={{ padding: '10px 12px' }}>TIẾN ĐỘ</th>
                   <th style={{ padding: '10px 12px' }}>PHÂN LOẠI</th>
-                  <th style={{ padding: '10px 12px' }}>PM (quản lý dự án)</th>
-                  <th style={{ padding: '10px 12px' }}>NOTE</th>
+                  <th style={{ padding: '10px 12px' }}>PM</th>
                   <th style={{ padding: '10px 12px' }}>TRẠNG THÁI</th>
                   {isAdminOrManager && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
                 </tr>
@@ -311,6 +376,7 @@ export default function ProjectsPage() {
               <tbody>
                 {filteredProjects.map((p, idx) => {
                   const statObj = STATUS_MAP[p.status] || { cls: 'badge--neutral', label: p.status || 'Khác' };
+                  const members = Array.isArray(p.members) ? p.members : [];
 
                   return (
                     <tr
@@ -327,17 +393,69 @@ export default function ProjectsPage() {
 
                       {/* DỰ ÁN */}
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text)' }}>
-                        {p.name}
-                        {p.client_name && (
+                        <div>{p.name}</div>
+                        {p.deadline && (
                           <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                            👤 Khách hàng: {p.client_name}
+                            ⏱️ Hạn chót: {p.deadline}
                           </div>
                         )}
                       </td>
 
-                      {/* DA THÀNH PHẦN */}
-                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
-                        {p.sub_project || '—'}
+                      {/* THÀNH VIÊN (Stacked Avatars) */}
+                      <td style={{ padding: '10px 12px' }}>
+                        {members.length > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {members.slice(0, 3).map((m, mIdx) => (
+                              <div
+                                key={m._id || mIdx}
+                                title={m.full_name || 'Thành viên'}
+                                style={{
+                                  width: '24px', height: '24px', borderRadius: '50%',
+                                  background: 'var(--primary)', color: '#fff',
+                                  fontSize: '10px', fontWeight: 700,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  marginLeft: mIdx > 0 ? '-8px' : '0',
+                                  border: '2px solid var(--bg-card)',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                {m.avatar_url ? (
+                                  <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : (
+                                  (m.full_name || 'U').charAt(0).toUpperCase()
+                                )}
+                              </div>
+                            ))}
+                            {members.length > 3 && (
+                              <div style={{
+                                width: '24px', height: '24px', borderRadius: '50%',
+                                background: 'var(--bg-raised)', color: 'var(--text-secondary)',
+                                fontSize: '10px', fontWeight: 700,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                marginLeft: '-8px', border: '2px solid var(--bg-card)'
+                              }}>
+                                +{members.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* TIẾN ĐỘ */}
+                      <td style={{ padding: '10px 12px', minWidth: '110px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ flex: 1, height: '6px', background: 'var(--bg-raised)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%',
+                              width: `${Math.min(100, Math.max(0, p.progress || 0))}%`,
+                              background: (p.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)',
+                              borderRadius: '3px'
+                            }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '28px' }}>{p.progress || 0}%</span>
+                        </div>
                       </td>
 
                       {/* PHÂN LOẠI */}
@@ -348,11 +466,6 @@ export default function ProjectsPage() {
                         }}>
                           {p.category || 'Kiến trúc'}
                         </span>
-                      </td>
-
-                      {/* PM (quản lý dự án) */}
-                      <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--text)' }}>
-                        {p.pm_name ? `👷 ${p.pm_name}` : '—'}
                       </td>
 
                       {/* NOTE */}
@@ -555,6 +668,84 @@ export default function ProjectsPage() {
                   onChange={e => setForm({ ...form, client_name: e.target.value })}
                   placeholder="VD: Anh Minh / Ecopark"
                 />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div className="form-group">
+                <label className="form-label">Tiến độ ({form.progress}%)</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  className="form-input"
+                  style={{ padding: '4px 0' }}
+                  value={form.progress}
+                  onChange={e => setForm({ ...form, progress: Number(e.target.value) })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Hạn chót (Deadline)</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={form.deadline}
+                  onChange={e => setForm({ ...form, deadline: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Multi-member selection list */}
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                👥 Thành viên dự án ({form.members.length} người đã chọn)
+              </label>
+              <div style={{
+                maxHeight: '140px', overflowY: 'auto',
+                border: '1px solid var(--border)', borderRadius: '8px',
+                padding: '6px', background: 'var(--bg-raised)',
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px'
+              }}>
+                {staffList.map(u => {
+                  const uid = u._id || u.id;
+                  const isSelected = form.members.includes(uid);
+                  return (
+                    <div
+                      key={uid}
+                      onClick={() => toggleMemberSelection(uid)}
+                      style={{
+                        padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        background: isSelected ? 'var(--primary-soft)' : 'var(--bg-card)',
+                        border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-muted)',
+                        transition: 'all 0.1s'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '50%',
+                        background: 'var(--primary)', color: '#fff',
+                        fontSize: '9px', fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                      }}>
+                        {u.avatar_url ? (
+                          <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          (u.full_name || 'U').charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', fontWeight: isSelected ? 700 : 500 }}>
+                        {u.full_name}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

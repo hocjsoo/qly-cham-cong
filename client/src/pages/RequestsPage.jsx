@@ -34,6 +34,7 @@ const formatDate = (iso) => {
 
 export default function RequestsPage() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'leader';
 
   const [tab, setTab] = useState('mine'); // 'mine' | 'pending'
@@ -395,22 +396,34 @@ export default function RequestsPage() {
                   )}
 
                   {/* Manager Quick Action Panel */}
-                  {tab === 'pending' && isManager && r.status === 'pending' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
-                      <button
-                        onClick={() => handleApprove(r._id)}
-                        className="btn btn--primary"
-                        style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
-                      >
-                        <Check size={14} /> Duyệt đơn
-                      </button>
-                      <button
-                        onClick={() => { setRejectTarget(r); setRejectNote(''); }}
-                        className="btn btn--ghost"
-                        style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
-                      >
-                        <X size={14} /> Từ chối
-                      </button>
+                  {tab === 'pending' && r.status === 'pending' && (
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
+                      {isAdmin ? (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => handleApprove(r._id)}
+                            className="btn btn--primary"
+                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
+                          >
+                            <Check size={14} /> Phê duyệt
+                          </button>
+                          <button
+                            onClick={() => { setRejectTarget(r); setRejectNote(''); }}
+                            className="btn btn--ghost"
+                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
+                          >
+                            <X size={14} /> Từ chối
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{
+                          fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)',
+                          padding: '6px 10px', borderRadius: '6px', textAlign: 'center', fontWeight: 600,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                        }}>
+                          <Clock size={13} color="var(--yellow)" /> Chờ Ban Giám Đốc (Admin) phê duyệt
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

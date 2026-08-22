@@ -25,10 +25,10 @@ const getClientIP = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '127.0.0.1';
 };
 
-// Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00
-function calculateLateTier(checkInDate, workStartStr = '08:30', minorMins = 10, mediumMins = 30) {
+// Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
+function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60) {
   const dateStr = new Date(checkInDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const timePart = (workStartStr && workStartStr.includes(':')) ? workStartStr.trim() : '08:30';
+  const timePart = (workStartStr && workStartStr.includes(':')) ? workStartStr.trim() : '09:00';
   const [startH, startM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
 
   // Mốc bắt đầu ca làm việc chuẩn theo múi giờ Việt Nam +07:00
@@ -39,18 +39,39 @@ function calculateLateTier(checkInDate, workStartStr = '08:30', minorMins = 10, 
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   if (diffMins <= 0) {
-    return { is_late: false, late_minutes: 0, late_tier: 'on_time', label: `Đúng giờ (≤ ${workStartStr})` };
+    return {
+      is_late: false,
+      late_minutes: 0,
+      late_tier: 'on_time',
+      label: `Đúng giờ (≤ ${workStartStr})`,
+      work_units: 1.0,
+      credit_symbol: 'x'
+    };
   } else if (diffMins <= minorMins) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_minor', label: `Muộn nhẹ (+${diffMins}p)` };
-  } else if (diffMins <= mediumMins) {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_medium', label: `Muộn vừa (+${diffMins}p)` };
+    // 09:01 - 09:30: Muộn nhẹ (Tính 1.0 công, gắn cờ cảnh báo nhắc nhở)
+    return {
+      is_late: true,
+      late_minutes: diffMins,
+      late_tier: 'late_minor',
+      label: `Muộn nhẹ (+${diffMins}p)`,
+      work_units: 1.0,
+      credit_symbol: 'x'
+    };
   } else {
-    return { is_late: true, late_minutes: diffMins, late_tier: 'late_severe', label: `Muộn nặng (+${diffMins}p)` };
+    // Sau 09:30: Muộn trừ công (Trừ 0.25 công, thực nhận 0.75 công)
+    return {
+      is_late: true,
+      late_minutes: diffMins,
+      late_tier: diffMins <= mediumMins ? 'late_medium' : 'late_severe',
+      label: `Muộn trừ công (+${diffMins}p - 0.75 công)`,
+      work_units: 0.75,
+      credit_symbol: '0,75x'
+    };
   }
 }
 
-// Helper tính giờ tăng ca (OT) dựa theo giờ kết thúc ca làm làm việc (mặc định 17:30 hoặc trong Cài đặt hệ thống)
-function calculateOT(checkInDate, checkOutDate, workEndTime = '17:30') {
+// Helper tính giờ tăng ca (OT) dựa theo giờ kết thúc ca làm làm việc (mặc định 18:30 hoặc trong Cài đặt hệ thống)
+function calculateOT(checkInDate, checkOutDate, workEndTime = '18:30') {
   if (!checkInDate || !checkOutDate) return 0;
   const checkIn = new Date(checkInDate);
   const checkOut = new Date(checkOutDate);
@@ -58,7 +79,7 @@ function calculateOT(checkInDate, checkOutDate, workEndTime = '17:30') {
 
   // Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam Asia/Ho_Chi_Minh
   const dateStr = checkOut.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const timePart = (workEndTime && workEndTime.includes(':')) ? workEndTime.trim() : '17:30';
+  const timePart = (workEndTime && workEndTime.includes(':')) ? workEndTime.trim() : '18:30';
   const [endH, endM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
 
   // Mốc bắt đầu tính OT chuẩn trong múi giờ +07:00
@@ -74,60 +95,65 @@ function calculateOT(checkInDate, checkOutDate, workEndTime = '17:30') {
 }
 
 // POST /api/attendance/checkin
-// GPS bắt buộc với MỌI loại check-in.
-// - type=office: bắt buộc nằm trong bán kính geofence văn phòng
-// - type=wfh/site/client: ghi nhận GPS nhưng cảnh báo nếu quá xa (> 50km), không block
 const checkIn = async (req, res) => {
-  const { lat, lng, type = 'office', project_id, note, device_fingerprint, hardware_uuid, device_name, screen_info, selfie_url, step_up_confirmed } = req.body;
+  const {
+    lat, lng, type = 'office', project_id, note,
+    device_fingerprint, hardware_uuid, device_name, screen_info,
+    selfie_url, step_up_confirmed, photo_fallback
+  } = req.body;
   const userId = req.user._id;
 
-  // BẮT BUỘC GPS cho mọi loại
-  if (!lat || !lng) {
+  // Nếu không có GPS nhưng có ảnh chụp xác thực dự phòng (Photo Check-in)
+  const isPhotoFallback = Boolean(photo_fallback && selfie_url);
+
+  if ((!lat || !lng) && !isPhotoFallback) {
     return res.status(400).json({
-      error: 'GPS bắt buộc để chấm công. Vui lòng bật định vị thiết bị và thử lại.',
+      error: 'GPS bắt buộc để chấm công. Vui lòng bật định vị thiết bị hoặc chọn "Chụp ảnh xác thực dự phòng".',
       gps_required: true,
+      allow_photo_fallback: true,
     });
   }
 
   try {
-    const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00' };
+    const settings = await SystemSetting.findOne({ key: 'global' }) || {
+      work_start_time: '09:00',
+      minor_late_mins: 30,
+      medium_late_mins: 60,
+    };
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    const userLat = parseFloat(lat);
-    const userLng = parseFloat(lng);
+    const userLat = lat ? parseFloat(lat) : null;
+    const userLng = lng ? parseFloat(lng) : null;
 
-    if (isNaN(userLat) || isNaN(userLng)) {
+    if (!isPhotoFallback && (isNaN(userLat) || isNaN(userLng))) {
       return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
     }
 
     const clientIP = getClientIP(req);
-    const effectiveHardwareUuid = hardware_uuid || device_fingerprint;
-    let isFlagged = false;
+    const effectiveHardwareUuid = hardware_uuid || device_fingerprint || null;
+
+    let isFlagged = isPhotoFallback;
     const flagReasons = [];
+    if (isPhotoFallback) {
+      flagReasons.push('GPS_OUTSIDE_PHOTO_FALLBACK');
+    }
 
-    // --- Deep Cross-Browser & Multi-Account Hardware Anti-Fraud Validation ---
-    if (effectiveHardwareUuid || clientIP) {
-      const [todayRegLogs, todayAttLogs] = await Promise.all([
-        DeviceRegistry.find({ date: dateStr }).populate('user_id', 'full_name code'),
-        Attendance.find({ date: dateStr }).populate('user_id', 'full_name code'),
-      ]);
+    // --- Chống gian lận: Kiểm tra thiết bị trùng trong ngày ---
+    if (effectiveHardwareUuid) {
+      const todayRegLogs = await DeviceRegistry.find({
+        hardware_uuid: effectiveHardwareUuid,
+        date: dateStr,
+      }).populate('user_id', 'full_name employee_code email');
 
-      const otherRegLogs = todayRegLogs.filter(r => {
-        if (!r.user_id) return false;
-        const regUserId = (r.user_id._id || r.user_id).toString();
-        if (regUserId === userId.toString()) return false;
+      const todayAttLogs = await Attendance.find({
+        date: dateStr,
+        user_id: { $ne: userId },
+      }).populate('user_id', 'full_name employee_code email');
 
-        const sameHardware = r.hardware_uuid === effectiveHardwareUuid;
-        const sameIPAndScreen = r.client_ip === clientIP && r.screen_resolution === screen_info && screen_info;
-        return sameHardware || sameIPAndScreen;
-      });
-
+      const otherRegLogs = todayRegLogs.filter(r => r.user_id && r.user_id._id.toString() !== userId.toString());
       const otherAttLogs = todayAttLogs.filter(a => {
-        if (!a.user_id) return false;
-        const attUserId = (a.user_id._id || a.user_id).toString();
-        if (attUserId === userId.toString()) return false;
-
+        if (!a.user_id || a.user_id._id.toString() === userId.toString()) return false;
         const sameHardware = a.hardware_uuid === effectiveHardwareUuid;
         const sameIPInNote = clientIP && a.check_in_note?.includes(`IP: ${clientIP}`);
         return sameHardware || sameIPInNote;
@@ -142,7 +168,7 @@ const checkIn = async (req, res) => {
         const otherUserObj = otherUserLogs[0]?.user_id;
         const otherName = typeof otherUserObj === 'object' ? otherUserObj?.full_name : 'tài khoản khác';
 
-        if (!selfie_url && !step_up_confirmed) {
+        if (!selfie_url && !step_up_confirmed && !isPhotoFallback) {
           return res.status(400).json({
             error: `🚨 CẢNH BÁO GIAN LẬN: Máy tính/Điện thoại này (IP: ${clientIP}) vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Phát hiện thao tác trên Tab ẩn danh / Trình duyệt khác! Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
             step_up_required: true,
@@ -165,7 +191,7 @@ const checkIn = async (req, res) => {
       );
     }
 
-    // --- Device Fingerprint Session Validation (Safe Run) ---
+    // --- Device Fingerprint Session Validation ---
     let deviceWarning = null;
     try {
       if (device_fingerprint) {
@@ -177,9 +203,6 @@ const checkIn = async (req, res) => {
           await session.save();
         } else {
           const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
-          if (totalDevices >= 3) {
-            deviceWarning = `Cảnh báo: Tài khoản đã đăng nhập trên ${totalDevices} thiết bị khác nhau. Quản trị viên đã được thông báo.`;
-          }
           session = await DeviceSession.create({
             user_id: userId,
             device_fingerprint,
@@ -190,7 +213,7 @@ const checkIn = async (req, res) => {
             check_in_count: 1,
           });
           if (totalDevices >= 2) {
-            deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}). Thiết bị thứ ${totalDevices + 1} — cần Admin xác nhận.`;
+            deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}).`;
           }
         }
       }
@@ -198,7 +221,7 @@ const checkIn = async (req, res) => {
       console.warn('Device session non-critical warning:', sessionErr.message);
     }
 
-    // Kiểm tra khoảng cách với các văn phòng hoạt động (Hỗ trợ nhiều chi nhánh / địa điểm)
+    // Kiểm tra khoảng cách với các văn phòng
     let officeLoc = null;
     let distanceMeters = null;
     let farWarning = null;
@@ -208,7 +231,7 @@ const checkIn = async (req, res) => {
       activeOffices = await OfficeLocation.find();
     }
 
-    if (activeOffices.length > 0) {
+    if (activeOffices.length > 0 && userLat !== null && userLng !== null) {
       let minDistance = Infinity;
       let closestOffice = null;
 
@@ -229,25 +252,32 @@ const checkIn = async (req, res) => {
         officeLoc = closestOffice;
 
         if (type === 'office') {
-          // Kiểm tra xem vị trí hiện tại có NẰM TRONG BÁN KÍNH (kèm dung sai GPS 150m) CỦA BẤT KỲ VĂN PHÒNG NÀO HOẠT ĐỘNG không
           const validOffice = activeOffices.find(loc => {
             const locLat = parseFloat(loc.lat);
             const locLng = parseFloat(loc.lng);
             if (isNaN(locLat) || isNaN(locLng)) return false;
             const d = Math.round(getDistanceMeters(userLat, userLng, locLat, locLng));
-            const maxAllowedRadius = Math.max(loc.radius_m || 100, 250); // Dung sai tối thiểu 250m cho GPS di động
+            const maxAllowedRadius = Math.max(loc.radius_m || 100, settings.default_gps_radius_meters || 250);
             return d <= maxAllowedRadius;
           });
 
           if (!validOffice) {
-            const allowedR = Math.max(closestOffice.radius_m || 100, 250);
-            return res.status(400).json({
-              error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${allowedR}m). Vui lòng chọn WFH hoặc di chuyển lại gần hơn.`,
-              suggest_business_trip: true,
-              distance_meters: minDistance,
-              radius_m: allowedR,
-              office_name: closestOffice.name,
-            });
+            const allowedR = Math.max(closestOffice.radius_m || 100, settings.default_gps_radius_meters || 250);
+            if (isPhotoFallback) {
+              isFlagged = true;
+              if (!flagReasons.includes('GPS_OUTSIDE_PHOTO_FALLBACK')) {
+                flagReasons.push('GPS_OUTSIDE_PHOTO_FALLBACK');
+              }
+            } else {
+              return res.status(400).json({
+                error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${allowedR}m). Vui lòng chọn WFH, chụp ảnh xác thực dự phòng hoặc di chuyển lại gần hơn.`,
+                suggest_business_trip: true,
+                suggest_photo_fallback: true,
+                distance_meters: minDistance,
+                radius_m: allowedR,
+                office_name: closestOffice.name,
+              });
+            }
           } else {
             officeLoc = validOffice;
             const vLat = parseFloat(validOffice.lat);
@@ -256,13 +286,12 @@ const checkIn = async (req, res) => {
           }
         } else if (type !== 'wfh') {
           if (minDistance > 50000) {
-            farWarning = `Vị trí hiện tại của bạn cách địa điểm [${closestOffice.name}] ${Math.round(minDistance / 1000)}km — vui lòng xác nhận đúng dự án.`;
+            farWarning = `Vị trí hiện tại cách địa điểm [${closestOffice.name}] ${Math.round(minDistance / 1000)}km.`;
           }
         }
       }
     }
 
-    // Validate & Lấy thông tin dự án an toàn
     let projectName = null;
     let validProjectId = null;
     if (project_id && mongoose.Types.ObjectId.isValid(project_id)) {
@@ -277,28 +306,35 @@ const checkIn = async (req, res) => {
 
     const lateInfo = calculateLateTier(
       now,
-      settings.work_start_time || '08:30',
-      settings.minor_late_mins ?? 10,
-      settings.medium_late_mins ?? 30
+      settings.work_start_time || '09:00',
+      settings.minor_late_mins ?? 30,
+      settings.medium_late_mins ?? 60
     );
+
     let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     const combinedNote = [
       note,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
       `IP: ${clientIP}`,
-      isFlagged ? `🚨 Cảnh báo: Dùng chung thiết bị` : null,
+      isPhotoFallback ? `📸 Chấm công ảnh xác thực dự phòng` : null,
+      isFlagged ? `🚨 Cảnh báo: ${flagReasons.join(', ')}` : null,
     ].filter(Boolean).join(' | ');
+
+    const checkInMode = isPhotoFallback || selfie_url ? 'photo' : 'gps';
+    const finalWorkUnits = lateInfo.work_units ?? 1.0;
 
     if (attendance) {
       attendance.check_in_time = now;
-      attendance.check_in_lat = userLat;
-      attendance.check_in_lng = userLng;
+      if (userLat) attendance.check_in_lat = userLat;
+      if (userLng) attendance.check_in_lng = userLng;
       attendance.check_in_type = validCheckInType;
       attendance.project_id = validProjectId;
       attendance.project_name = projectName;
       attendance.is_late = lateInfo.is_late;
       attendance.late_minutes = lateInfo.late_minutes;
       attendance.late_tier = lateInfo.late_tier;
+      attendance.work_units = finalWorkUnits;
+      attendance.check_in_mode = checkInMode;
       attendance.check_in_note = combinedNote;
       attendance.hardware_uuid = effectiveHardwareUuid || null;
       attendance.is_flagged = isFlagged;
@@ -309,7 +345,7 @@ const checkIn = async (req, res) => {
 
       return res.json({
         message: isFlagged
-          ? `Đã cập nhật check-in (Đang chờ Sếp xác nhận do dùng chung máy)`
+          ? `Đã cập nhật check-in (Đang chờ Ban Giám Đốc xác nhận)`
           : `Đã cập nhật check-in hôm nay (${lateInfo.label})`,
         attendance,
         late_info: lateInfo,
@@ -334,6 +370,8 @@ const checkIn = async (req, res) => {
         is_late: lateInfo.is_late,
         late_minutes: lateInfo.late_minutes,
         late_tier: lateInfo.late_tier,
+        work_units: finalWorkUnits,
+        check_in_mode: checkInMode,
         status: lateInfo.is_late ? 'late' : 'present',
         hardware_uuid: effectiveHardwareUuid || null,
         is_flagged: isFlagged,

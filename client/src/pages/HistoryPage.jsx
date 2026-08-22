@@ -50,9 +50,10 @@ function getTimesheetSymbol(rec) {
   if (rec.check_in_type === 'site') return 'CT1';
   if (rec.check_in_type === 'client') return 'CT2';
   if (rec.status === 'leave' || rec.notes?.includes('Nghỉ phép')) return 'P';
-  if (rec.status === 'half_day' || rec.total_hours <= 4) return '0.5x';
-  if (rec.total_hours >= 7.5) return 'x';
-  if (rec.total_hours >= 6) return '0.75x';
+  if (rec.work_units === 0.75) return '0.75x';
+  if (rec.work_units === 0.5 || rec.status === 'half_day') return '0.5x';
+  if (rec.total_hours <= 4) return '0.5x';
+  if (rec.total_hours >= 6 && rec.total_hours < 7.5) return '0.75x';
   return 'x';
 }
 
@@ -91,27 +92,27 @@ export default function HistoryPage() {
   const [staffList, setStaffList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
 
-  // Settings for dynamic working hours & late rules
+  // Settings for dynamic working hours & late rules (Default 09:00 - 18:30)
   const [settings, setSettings] = useState({
-    work_start_time: '08:30',
-    work_end_time: '17:30',
-    minor_late_mins: 10,
-    medium_late_mins: 30,
+    work_start_time: '09:00',
+    work_end_time: '18:30',
+    minor_late_mins: 30,
+    medium_late_mins: 60,
   });
 
-  const startTime = settings?.work_start_time || '08:30';
-  const endTime = settings?.work_end_time || '17:30';
-  const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 10);
-  const mediumLateTime = addMinsToTime(startTime, settings?.medium_late_mins ?? 30);
+  const startTime = settings?.work_start_time || '09:00';
+  const endTime = settings?.work_end_time || '18:30';
+  const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
+  const mediumLateTime = addMinsToTime(startTime, settings?.medium_late_mins ?? 60);
 
   useEffect(() => {
     api.get('/settings').then(r => {
       if (r.data) {
         setSettings({
-          work_start_time: r.data.work_start_time || '08:30',
-          work_end_time: r.data.work_end_time || '17:30',
-          minor_late_mins: r.data.minor_late_mins ?? 10,
-          medium_late_mins: r.data.medium_late_mins ?? 30,
+          work_start_time: r.data.work_start_time || '09:00',
+          work_end_time: r.data.work_end_time || '18:30',
+          minor_late_mins: r.data.minor_late_mins ?? 30,
+          medium_late_mins: r.data.medium_late_mins ?? 60,
         });
       }
     }).catch(() => {});

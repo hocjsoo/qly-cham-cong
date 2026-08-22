@@ -625,9 +625,14 @@ export default function SettingsPage() {
               <input type="text" className="form-input" value={locForm.address} onChange={e => setLocForm({...locForm, address: e.target.value})} placeholder="Tang 5, 123 Nguyen Hue, Q1" />
             </div>
             <div className="form-group">
-              <label className="form-label">Ban kinh Geofence: {locForm.radius_m}m</label>
-              <input type="range" min="30" max="500" step="10" value={locForm.radius_m} onChange={e => setLocForm({...locForm, radius_m: parseInt(e.target.value)})} style={{ width: '100%' }} />
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>30m = rat chat | 100m = binh thuong | 200m+ = thoang</div>
+              <label className="form-label">Bán kính Geofence: {locForm.radius_m}m</label>
+              <input type="range" min="30" max="1500" step="10" value={locForm.radius_m} onChange={e => setLocForm({...locForm, radius_m: parseInt(e.target.value)})} style={{ width: '100%' }} />
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>30m (Chặt)</span>
+                <span>250m (Chuẩn)</span>
+                <span>500m</span>
+                <span>1500m (Rộng)</span>
+              </div>
             </div>
             <button onClick={handleSaveLocation} disabled={submitting || !locForm.lat} className="btn btn--primary btn--full btn--lg">
               {submitting ? <span className="spinner" /> : !locForm.lat ? 'Can chon vi tri GPS truoc' : (locForm.id ? 'Luu cap nhat vi tri' : 'Luu vi tri van phong')}

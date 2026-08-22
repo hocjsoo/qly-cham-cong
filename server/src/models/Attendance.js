@@ -100,6 +100,17 @@ const attendanceSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Số công tính thực tế (1.0 hoặc 0.75 khi muộn > 30p)
+    work_units: {
+      type: Number,
+      default: 1.0,
+    },
+    // Chế độ check-in (gps | photo | manual)
+    check_in_mode: {
+      type: String,
+      enum: ['gps', 'photo', 'manual'],
+      default: 'gps',
+    },
     // Các trường chống gian lận & xác thực phần cứng
     hardware_uuid: {
       type: String,
@@ -111,7 +122,7 @@ const attendanceSchema = new mongoose.Schema(
       default: false,
     },
     flag_reasons: [{
-      type: String, // 'MULTI_ACCOUNT_SAME_DEVICE', 'SUSPICIOUS_LOCATION'
+      type: String, // 'MULTI_ACCOUNT_SAME_DEVICE', 'SUSPICIOUS_LOCATION', 'GPS_OUTSIDE_PHOTO_FALLBACK'
     }],
     selfie_url: {
       type: String,

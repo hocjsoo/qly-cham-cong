@@ -68,6 +68,26 @@ const projectSchema = new mongoose.Schema(
       ],
       default: 'Đang tiến hành',
     },
+    // Danh sách thành viên tham gia dự án
+    members: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    // Hạn chót & Tiến độ
+    deadline: {
+      type: String, // YYYY-MM-DD
+      default: null,
+    },
+    start_date: {
+      type: String, // YYYY-MM-DD
+      default: null,
+    },
+    progress: {
+      type: Number, // 0 - 100
+      default: 0,
+    },
     is_active: {
       type: Boolean,
       default: true,

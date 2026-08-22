@@ -18,10 +18,10 @@ const LOCATION_TYPES = [
 ];
 
 const LATE_TIERS = {
-  on_time:     { label: 'Đúng giờ',          cls: 'badge--success', icon: '✅' },
-  late_minor:  { label: 'Muộn nhẹ (1–10p)',  cls: 'badge--warning', icon: '⏰' },
-  late_medium: { label: 'Muộn (11–30p)',      cls: 'badge--warning', icon: '⚠️' },
-  late_severe: { label: 'Muộn nhiều (>30p)', cls: 'badge--danger',  icon: '🚨' },
+  on_time:     { label: 'Đúng giờ (≤ 09:00)',          cls: 'badge--success', icon: '✅' },
+  late_minor:  { label: 'Muộn nhẹ 1–30p (1.0 công)',   cls: 'badge--warning', icon: '⏰' },
+  late_medium: { label: 'Muộn trừ công (>09:30 - 0.75c)', cls: 'badge--danger',  icon: '⚠️' },
+  late_severe: { label: 'Muộn nhiều (0.75 công)',       cls: 'badge--danger',  icon: '🚨' },
 };
 
 const fmt = (iso) => {
@@ -47,6 +47,8 @@ export default function CheckInPage() {
   const [office, setOffice] = useState(null);
   const [offices, setOffices] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('office');
   const [selectedProject, setSelectedProject] = useState('');
@@ -60,10 +62,11 @@ export default function CheckInPage() {
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError] = useState(null);
 
-  // Anti-fraud Step-Up Selfie state
+  // Anti-fraud Step-Up Selfie state & Photo Fallback state
   const [showSelfieModal, setShowSelfieModal] = useState(false);
   const [selfieReason, setSelfieReason] = useState('');
   const [selfieImage, setSelfieImage] = useState(null);
+  const [isPhotoFallbackMode, setIsPhotoFallbackMode] = useState(false);
   const fileInputRef = useRef(null);
 
   // Explanation suggestion modal
@@ -85,13 +88,15 @@ export default function CheckInPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [todayRes, settingsRes, projRes, locRes] = await Promise.all([
+      const [todayRes, settingsRes, projRes, locRes, annRes] = await Promise.all([
         api.get('/attendance/today'),
         api.get('/settings'),
         api.get('/projects?active_only=true'),
         api.get('/locations'),
+        api.get('/announcements/pinned').catch(() => ({ data: [] })),
       ]);
       setToday(todayRes.data.attendance || null);
+      setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
 
       const rawLocations = Array.isArray(locRes?.data) ? locRes.data : locRes?.data?.locations || [];
       const allActiveOffices = (todayRes.data.offices && todayRes.data.offices.length > 0)
@@ -156,17 +161,15 @@ export default function CheckInPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleCheckIn = async (overrideSelfie = null, overrideType = null) => {
-    if (!gpsPosition) {
-      toast.error('BẮT BUỘC có vị trí GPS để chấm công. Vui lòng bật GPS thiết bị.');
-      acquireGPS();
+  const handleCheckIn = async (overrideSelfie = null, overrideType = null, photoFallback = false) => {
+    const checkInType = overrideType || selected;
+    if (['site', 'client'].includes(checkInType) && !selectedProject) {
+      toast.error('Vui lòng chọn Dự án đang hoạt động!');
       return;
     }
 
-    const checkInType = overrideType || selected;
-
-    if (['site', 'client'].includes(checkInType) && !selectedProject) {
-      toast.error('Vui lòng chọn dự án / công trình đang hoạt động!');
+    if (!gpsPosition && !photoFallback && !overrideSelfie && !selfieImage) {
+      toast.error('Chưa có GPS. Vui lòng bật định vị hoặc bấm "Chụp ảnh xác thực dự phòng"!');
       return;
     }
 
@@ -180,8 +183,8 @@ export default function CheckInPage() {
       }
 
       const payload = {
-        lat: gpsPosition.lat,
-        lng: gpsPosition.lng,
+        lat: gpsPosition?.lat || null,
+        lng: gpsPosition?.lng || null,
         type: checkInType,
         project_id: selectedProject || null,
         note: note.trim() || null,
@@ -189,6 +192,7 @@ export default function CheckInPage() {
         hardware_uuid: deviceInfo.hardware_uuid || deviceInfo.fingerprint,
         device_name: deviceInfo.device_name,
         screen_info: deviceInfo.screen_info,
+        photo_fallback: Boolean(photoFallback || overrideSelfie || selfieImage),
       };
 
       if (overrideSelfie || selfieImage) {
@@ -204,7 +208,7 @@ export default function CheckInPage() {
       setSelfieImage(null);
 
       if (data.is_flagged) {
-        toast('Ghi nhận chấm công trên thiết bị dùng chung! Đã gửi thông báo cho Sếp xác nhận.', { icon: '🛡️', duration: 8000 });
+        toast('Ghi nhận chấm công có cờ xác thực! Đã gửi thông báo cho Ban Giám Đốc đối soát.', { icon: '🛡️', duration: 8000 });
       }
 
       if (data.device_warning) {
@@ -227,24 +231,29 @@ export default function CheckInPage() {
         setSelfieReason(errorMsg);
         setShowSelfieModal(true);
         toast.error(errorMsg, { duration: 6000 });
-      } else if (errorData?.suggest_business_trip) {
+      } else if (errorData?.suggest_business_trip || errorData?.suggest_photo_fallback) {
         toast.error(errorMsg, { duration: 8000 });
         setTimeout(() => {
           toast((t) => (
             <div>
-              <div style={{ fontWeight: 600, marginBottom: '6px' }}>Vị trí ngoài bán kính văn phòng! Chấm dạng WFH?</div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button className="btn btn--primary" style={{ flex: 1, fontSize: '12px', padding: '6px' }}
-                  onClick={() => { toast.dismiss(t.id); setSelected('wfh'); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>
-                  🏠 Chấm WFH Ngay
+              <div style={{ fontWeight: 600, marginBottom: '6px' }}>Vị trí ngoài bán kính! Chọn phương án tiếp tục:</div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <button className="btn btn--primary" style={{ flex: 1, fontSize: '11px', padding: '6px' }}
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    setSelfieReason('Chấm công ảnh xác thực dự phòng ngoài bán kính GPS');
+                    setIsPhotoFallbackMode(true);
+                    setShowSelfieModal(true);
+                  }}>
+                  📸 Chụp ảnh xác thực
                 </button>
-                <button className="btn btn--ghost" style={{ flex: 1, fontSize: '12px', padding: '6px' }}
-                  onClick={() => { toast.dismiss(t.id); navigate('/requests'); }}>
-                  📝 Tạo Đơn
+                <button className="btn btn--ghost" style={{ flex: 1, fontSize: '11px', padding: '6px' }}
+                  onClick={() => { toast.dismiss(t.id); setSelected('wfh'); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>
+                  🏠 Chấm WFH
                 </button>
               </div>
             </div>
-          ), { duration: 8000 });
+          ), { duration: 9000 });
         }, 500);
       } else {
         toast.error(errorData?.error || 'Lỗi chấm công');
@@ -365,7 +374,53 @@ export default function CheckInPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* GPS Status Banner — luôn hiện */}
+        {/* Pinned Company Announcement Banner (Nổi bật & Xem chi tiết) */}
+        {announcements.length > 0 && (
+          <div className="card animate-fade-in" style={{
+            marginBottom: '14px', padding: '12px 14px',
+            background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(99,102,241,0.12))',
+            border: '1px solid rgba(59,130,246,0.3)',
+            borderRadius: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '20px' }}>📢</span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
+                    {announcements[0].title}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {announcements[0].content}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAnnouncement(announcements[0])}
+                className="btn btn--primary"
+                style={{ padding: '5px 10px', fontSize: '11px', flexShrink: 0 }}
+              >
+                Xem chi tiết
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Work Shift Info Badge */}
+        <div style={{
+          marginBottom: '12px', padding: '8px 12px', borderRadius: '10px',
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '14px' }}>⏰</span>
+            <span><strong>Ca làm việc:</strong> 09:00 – 18:30</span>
+          </div>
+          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+            Đi muộn &gt; 09:30 tính 0.75 công (trừ 0.25c)
+          </span>
+        </div>
+
+        {/* GPS Status Banner */}
         <div className="card animate-fade-in" style={{
           marginBottom: '12px', padding: '10px 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -388,7 +443,7 @@ export default function CheckInPage() {
                     {isInOfficeRange === true
                       ? `✅ Trong văn phòng (${distanceFromOffice}m cách ${targetOffice?.name || 'VP'})`
                       : isInOfficeRange === false
-                        ? `⚠️ Cách ${targetOffice?.name || 'Văn phòng'} ${distanceFromOffice}m (bán kính cho phép: ${targetOffice?.radius_m}m)`
+                        ? `⚠️ Cách ${targetOffice?.name || 'Văn phòng'} ${distanceFromOffice}m (bán kính cho phép: ${targetOffice?.radius_m || 250}m)`
                         : `📍 GPS: ${gpsPosition.lat.toFixed(4)}, ${gpsPosition.lng.toFixed(4)}`}
                   </div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Độ chính xác: ±{gpsPosition.accuracy}m</div>
@@ -423,7 +478,7 @@ export default function CheckInPage() {
             <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Đang tải...</div>
           ) : isCheckedOut ? (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', fontWeight: 600 }}>
-              <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h)
+              <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h - {att.work_units || 1.0} công)
             </div>
           ) : isCheckedIn ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
@@ -435,7 +490,7 @@ export default function CheckInPage() {
             </div>
           ) : (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--bg-card-hover)', color: 'var(--text-muted)', fontSize: '13px' }}>
-              Chưa chấm công hôm nay
+              Chưa chấm công hôm nay (Ca 09:00 – 18:30)
             </div>
           )}
         </div>
@@ -452,9 +507,9 @@ export default function CheckInPage() {
               <AlertTriangle size={20} color={isOtNow ? 'var(--blue)' : 'var(--yellow)'} />
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 700 }}>
-                  {isOtNow ? 'Đang làm quá 18:00 (Tăng ca)' : att.is_late ? `Đi muộn ${att.late_minutes} phút` : 'Làm việc tại nhà (WFH)'}
+                  {isOtNow ? 'Đang làm quá 18:30 (Tăng ca OT)' : att.is_late ? `Đi muộn ${att.late_minutes} phút` : 'Làm việc tại nhà (WFH)'}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tạo đơn để được tính công đầy đủ</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tạo đơn để Admin duyệt và hoàn đủ 1.0 công</div>
               </div>
             </div>
             <button onClick={() => { setExplanationType(isOtNow ? 'overtime' : att.is_late ? 'late' : 'business_trip'); setShowExplanationModal(true); }} className="btn btn--primary" style={{ fontSize: '12px', padding: '6px 12px', whiteSpace: 'nowrap' }}>
@@ -465,22 +520,33 @@ export default function CheckInPage() {
 
         {/* Distance warning khi chọn office nhưng ngoài range */}
         {!isCheckedIn && selected === 'office' && isInOfficeRange === false && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--red-soft)', border: '1px solid var(--red)' }}>
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <AlertTriangle size={20} color="var(--red)" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontWeight: 700, color: 'var(--red)', marginBottom: '4px' }}>
-                  Ngoài bán kính văn phòng ({distanceFromOffice}m/{office?.radius_m}m)
+              <AlertTriangle size={20} color="var(--yellow)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: 'var(--yellow)', marginBottom: '4px' }}>
+                  Ngoài bán kính văn phòng ({distanceFromOffice}m/{targetOffice?.radius_m || 250}m)
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
-                  Bạn đang cách {office?.name || 'văn phòng'} {distanceFromOffice}m. Không thể chấm công kiểu <strong>Văn phòng</strong>. Hãy chọn loại WFH hoặc Công tác.
+                  Bạn đang cách {targetOffice?.name || 'văn phòng'} {distanceFromOffice}m. Bạn có thể <strong>Chụp ảnh xác thực dự phòng</strong> hoặc chuyển sang WFH / Công tác.
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button onClick={() => setSelected('wfh')} className="btn btn--primary" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => {
+                      setSelfieReason('Chấm công ảnh xác thực dự phòng ngoài bán kính GPS');
+                      setIsPhotoFallbackMode(true);
+                      setShowSelfieModal(true);
+                    }}
+                    className="btn btn--primary"
+                    style={{ fontSize: '11px', padding: '6px 10px' }}
+                  >
+                    📸 Chụp ảnh xác thực dự phòng
+                  </button>
+                  <button onClick={() => setSelected('wfh')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '6px 10px' }}>
                     🏠 Chuyển WFH
                   </button>
-                  <button onClick={() => navigate('/requests')} className="btn btn--ghost" style={{ fontSize: '12px', padding: '6px 12px' }}>
-                    Tạo đơn công tác
+                  <button onClick={() => navigate('/requests')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '6px 10px' }}>
+                    Tạo đơn
                   </button>
                 </div>
               </div>
@@ -546,14 +612,30 @@ export default function CheckInPage() {
               <input type="text" className="form-input" placeholder="VD: Gặp khách hàng công ty A..." value={note} onChange={e => setNote(e.target.value)} />
             </div>
 
-            <button
-              onClick={() => handleCheckIn()}
-              disabled={submitting || gpsLoading || !gpsPosition}
-              className="btn btn--primary btn--full btn--lg"
-              style={{ opacity: (!gpsPosition || gpsLoading) ? 0.6 : 1 }}
-            >
-              {gpsLoading ? '⏳ Đang lấy GPS...' : !gpsPosition ? '📍 Cần GPS để chấm công' : submitting ? <span className="spinner" /> : 'BẮT ĐẦU CA (CHECK-IN)'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+              <button
+                onClick={() => handleCheckIn()}
+                disabled={submitting || gpsLoading || !gpsPosition}
+                className="btn btn--primary btn--full btn--lg"
+                style={{ opacity: (!gpsPosition || gpsLoading) ? 0.6 : 1 }}
+              >
+                {gpsLoading ? '⏳ Đang lấy GPS...' : !gpsPosition ? '📍 Cần GPS để chấm công' : submitting ? <span className="spinner" /> : 'BẮT ĐẦU CA (CHECK-IN 09:00 - 18:30)'}
+              </button>
+
+              {(!gpsPosition || isInOfficeRange === false) && (
+                <button
+                  onClick={() => {
+                    setSelfieReason('Chấm công ảnh xác thực dự phòng');
+                    setIsPhotoFallbackMode(true);
+                    setShowSelfieModal(true);
+                  }}
+                  className="btn btn--ghost btn--full"
+                  style={{ fontSize: '13px', border: '1px dashed var(--primary)', color: 'var(--primary)' }}
+                >
+                  📸 Chụp ảnh xác thực dự phòng (Không cần GPS)
+                </button>
+              )}
+            </div>
 
             {!gpsPosition && !gpsLoading && (
               <div style={{ textAlign: 'center', marginTop: '8px' }}>
@@ -583,6 +665,24 @@ export default function CheckInPage() {
           </div>
         ) : null}
       </div>
+
+      {/* Announcement Detail Modal */}
+      {selectedAnnouncement && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '480px', margin: '0 auto' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--primary)' }}>📢 Thông Báo Quan Trọng</div>
+              <button onClick={() => setSelectedAnnouncement(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>✕</button>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px' }}>{selectedAnnouncement.title}</div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: '18px' }}>
+              {selectedAnnouncement.content}
+            </div>
+            <button onClick={() => setSelectedAnnouncement(null)} className="btn btn--primary btn--full">Đã hiểu</button>
+          </div>
+        </div>
+      )}
 
       {/* Explanation Modal */}
       {showExplanationModal && (

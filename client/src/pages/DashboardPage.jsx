@@ -60,6 +60,7 @@ export default function DashboardPage() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [geo, setGeo] = useState(null);
   const [birthdays, setBirthdays] = useState([]);
+  const [anniversaries, setAnniversaries] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
@@ -161,11 +162,12 @@ export default function DashboardPage() {
     return () => clearInterval(i);
   }, []);
 
-  // Load birthdays, holidays and announcements
+  // Load birthdays, anniversaries, holidays and announcements
   useEffect(() => {
     const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const [yearVal, monthVal] = todayVN.split('-').map(Number);
     api.get(`/announcements/birthdays?month=${monthVal}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+    api.get('/announcements/anniversaries').then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
     api.get(`/holidays?year=${yearVal}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
@@ -415,6 +417,59 @@ export default function DashboardPage() {
         )}
 
         {/* Birthdays & Events this month — Redesigned SaaS Festive Theme */}
+        {/* Widget: Dự Án Của Tôi */}
+        {data?.my_projects?.length > 0 && (
+          <div
+            className="card animate-fade-in"
+            style={{
+              marginBottom: '14px', padding: '14px 16px',
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(99,102,241,0.04) 100%)',
+              border: '1px solid rgba(59,130,246,0.3)',
+              borderRadius: '14px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: 'var(--primary-soft)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🏗️</span>
+                <span>Dự Án Của Tôi</span>
+                <span className="badge badge--info" style={{ fontSize: '11px', fontWeight: 800 }}>• {data.my_projects.length} dự án</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {data.my_projects.map(proj => (
+                <div
+                  key={proj._id}
+                  style={{
+                    background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '10px',
+                    border: '1px solid var(--border)', fontSize: '12px', minWidth: '220px', flexShrink: 0,
+                    boxShadow: 'var(--shadow-xs)'
+                  }}
+                >
+                  <div style={{ fontWeight: 800, color: 'var(--text)', fontSize: '13px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {proj.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span>🏷️ {proj.code || 'DA'}</span>
+                    {proj.deadline && <span>⏱️ {proj.deadline}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ flex: 1, height: '6px', background: 'var(--bg-raised)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', width: `${Math.min(100, Math.max(0, proj.progress || 0))}%`,
+                        background: (proj.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)',
+                        borderRadius: '3px'
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '10px', fontWeight: 700 }}>{proj.progress || 0}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Widget: Kỷ Niệm Làm Việc, Sinh Nhật & Sự Kiện */}
         {(() => {
           const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
           const [yearStr, monthStrNum] = todayVN.split('-');
@@ -423,7 +478,7 @@ export default function DashboardPage() {
           const currentMonthHolidays = holidays.filter(h =>
             (h.date && h.date.startsWith(monthStr)) || (h.end_date && h.end_date.startsWith(monthStr))
           );
-          const totalMonthEvents = birthdays.length + currentMonthHolidays.length;
+          const totalMonthEvents = (anniversaries?.length || 0) + birthdays.length + currentMonthHolidays.length;
 
           if (totalMonthEvents === 0) return null;
 
@@ -440,12 +495,41 @@ export default function DashboardPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
-                  <span>Sinh nhật & Sự kiện tháng {monthNum}</span>
+                  <span>Kỷ Niệm Gắn Bó, Sinh Nhật & Sự Kiện</span>
                   <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>• {totalMonthEvents} sự kiện</span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {/* Work Anniversaries */}
+                {anniversaries?.map((a, aIdx) => (
+                  <div
+                    key={`anniv-${a._id || aIdx}`}
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                      border: '1px solid var(--primary)', fontSize: '12px', display: 'flex',
+                      alignItems: 'center', gap: '10px', flexShrink: 0,
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                  >
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-soft)',
+                      color: 'var(--primary)', fontSize: '16px', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontWeight: 800, flexShrink: 0
+                    }}>
+                      🏅
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px' }}>
+                        {a.full_name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, marginTop: '1px' }}>
+                        🎉 Tròn {a.years} năm cống hiến ({a.anniversary_date})
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
                 {/* Birthdays */}
                 {birthdays.map(b => (
                   <div
