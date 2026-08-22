@@ -208,6 +208,12 @@ const getAnniversaries = async (req, res) => {
       current_month: currentMonth,
       anniversaries,
     });
+  } catch (error) {
+    console.error('GetAnniversaries error:', error);
+    res.status(500).json({ error: 'Lỗi lấy danh sách kỷ niệm.' });
+  }
+};
+
 // DELETE /api/announcements/:id
 const deleteAnnouncement = async (req, res) => {
   try {
