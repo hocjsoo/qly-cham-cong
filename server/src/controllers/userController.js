@@ -18,17 +18,8 @@ const generateEmployeeCode = async (employeeType = 'NS') => {
 // GET /api/users
 const getAllUsers = async (req, res) => {
   try {
-    let queryFilter = {};
-    if (['manager', 'leader'].includes(req.user.role)) {
-      const leaderDeptIds = req.user.department_ids && req.user.department_ids.length > 0
-        ? req.user.department_ids
-        : (req.user.department_id ? [req.user.department_id] : []);
-      queryFilter.$or = [
-        { _id: req.user._id },
-        { department_ids: { $in: leaderDeptIds } },
-        { department_id: { $in: leaderDeptIds } }
-      ];
-    }
+    // Leader & Admin have access to the full company employee directory
+    const queryFilter = {};
 
     const users = await User.find(queryFilter)
       .select('-password_hash')

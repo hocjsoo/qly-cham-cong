@@ -73,13 +73,22 @@ export default function DashboardPage() {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [allowRecheckin, setAllowRecheckin] = useState(true);
+  const [flaggedTab, setFlaggedTab] = useState('pending'); // 'pending' | 'all' | 'approved' | 'rejected' | 'photo'
+  const [flaggedCounts, setFlaggedCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, with_photo: 0 });
 
-  const fetchFlagged = async () => {
-    if (user?.role === 'admin') {
+  const fetchFlagged = async (targetTab = flaggedTab) => {
+    if (user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager') {
       try {
-        const { data } = await api.get('/attendance/flagged');
+        const queryStatus = targetTab === 'photo' ? 'all' : targetTab;
+        const hasPhotoParam = targetTab === 'photo' ? '&has_photo=true' : '';
+        const { data } = await api.get(`/attendance/flagged?status=${queryStatus}${hasPhotoParam}`);
         setFlaggedList(Array.isArray(data?.flagged) ? data.flagged : []);
-      } catch { setFlaggedList([]); }
+        if (data?.counts) {
+          setFlaggedCounts(data.counts);
+        }
+      } catch {
+        setFlaggedList([]);
+      }
     } else {
       setFlaggedList([]);
     }
@@ -89,7 +98,7 @@ export default function DashboardPage() {
     setVerifyingId(id);
     try {
       const { data } = await api.put(`/attendance/approve-flagged/${id}`, { action });
-      toast.success(data.message || 'Đã xử lý xác minh!');
+      toast.success(data.message || 'Đã duyệt ca chấm công thành công! ✅');
       fetchFlagged();
       fetchData();
     } catch (err) {
@@ -295,91 +304,149 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Flagged Attendance & Selfie Verification Card (Admin Only) */}
-        {user?.role === 'admin' && flaggedList.length > 0 && (
+        {/* Flagged Attendance & Photo Verification Archive Center (Admin & Leader) */}
+        {(user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager') && (
           <div className="card animate-fade-in" style={{
             marginBottom: '14px', padding: '14px 16px',
-            background: 'rgba(239, 68, 68, 0.08)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
             borderRadius: '14px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AlertTriangle size={18} />
-                <span>🛡️ CẢNH BÁO THIẾT BỊ & DUYỆT XÁC MINH SELFIE</span>
-                <span className="badge badge--danger" style={{ fontSize: '11px', fontWeight: 900 }}>
-                  {flaggedList.length} CẦN DUYỆT
-                </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: 'var(--primary-soft)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🛡️</span>
+                <span>QUẢN LÝ CẢNH BÁO & ẢNH XÁC THỰC</span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Lưu trữ toàn bộ ảnh chấm công & minh chứng đối soát
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {flaggedList.map(item => (
-                <div key={item._id} style={{
-                  background: 'var(--bg-card)', padding: '12px', borderRadius: '12px',
-                  border: '1px solid var(--border)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '220px' }}>
-                    {item.selfie_url ? (
-                      <img
-                        src={item.selfie_url}
-                        alt="Selfie"
-                        onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${item.user_id?.full_name || 'Nhân viên'}` })}
-                        style={{
-                          width: 52, height: 52, borderRadius: '10px', objectFit: 'cover',
-                          border: '2px solid var(--red)', cursor: 'pointer'
-                        }}
-                        title="Click để phóng to ảnh Selfie"
-                      />
-                    ) : (
-                      <div style={{
-                        width: 52, height: 52, borderRadius: '10px', background: 'var(--red-soft)',
-                        color: 'var(--red)', fontSize: '10px', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontWeight: 700, textAlign: 'center', padding: '4px'
-                      }}>
-                        Chưa có Selfie
-                      </div>
-                    )}
-
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>
-                        👤 {item.user_id?.full_name || 'Nhân viên'}
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '6px' }}>#{item.user_id?.code || item.user_id?.employee_code || 'NS'}</span>
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 700, marginTop: '2px' }}>
-                        🚨 Cảnh báo: Dùng chung thiết bị (Tab ẩn danh / Trình duyệt khác)
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', background: 'var(--bg-raised)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                        <strong>📱 Thiết bị:</strong> {item.hardware_uuid ? `ID phần cứng [${item.hardware_uuid.slice(0, 8)}]` : 'Chưa định danh'} {item.check_in_note ? `· ${item.check_in_note}` : ''}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                        🕒 Lúc: {fmt(item.check_in_time)} · Ngày: {item.date}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '240px' }}>
-                    <button
-                      onClick={() => handleVerifyAttendance(item._id, 'approve')}
-                      disabled={verifyingId === item._id}
-                      className="btn btn--primary"
-                      style={{ flex: 1, fontSize: '12px', padding: '6px 10px', background: 'var(--green)', borderColor: 'var(--green)' }}
-                    >
-                      ✅ Duyệt ca này
-                    </button>
-                    <button
-                      onClick={() => setRejectTarget(item)}
-                      disabled={verifyingId === item._id}
-                      className="btn btn--ghost"
-                      style={{ flex: 1, fontSize: '12px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
-                    >
-                      ❌ Từ chối
-                    </button>
-                  </div>
-                </div>
+            {/* Filter Tabs */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { key: 'pending', label: `⏳ Chờ duyệt (${flaggedCounts.pending})` },
+                { key: 'approved', label: `✅ Đã duyệt (${flaggedCounts.approved})` },
+                { key: 'rejected', label: `❌ Đã từ chối (${flaggedCounts.rejected})` },
+                { key: 'photo', label: `📸 Kèm ảnh Selfie (${flaggedCounts.with_photo})` },
+                { key: 'all', label: `Tất cả (${flaggedCounts.total})` },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    setFlaggedTab(tab.key);
+                    fetchFlagged(tab.key);
+                  }}
+                  className={`chip${flaggedTab === tab.key ? ' active' : ''}`}
+                  style={{ fontSize: '11px', padding: '5px 10px', whiteSpace: 'nowrap' }}
+                >
+                  {tab.label}
+                </button>
               ))}
             </div>
+
+            {flaggedList.length === 0 ? (
+              <div style={{ padding: '20px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', background: 'var(--bg-raised)', borderRadius: '10px' }}>
+                Không có bản ghi nào trong mục này.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {flaggedList.map(item => {
+                  const isPending = item.verification_status === 'pending_review' || item.is_flagged;
+                  const isApproved = item.verification_status === 'approved';
+                  const isRejected = item.verification_status === 'rejected';
+
+                  return (
+                    <div key={item._id} style={{
+                      background: 'var(--bg-card)', padding: '12px', borderRadius: '12px',
+                      border: `1px solid ${isPending ? 'var(--yellow)' : isApproved ? 'var(--green)' : 'var(--border)'}`,
+                      display: 'flex', alignItems: 'center',
+                      justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
+                        {item.selfie_url ? (
+                          <img
+                            src={item.selfie_url}
+                            alt="Selfie"
+                            onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${item.user_id?.full_name || 'Nhân viên'}` })}
+                            style={{
+                              width: 56, height: 56, borderRadius: '10px', objectFit: 'cover',
+                              border: `2px solid ${isApproved ? 'var(--green)' : 'var(--yellow)'}`, cursor: 'pointer', flexShrink: 0
+                            }}
+                            title="Click để phóng to ảnh Selfie / Minh chứng"
+                          />
+                        ) : (
+                          <div style={{
+                            width: 56, height: 56, borderRadius: '10px', background: 'var(--bg-raised)',
+                            color: 'var(--text-muted)', fontSize: '10px', display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontWeight: 700, textAlign: 'center', padding: '4px', flexShrink: 0
+                          }}>
+                            Không có ảnh
+                          </div>
+                        )}
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text)' }}>
+                              👤 {item.user_id?.full_name || 'Nhân viên'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              #{item.user_id?.employee_code || item.user_id?.code || 'NS'}
+                            </span>
+                            <span className={`badge ${isApproved ? 'badge--success' : isRejected ? 'badge--danger' : 'badge--warning'}`} style={{ fontSize: '10px' }}>
+                              {isApproved ? '✅ Đã duyệt' : isRejected ? '❌ Bị từ chối' : '⏳ Chờ duyệt'}
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: isApproved ? 'var(--green)' : isPending ? 'var(--yellow)' : 'var(--text-secondary)', fontWeight: 600, marginTop: '2px' }}>
+                            {item.flag_reasons?.includes('GPS_OUTSIDE_PHOTO_FALLBACK')
+                              ? '📸 Chấm công ảnh xác thực dự phòng (Ngoài bán kính GPS)'
+                              : item.is_flagged
+                                ? '🚨 Cảnh báo thiết bị / Nghi vấn chấm hộ'
+                                : '📋 Bản ghi xác thực hình ảnh'}
+                          </div>
+
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', background: 'var(--bg-raised)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                            <strong>📱 Thiết bị:</strong> {item.hardware_uuid ? `ID phần cứng [${item.hardware_uuid.slice(0, 8)}]` : 'Chưa định danh'} {item.check_in_note ? `· ${item.check_in_note}` : ''}
+                          </div>
+
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>🕒 Lúc: {fmt(item.check_in_time)} · Ngày: {item.date}</span>
+                            {item.reviewed_at && (
+                              <span style={{ color: 'var(--green)', fontWeight: 600 }}>
+                                ✍️ Duyệt bởi: {item.reviewed_by?.full_name || 'Admin'} ({new Date(item.reviewed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons (Only for Admin on pending items) */}
+                      {user?.role === 'admin' && isPending && (
+                        <div style={{ display: 'flex', gap: '8px', width: '100%', maxWidth: '240px' }}>
+                          <button
+                            onClick={() => handleVerifyAttendance(item._id, 'approve')}
+                            disabled={verifyingId === item._id}
+                            className="btn btn--primary"
+                            style={{ flex: 1, fontSize: '12px', padding: '6px 10px', background: 'var(--green)', borderColor: 'var(--green)' }}
+                          >
+                            ✅ Phê duyệt
+                          </button>
+                          <button
+                            onClick={() => setRejectTarget(item)}
+                            disabled={verifyingId === item._id}
+                            className="btn btn--ghost"
+                            style={{ flex: 1, fontSize: '12px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                          >
+                            ❌ Từ chối
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

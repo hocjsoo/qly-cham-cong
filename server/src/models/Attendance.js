@@ -130,8 +130,21 @@ const attendanceSchema = new mongoose.Schema(
     },
     verification_status: {
       type: String,
-      enum: ['auto_approved', 'pending_review', 'rejected'],
+      enum: ['auto_approved', 'pending_review', 'approved', 'rejected'],
       default: 'auto_approved',
+    },
+    reviewed_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    reviewed_at: {
+      type: Date,
+      default: null,
+    },
+    reviewer_note: {
+      type: String,
+      default: null,
     },
   },
   {

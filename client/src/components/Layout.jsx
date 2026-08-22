@@ -42,7 +42,7 @@ export default function Layout() {
     { to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null },
     { to: '/history', icon: History, label: 'Lịch sử' },
     ...(isAdmin ? [{ to: '/reports', icon: BarChart2, label: 'Báo cáo' }] : []),
-    ...(!isStaff ? [{ to: '/projects', icon: FolderKanban, label: 'Dự án' }] : []),
+    { to: '/projects', icon: FolderKanban, label: 'Dự án' },
     ...(!isStaff ? [{ to: '/staff', icon: Users, label: 'Nhân viên' }] : []),
     ...(isAdmin ? [{ to: '/settings', icon: Settings, label: 'Cài đặt' }] : []),
     { to: '/profile', icon: User, label: 'Cá nhân' },

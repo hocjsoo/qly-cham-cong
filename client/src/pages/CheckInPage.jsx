@@ -47,6 +47,10 @@ export default function CheckInPage() {
   const [office, setOffice] = useState(null);
   const [offices, setOffices] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [myProjects, setMyProjects] = useState([]);
+  const [birthdays, setBirthdays] = useState([]);
+  const [anniversaries, setAnniversaries] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,15 +92,24 @@ export default function CheckInPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [todayRes, settingsRes, projRes, locRes, annRes] = await Promise.all([
+      const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const [yearVal, monthVal] = todayVN.split('-').map(Number);
+
+      const [todayRes, settingsRes, projRes, locRes, annRes, bdayRes, annivRes, holRes] = await Promise.all([
         api.get('/attendance/today'),
         api.get('/settings'),
         api.get('/projects?active_only=true'),
         api.get('/locations'),
         api.get('/announcements/pinned').catch(() => ({ data: [] })),
+        api.get(`/announcements/birthdays?month=${monthVal}`).catch(() => ({ data: { birthdays: [] } })),
+        api.get('/announcements/anniversaries').catch(() => ({ data: { anniversaries: [] } })),
+        api.get(`/holidays?year=${yearVal}`).catch(() => ({ data: [] })),
       ]);
       setToday(todayRes.data.attendance || null);
       setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
+      setBirthdays(bdayRes.data?.birthdays || []);
+      setAnniversaries(annivRes.data?.anniversaries || []);
+      setHolidays(Array.isArray(holRes?.data) ? holRes.data : []);
 
       const rawLocations = Array.isArray(locRes?.data) ? locRes.data : locRes?.data?.locations || [];
       const allActiveOffices = (todayRes.data.offices && todayRes.data.offices.length > 0)
@@ -111,6 +124,15 @@ export default function CheckInPage() {
       const rawProjects = Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []);
       const activeProjects = rawProjects.filter(p => p.is_active !== false && p.status !== 'Hoàn thành' && p.status !== 'Tạm dừng' && p.status !== 'cancelled');
       setProjects(activeProjects);
+
+      // Filter projects where current user is a member or PM
+      const myProjs = rawProjects.filter(p => {
+        const uid = user?._id || user?.id;
+        const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
+        const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
+        return isMember || isPm;
+      });
+      setMyProjects(myProjs.length > 0 ? myProjs : activeProjects.slice(0, 3));
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
     } finally {
@@ -664,6 +686,132 @@ export default function CheckInPage() {
             </button>
           </div>
         ) : null}
+
+        {/* WIDGET: DỰ ÁN CỦA TÔI */}
+        <div className="card animate-fade-in" style={{ marginBottom: '14px', padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🚀 DỰ ÁN ĐANG THAM GIA</span>
+              <span className="badge badge--info" style={{ fontSize: '10px' }}>{myProjects.length}</span>
+            </div>
+            <button onClick={() => navigate('/projects')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--primary)' }}>
+              Xem tất cả →
+            </button>
+          </div>
+
+          {myProjects.length === 0 ? (
+            <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', background: 'var(--bg-raised)', borderRadius: '8px' }}>
+              Chưa có dự án nào được phân công.
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
+              {myProjects.slice(0, 4).map(p => (
+                <div key={p._id || p.id} style={{
+                  background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px',
+                  border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span className="badge badge--info" style={{ fontSize: '10px', fontWeight: 800 }}>{p.code}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {p.deadline ? `⏳ ${p.deadline}` : 'Không có deadline'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      🎨 {p.category || 'Kiến trúc'} {p.pm_name ? `· 👷 PM: ${p.pm_name}` : ''}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Tiến độ</span>
+                      <span style={{ color: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)' }}>{p.progress || 0}%</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${p.progress || 0}%`, height: '100%',
+                        background: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)',
+                        borderRadius: '3px', transition: 'width 0.3s'
+                      }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* WIDGET: SỰ KIỆN, SINH NHẬT & KỶ NIỆM GẮN BÓ TRONG THÁNG */}
+        {(birthdays.length > 0 || anniversaries.length > 0 || holidays.length > 0) && (
+          <div className="card animate-fade-in" style={{
+            marginBottom: '16px', padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%)',
+            border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '14px'
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🎉 SỰ KIỆN & CHÚC MỪNG TRONG THÁNG</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+              {/* Sinh nhật */}
+              {birthdays.slice(0, 3).map(b => (
+                <div key={b.user_id || b.id} style={{
+                  background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                  border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>🎂</span>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {b.full_name}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                      Sinh nhật {b.dob ? `ngày ${b.dob.split('-')[2] || b.dob}` : 'tháng này'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Kỷ niệm gắn bó */}
+              {anniversaries.slice(0, 3).map(a => (
+                <div key={a.user_id || a.id} style={{
+                  background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                  border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>🏅</span>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {a.full_name}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>
+                      {a.badge || `Tròn ${a.years_count} năm gắn bó`}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Ngày lễ */}
+              {holidays.slice(0, 2).map((h, idx) => (
+                <div key={idx} style={{
+                  background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                  border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px'
+                }}>
+                  <span style={{ fontSize: '18px' }}>🎌</span>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {h.name}
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                      Nghỉ lễ: {h.date}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Announcement Detail Modal */}

@@ -77,11 +77,7 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="/projects" element={
-            <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-              <ProjectsPage />
-            </ProtectedRoute>
-          } />
+          <Route path="/projects" element={<ProjectsPage />} />
 
           <Route path="/settings" element={
             <ProtectedRoute roles={['admin']}>
