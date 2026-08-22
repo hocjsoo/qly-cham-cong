@@ -1192,31 +1192,55 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 /* =============================================
    MOBILE-FIRST DATA TABLE & RESPONSIVE SHEET OPTIMIZATIONS
    ============================================= */
+/* =============================================
+   MOBILE-FIRST UX & RESPONSIVE DESIGN SYSTEM (<= 767px)
+   ============================================= */
 @media (max-width: 767px) {
-  /* Page container bottom padding for Bottom Navigation Bar */
+  /* Page container bottom padding for Bottom Navigation Bar with Safe Area */
   .page {
-    padding-bottom: calc(78px + env(safe-area-inset-bottom, 16px)) !important;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 16px)) !important;
   }
 
   .container {
-    padding: 0 10px !important;
+    max-width: 100% !important;
+    padding: 0 12px !important;
   }
 
-  /* Prevent iOS Safari auto-zoom on form inputs */
-  .form-input, .form-select, textarea, input {
+  /* Prevent iOS Safari auto-zoom on form inputs & ensure touch friendly tap target */
+  .form-input, .form-select, textarea, input, select {
     font-size: 16px !important;
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
   }
 
-  /* Table horizontal touch scroll */
+  /* Touch-friendly buttons (min 44px height) */
+  .btn {
+    min-height: 42px !important;
+    font-size: 13px !important;
+    padding: 8px 14px !important;
+    border-radius: 10px !important;
+  }
+
+  .btn--lg {
+    min-height: 48px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-radius: 12px !important;
+  }
+
+  /* Table horizontal touch momentum scroll */
   .card[style*="overflowX: auto"],
-  .card[style*="overflow-x: auto"] {
+  .card[style*="overflow-x: auto"],
+  .table-responsive {
     -webkit-overflow-scrolling: touch !important;
     border-radius: 12px !important;
+    scrollbar-width: thin;
   }
 
   /* Table cell padding optimization for 320px+ mobile screens */
   table th, table td {
-    padding: 8px 8px !important;
+    padding: 9px 8px !important;
     font-size: 11px !important;
   }
 
@@ -1224,15 +1248,42 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   .chip {
     white-space: nowrap !important;
     flex-shrink: 0 !important;
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    min-height: 32px !important;
   }
 
-  /* Modal Sheet mobile optimizations */
+  /* Modal Overlay & Bottom Sheet for Mobile */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
   .modal-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
     max-height: 88vh !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 16px)) !important;
-    border-radius: 20px 20px 0 0 !important;
+    border-radius: 22px 22px 0 0 !important;
+    margin: 0 !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  .modal-sheet__handle {
+    width: 42px !important;
+    height: 5px !important;
+    background: var(--text-muted) !important;
+    opacity: 0.4 !important;
+    border-radius: 3px !important;
+    margin: 4px auto 14px !important;
+    display: block !important;
+  }
+
+  /* Mobile Top App Header */
+  .header {
+    padding: 10px 12px !important;
   }
 
   .header__inner {
@@ -1242,14 +1293,59 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
   .header__title {
     font-size: 16px !important;
+    line-height: 1.25 !important;
   }
 
   .header__subtitle {
     font-size: 11px !important;
   }
 
+  /* Cards Mobile Padding & Responsive Grid */
   .card {
-    padding: 14px !important;
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+  }
+
+  /* Responsive Grid Helpers */
+  .grid-mobile-1col {
+    grid-template-columns: 1fr !important;
+  }
+
+  .grid-mobile-2col {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Bottom Navigation Bar Optimization for Mobile */
+  .bottom-nav {
+    height: calc(58px + env(safe-area-inset-bottom, 10px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 10px) !important;
+  }
+
+  .bottom-nav__item {
+    min-width: 52px !important;
+    font-size: 9.5px !important;
+    padding: 2px 2px !important;
+  }
+
+  .bottom-nav__icon {
+    padding: 2px 8px !important;
+    border-radius: 10px !important;
+  }
+}
+
+/* Extra small mobile screens (<= 375px) */
+@media (max-width: 375px) {
+  .header__title {
+    font-size: 15px !important;
+  }
+
+  .bottom-nav__item {
+    min-width: 48px !important;
+    font-size: 9px !important;
+  }
+
+  .card {
+    padding: 10px 12px !important;
   }
 }
 
