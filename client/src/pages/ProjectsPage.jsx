@@ -241,9 +241,10 @@ export default function ProjectsPage() {
     return 0;
   });
 
-  const totalCount = projects.length;
-  const activeCount = projects.filter(p => p.status === 'Đang tiến hành').length;
-  const completedCount = projects.filter(p => p.status === 'Đã hoàn thành').length;
+  const currentScopeList = scope === 'my' ? myProjectsList : projects;
+  const displayTotalCount = currentScopeList.length;
+  const displayActiveCount = currentScopeList.filter(p => p.status === 'Đang tiến hành').length;
+  const displayCompletedCount = currentScopeList.filter(p => p.status === 'Đã hoàn thành').length;
 
   return (
     <div className="page">
@@ -252,7 +253,9 @@ export default function ProjectsPage() {
         <div className="header__inner">
           <div>
             <div className="header__title">Danh Mục Dự Án (ET Staff)</div>
-            <div className="header__subtitle">{totalCount} dự án · Khớp 100% Bảng Mẫu THÔNG TIN NS+DA</div>
+            <div className="header__subtitle">
+              {scope === 'my' ? `${myProjectsList.length} dự án bạn đang tham gia` : `${projects.length} dự án toàn công ty`} · Khớp 100% Bảng Mẫu THÔNG TIN NS+DA
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {isAdminOrManager && (
@@ -290,23 +293,25 @@ export default function ProjectsPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            🏢 Tất cả dự án công ty ({totalCount})
+            🏢 Tất cả dự án công ty ({projects.length})
           </button>
         </div>
 
-        {/* Stat KPI Cards */}
+        {/* Stat KPI Cards (Dynamically calculated based on active Scope) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
           <div className="card" style={{ padding: '12px 14px', background: 'var(--bg-card)' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>TỔNG SỐ DỰ ÁN</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>{totalCount}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              {scope === 'my' ? 'DỰ ÁN THAM GIA' : 'TỔNG SỐ DỰ ÁN'}
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>{displayTotalCount}</div>
           </div>
           <div className="card" style={{ padding: '12px 14px', background: 'var(--green-soft)' }}>
             <div style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>🚀 ĐANG TIẾN HÀNH</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--green)', marginTop: '2px' }}>{activeCount}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--green)', marginTop: '2px' }}>{displayActiveCount}</div>
           </div>
           <div className="card" style={{ padding: '12px 14px', background: 'var(--blue-soft)' }}>
             <div style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600 }}>✅ ĐÃ HOÀN THÀNH</div>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--blue)', marginTop: '2px' }}>{completedCount}</div>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--blue)', marginTop: '2px' }}>{displayCompletedCount}</div>
           </div>
         </div>
 
@@ -368,23 +373,27 @@ export default function ProjectsPage() {
                 onClick={() => setViewMode('table')}
                 title="Bảng Excel Mẫu"
                 style={{
+                  padding: '6px 10px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600,
                   background: viewMode === 'table' ? 'var(--bg-card)' : 'transparent',
-                  border: 'none', color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
-                  padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600
+                  color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'table' ? 'var(--shadow-xs)' : 'none',
                 }}
               >
-                <Table2 size={15} /> Bảng Excel
+                <LayoutList size={14} /> Bảng Excel
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                title="Giao diện Thẻ Card"
+                title="Thẻ Card Hiện Đại"
                 style={{
+                  padding: '6px 10px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', fontWeight: 600,
                   background: viewMode === 'grid' ? 'var(--bg-card)' : 'transparent',
-                  border: 'none', color: viewMode === 'grid' ? 'var(--primary)' : 'var(--text-muted)',
-                  padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600
+                  color: viewMode === 'grid' ? 'var(--primary)' : 'var(--text-muted)',
+                  boxShadow: viewMode === 'grid' ? 'var(--shadow-xs)' : 'none',
                 }}
               >
-                <LayoutGrid size={15} /> Thẻ Card
+                <LayoutGrid size={14} /> Thẻ Card
               </button>
             </div>
           </div>
@@ -392,29 +401,29 @@ export default function ProjectsPage() {
 
         {/* Loading / Empty States */}
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '80px', borderRadius: '12px' }} />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '70px', borderRadius: '10px' }} />)}
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div className="card empty-state" style={{ padding: '36px 16px' }}>
+          <div className="empty-state">
             <div className="empty-state__icon">🏗️</div>
             <div className="empty-state__title">Không có dự án phù hợp</div>
             <div className="empty-state__desc">Thử thay đổi từ khóa hoặc bộ lọc tìm kiếm</div>
           </div>
         ) : viewMode === 'table' ? (
           /* VIEW MODE 1: EXACT MATCH EXCEL TABLE (Mẫu THÔNG TIN NS+DA) */
-          <div className="card animate-fade-in" style={{ padding: '4px', overflowX: 'auto' }}>
+          <div className="card animate-fade-in" style={{ padding: '0', overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)' }}>
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-raised)', borderBottom: '2px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
-                  <th style={{ padding: '10px 12px', width: '110px' }}>NO. (Mã dự án)</th>
-                  <th style={{ padding: '10px 12px' }}>DỰ ÁN</th>
-                  <th style={{ padding: '10px 12px' }}>THÀNH VIÊN</th>
-                  <th style={{ padding: '10px 12px' }}>TIẾN ĐỘ</th>
-                  <th style={{ padding: '10px 12px' }}>PHÂN LOẠI</th>
-                  <th style={{ padding: '10px 12px' }}>PM</th>
-                  <th style={{ padding: '10px 12px' }}>TRẠNG THÁI</th>
-                  {isAdminOrManager && <th style={{ padding: '10px 12px', textAlign: 'center' }}>THAO TÁC</th>}
+                <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
+                  <th style={{ padding: '11px 14px', width: '100px' }}>NO. (Mã dự án)</th>
+                  <th style={{ padding: '11px 14px', minWidth: '160px' }}>DỰ ÁN</th>
+                  <th style={{ padding: '11px 14px', width: '110px' }}>THÀNH VIÊN</th>
+                  <th style={{ padding: '11px 14px', width: '150px' }}>TIẾN ĐỘ</th>
+                  <th style={{ padding: '11px 14px', width: '110px' }}>PHÂN LOẠI</th>
+                  <th style={{ padding: '11px 14px', width: '120px' }}>PM</th>
+                  <th style={{ padding: '11px 14px', width: '130px' }}>TRẠNG THÁI</th>
+                  {isAdminOrManager && <th style={{ padding: '11px 14px', width: '90px', textAlign: 'center' }}>THAO TÁC</th>}
                 </tr>
               </thead>
               <tbody>
@@ -428,28 +437,29 @@ export default function ProjectsPage() {
                       onClick={() => setSelectedProjectDetail(p)}
                       style={{
                         borderBottom: '1px solid var(--border-muted)',
-                        background: idx % 2 === 0 ? 'transparent' : 'var(--bg-raised)',
-                        cursor: 'pointer'
+                        background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
+                        cursor: 'pointer',
+                        transition: 'background 0.1s'
                       }}
                       title="Click để xem chi tiết dự án"
                     >
                       {/* NO. (Mã dự án) */}
-                      <td style={{ padding: '10px 12px', fontWeight: 800, color: 'var(--primary)' }}>
+                      <td style={{ padding: '11px 14px', fontWeight: 800, color: 'var(--primary)' }}>
                         {p.code}
                       </td>
 
                       {/* DỰ ÁN */}
-                      <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text)' }}>
-                        <div>{p.name}</div>
+                      <td style={{ padding: '11px 14px', fontWeight: 700, color: 'var(--text)' }}>
+                        <div style={{ fontSize: '13px' }}>{p.name}</div>
                         {p.deadline && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
                             ⏱️ Hạn chót: {p.deadline}
                           </div>
                         )}
                       </td>
 
                       {/* THÀNH VIÊN (Stacked Avatars) */}
-                      <td style={{ padding: '10px 12px' }}>
+                      <td style={{ padding: '11px 14px' }}>
                         {members.length > 0 ? (
                           <div style={{ display: 'flex', alignItems: 'center' }}>
                             {members.slice(0, 3).map((m, mIdx) => (
@@ -457,7 +467,7 @@ export default function ProjectsPage() {
                                 key={m._id || mIdx}
                                 title={m.full_name || 'Thành viên'}
                                 style={{
-                                  width: '24px', height: '24px', borderRadius: '50%',
+                                  width: '26px', height: '26px', borderRadius: '50%',
                                   background: 'var(--primary)', color: '#fff',
                                   fontSize: '10px', fontWeight: 700,
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -475,7 +485,7 @@ export default function ProjectsPage() {
                             ))}
                             {members.length > 3 && (
                               <div style={{
-                                width: '24px', height: '24px', borderRadius: '50%',
+                                width: '26px', height: '26px', borderRadius: '50%',
                                 background: 'var(--bg-raised)', color: 'var(--text-secondary)',
                                 fontSize: '10px', fontWeight: 700,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -491,22 +501,22 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* TIẾN ĐỘ */}
-                      <td style={{ padding: '10px 12px', minWidth: '110px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ flex: 1, height: '6px', background: 'var(--bg-raised)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                          <div style={{ flex: 1, height: '7px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{
                               height: '100%',
                               width: `${Math.min(100, Math.max(0, p.progress || 0))}%`,
                               background: (p.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)',
-                              borderRadius: '3px'
+                              borderRadius: '4px'
                             }} />
                           </div>
-                          <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '28px' }}>{p.progress || 0}%</span>
+                          <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '32px', color: 'var(--text-secondary)' }}>{p.progress || 0}%</span>
                         </div>
                       </td>
 
                       {/* PHÂN LOẠI */}
-                      <td style={{ padding: '10px 12px' }}>
+                      <td style={{ padding: '11px 14px' }}>
                         <span style={{
                           background: 'var(--primary-soft)', color: 'var(--primary)',
                           padding: '3px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '11px'
@@ -515,13 +525,13 @@ export default function ProjectsPage() {
                         </span>
                       </td>
 
-                      {/* NOTE */}
-                      <td style={{ padding: '10px 12px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.note || p.address || '—'}
+                      {/* PM */}
+                      <td style={{ padding: '11px 14px', color: 'var(--text)', fontWeight: 600 }}>
+                        {p.pm_name || '—'}
                       </td>
 
                       {/* TRẠNG THÁI */}
-                      <td style={{ padding: '10px 12px' }}>
+                      <td style={{ padding: '11px 14px' }}>
                         <span className={`badge ${statObj.cls}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
                           {statObj.label}
                         </span>
