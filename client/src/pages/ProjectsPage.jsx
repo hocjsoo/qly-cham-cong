@@ -80,6 +80,7 @@ export default function ProjectsPage() {
     note: '',
     status: 'Đang tiến hành',
     members: [],
+    start_date: '',
     deadline: '',
     progress: 0,
   });
@@ -125,6 +126,7 @@ export default function ProjectsPage() {
       note: '',
       status: 'Đang tiến hành',
       members: [user?._id || user?.id].filter(Boolean),
+      start_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
       deadline: '',
       progress: 0,
     });
@@ -153,6 +155,7 @@ export default function ProjectsPage() {
       note: proj.note || '',
       status: st,
       members: memberIds,
+      start_date: proj.start_date || (proj.created_at ? String(proj.created_at).slice(0, 10) : ''),
       deadline: proj.deadline || '',
       progress: proj.progress || 0,
     });
@@ -853,27 +856,60 @@ export default function ProjectsPage() {
               </div>
             </div>
 
+            {/* Project Timeline: Start Date & Deadline */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div className="form-group">
-                <label className="form-label">Tiến độ ({form.progress}%)</label>
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  📅 Ngày bắt đầu
+                </label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={form.start_date}
+                  onChange={e => setForm({ ...form, start_date: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--yellow)' }}>
+                  ⏱️ Hạn chót (Deadline)
+                </label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={form.deadline}
+                  onChange={e => setForm({ ...form, deadline: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label className="form-label" style={{ margin: 0 }}>Tiến độ dự án</label>
+                <strong style={{ fontSize: '13px', color: form.progress >= 100 ? 'var(--blue)' : 'var(--green)' }}>
+                  {form.progress}%
+                </strong>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                 <input
                   type="range"
                   min="0"
                   max="100"
                   step="5"
                   className="form-input"
-                  style={{ padding: '4px 0' }}
+                  style={{ padding: '4px 0', flex: 1 }}
                   value={form.progress}
                   onChange={e => setForm({ ...form, progress: Number(e.target.value) })}
                 />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Hạn chót (Deadline)</label>
                 <input
-                  type="date"
+                  type="number"
+                  min="0"
+                  max="100"
                   className="form-input"
-                  value={form.deadline}
-                  onChange={e => setForm({ ...form, deadline: e.target.value })}
+                  style={{ width: '65px', padding: '6px', textAlign: 'center', fontSize: '12px', fontWeight: 700 }}
+                  value={form.progress}
+                  onChange={e => setForm({ ...form, progress: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
                 />
               </div>
             </div>
@@ -1004,15 +1040,21 @@ export default function ProjectsPage() {
                 </div>
               </div>
               <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hạn chót (Deadline)</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: selectedProjectDetail.deadline ? 'var(--yellow)' : 'var(--text-muted)' }}>
-                  ⏱️ {selectedProjectDetail.deadline || 'Không có'}
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>📅 Ngày bắt đầu</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                  {selectedProjectDetail.start_date || (selectedProjectDetail.created_at ? String(selectedProjectDetail.created_at).slice(0, 10) : 'Chưa đặt')}
                 </div>
               </div>
               <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Khách hàng</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>⏱️ Hạn chót (Deadline)</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: selectedProjectDetail.deadline ? 'var(--yellow)' : 'var(--text-muted)' }}>
+                  {selectedProjectDetail.deadline || 'Không có'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', gridColumn: 'span 2' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Khách hàng / Chủ đầu tư</div>
                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
-                  👤 {selectedProjectDetail.client_name || 'Nội bộ'}
+                  👤 {selectedProjectDetail.client_name || 'Nội bộ công ty'}
                 </div>
               </div>
             </div>
