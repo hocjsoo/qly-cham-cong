@@ -498,7 +498,7 @@ export default function ProjectsPage() {
             >
               <option value="all">📅 Năm: Tất cả ({projects.length})</option>
               {availableYears.map(y => {
-                const count = projects.filter(p => getProjectYears(p).includes(y)).length;
+                const count = projects.filter(p => getProjectYear(p) === y).length;
                 return (
                   <option key={y} value={y}>
                     Năm {y} ({count})
