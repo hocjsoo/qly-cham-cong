@@ -54,7 +54,7 @@ export default function StaffPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
-    position: '', dob: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
+    position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -209,9 +209,13 @@ export default function StaffPage() {
     } else if (sortBy === 'name_desc') {
       return (b.full_name || '').localeCompare(a.full_name || '', 'vi');
     } else if (sortBy === 'date_desc') {
-      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      const dateB = b.join_date ? new Date(b.join_date) : new Date(b.created_at || 0);
+      const dateA = a.join_date ? new Date(a.join_date) : new Date(a.created_at || 0);
+      return dateB - dateA;
     } else if (sortBy === 'date_asc') {
-      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      const dateB = b.join_date ? new Date(b.join_date) : new Date(b.created_at || 0);
+      const dateA = a.join_date ? new Date(a.join_date) : new Date(a.created_at || 0);
+      return dateA - dateB;
     } else if (sortBy === 'code_asc') {
       return (a.employee_code || '').localeCompare(b.employee_code || '', 'vi');
     }
@@ -220,7 +224,7 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '' });
+    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '' });
     setShowForm(true);
   };
 
@@ -241,6 +245,7 @@ export default function StaffPage() {
       phone: user.phone || '',
       position: user.position || '',
       dob: user.dob || '',
+      join_date: user.join_date || (user.start_year ? `${user.start_year}-01-01` : ''),
       employee_type: user.employee_type || 'NS',
       employee_code: user.employee_code || '',
       employment_status: user.employment_status || 'Dang lam viec',
@@ -481,6 +486,7 @@ export default function StaffPage() {
                         {u.phone && <span>📱 {u.phone}</span>}
                         <span>🏢 {deptName}</span>
                         {u.position && <span>💼 {u.position}</span>}
+                        {u.join_date && <span>📅 Vào: {u.join_date}</span>}
                       </div>
                     </div>
 
@@ -560,15 +566,27 @@ export default function StaffPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
-                <label className="form-label">So dien thoai</label>
+                <label className="form-label">Số điện thoại</label>
                 <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678" />
               </div>
               <div className="form-group">
-                <label className="form-label">Ngay sinh (YYYY-MM-DD)</label>
-                <input type="date" className="form-input" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} />
+                <label className="form-label">🎂 Ngày sinh</label>
+                <input type="date" className="form-input" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} onClick={e => e.target.showPicker && e.target.showPicker()} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  📅 Ngày vào công ty
+                </label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={form.join_date}
+                  onChange={e => setForm({ ...form, join_date: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
               <div className="form-group">
                 <label className="form-label">Mã nhân sự / ID (Tùy chọn)</label>
                 <input
@@ -579,13 +597,13 @@ export default function StaffPage() {
                   placeholder="VD: NS-001, TV-002, ET-88 (để trống tự sinh)"
                 />
               </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
                 <label className="form-label">Chức vụ / Vị trí</label>
                 <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kiến trúc sư, Trưởng phòng..." />
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
                 <label className="form-label">Loại nhân sự</label>
                 <select className="form-input" value={form.employee_type} onChange={e => setForm({ ...form, employee_type: e.target.value })}>
@@ -594,6 +612,9 @@ export default function StaffPage() {
                   <option value="TTS">TTS - Thực tập sinh</option>
                 </select>
               </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div className="form-group">
                 <label className="form-label">Trạng thái</label>
                 <select className="form-input" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })}>
@@ -604,14 +625,14 @@ export default function StaffPage() {
                   <option value="Khac">Khác</option>
                 </select>
               </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Vai trò *</label>
-              <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="employee">Nhân viên (Employee)</option>
-                <option value="leader">Leader (Trưởng nhóm)</option>
-                {currentUser?.role === 'admin' && <option value="admin">Admin (Quản trị viên)</option>}
-              </select>
+              <div className="form-group">
+                <label className="form-label">Vai trò *</label>
+                <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                  <option value="employee">Nhân viên (Employee)</option>
+                  <option value="leader">Leader (Trưởng nhóm)</option>
+                  {currentUser?.role === 'admin' && <option value="admin">Admin (Quản trị viên)</option>}
+                </select>
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Ảnh đại diện (Avatar)</label>
@@ -873,6 +894,12 @@ export default function StaffPage() {
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Chức danh: </span>
                 <strong>{viewingStaffDetail.position || 'Nhân viên'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>📅 Ngày vào công ty: </span>
+                <strong style={{ color: 'var(--primary)' }}>
+                  {viewingStaffDetail.join_date ? viewingStaffDetail.join_date : (viewingStaffDetail.start_year ? `Năm ${viewingStaffDetail.start_year}` : 'Chưa cập nhật')}
+                </strong>
               </div>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Trạng thái làm việc: </span>

@@ -129,6 +129,8 @@ export default function ProfilePage() {
     { icon: <Mail size={16} />, label: 'Email', value: user?.email },
     { icon: <Phone size={16} />, label: 'Điện thoại', value: user?.phone || 'Chưa cập nhật' },
     { icon: <Building2 size={16} />, label: 'Phòng ban', value: user?.department_name || 'Chưa phân' },
+    { icon: <User size={16} />, label: 'Chức vụ', value: user?.position || 'Nhân viên' },
+    { icon: <span style={{ fontSize: '14px' }}>📅</span>, label: 'Ngày vào công ty', value: user?.join_date || (user?.start_year ? `Năm ${user.start_year}` : 'Chưa cập nhật') },
     { icon: <Shield size={16} />, label: 'Vai trò', value: ROLE_VI[user?.role] || user?.role },
   ];
 

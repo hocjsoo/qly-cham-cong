@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema(
       type: String, // Năm bắt đầu làm việc
       default: null,
     },
+    join_date: {
+      type: String, // Ngày vào công ty chính xác (YYYY-MM-DD)
+      default: null,
+    },
     education: {
       type: String, // Trình độ
       default: null,

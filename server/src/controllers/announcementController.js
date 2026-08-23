@@ -159,7 +159,7 @@ const getAnniversaries = async (req, res) => {
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] },
       is_active: { $ne: false },
     })
-      .select('full_name email phone position start_year created_at dob department_id department_ids avatar_url employee_code')
+      .select('full_name email phone position start_year join_date created_at dob department_id department_ids avatar_url employee_code')
       .populate('department_id', 'name')
       .populate('department_ids', 'name');
 
@@ -170,7 +170,11 @@ const getAnniversaries = async (req, res) => {
       let joinYear = null;
       let joinMonth = null;
 
-      if (u.created_at) {
+      if (u.join_date && typeof u.join_date === 'string' && u.join_date.includes('-')) {
+        const parts = u.join_date.split('-');
+        joinYear = parseInt(parts[0]);
+        joinMonth = parseInt(parts[1]);
+      } else if (u.created_at) {
         const joinDate = new Date(u.created_at);
         joinYear = joinDate.getFullYear();
         joinMonth = joinDate.getMonth() + 1;

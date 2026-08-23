@@ -56,7 +56,7 @@ const createUser = async (req, res) => {
     email, full_name, password, role, phone,
     department_id, department_ids, manager_id,
     employee_type, employee_code, position, employment_status,
-    dob, bhxh_code, emergency_phone, address_current, hometown, cccd,
+    dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
   } = req.body;
 
@@ -96,6 +96,7 @@ const createUser = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const empType = employee_type || 'NS';
     const empCode = (employee_code && employee_code.trim()) ? employee_code.trim() : await generateEmployeeCode(empType);
+    const derivedStartYear = join_date ? String(join_date).split('-')[0] : (start_year || null);
 
     const user = await User.create({
       email: email.toLowerCase().trim(),
@@ -111,6 +112,7 @@ const createUser = async (req, res) => {
       position: position || null,
       employment_status: employment_status || 'Dang lam viec',
       dob: dob || null,
+      join_date: join_date || null,
       bhxh_code: bhxh_code || null,
       emergency_phone: emergency_phone || null,
       address_current: address_current || null,
@@ -119,7 +121,7 @@ const createUser = async (req, res) => {
       bank_name: bank_name || null,
       bank_account: bank_account || null,
       branch: branch || null,
-      start_year: start_year || null,
+      start_year: derivedStartYear,
       education: education || null,
     });
 
@@ -142,7 +144,7 @@ const updateUser = async (req, res) => {
   const {
     full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password,
     employee_type, employee_code, position, employment_status,
-    dob, bhxh_code, emergency_phone, address_current, hometown, cccd,
+    dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
   } = req.body;
 
@@ -185,6 +187,12 @@ const updateUser = async (req, res) => {
     if (manager_id !== undefined) updateData.manager_id = manager_id || null;
     if (is_active !== undefined) updateData.is_active = is_active;
     if (dob !== undefined) updateData.dob = dob;
+    if (join_date !== undefined) {
+      updateData.join_date = join_date;
+      if (join_date) {
+        updateData.start_year = String(join_date).split('-')[0];
+      }
+    }
     if (bhxh_code !== undefined) updateData.bhxh_code = bhxh_code;
     if (emergency_phone !== undefined) updateData.emergency_phone = emergency_phone;
     if (address_current !== undefined) updateData.address_current = address_current;
