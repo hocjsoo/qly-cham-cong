@@ -1,8 +1,8 @@
 // controllers/notificationController.js - Notification Engine
 const Notification = require('../models/Notification');
 const User = require('../models/User');
-
 const Request = require('../models/Request');
+const Holiday = require('../models/Holiday');
 
 const TYPE_LABELS = {
   late: 'Đi muộn', early_leave: 'Về sớm', overtime: 'Tăng ca',
@@ -52,11 +52,42 @@ const getNotifications = async (req, res) => {
     }
 
     // Fetch notifications for user or broadcast (user_id = null)
-    const notifications = await Notification.find({
+    let notifications = await Notification.find({
       $or: [{ user_id: userId }, { user_id: null }],
     })
       .sort({ created_at: -1 })
       .limit(30);
+
+    // Auto-enrich holiday announcement notifications with full Holiday note if missing
+    try {
+      const holidays = await Holiday.find().lean();
+      if (holidays && holidays.length > 0) {
+        for (const n of notifications) {
+          if (n.type === 'announcement' && n.title && n.title.includes('NGHỈ LỄ')) {
+            const cleanTitle = n.title.replace(/^📢\s*(THÔNG BÁO|CẬP NHẬT LỊCH)\s*NGHỈ LỄ:\s*/i, '').trim().toUpperCase();
+            const matchedHoliday = holidays.find(h => 
+              h.name.toUpperCase().includes(cleanTitle) ||
+              cleanTitle.includes(h.name.toUpperCase()) ||
+              (n.message && n.message.includes(h.name))
+            );
+
+            if (matchedHoliday && matchedHoliday.note && matchedHoliday.note.trim()) {
+              const dateText = matchedHoliday.end_date && matchedHoliday.end_date !== matchedHoliday.date 
+                ? `từ ${matchedHoliday.date} đến ${matchedHoliday.end_date}` 
+                : `ngày ${matchedHoliday.date}`;
+              const fullMessage = `Công ty trân trọng thông báo lịch nghỉ lễ "${matchedHoliday.name}" (${dateText}):\n\n${matchedHoliday.note.trim()}`;
+              
+              if (n.message !== fullMessage) {
+                n.message = fullMessage;
+                await Notification.findByIdAndUpdate(n._id, { message: fullMessage }).catch(() => {});
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Non-blocking enrichment
+    }
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
