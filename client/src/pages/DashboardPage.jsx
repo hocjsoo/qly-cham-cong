@@ -1158,6 +1158,86 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Holiday / Event Detail Modal — Full Rich Text Display */}
+      {selectedHoliday && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedHoliday(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid #8b5cf6'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '12px',
+                  background: 'rgba(139, 92, 246, 0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1.5px solid #8b5cf6', fontSize: '20px'
+                }}>
+                  🏖️
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Thông Báo Nghỉ Lễ Công Ty
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                    {selectedHoliday.name}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedHoliday(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'rgba(139, 92, 246, 0.08)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid rgba(139, 92, 246, 0.25)', marginBottom: '16px'
+            }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#8b5cf6', marginBottom: '4px' }}>
+                🗓️ Lịch nghỉ áp dụng:
+              </div>
+              <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600 }}>
+                {selectedHoliday.date} {selectedHoliday.end_date && selectedHoliday.end_date !== selectedHoliday.date ? `→ ${selectedHoliday.end_date}` : ''}
+              </div>
+            </div>
+
+            {selectedHoliday.note && (
+              <div style={{
+                background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
+                border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
+                lineHeight: 1.7, whiteSpace: 'pre-line', marginBottom: '22px',
+                maxHeight: '380px', overflowY: 'auto'
+              }}>
+                <div style={{ fontWeight: 800, color: '#8b5cf6', marginBottom: '8px', fontSize: '12px' }}>
+                  💬 NỘI DUNG THÔNG BÁO CHI TIẾT:
+                </div>
+                {selectedHoliday.note}
+              </div>
+            )}
+
+            <button
+              onClick={() => setSelectedHoliday(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px', background: '#8b5cf6', borderColor: '#8b5cf6' }}
+            >
+              Đã hiểu & Xác nhận ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

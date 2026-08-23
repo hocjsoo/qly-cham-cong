@@ -762,10 +762,12 @@ export default function HistoryPage() {
       {/* Selected Day Detail Modal */}
       {selectedDayDate && (
         <div className="modal-overlay" onClick={() => setSelectedDayDate('')}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', margin: '0 auto', maxHeight: '85vh', overflowY: 'auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontWeight: 700, fontSize: '16px' }}>Chi tiết ngày {selectedDayDate}</div>
+              <div style={{ fontWeight: 800, fontSize: '17px', color: 'var(--text)' }}>
+                Chi tiết ngày {selectedDayDate}
+              </div>
               <button onClick={() => setSelectedDayDate('')} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
@@ -777,34 +779,52 @@ export default function HistoryPage() {
                 <div>
                   {currentHoliday && (
                     <div className="card" style={{
-                      padding: '12px', marginBottom: '12px', background: 'rgba(139, 92, 246, 0.12)',
-                      border: '1px solid #8b5cf6', borderRadius: '12px'
+                      padding: '16px', marginBottom: '16px', background: 'rgba(139, 92, 246, 0.08)',
+                      border: '1.5px solid #8b5cf6', borderRadius: '14px', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.1)'
                     }}>
-                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#8b5cf6', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#8b5cf6', marginBottom: '6px', lineHeight: 1.3 }}>
                         🏖️ NGHỈ LỄ: {currentHoliday.name.toUpperCase()}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        Áp dụng: <strong>{currentHoliday.date}</strong> {currentHoliday.end_date && currentHoliday.end_date !== currentHoliday.date ? `→ ${currentHoliday.end_date}` : ''}
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        Áp dụng: <strong style={{ color: 'var(--text)' }}>{currentHoliday.date}</strong> {currentHoliday.end_date && currentHoliday.end_date !== currentHoliday.date ? `→ ${currentHoliday.end_date}` : ''}
                       </div>
+
+                      {/* Full Pre-formatted Announcement Content */}
                       {currentHoliday.note && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                          💬 {currentHoliday.note}
+                        <div style={{
+                          fontSize: '13px',
+                          color: 'var(--text)',
+                          lineHeight: 1.7,
+                          marginTop: '10px',
+                          padding: '14px 16px',
+                          background: 'var(--bg-card)',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border)',
+                          whiteSpace: 'pre-line',
+                          wordBreak: 'break-word',
+                          maxHeight: '350px',
+                          overflowY: 'auto'
+                        }}>
+                          <div style={{ fontWeight: 800, color: '#8b5cf6', marginBottom: '8px', fontSize: '12px', letterSpacing: '0.5px' }}>
+                            📢 NỘI DUNG THÔNG BÁO:
+                          </div>
+                          {currentHoliday.note}
                         </div>
                       )}
 
                       {isAdmin && (
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                           <button
                             onClick={() => { handleOpenEditHoliday(currentHoliday); setSelectedDayDate(''); }}
                             className="btn btn--ghost"
-                            style={{ flex: 1, fontSize: '11px', padding: '6px', color: '#8b5cf6', borderColor: '#8b5cf6' }}
+                            style={{ flex: 1, fontSize: '12px', padding: '7px', color: '#8b5cf6', borderColor: '#8b5cf6', fontWeight: 700 }}
                           >
                             ✏️ Sửa ngày lễ
                           </button>
                           <button
                             onClick={() => handleDeleteHoliday(currentHoliday._id)}
                             className="btn btn--ghost"
-                            style={{ fontSize: '11px', padding: '6px 10px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                            style={{ fontSize: '12px', padding: '7px 14px', color: 'var(--red)', borderColor: 'var(--red)', fontWeight: 700 }}
                           >
                             🗑️ Xóa
                           </button>
@@ -1026,13 +1046,16 @@ export default function HistoryPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Ghi chú / Thông báo nhân viên</label>
+              <label className="form-label" style={{ fontWeight: 700 }}>
+                💬 Ghi chú / Nội dung thông báo toàn thể nhân viên
+              </label>
               <textarea
                 className="form-input"
-                rows={3}
+                rows={5}
                 value={holidayForm.note}
                 onChange={e => setHolidayForm({ ...holidayForm, note: e.target.value })}
-                placeholder="Nhập chi tiết về đợt nghỉ lễ..."
+                placeholder="Nhập chi tiết về đợt nghỉ lễ, văn bản thông báo, lời chúc, hướng dẫn bàn giao công việc..."
+                style={{ lineHeight: 1.6, fontSize: '13px' }}
               />
             </div>
 
