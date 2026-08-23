@@ -741,46 +741,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Announcement Detail Modal Sheet */}
-      {selectedAnnouncement && (
-        <div className="modal-overlay" onClick={() => setSelectedAnnouncement(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
-            <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Bell size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
-                  Chi tiết thông báo
-                </h3>
-              </div>
-              <button onClick={() => setSelectedAnnouncement(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
-            </div>
 
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px' }}>
-              📌 {selectedAnnouncement.title}
-            </div>
-
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '14px', display: 'flex', gap: '12px' }}>
-              <span>📅 Ngày đăng: {selectedAnnouncement.created_at ? new Date(selectedAnnouncement.created_at).toLocaleString('vi-VN') : 'Mới cập nhật'}</span>
-              {selectedAnnouncement.created_by?.full_name && (
-                <span>👤 Người gửi: {selectedAnnouncement.created_by.full_name}</span>
-              )}
-            </div>
-
-            <div style={{
-              background: 'var(--bg-input)', padding: '14px', borderRadius: '10px',
-              border: '1px solid var(--border)', fontSize: '13px', color: 'var(--text)',
-              lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: '18px'
-            }}>
-              {selectedAnnouncement.content}
-            </div>
-
-            <button onClick={() => setSelectedAnnouncement(null)} className="btn btn--primary btn--full">
-              Đóng
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Staff Account & Detail Profile Modal Sheet */}
       {viewingStaffDetail && (

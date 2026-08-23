@@ -513,8 +513,8 @@ export default function NotificationCenter() {
             <div style={{
               background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
               border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
-              lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: '22px',
-              maxHeight: '360px', overflowY: 'auto'
+              lineHeight: 1.75, whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: '22px',
+              maxHeight: '440px', overflowY: 'auto'
             }}>
               {selectedNotifForDetail.message}
             </div>

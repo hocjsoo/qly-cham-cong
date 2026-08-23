@@ -37,10 +37,14 @@ const createHoliday = async (req, res) => {
 
     if (send_notification) {
       const dateText = end_date && end_date !== date ? `từ ${date} đến ${end_date}` : `ngày ${date}`;
+      const fullMessage = note && note.trim()
+        ? `Công ty trân trọng thông báo lịch nghỉ lễ "${name}" (${dateText}):\n\n${note.trim()}`
+        : `Công ty thông báo lịch nghỉ lễ "${name}" (${dateText}).`;
+
       await Notification.create({
         user_id: null,
         title: `📢 THÔNG BÁO NGHỈ LỄ: ${name.toUpperCase()}`,
-        message: `Công ty thông báo lịch nghỉ lễ "${name}" (${dateText}).`,
+        message: fullMessage,
         type: 'announcement',
       });
     }
@@ -71,10 +75,14 @@ const updateHoliday = async (req, res) => {
 
     if (send_notification) {
       const dateText = holiday.end_date && holiday.end_date !== holiday.date ? `từ ${holiday.date} đến ${holiday.end_date}` : `ngày ${holiday.date}`;
+      const fullMessage = holiday.note && holiday.note.trim()
+        ? `Công ty cập nhật lịch nghỉ lễ "${holiday.name}" (${dateText}):\n\n${holiday.note.trim()}`
+        : `Công ty cập nhật lịch nghỉ lễ "${holiday.name}" (${dateText}).`;
+
       await Notification.create({
         user_id: null,
         title: `📢 CẬP NHẬT LỊCH NGHỈ LỄ: ${holiday.name.toUpperCase()}`,
-        message: `Công ty cập nhật lịch nghỉ lễ "${holiday.name}" (${dateText}).`,
+        message: fullMessage,
         type: 'announcement',
       });
     }
