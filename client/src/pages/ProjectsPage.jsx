@@ -2,7 +2,7 @@
 // Quản Lý Dự Án / Công Trình — Khớp 100% Mẫu Bảng Excel THÔNG TIN NS+DA
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutGrid, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
