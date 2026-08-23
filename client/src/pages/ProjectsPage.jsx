@@ -57,6 +57,9 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState(isStaff ? 'my' : 'all'); // 'my' | 'all'
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedPm, setSelectedPm] = useState('all');
+  const [selectedCodePrefix, setSelectedCodePrefix] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [sortBy, setSortBy] = useState('date_desc'); // 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
@@ -213,19 +216,68 @@ export default function ProjectsPage() {
     return isMember || isPm;
   });
 
+  // Extract Dynamic Filter Lists (Years, PMs, Project Codes)
+  const getProjectYear = (p) => {
+    const codeMatch = p.code && String(p.code).match(/^(\d{2})\./);
+    if (codeMatch) return `20${codeMatch[1]}`;
+    if (p.deadline && String(p.deadline).length >= 4) return String(p.deadline).slice(0, 4);
+    if (p.created_at) return new Date(p.created_at).getFullYear().toString();
+    return null;
+  };
+
+  const availableYears = Array.from(new Set(
+    projects.map(p => getProjectYear(p)).filter(Boolean)
+  )).sort().reverse();
+
+  const availablePms = Array.from(new Set(
+    projects.map(p => p.pm_name && p.pm_name.trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'vi'));
+
+  const availableCodes = Array.from(new Set(
+    projects.map(p => p.code && p.code.trim()).filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b, 'vi'));
+
+  const hasActiveFilters = Boolean(
+    searchTerm.trim() ||
+    selectedYear !== 'all' ||
+    selectedPm !== 'all' ||
+    selectedCodePrefix !== 'all' ||
+    selectedCategory !== 'all' ||
+    selectedStatus !== 'all'
+  );
+
+  const resetAllFilters = () => {
+    setSearchTerm('');
+    setSelectedYear('all');
+    setSelectedPm('all');
+    setSelectedCodePrefix('all');
+    setSelectedCategory('all');
+    setSelectedStatus('all');
+  };
+
   const filteredProjects = projects.filter(p => {
     const uid = user?._id || user?.id;
     const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
     const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
     const matchScope = scope === 'all' ? true : (isMember || isPm);
 
-    const matchSearch = (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.pm_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        (p.client_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const q = searchTerm.trim().toLowerCase();
+    const matchSearch = !q ||
+                        (p.name || '').toLowerCase().includes(q) ||
+                        (p.code || '').toLowerCase().includes(q) ||
+                        (p.pm_name || '').toLowerCase().includes(q) ||
+                        (p.client_name || '').toLowerCase().includes(q) ||
+                        (p.address || '').toLowerCase().includes(q) ||
+                        (p.note || '').toLowerCase().includes(q);
+
+    const projYear = getProjectYear(p);
+    const matchYear = selectedYear === 'all' || projYear === selectedYear;
+    const matchPm = selectedPm === 'all' || (p.pm_name && p.pm_name.trim().toLowerCase() === selectedPm.toLowerCase());
+    const matchCode = selectedCodePrefix === 'all' || (p.code && p.code.toLowerCase().includes(selectedCodePrefix.toLowerCase()));
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchStat = selectedStatus === 'all' || p.status === selectedStatus;
-    return matchScope && matchSearch && matchCat && matchStat;
+
+    return matchScope && matchSearch && matchYear && matchPm && matchCode && matchCat && matchStat;
   }).sort((a, b) => {
     if (sortBy === 'name_asc') {
       return (a.name || '').localeCompare(b.name || '', 'vi');
@@ -316,16 +368,17 @@ export default function ProjectsPage() {
         </div>
 
         {/* Controls: Search, Filters & View Mode Switcher */}
-        <div className="card" style={{ padding: '10px 14px', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="card" style={{ padding: '12px 14px', marginBottom: '14px' }}>
+          {/* Row 1: Search & Controls */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '10px' }}>
             {/* Search input */}
-            <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
               <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-muted)' }} />
               <input
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '32px', fontSize: '13px', padding: '7px 10px 7px 32px' }}
-                placeholder="Tìm mã dự án, tên dự án, PM, thành viên..."
+                placeholder="🔍 Tìm theo Mã, Tên dự án, PM, Địa chỉ, Thành viên..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -343,28 +396,6 @@ export default function ProjectsPage() {
               <option value="name_asc">🔤 Tên A → Z</option>
               <option value="name_desc">🔤 Tên Z → A</option>
               <option value="progress_desc">📊 Tiến độ cao</option>
-            </select>
-
-            {/* Category Filter */}
-            <select
-              className="form-select"
-              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px' }}
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-            >
-              <option value="all">Tất cả phân loại</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-
-            {/* Status Filter */}
-            <select
-              className="form-select"
-              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px' }}
-              value={selectedStatus}
-              onChange={e => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">Tất cả trạng thái</option>
-              {Object.keys(STATUS_MAP).map(s => <option key={s} value={s}>{s}</option>)}
             </select>
 
             {/* View Mode Toggle Button Group */}
@@ -396,6 +427,99 @@ export default function ProjectsPage() {
                 <LayoutGrid size={14} /> Thẻ Card
               </button>
             </div>
+          </div>
+
+          {/* Row 2: Deep Filters (Năm, PM, Mã dự án, Phân loại, Trạng thái, Reset) */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Lọc theo NĂM */}
+            <select
+              className="form-select"
+              style={{
+                width: 'auto', minWidth: '125px', fontSize: '12px', padding: '6px 10px',
+                fontWeight: selectedYear !== 'all' ? 700 : 500,
+                color: selectedYear !== 'all' ? 'var(--primary)' : 'var(--text)'
+              }}
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+            >
+              <option value="all">📅 Năm: Tất cả</option>
+              {availableYears.map(y => <option key={y} value={y}>Năm {y}</option>)}
+            </select>
+
+            {/* Lọc theo PM */}
+            <select
+              className="form-select"
+              style={{
+                width: 'auto', minWidth: '135px', fontSize: '12px', padding: '6px 10px',
+                fontWeight: selectedPm !== 'all' ? 700 : 500,
+                color: selectedPm !== 'all' ? 'var(--primary)' : 'var(--text)'
+              }}
+              value={selectedPm}
+              onChange={e => setSelectedPm(e.target.value)}
+            >
+              <option value="all">👔 PM: Tất cả</option>
+              {availablePms.map(pm => <option key={pm} value={pm}>{pm}</option>)}
+            </select>
+
+            {/* Lọc theo MÃ DỰ ÁN */}
+            <select
+              className="form-select"
+              style={{
+                width: 'auto', minWidth: '130px', fontSize: '12px', padding: '6px 10px',
+                fontWeight: selectedCodePrefix !== 'all' ? 700 : 500,
+                color: selectedCodePrefix !== 'all' ? 'var(--primary)' : 'var(--text)'
+              }}
+              value={selectedCodePrefix}
+              onChange={e => setSelectedCodePrefix(e.target.value)}
+            >
+              <option value="all">🏷️ Mã DA: Tất cả</option>
+              {availableCodes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {/* Category Filter */}
+            <select
+              className="form-select"
+              style={{
+                width: 'auto', minWidth: '130px', fontSize: '12px', padding: '6px 10px',
+                fontWeight: selectedCategory !== 'all' ? 700 : 500,
+                color: selectedCategory !== 'all' ? 'var(--primary)' : 'var(--text)'
+              }}
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+            >
+              <option value="all">🏢 Phân loại: Tất cả</option>
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            {/* Status Filter */}
+            <select
+              className="form-select"
+              style={{
+                width: 'auto', minWidth: '130px', fontSize: '12px', padding: '6px 10px',
+                fontWeight: selectedStatus !== 'all' ? 700 : 500,
+                color: selectedStatus !== 'all' ? 'var(--primary)' : 'var(--text)'
+              }}
+              value={selectedStatus}
+              onChange={e => setSelectedStatus(e.target.value)}
+            >
+              <option value="all">📌 Trạng thái: Tất cả</option>
+              {Object.keys(STATUS_MAP).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+
+            {/* Quick Reset Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={resetAllFilters}
+                className="btn btn--ghost"
+                style={{
+                  padding: '5px 10px', fontSize: '12px', color: 'var(--red)',
+                  borderColor: 'var(--red)', fontWeight: 700, borderRadius: '6px'
+                }}
+                title="Xóa tất cả các bộ lọc đang chọn"
+              >
+                <X size={13} style={{ marginRight: '3px' }} /> Xóa bộ lọc
+              </button>
+            )}
           </div>
         </div>
 
