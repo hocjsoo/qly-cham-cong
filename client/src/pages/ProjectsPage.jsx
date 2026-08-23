@@ -327,11 +327,7 @@ export default function ProjectsPage() {
 
     return matchScope && matchSearch && matchYear && matchPm && matchCode && matchCat && matchStat;
   }).sort((a, b) => {
-    if (sortBy === 'code_desc') {
-      return (b.code || '').localeCompare(a.code || '', undefined, { numeric: true, sensitivity: 'base' });
-    } else if (sortBy === 'code_asc') {
-      return (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' });
-    } else if (sortBy === 'name_asc') {
+    if (sortBy === 'name_asc') {
       return (a.name || '').localeCompare(b.name || '', 'vi');
     } else if (sortBy === 'name_desc') {
       return (b.name || '').localeCompare(a.name || '', 'vi');
@@ -439,14 +435,12 @@ export default function ProjectsPage() {
             {/* Sort Dropdown */}
             <select
               className="form-select"
-              style={{ width: 'auto', minWidth: '145px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
+              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
             >
-              <option value="code_desc">🏷️ Mã DA (26 → 23)</option>
-              <option value="code_asc">🏷️ Mã DA (23 → 26)</option>
-              <option value="date_desc">📅 Ngày tạo (Mới nhất)</option>
-              <option value="date_asc">📅 Ngày tạo (Cũ nhất)</option>
+              <option value="date_desc">📅 Mới nhất</option>
+              <option value="date_asc">📅 Cũ nhất</option>
               <option value="name_asc">🔤 Tên A → Z</option>
               <option value="name_desc">🔤 Tên Z → A</option>
               <option value="progress_desc">📊 Tiến độ cao</option>
