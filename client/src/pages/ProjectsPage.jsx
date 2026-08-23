@@ -219,68 +219,63 @@ export default function ProjectsPage() {
     return isMember || isPm;
   });
 
-  // Extract all relevant years associated with a project (from code, start_date, deadline, or created_at)
-  const getProjectYears = (p) => {
-    const years = new Set();
-
-    // 1. Check Code for 4-digit Year (e.g. 2024, 2025, 2023, DA-2024, DA2025, 2026_KT)
+  // Extract Project Year — STRICTLY PRIORITIZING CODE (e.g. 23.006 -> 2023, 24.00L -> 2024, 25.002.2 -> 2025, 26.001 -> 2026)
+  const getProjectYear = (p) => {
     if (p.code) {
-      const match4 = String(p.code).match(/\b(20[123]\d)\b/);
-      if (match4) years.add(match4[1]);
+      const codeStr = String(p.code).trim();
 
-      // Check Code for 2-digit Year prefix (e.g. 24.00L, 24.01, 23.05, 25-KT, 24KT, 25NT, 26QHKT, 24_01)
-      const match2 = String(p.code).match(/^(\d{2})([\.\-_/\sA-Za-z]|$)/);
-      if (match2) {
-        const num = Number(match2[1]);
+      // 1. Standard ET Code Format: 23.006, 24.00E, 24.001, 24.00K, 24.00L, 25.002.2, 25.011, 25.037, 26.001...
+      const dotMatch = codeStr.match(/^(\d{2})\./);
+      if (dotMatch) {
+        return `20${dotMatch[1]}`;
+      }
+
+      // 2. Format with letter/dash/underscore right after 2-digit year: 24KT01, 25NT, 24-001, 25_02
+      const prefixMatch = codeStr.match(/^(\d{2})([A-Za-z\-_]|$)/);
+      if (prefixMatch) {
+        const num = Number(prefixMatch[1]);
         if (num >= 15 && num <= 40) {
-          years.add(`20${match2[1]}`);
+          return `20${prefixMatch[1]}`;
         }
       }
 
-      // Check Code for 2-digit Year following alphanumeric prefix (e.g. DA-24.01, DA24, PRJ25, KT24)
-      const matchAfterPrefix = String(p.code).match(/^[A-Za-z]+[-_]?(\d{2})([\.\-_/\sA-Za-z]|$)/);
-      if (matchAfterPrefix) {
-        const num = Number(matchAfterPrefix[1]);
-        if (num >= 15 && num <= 40) {
-          years.add(`20${matchAfterPrefix[1]}`);
-        }
+      // 3. Format with prefix: DA-24.01, DA24, PRJ-25.001
+      const alphaPrefixMatch = codeStr.match(/^[A-Za-z]+[-_]?(\d{2})\./);
+      if (alphaPrefixMatch) {
+        return `20${alphaPrefixMatch[1]}`;
+      }
+
+      // 4. 4-digit year in code: 2024.001, DA-2025
+      const match4 = codeStr.match(/\b(20[123]\d)\b/);
+      if (match4) {
+        return match4[1];
       }
     }
 
-    // 2. Check Start Date (e.g. 2024-05-01 -> 2024)
+    // Fallback 1: start_date (YYYY-MM-DD)
     if (p.start_date && String(p.start_date).length >= 4) {
       const y = String(p.start_date).slice(0, 4);
-      if (/^20[123]\d$/.test(y)) years.add(y);
+      if (/^20[123]\d$/.test(y)) return y;
     }
 
-    // 3. Check Deadline (e.g. 2024-12-31 -> 2024)
+    // Fallback 2: deadline (YYYY-MM-DD)
     if (p.deadline && String(p.deadline).length >= 4) {
       const y = String(p.deadline).slice(0, 4);
-      if (/^20[123]\d$/.test(y)) years.add(y);
+      if (/^20[123]\d$/.test(y)) return y;
     }
 
-    // 4. Check Project Name for explicit 4-digit Year (e.g. "Biệt thự Ecopark 2024")
-    if (p.name) {
-      const matchName4 = String(p.name).match(/\b(20[123]\d)\b/);
-      if (matchName4) years.add(matchName4[1]);
-    }
-    if (p.sub_project) {
-      const matchSub4 = String(p.sub_project).match(/\b(20[123]\d)\b/);
-      if (matchSub4) years.add(matchSub4[1]);
-    }
-
-    // 5. Fallback: created_at (only if no other year was detected)
-    if (years.size === 0 && p.created_at) {
+    // Fallback 3: created_at
+    if (p.created_at) {
       const y = new Date(p.created_at).getFullYear().toString();
-      if (/^20[123]\d$/.test(y)) years.add(y);
+      if (/^20[123]\d$/.test(y)) return y;
     }
 
-    return Array.from(years);
+    return null;
   };
 
   const availableYears = Array.from(new Set(
-    projects.flatMap(p => getProjectYears(p)).filter(Boolean)
-  )).sort().reverse();
+    projects.map(p => getProjectYear(p)).filter(Boolean)
+  )).sort((a, b) => Number(b) - Number(a));
 
   const availablePms = Array.from(new Set(
     projects.map(p => p.pm_name && p.pm_name.trim()).filter(Boolean)
@@ -288,7 +283,7 @@ export default function ProjectsPage() {
 
   const availableCodes = Array.from(new Set(
     projects.map(p => p.code && p.code.trim()).filter(Boolean)
-  )).sort((a, b) => a.localeCompare(b, 'vi'));
+  )).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
   const hasActiveFilters = Boolean(
     searchTerm.trim() ||
@@ -323,16 +318,20 @@ export default function ProjectsPage() {
                         (p.address || '').toLowerCase().includes(q) ||
                         (p.note || '').toLowerCase().includes(q);
 
-    const projYears = getProjectYears(p);
-    const matchYear = selectedYear === 'all' || projYears.includes(selectedYear);
+    const projYear = getProjectYear(p);
+    const matchYear = selectedYear === 'all' || projYear === selectedYear;
     const matchPm = selectedPm === 'all' || (p.pm_name && p.pm_name.trim().toLowerCase() === selectedPm.toLowerCase());
-    const matchCode = selectedCodePrefix === 'all' || (p.code && p.code.toLowerCase().includes(selectedCodePrefix.toLowerCase()));
+    const matchCode = selectedCodePrefix === 'all' || (p.code && p.code.trim().toLowerCase() === selectedCodePrefix.toLowerCase());
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchStat = selectedStatus === 'all' || p.status === selectedStatus;
 
     return matchScope && matchSearch && matchYear && matchPm && matchCode && matchCat && matchStat;
   }).sort((a, b) => {
-    if (sortBy === 'name_asc') {
+    if (sortBy === 'code_desc') {
+      return (b.code || '').localeCompare(a.code || '', undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'code_asc') {
+      return (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'name_asc') {
       return (a.name || '').localeCompare(b.name || '', 'vi');
     } else if (sortBy === 'name_desc') {
       return (b.name || '').localeCompare(a.name || '', 'vi');
@@ -440,12 +439,14 @@ export default function ProjectsPage() {
             {/* Sort Dropdown */}
             <select
               className="form-select"
-              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
+              style={{ width: 'auto', minWidth: '145px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
             >
-              <option value="date_desc">📅 Mới nhất</option>
-              <option value="date_asc">📅 Cũ nhất</option>
+              <option value="code_desc">🏷️ Mã DA (26 → 23)</option>
+              <option value="code_asc">🏷️ Mã DA (23 → 26)</option>
+              <option value="date_desc">📅 Ngày tạo (Mới nhất)</option>
+              <option value="date_asc">📅 Ngày tạo (Cũ nhất)</option>
               <option value="name_asc">🔤 Tên A → Z</option>
               <option value="name_desc">🔤 Tên Z → A</option>
               <option value="progress_desc">📊 Tiến độ cao</option>
