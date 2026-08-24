@@ -83,7 +83,6 @@ export default function RequestsPage() {
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [leaveBalance, setLeaveBalance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
@@ -126,7 +125,6 @@ export default function RequestsPage() {
   useEffect(() => {
     loadData();
     api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    api.get('/leave-balance/me').then(r => setLeaveBalance(r.data?.annual_leave)).catch(() => {});
     if (isManager) {
       fetchFlagged();
     }
@@ -375,36 +373,6 @@ export default function RequestsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* Leave Balance Banner for Employee */}
-        {leaveBalance && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%)',
-            border: '1px solid var(--primary-soft)', borderRadius: '14px',
-            padding: '12px 16px', marginBottom: '14px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                🏖️
-              </div>
-              <div>
-                <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text)' }}>
-                  Quỹ Phép Năm Của Bạn ({new Date().getFullYear()})
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Tổng quỹ: <strong>{leaveBalance.total} ngày</strong> · Đã dùng: <strong>{leaveBalance.used} ngày</strong>
-                </div>
-              </div>
-            </div>
-            <div style={{
-              background: 'var(--bg-card)', padding: '6px 14px', borderRadius: '20px',
-              border: '1px solid var(--border)', fontSize: '13px', fontWeight: 800, color: 'var(--green)'
-            }}>
-              Còn lại: {leaveBalance.remaining} ngày phép
-            </div>
-          </div>
-        )}
-
         {/* KPI Stat Cards Header */}
         <div style={{ display: 'grid', gridTemplateColumns: isManager ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
           <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
