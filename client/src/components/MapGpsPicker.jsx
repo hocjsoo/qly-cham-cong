@@ -5,29 +5,56 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, Navigation, Compass, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-function loadLeafletAssets() {
-  return new Promise((resolve) => {
+function loadLeafletAssets(timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
     if (window.L) return resolve(window.L);
 
+    let isDone = false;
+    let timer = null;
+
+    const timeout = setTimeout(() => {
+      if (isDone) return;
+      isDone = true;
+      if (timer) clearInterval(timer);
+      reject(new Error('Tải bản đồ Leaflet quá thời gian (Timeout 12s)'));
+    }, timeoutMs);
+
+    const onComplete = (err) => {
+      if (isDone) return;
+      isDone = true;
+      clearTimeout(timeout);
+      if (timer) clearInterval(timer);
+      if (err) {
+        reject(err);
+      } else if (window.L) {
+        resolve(window.L);
+      } else {
+        reject(new Error('Không tìm thấy đối tượng Leaflet sau khi tải'));
+      }
+    };
+
+    // 1. Tải Leaflet CSS
     if (!document.getElementById('leaflet-css')) {
       const link = document.createElement('link');
       link.id = 'leaflet-css';
       link.rel = 'stylesheet';
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.onerror = () => onComplete(new Error('Không thể tải Leaflet CSS từ CDN'));
       document.head.appendChild(link);
     }
 
+    // 2. Tải Leaflet JS
     if (!document.getElementById('leaflet-js')) {
       const script = document.createElement('script');
       script.id = 'leaflet-js';
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => resolve(window.L);
+      script.onload = () => onComplete(null);
+      script.onerror = () => onComplete(new Error('Không thể tải Leaflet JS từ CDN'));
       document.body.appendChild(script);
     } else {
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         if (window.L) {
-          clearInterval(timer);
-          resolve(window.L);
+          onComplete(null);
         }
       }, 50);
     }
@@ -49,71 +76,82 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
   const [searching, setSearching] = useState(false);
   const [addressDisplay, setAddressDisplay] = useState('');
   const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   // Khởi tạo bản đồ Leaflet theo nhu cầu
   useEffect(() => {
     let isMounted = true;
-    loadLeafletAssets().then((L) => {
-      if (!isMounted || !mapContainerRef.current || !L) return;
-      setMapLoading(false);
+    setMapLoading(true);
+    setMapError(null);
 
-      if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current, {
-          center: [defaultLat, defaultLng],
-          zoom: 16,
-          zoomControl: true,
-        });
+    loadLeafletAssets()
+      .then((L) => {
+        if (!isMounted || !mapContainerRef.current || !L) return;
+        setMapLoading(false);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap',
-        }).addTo(map);
+        if (!mapInstanceRef.current) {
+          const map = L.map(mapContainerRef.current, {
+            center: [defaultLat, defaultLng],
+            zoom: 16,
+            zoomControl: true,
+          });
 
-        // Custom Red Pin Icon
-        const customIcon = L.divIcon({
-          className: 'custom-leaflet-pin',
-          html: `<div style="
-            width: 36px; height: 36px; border-radius: 50%;
-            background: #ef4444; border: 3px solid #ffffff;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
-            display: flex; align-items: center; justify-content: center;
-            color: #ffffff; font-size: 18px; font-weight: bold;
-          ">📍</div>`,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-        });
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap',
+          }).addTo(map);
 
-        // Marker
-        const marker = L.marker([defaultLat, defaultLng], {
-          draggable: true,
-          icon: customIcon,
-        }).addTo(map);
+          // Custom Red Pin Icon
+          const customIcon = L.divIcon({
+            className: 'custom-leaflet-pin',
+            html: `<div style="
+              width: 36px; height: 36px; border-radius: 50%;
+              background: #ef4444; border: 3px solid #ffffff;
+              box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+              display: flex; align-items: center; justify-content: center;
+              color: #ffffff; font-size: 18px; font-weight: bold;
+            ">📍</div>`,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          });
 
-        // Bán kính vùng cho phép (Circle overlay)
-        const circle = L.circle([defaultLat, defaultLng], {
-          color: '#2563eb',
-          fillColor: '#3b82f6',
-          fillOpacity: 0.18,
-          radius: parseInt(radius, 10) || 100,
-        }).addTo(map);
+          // Marker
+          const marker = L.marker([defaultLat, defaultLng], {
+            draggable: true,
+            icon: customIcon,
+          }).addTo(map);
 
-        markerRef.current = marker;
-        circleRef.current = circle;
-        mapInstanceRef.current = map;
+          // Bán kính vùng cho phép (Circle overlay)
+          const circle = L.circle([defaultLat, defaultLng], {
+            color: '#2563eb',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.18,
+            radius: parseInt(radius, 10) || 100,
+          }).addTo(map);
 
-        // Sự kiện Click chọn vị trí trên bản đồ
-        map.on('click', (e) => {
-          const { lat: newLat, lng: newLng } = e.latlng;
-          updateLocation(newLat, newLng);
-        });
+          markerRef.current = marker;
+          circleRef.current = circle;
+          mapInstanceRef.current = map;
 
-        // Sự kiện Kéo/Rê Marker Pin
-        marker.on('dragend', () => {
-          const position = marker.getLatLng();
-          updateLocation(position.lat, position.lng);
-        });
-      }
-    });
+          // Sự kiện Click chọn vị trí trên bản đồ
+          map.on('click', (e) => {
+            const { lat: newLat, lng: newLng } = e.latlng;
+            updateLocation(newLat, newLng);
+          });
+
+          // Sự kiện Kéo/Rê Marker Pin
+          marker.on('dragend', () => {
+            const position = marker.getLatLng();
+            updateLocation(position.lat, position.lng);
+          });
+        }
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setMapLoading(false);
+        setMapError(err.message || 'Không thể kết nối CDN bản đồ');
+      });
 
     return () => {
       isMounted = false;
@@ -122,7 +160,7 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
         mapInstanceRef.current = null;
       }
     };
-  }, []);
+  }, [retryKey]);
 
   // Cập nhật marker & circle khi prop lat/lng/radius thay đổi
   useEffect(() => {
@@ -250,6 +288,24 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
               borderRadius: '50%', animation: 'spin 0.8s linear infinite'
             }} />
             <span>Đang tải bản đồ OpenStreetMap...</span>
+          </div>
+        )}
+        {mapError && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 6,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--bg-raised)', color: 'var(--text)',
+            gap: '10px', fontSize: '12px', padding: '16px', textAlign: 'center'
+          }}>
+            <div style={{ color: '#ef4444', fontWeight: 600 }}>⚠️ {mapError}</div>
+            <button
+              type="button"
+              className="btn btn--primary"
+              style={{ padding: '6px 14px', fontSize: '12px' }}
+              onClick={() => setRetryKey(k => k + 1)}
+            >
+              🔄 Thử lại
+            </button>
           </div>
         )}
         <div
