@@ -77,6 +77,7 @@ export default function ProjectsPage() {
     sub_project: '',
     category: 'Kiến trúc',
     client_name: '',
+    pm_id: null,
     pm_name: '',
     address: '',
     note: '',
@@ -127,6 +128,7 @@ export default function ProjectsPage() {
       sub_project: '',
       category: 'Kiến trúc',
       client_name: '',
+      pm_id: user?._id || user?.id || null,
       pm_name: user?.full_name || '',
       address: '',
       note: '',
@@ -150,13 +152,17 @@ export default function ProjectsPage() {
       ? proj.members.map(m => m?._id || m?.id || m)
       : [];
 
+    const pmId = proj.pm_id?._id || proj.pm_id?.id || proj.pm_id || null;
+    const pmName = proj.pm_name || proj.pm_id?.full_name || '';
+
     setForm({
       code: proj.code || '',
       name: proj.name || '',
       sub_project: proj.sub_project || '',
       category: proj.category || 'Kiến trúc',
       client_name: proj.client_name || '',
-      pm_name: proj.pm_name || '',
+      pm_id: pmId,
+      pm_name: pmName,
       address: proj.address || '',
       note: proj.note || '',
       status: st,
@@ -718,7 +724,32 @@ export default function ProjectsPage() {
 
                       {/* PM */}
                       <td style={{ padding: '11px 14px', color: 'var(--text)', fontWeight: 600 }}>
-                        {p.pm_name || '—'}
+                        {p.pm_name ? (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const foundPm = (p.pm_id && p.pm_id.full_name)
+                                ? p.pm_id
+                                : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'Quản lý dự án (PM)' });
+                              setViewingStaffDetail(foundPm);
+                            }}
+                            title={`Click xem hồ sơ PM: ${p.pm_name}`}
+                            style={{
+                              cursor: 'pointer',
+                              color: 'var(--primary)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontWeight: 700
+                            }}
+                          >
+                            <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+                              👤 {p.pm_name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                        )}
                       </td>
 
                       {/* TRẠNG THÁI */}
@@ -803,7 +834,71 @@ export default function ProjectsPage() {
                     </div>
 
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '6px' }}>
-                      {p.pm_name && <div style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>👷 PM: {p.pm_name}</div>}
+                      {p.pm_name && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const foundPm = (p.pm_id && p.pm_id.full_name)
+                              ? p.pm_id
+                              : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'Quản lý dự án (PM)' });
+                            setViewingStaffDetail(foundPm);
+                          }}
+                          title={`Click xem hồ sơ PM: ${p.pm_name}`}
+                          style={{
+                            color: 'var(--primary)',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            marginBottom: '4px',
+                            textDecoration: 'underline',
+                            textUnderlineOffset: '2px'
+                          }}
+                        >
+                          👷 PM: {p.pm_name}
+                        </div>
+                      )}
+                      {p.members && p.members.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', margin: '4px 0' }}>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>👥:</span>
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {p.members.slice(0, 4).map((m, mIdx) => {
+                              const staffObj = (m && m.full_name) ? m : (staffList.find(s => String(s._id) === String(m._id || m.id || m)) || m);
+                              return (
+                                <div
+                                  key={m._id || mIdx}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingStaffDetail(staffObj);
+                                  }}
+                                  title={`Xem hồ sơ: ${staffObj.full_name || 'Thành viên'}`}
+                                  style={{
+                                    width: '22px', height: '22px', borderRadius: '50%',
+                                    background: 'var(--primary)', color: '#fff',
+                                    fontSize: '9px', fontWeight: 700,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    marginLeft: mIdx > 0 ? '-6px' : '0',
+                                    border: '2px solid var(--bg-card)',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {staffObj.avatar_url ? (
+                                    <img src={staffObj.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                  ) : (
+                                    (staffObj.full_name || 'U').charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {p.members.length > 4 && (
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '4px', fontWeight: 600 }}>
+                                +{p.members.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {p.note && <div>📝 Ghi chú: {p.note}</div>}
                     </div>
                   </div>
@@ -899,14 +994,36 @@ export default function ProjectsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div className="form-group">
-                <label className="form-label">PM (quản lý dự án)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={form.pm_name}
-                  onChange={e => setForm({ ...form, pm_name: e.target.value })}
-                  placeholder="VD: KTS. Nguyễn Hoàng"
-                />
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  👔 PM (Chủ nhiệm / Quản lý) *
+                </label>
+                <select
+                  className="form-select"
+                  value={form.pm_name || ''}
+                  onChange={e => {
+                    const selectedName = e.target.value;
+                    const selectedUser = staffList.find(s => s.full_name === selectedName);
+                    const selectedUserId = selectedUser ? (selectedUser._id || selectedUser.id) : null;
+                    setForm(prev => {
+                      const updatedMembers = (selectedUserId && !prev.members.includes(selectedUserId))
+                        ? [...prev.members, selectedUserId]
+                        : prev.members;
+                      return {
+                        ...prev,
+                        pm_name: selectedName,
+                        pm_id: selectedUserId,
+                        members: updatedMembers
+                      };
+                    });
+                  }}
+                >
+                  <option value="">-- Chọn nhân sự làm PM --</option>
+                  {staffList.map(u => (
+                    <option key={u._id || u.id} value={u.full_name}>
+                      {u.full_name} (#{u.employee_code || 'NS'} · {u.position || 'Nhân sự'})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Chủ đầu tư / Khách hàng</label>
@@ -1233,6 +1350,119 @@ export default function ProjectsPage() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Staff Profile Modal (for PM and Members) */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '440px', margin: '0 auto', padding: '24px 20px', borderRadius: '16px' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>👤</span>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800 }}>Hồ Sơ Nhân Sự</h3>
+              </div>
+              <button
+                onClick={() => setViewingStaffDetail(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'var(--bg-raised)', padding: '16px', borderRadius: '12px',
+              display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px',
+              border: '1px solid var(--border)'
+            }}>
+              {viewingStaffDetail.avatar_url ? (
+                <img
+                  src={viewingStaffDetail.avatar_url}
+                  alt=""
+                  onClick={() => setFullAvatarImage(viewingStaffDetail.avatar_url)}
+                  style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'pointer' }}
+                  title="Click để phóng to ảnh đại diện"
+                />
+              ) : (
+                <div style={{
+                  width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary)',
+                  color: '#fff', fontSize: '22px', fontWeight: 800, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center'
+                }}>
+                  {(viewingStaffDetail.full_name || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
+                  {viewingStaffDetail.full_name}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                  {viewingStaffDetail.employee_code ? `#${viewingStaffDetail.employee_code}` : 'Thành viên'} · {viewingStaffDetail.position || 'Nhân sự'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  🏢 {viewingStaffDetail.department_name || viewingStaffDetail.department_id?.name || 'Văn phòng ET'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px', marginBottom: '20px' }}>
+              {viewingStaffDetail.email && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>✉️ Email:</span>
+                  <strong style={{ color: 'var(--text)' }}>{viewingStaffDetail.email}</strong>
+                </div>
+              )}
+              {viewingStaffDetail.phone && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>📱 Số điện thoại:</span>
+                  <a href={`tel:${viewingStaffDetail.phone}`} style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'none' }}>
+                    {viewingStaffDetail.phone}
+                  </a>
+                </div>
+              )}
+              {viewingStaffDetail.parking_location && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>🅿️ Nơi gửi xe:</span>
+                  <strong style={{ color: 'var(--text)' }}>{viewingStaffDetail.parking_location}</strong>
+                </div>
+              )}
+              {(viewingStaffDetail.vehicle_info || viewingStaffDetail.license_plate) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>🛵 Phương tiện:</span>
+                  <strong style={{ color: 'var(--primary)' }}>{viewingStaffDetail.vehicle_info || viewingStaffDetail.license_plate}</strong>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingStaffDetail(null)}
+              className="btn btn--primary btn--full"
+              style={{ padding: '10px', fontWeight: 700 }}
+            >
+              Đóng hồ sơ ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Avatar Fullscreen Lightbox */}
+      {fullAvatarImage && (
+        <div
+          onClick={() => setFullAvatarImage(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}
+        >
+          <img
+            src={fullAvatarImage}
+            alt="Avatar lớn"
+            style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+          />
         </div>
       )}
     </div>

@@ -34,7 +34,8 @@ const getProjects = async (req, res) => {
     else if (sort === 'progress_desc') sortOption = { progress: -1 };
 
     let projects = await Project.find(filter)
-      .populate('members', 'full_name email avatar_url employee_code position')
+      .populate('members', 'full_name email avatar_url employee_code position phone')
+      .populate('pm_id', 'full_name email avatar_url employee_code position phone')
       .sort(sortOption);
 
     // Seeding dự án mẫu nếu trống
@@ -44,7 +45,9 @@ const getProjects = async (req, res) => {
         { name: 'Biệt thự Palm City', code: 'DA-PALM', category: 'Nội thất', client_name: 'Anh Minh', address: 'Quận 2, TP.HCM', status: 'Đang tiến hành', pm_name: 'KTS. Trần Nam', progress: 40, deadline: '2026-10-15' },
         { name: 'Khu đô thị Sol Forest', code: 'DA-SOL', category: 'Quy hoạch&Kiến trúc', client_name: 'Ecopark', address: 'Hưng Yên', status: 'Cần thực hiện', pm_name: 'KTS. Lê Anh', progress: 15, deadline: '2026-11-30' },
       ]);
-      projects = await Project.find(filter).populate('members', 'full_name email avatar_url employee_code position');
+      projects = await Project.find(filter)
+        .populate('members', 'full_name email avatar_url employee_code position phone')
+        .populate('pm_id', 'full_name email avatar_url employee_code position phone');
     }
 
     res.json(projects);
@@ -56,7 +59,7 @@ const getProjects = async (req, res) => {
 
 // POST /api/projects - Tạo dự án
 const createProject = async (req, res) => {
-  const { name, code, category, sub_project, address, client_name, pm_name, note, status, members, deadline, start_date, progress } = req.body;
+  const { name, code, category, sub_project, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Tên dự án là bắt buộc.' });
@@ -70,6 +73,7 @@ const createProject = async (req, res) => {
       sub_project: sub_project ? sub_project.trim() : null,
       address: address ? address.trim() : null,
       client_name: client_name ? client_name.trim() : null,
+      pm_id: pm_id || null,
       pm_name: pm_name ? pm_name.trim() : null,
       note: note ? note.trim() : null,
       status: status || 'Đang tiến hành',
@@ -79,7 +83,9 @@ const createProject = async (req, res) => {
       progress: typeof progress === 'number' ? progress : 0,
     });
 
-    const populatedProject = await Project.findById(project._id).populate('members', 'full_name email avatar_url employee_code position');
+    const populatedProject = await Project.findById(project._id)
+      .populate('members', 'full_name email avatar_url employee_code position phone')
+      .populate('pm_id', 'full_name email avatar_url employee_code position phone');
     res.status(201).json({ message: 'Tạo dự án thành công ✅', project: populatedProject });
   } catch (error) {
     console.error('CreateProject error:', error);
@@ -90,7 +96,7 @@ const createProject = async (req, res) => {
 // PUT /api/projects/:id - Cập nhật thông tin dự án
 const updateProject = async (req, res) => {
   const { id } = req.params;
-  const { name, code, category, sub_project, address, client_name, pm_name, note, status, members, deadline, start_date, progress } = req.body;
+  const { name, code, category, sub_project, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
 
   try {
     const project = await Project.findById(id);
@@ -104,6 +110,7 @@ const updateProject = async (req, res) => {
     if (sub_project !== undefined) project.sub_project = sub_project ? sub_project.trim() : null;
     if (address !== undefined) project.address = address ? address.trim() : null;
     if (client_name !== undefined) project.client_name = client_name ? client_name.trim() : null;
+    if (pm_id !== undefined) project.pm_id = pm_id || null;
     if (pm_name !== undefined) project.pm_name = pm_name ? pm_name.trim() : null;
     if (note !== undefined) project.note = note ? note.trim() : null;
     if (status !== undefined) project.status = status;
@@ -113,7 +120,9 @@ const updateProject = async (req, res) => {
     if (progress !== undefined) project.progress = Number(progress) || 0;
 
     await project.save();
-    const populatedProject = await Project.findById(project._id).populate('members', 'full_name email avatar_url employee_code position');
+    const populatedProject = await Project.findById(project._id)
+      .populate('members', 'full_name email avatar_url employee_code position phone')
+      .populate('pm_id', 'full_name email avatar_url employee_code position phone');
     res.json({ message: 'Đã cập nhật dự án thành công ✅', project: populatedProject });
   } catch (error) {
     console.error('UpdateProject error:', error);
