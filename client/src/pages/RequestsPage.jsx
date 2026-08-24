@@ -408,8 +408,9 @@ export default function RequestsPage() {
       case 'business_trip':
         return '⚡ Tác động tự động: Xác nhận vị trí làm việc hợp lệ ngoài văn phòng & tính đủ công.';
       case 'annual_leave':
-      case 'sick_leave':
         return '⚡ Tác động tự động: Trừ vào quỹ phép năm & tính nghỉ phép được hưởng lương.';
+      case 'sick_leave':
+        return '⚡ Tác động tự động: Trừ vào quỹ ngày nghỉ ốm & tính trợ cấp/chế độ nghỉ ốm hợp lệ.';
       case 'vehicle_update':
         return '⚡ Tác động tự động: Tự động cập nhật biển số & nơi gửi xe mới vào hồ sơ nhân sự ngay sau khi duyệt.';
       default:

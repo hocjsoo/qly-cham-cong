@@ -99,19 +99,22 @@ const checkIn = async (req, res) => {
   const {
     lat, lng, type = 'office', project_id, note,
     device_fingerprint, hardware_uuid, device_name, screen_info,
-    selfie_url, step_up_confirmed, photo_fallback
+    selfie_url, step_up_confirmed
   } = req.body;
   const userId = req.user._id;
 
-  // Nếu không có GPS nhưng có ảnh chụp xác thực dự phòng (Photo Check-in)
-  const isPhotoFallback = Boolean(photo_fallback && selfie_url);
-
-  if ((!lat || !lng) && !isPhotoFallback) {
+  if (!lat || !lng) {
     return res.status(400).json({
-      error: 'GPS bắt buộc để chấm công. Vui lòng bật định vị thiết bị hoặc chọn "Chụp ảnh xác thực dự phòng".',
+      error: 'GPS bắt buộc để chấm công. Vui lòng bật quyền định vị trên thiết bị.',
       gps_required: true,
-      allow_photo_fallback: true,
     });
+  }
+
+  const userLat = parseFloat(lat);
+  const userLng = parseFloat(lng);
+
+  if (isNaN(userLat) || isNaN(userLng) || userLat < -90 || userLat > 90 || userLng < -180 || userLng > 180) {
+    return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
   }
 
   try {
@@ -123,21 +126,11 @@ const checkIn = async (req, res) => {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    const userLat = lat ? parseFloat(lat) : null;
-    const userLng = lng ? parseFloat(lng) : null;
-
-    if (!isPhotoFallback && (isNaN(userLat) || isNaN(userLng))) {
-      return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
-    }
-
     const clientIP = getClientIP(req);
     const effectiveHardwareUuid = hardware_uuid || device_fingerprint || null;
 
-    let isFlagged = isPhotoFallback;
+    let isFlagged = false;
     const flagReasons = [];
-    if (isPhotoFallback) {
-      flagReasons.push('GPS_OUTSIDE_PHOTO_FALLBACK');
-    }
 
     // --- Chống gian lận: Kiểm tra thiết bị trùng trong ngày ---
     if (effectiveHardwareUuid) {

@@ -135,14 +135,14 @@ Hệ thống có 3 vai trò chính. `roleMiddleware.js` tự động map tương
 | `/api/users/:id/devices` | userController | ✅ | **admin only** | Xem, đặt máy chính (`trust`), xóa thiết bị |
 | `/api/dashboard` | dashboardController | ✅ | admin/leader | Stats tổng quan |
 | `/api/departments` | departmentController | ✅ | — | CRUD phòng ban |
-| `/api/reports` | reportController | ✅ | admin/leader | Báo cáo matrix + chi tiết cá nhân |
+| `/api/reports` | reportController | ✅ | **admin only** | Báo cáo matrix + chi tiết cá nhân |
 | `/api/locations` | locationController | ✅ | admin | CRUD vị trí GPS |
 | `/api/leave-balance` | leaveBalanceController | ✅ | admin/leader | Quản lý ngày phép |
 | `/api/export` | exportController | ✅ | admin/leader | Xuất Excel |
 | `/api/settings` | systemSettingController | ✅ | admin | Cấu hình hệ thống |
 | `/api/notifications` | notificationController | ✅ | — | CRUD; broadcast (admin/leader) |
 | `/api/holidays` | holidayController | ✅ | admin/leader | CRUD ngày lễ |
-| `/api/timesheet-lock` | timesheetLockController | ✅ | admin/leader | Chốt công tháng |
+| `/api/timesheet-lock` | timesheetLockController | ✅ | **admin only** | Chốt công tháng |
 | `/api/health` | inline | ❌ | — | Health check endpoint (checks mongoose readyState) |
 
 ---

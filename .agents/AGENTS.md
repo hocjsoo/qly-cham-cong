@@ -39,6 +39,9 @@
   - Leader duyệt đơn cho nhân viên thuộc phòng ban mình quản lý.
   - Leader bị chặn, **không được duyệt đơn của Admin** (bảo vệ phân quyền tối cao).
   - Hỗ trợ thao tác **Hoàn tác đơn (`revert`)** về pending và **Xóa đơn (`delete`)**.
+- **Báo cáo & Chốt công (Reports & Timesheet Lock)**:
+  - **Chỉ Admin** có quyền truy cập Bảng công, xuất báo cáo tổng hợp (`/api/reports/*`) và chốt công tháng (`/api/timesheet-lock/*`).
+  - Leader và Nhân viên không thấy menu Báo cáo và bị Route Guard + Backend RBAC chặn 403 Forbidden.
 - **Cảnh báo Ca & Thiết bị lạ (Flagged Attendance)**:
   - Admin & Leader xem và duyệt ca có gắn cờ cảnh báo (ảnh selfie, thiết bị lạ).
   - Khi duyệt ca cảnh báo thiết bị lạ, hệ thống tự động lưu thiết bị đó thành **`⭐ Máy chính chủ`** (`is_trusted = true`).

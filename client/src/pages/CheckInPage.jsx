@@ -57,8 +57,10 @@ export default function CheckInPage() {
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState(null);
   const [selected, setSelected] = useState('office');
   const [isOutsideOffice, setIsOutsideOffice] = useState(false);
+  const [outsideType, setOutsideType] = useState('wfh'); // 'wfh' | 'client' | 'site'
   const [selectedProject, setSelectedProject] = useState('');
   const [note, setNote] = useState('');
   const [checkoutNote, setCheckoutNote] = useState('');
@@ -74,7 +76,6 @@ export default function CheckInPage() {
   const [showSelfieModal, setShowSelfieModal] = useState(false);
   const [selfieReason, setSelfieReason] = useState('');
   const [selfieImage, setSelfieImage] = useState(null);
-  const [isPhotoFallbackMode, setIsPhotoFallbackMode] = useState(false);
   const fileInputRef = useRef(null);
 
   // Explanation suggestion modal
@@ -110,6 +111,7 @@ export default function CheckInPage() {
         api.get(`/holidays?year=${yearVal}&month=${monthVal}`).catch(() => ({ data: [] })),
       ]);
       setToday(todayRes.data.attendance || null);
+      setSettings(settingsRes.data?.settings || settingsRes.data || null);
       setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
       setBirthdays(bdayRes.data?.birthdays || []);
       setAnniversaries(annivRes.data?.anniversaries || []);
@@ -195,11 +197,11 @@ export default function CheckInPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleCheckIn = async (overrideSelfie = null, overrideType = null, photoFallback = false) => {
-    const checkInType = overrideType || (isOutsideOffice ? (selectedProject ? 'site' : 'client') : 'office');
+  const handleCheckIn = async (overrideSelfie = null, overrideType = null) => {
+    const checkInType = overrideType || (isOutsideOffice ? outsideType : 'office');
 
-    if (!gpsPosition && !photoFallback && !overrideSelfie && !selfieImage) {
-      toast.error('Chưa có GPS. Vui lòng bật định vị hoặc bấm "Chụp ảnh xác thực dự phòng"!');
+    if (!gpsPosition) {
+      toast.error('Bắt buộc có vị trí GPS để chấm công. Vui lòng bật quyền định vị trên thiết bị!');
       return;
     }
 
@@ -213,16 +215,15 @@ export default function CheckInPage() {
       }
 
       const payload = {
-        lat: gpsPosition?.lat || null,
-        lng: gpsPosition?.lng || null,
+        lat: gpsPosition.lat,
+        lng: gpsPosition.lng,
         type: checkInType,
-        project_id: selectedProject || null,
+        project_id: (isOutsideOffice && outsideType === 'site') ? (selectedProject || null) : null,
         note: note.trim() || null,
         device_fingerprint: deviceInfo.fingerprint,
         hardware_uuid: deviceInfo.hardware_uuid || deviceInfo.fingerprint,
         device_name: deviceInfo.device_name,
         screen_info: deviceInfo.screen_info,
-        photo_fallback: Boolean(photoFallback || overrideSelfie || selfieImage),
       };
 
       if (overrideSelfie || selfieImage) {
@@ -436,298 +437,312 @@ export default function CheckInPage() {
         )}
 
         {/* Work Shift Info Badge */}
-        <div style={{
-          marginBottom: '12px', padding: '8px 12px', borderRadius: '10px',
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ fontSize: '14px' }}>⏰</span>
-            <span><strong>Ca làm việc:</strong> 09:00 – 18:30</span>
-          </div>
-          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-            Đi muộn &gt; 09:30 tính 0.75 công (trừ 0.25c)
-          </span>
-        </div>
+        {(() => {
+          const shiftStart = settings?.work_start_time || '09:00';
+          const shiftEnd = settings?.work_end_time || '18:30';
+          const shiftLabel = `Ca ${shiftStart} – ${shiftEnd}`;
 
-        {/* GPS Status Banner */}
-        <div className="card animate-fade-in" style={{
-          marginBottom: '12px', padding: '10px 14px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: '10px',
-          background: gpsPosition
-            ? (isInOfficeRange === true ? 'var(--green-soft)' : isInOfficeRange === false ? 'var(--yellow-soft)' : 'var(--bg-card)')
-            : gpsError ? 'var(--red-soft)' : 'var(--bg-card)',
-          border: gpsPosition
-            ? `1px solid ${isInOfficeRange === true ? 'var(--green)' : isInOfficeRange === false ? 'var(--yellow)' : 'var(--border)'}`
-            : gpsError ? '1px solid var(--red)' : '1px solid var(--border)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Navigation size={18} color={gpsPosition ? (isInOfficeRange === true ? 'var(--green)' : 'var(--yellow)') : gpsError ? 'var(--red)' : 'var(--text-muted)'} />
-            <div>
-              {gpsLoading ? (
-                <div style={{ fontSize: '12px', fontWeight: 600 }}>⏳ Đang lấy vị trí GPS...</div>
-              ) : gpsPosition ? (
-                <>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: isInOfficeRange === true ? 'var(--green)' : isInOfficeRange === false ? 'var(--yellow)' : 'var(--text)' }}>
-                    {isInOfficeRange === true
-                      ? `✅ Trong văn phòng (${distanceFromOffice}m cách ${targetOffice?.name || 'VP'})`
-                      : isInOfficeRange === false
-                        ? `⚠️ Cách ${targetOffice?.name || 'Văn phòng'} ${distanceFromOffice}m (bán kính cho phép: ${targetOffice?.radius_m || 250}m)`
-                        : `📍 GPS: ${gpsPosition.lat.toFixed(4)}, ${gpsPosition.lng.toFixed(4)}`}
+          return (
+            <>
+              <div style={{
+                marginBottom: '12px', padding: '8px 12px', borderRadius: '10px',
+                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '14px' }}>⏰</span>
+                  <span><strong>Ca làm việc:</strong> {shiftStart} – {shiftEnd}</span>
+                </div>
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                  Đi muộn quá 30p tính 0.75 công (trừ 0.25c)
+                </span>
+              </div>
+
+              {/* GPS Status Banner */}
+              <div className="card animate-fade-in" style={{
+                marginBottom: '12px', padding: '10px 14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '10px',
+                background: gpsPosition
+                  ? (isInOfficeRange === true ? 'var(--green-soft)' : isInOfficeRange === false ? 'var(--yellow-soft)' : 'var(--bg-card)')
+                  : gpsError ? 'var(--red-soft)' : 'var(--bg-card)',
+                border: gpsPosition
+                  ? `1px solid ${isInOfficeRange === true ? 'var(--green)' : isInOfficeRange === false ? 'var(--yellow)' : 'var(--border)'}`
+                  : gpsError ? '1px solid var(--red)' : '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Navigation size={18} color={gpsPosition ? (isInOfficeRange === true ? 'var(--green)' : 'var(--yellow)') : gpsError ? 'var(--red)' : 'var(--text-muted)'} />
+                  <div>
+                    {gpsLoading ? (
+                      <div style={{ fontSize: '12px', fontWeight: 600 }}>⏳ Đang lấy vị trí GPS...</div>
+                    ) : gpsPosition ? (
+                      <>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: isInOfficeRange === true ? 'var(--green)' : isInOfficeRange === false ? 'var(--yellow)' : 'var(--text)' }}>
+                          {isInOfficeRange === true
+                            ? `✅ Trong văn phòng (${distanceFromOffice}m cách ${targetOffice?.name || 'VP'})`
+                            : isInOfficeRange === false
+                              ? `⚠️ Cách ${targetOffice?.name || 'Văn phòng'} ${distanceFromOffice}m (bán kính cho phép: ${targetOffice?.radius_m || 250}m)`
+                              : `📍 GPS: ${gpsPosition.lat.toFixed(4)}, ${gpsPosition.lng.toFixed(4)}`}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Độ chính xác: ±{gpsPosition.accuracy}m</div>
+                      </>
+                    ) : gpsError ? (
+                      <div style={{ fontSize: '12px', color: 'var(--red)', fontWeight: 600 }}>{gpsError}</div>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bắt buộc có GPS để chấm công</div>
+                    )}
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Độ chính xác: ±{gpsPosition.accuracy}m</div>
-                </>
-              ) : gpsError ? (
-                <div style={{ fontSize: '12px', color: 'var(--red)', fontWeight: 600 }}>{gpsError}</div>
-              ) : (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chưa có GPS</div>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={acquireGPS}
-            disabled={gpsLoading}
-            className="btn btn--ghost"
-            style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
-          >
-            <Crosshair size={13} /> {gpsLoading ? 'Đang lấy...' : 'Làm mới'}
-          </button>
-        </div>
-
-        {/* Clock Hero Card */}
-        <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
-          <div className="checkin-hero__date">
-            {dateStr}
-          </div>
-          <div className="checkin-hero__time">
-            {timeStr}
-          </div>
-
-          {loading ? (
-            <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Đang tải...</div>
-          ) : isCheckedOut ? (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', fontWeight: 600 }}>
-              <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h - {att.work_units || 1.0} công)
-            </div>
-          ) : isCheckedIn ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: isOtNow ? 'var(--blue-soft)' : 'var(--green-soft)', color: isOtNow ? 'var(--blue)' : 'var(--green)', fontSize: '13px', fontWeight: 600 }}>
-                {isOtNow ? <Flame size={16} /> : <Clock size={16} />}
-                {isOtNow ? `🔥 ĐANG TĂNG CA (OT) từ ${fmt(att.check_in_time)}` : `Đang làm việc từ ${fmt(att.check_in_time)}`}
+                </div>
+                <button
+                  onClick={acquireGPS}
+                  disabled={gpsLoading}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
+                >
+                  <Crosshair size={13} /> {gpsLoading ? 'Đang lấy...' : 'Làm mới'}
+                </button>
               </div>
-              <span className={`badge ${lateConfig.cls}`}>{lateConfig.icon} {lateConfig.label}</span>
-            </div>
-          ) : (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--bg-card-hover)', color: 'var(--text-muted)', fontSize: '13px' }}>
-              Chưa chấm công hôm nay (Ca 09:00 – 18:30)
-            </div>
-          )}
-        </div>
 
-        {/* OT / Muộn / WFH banner gợi ý đơn */}
-        {isCheckedIn && !isCheckedOut && (att?.is_late || att?.check_in_type === 'wfh' || isOtNow) && (
-          <div className="card animate-fade-in" style={{
-            marginBottom: '14px', padding: '12px 14px',
-            background: isOtNow ? 'var(--blue-soft)' : 'var(--yellow-soft)',
-            borderColor: isOtNow ? 'var(--blue)' : 'var(--yellow)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <AlertTriangle size={20} color={isOtNow ? 'var(--blue)' : 'var(--yellow)'} />
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700 }}>
-                  {isOtNow ? 'Đang làm quá 18:30 (Tăng ca OT)' : att.is_late ? `Đi muộn ${att.late_minutes} phút` : 'Làm việc tại nhà (WFH)'}
+              {/* Clock Hero Card */}
+              <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
+                <div className="checkin-hero__date">
+                  {dateStr}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tạo đơn để Admin duyệt và hoàn đủ 1.0 công</div>
-              </div>
-            </div>
-            <button onClick={() => { setExplanationType(isOtNow ? 'overtime' : att.is_late ? 'late' : 'business_trip'); setShowExplanationModal(true); }} className="btn btn--primary" style={{ fontSize: '12px', padding: '6px 12px', whiteSpace: 'nowrap' }}>
-              Giải trình <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
+                <div className="checkin-hero__time">
+                  {timeStr}
+                </div>
 
-        {/* Distance warning khi chọn office nhưng ngoài range */}
-        {!isCheckedIn && selected === 'office' && isInOfficeRange === false && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <AlertTriangle size={20} color="var(--yellow)" style={{ flexShrink: 0, marginTop: '2px' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: 'var(--yellow)', marginBottom: '4px' }}>
-                  Ngoài bán kính văn phòng ({distanceFromOffice}m/{targetOffice?.radius_m || 250}m)
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
-                  Bạn đang cách {targetOffice?.name || 'văn phòng'} {distanceFromOffice}m. Bạn có thể <strong>Chụp ảnh xác thực dự phòng</strong> hoặc chuyển sang WFH / Công tác.
-                </div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  <button
-                    onClick={() => {
-                      setSelfieReason('Chấm công ảnh xác thực dự phòng ngoài bán kính GPS');
-                      setIsPhotoFallbackMode(true);
-                      setShowSelfieModal(true);
-                    }}
-                    className="btn btn--primary"
-                    style={{ fontSize: '11px', padding: '6px 10px' }}
-                  >
-                    📸 Chụp ảnh xác thực dự phòng
-                  </button>
-                  <button onClick={() => setSelected('wfh')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '6px 10px' }}>
-                    🏠 Chuyển WFH
-                  </button>
-                  <button onClick={() => navigate('/requests')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '6px 10px' }}>
-                    Tạo đơn
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Check-In Form */}
-        {!isCheckedIn ? (
-          <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <MapPin size={18} color="var(--primary)" /> CHẤM CÔNG VÀO CA
-              </div>
-              <span className="badge badge--success" style={{ fontSize: '11px' }}>Ca chuẩn 09:00 - 18:30</span>
-            </div>
-
-            {/* Checkbox làm việc ngoài công ty */}
-            <div
-              onClick={() => setIsOutsideOffice(!isOutsideOffice)}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: '10px',
-                padding: '12px 14px', borderRadius: '10px',
-                background: isOutsideOffice ? 'var(--primary-soft)' : 'var(--bg-raised)',
-                border: `1px solid ${isOutsideOffice ? 'var(--primary)' : 'var(--border)'}`,
-                cursor: 'pointer', transition: 'all 0.2s', marginBottom: '14px'
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={isOutsideOffice}
-                onChange={e => setIsOutsideOffice(e.target.checked)}
-                style={{ marginTop: '2px', cursor: 'pointer', width: '16px', height: '16px' }}
-                onClick={e => e.stopPropagation()}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: isOutsideOffice ? 'var(--primary)' : 'var(--text)' }}>
-                  💼 Chấm công ngoài văn phòng (Công tác / Khách hàng / WFH)
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {isOutsideOffice
-                    ? 'Hệ thống sẽ lưu tọa độ GPS vị trí thực tế của bạn. Sau khi chấm công, bạn có thể nộp Đơn giải trình gửi Quản lý phê duyệt.'
-                    : 'Mặc định chấm công tại văn phòng trong bán kính GPS.'}
-                </div>
-              </div>
-            </div>
-
-            {/* If outside office: optional project and note */}
-            {isOutsideOffice && (
-              <div className="animate-fade-in" style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {projects.length > 0 && (
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>
-                      🏗️ Dự án / công trình liên quan (Nếu có)
-                    </label>
-                    <select
-                      className="form-input"
-                      value={selectedProject}
-                      onChange={e => setSelectedProject(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '12px' }}
-                    >
-                      <option value="">-- Không thuộc dự án cụ thể --</option>
-                      {projects.map(p => (
-                        <option key={p._id || p.id} value={p._id || p.id}>
-                          {p.name} ({p.code || 'DA'})
-                        </option>
-                      ))}
-                    </select>
+                {loading ? (
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Đang tải...</div>
+                ) : isCheckedOut ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', fontWeight: 600 }}>
+                    <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h - {att.work_units || 1.0} công)
+                  </div>
+                ) : isCheckedIn ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: isOtNow ? 'var(--blue-soft)' : 'var(--green-soft)', color: isOtNow ? 'var(--blue)' : 'var(--green)', fontSize: '13px', fontWeight: 600 }}>
+                      {isOtNow ? <Flame size={16} /> : <Clock size={16} />}
+                      {isOtNow ? `🔥 ĐANG TĂNG CA (OT) từ ${fmt(att.check_in_time)}` : `Đang làm việc từ ${fmt(att.check_in_time)}`}
+                    </div>
+                    <span className={`badge ${lateConfig.cls}`}>{lateConfig.icon} {lateConfig.label}</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--bg-card-hover)', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Chưa chấm công hôm nay ({shiftLabel})
                   </div>
                 )}
+              </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontSize: '12px' }}>Ghi chú địa điểm / Lý do (Không bắt buộc)</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="VD: Gặp khách hàng đối tác tại Cầu Giấy..."
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
-                    style={{ fontSize: '12px' }}
-                  />
+              {/* OT / Muộn / WFH banner gợi ý đơn */}
+              {isCheckedIn && !isCheckedOut && (att?.is_late || att?.check_in_type === 'wfh' || isOtNow) && (
+                <div className="card animate-fade-in" style={{
+                  marginBottom: '14px', padding: '12px 14px',
+                  background: isOtNow ? 'var(--blue-soft)' : 'var(--yellow-soft)',
+                  borderColor: isOtNow ? 'var(--blue)' : 'var(--yellow)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <AlertTriangle size={20} color={isOtNow ? 'var(--blue)' : 'var(--yellow)'} />
+                    <div>
+                      <div style={{ fontSize: '13px', fontWeight: 700 }}>
+                        {isOtNow ? `Đang làm quá ${shiftEnd} (Tăng ca OT)` : att.is_late ? `Đi muộn ${att.late_minutes} phút` : 'Làm việc tại nhà (WFH)'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tạo đơn để Admin duyệt và hoàn đủ 1.0 công</div>
+                    </div>
+                  </div>
+                  <button onClick={() => { setExplanationType(isOtNow ? 'overtime' : att.is_late ? 'late' : 'business_trip'); setShowExplanationModal(true); }} className="btn btn--primary" style={{ fontSize: '12px', padding: '6px 12px', whiteSpace: 'nowrap' }}>
+                    Giải trình <ChevronRight size={14} />
+                  </button>
                 </div>
-              </div>
-            )}
-
-            {!isOutsideOffice && (
-              <div className="form-group" style={{ marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '12px' }}>Ghi chú (Không bắt buộc)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ghi chú thêm nếu có..."
-                  value={note}
-                  onChange={e => setNote(e.target.value)}
-                  style={{ fontSize: '12px' }}
-                />
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
-              <button
-                onClick={() => handleCheckIn()}
-                disabled={submitting || gpsLoading || !gpsPosition}
-                className="btn btn--primary btn--full btn--lg"
-                style={{ opacity: (!gpsPosition || gpsLoading) ? 0.6 : 1, padding: '14px', fontSize: '15px', fontWeight: 800 }}
-              >
-                {gpsLoading ? '⏳ Đang lấy GPS...' : !gpsPosition ? '📍 Cần GPS để chấm công' : submitting ? <span className="spinner" /> : '📍 BẮT ĐẦU CA (CHECK-IN 09:00 - 18:30)'}
-              </button>
-
-              {(!gpsPosition || isInOfficeRange === false) && (
-                <button
-                  onClick={() => {
-                    setSelfieReason('Chấm công ảnh xác thực dự phòng');
-                    setIsPhotoFallbackMode(true);
-                    setShowSelfieModal(true);
-                  }}
-                  className="btn btn--ghost btn--full"
-                  style={{ fontSize: '12px', border: '1px dashed var(--primary)', color: 'var(--primary)', padding: '8px' }}
-                >
-                  📸 Chụp ảnh xác thực dự phòng (Không cần GPS)
-                </button>
               )}
-            </div>
 
-            {!gpsPosition && !gpsLoading && (
-              <div style={{ textAlign: 'center', marginTop: '8px' }}>
-                <button onClick={acquireGPS} className="btn btn--ghost" style={{ fontSize: '12px' }}>
-                  <Crosshair size={13} /> Lấy lại vị trí GPS
-                </button>
-              </div>
-            )}
-          </div>
-        ) : !isCheckedOut ? (
-          <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <LogOut size={18} color="var(--red)" /> KẾT THÚC CA LÀM (CHECK-OUT)
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ fontSize: '12px' }}>Kết quả công việc hôm nay</label>
-              <input type="text" className="form-input" placeholder="VD: Hoàn thành thiết kế bản vẽ..." value={checkoutNote} onChange={e => setCheckoutNote(e.target.value)} />
-            </div>
-            <button
-              onClick={handleCheckOut}
-              disabled={submitting || !gpsPosition}
-              className="btn btn--full btn--lg"
-              style={{ background: 'var(--red)', color: '#fff', border: 'none', opacity: !gpsPosition ? 0.6 : 1, padding: '14px', fontSize: '15px', fontWeight: 800 }}
-            >
-              {submitting ? <span className="spinner" /> : <><LogOut size={16} /> CHECK-OUT KẾT THÚC CA</>}
-            </button>
-          </div>
-        ) : null}
+              {/* Distance warning khi chọn office nhưng ngoài range */}
+              {!isCheckedIn && !isOutsideOffice && isInOfficeRange === false && (
+                <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <AlertTriangle size={20} color="var(--yellow)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--yellow)', marginBottom: '4px' }}>
+                        Ngoài bán kính văn phòng ({distanceFromOffice}m/{targetOffice?.radius_m || 250}m)
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
+                        Bạn đang cách {targetOffice?.name || 'văn phòng'} {distanceFromOffice}m. Vui lòng chuyển sang tích chọn <strong>Chấm công ngoài văn phòng</strong> để ghi nhận vị trí thực tế và nộp đơn giải trình.
+                      </div>
+                      <button
+                        onClick={() => setIsOutsideOffice(true)}
+                        className="btn btn--primary"
+                        style={{ fontSize: '11px', padding: '6px 12px' }}
+                      >
+                        💼 Chuyển chấm công ngoài văn phòng
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Check-In Form */}
+              {!isCheckedIn ? (
+                <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <MapPin size={18} color="var(--primary)" /> CHẤM CÔNG VÀO CA
+                    </div>
+                    <span className="badge badge--success" style={{ fontSize: '11px' }}>{shiftLabel}</span>
+                  </div>
+
+                  {/* Checkbox làm việc ngoài công ty */}
+                  <div
+                    onClick={() => setIsOutsideOffice(!isOutsideOffice)}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                      padding: '12px 14px', borderRadius: '10px',
+                      background: isOutsideOffice ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                      border: `1px solid ${isOutsideOffice ? 'var(--primary)' : 'var(--border)'}`,
+                      cursor: 'pointer', transition: 'all 0.2s', marginBottom: '14px'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isOutsideOffice}
+                      onChange={e => setIsOutsideOffice(e.target.checked)}
+                      style={{ marginTop: '2px', cursor: 'pointer', width: '16px', height: '16px' }}
+                      onClick={e => e.stopPropagation()}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: isOutsideOffice ? 'var(--primary)' : 'var(--text)' }}>
+                        💼 Chấm công ngoài văn phòng (WFH / Khách hàng / Công trình)
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        {isOutsideOffice
+                          ? 'Hệ thống lưu tọa độ GPS vị trí thực tế của bạn. Sau khi chấm công, bạn có thể nộp Đơn giải trình gửi Quản lý phê duyệt.'
+                          : 'Mặc định chấm công tại văn phòng trong bán kính GPS.'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* If outside office: compact pill selector for WFH / Client / Site */}
+                  {isOutsideOffice && (
+                    <div className="animate-fade-in" style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                        Chọn hình thức làm việc ngoài văn phòng:
+                      </div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => setOutsideType('wfh')}
+                          className={`chip ${outsideType === 'wfh' ? 'active' : ''}`}
+                          style={{ padding: '7px 12px', fontSize: '12px' }}
+                        >
+                          🏠 Làm tại nhà (WFH)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOutsideType('client')}
+                          className={`chip ${outsideType === 'client' ? 'active' : ''}`}
+                          style={{ padding: '7px 12px', fontSize: '12px' }}
+                        >
+                          👔 Gặp khách hàng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setOutsideType('site')}
+                          className={`chip ${outsideType === 'site' ? 'active' : ''}`}
+                          style={{ padding: '7px 12px', fontSize: '12px' }}
+                        >
+                          🏗️ Công trình / Dự án
+                        </button>
+                      </div>
+
+                      {outsideType === 'site' && projects.length > 0 && (
+                        <div className="form-group animate-fade-in" style={{ marginBottom: 0, marginTop: '4px' }}>
+                          <label className="form-label" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>
+                            🏗️ Chọn dự án / công trình đang hoạt động
+                          </label>
+                          <select
+                            className="form-input"
+                            value={selectedProject}
+                            onChange={e => setSelectedProject(e.target.value)}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '12px' }}
+                          >
+                            <option value="">-- Không thuộc dự án cụ thể --</option>
+                            {projects.map(p => (
+                              <option key={p._id || p.id} value={p._id || p.id}>
+                                {p.name} ({p.code || 'DA'})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label" style={{ fontSize: '12px' }}>Ghi chú địa điểm / Lý do (Không bắt buộc)</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="VD: Gặp khách hàng tại Cầu Giấy, làm WFH..."
+                          value={note}
+                          onChange={e => setNote(e.target.value)}
+                          style={{ fontSize: '12px' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {!isOutsideOffice && (
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label" style={{ fontSize: '12px' }}>Ghi chú (Không bắt buộc)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Ghi chú thêm nếu có..."
+                        value={note}
+                        onChange={e => setNote(e.target.value)}
+                        style={{ fontSize: '12px' }}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button
+                      onClick={() => handleCheckIn()}
+                      disabled={submitting || gpsLoading || !gpsPosition}
+                      className="btn btn--primary btn--full btn--lg"
+                      style={{ opacity: (!gpsPosition || gpsLoading) ? 0.6 : 1, padding: '14px', fontSize: '15px', fontWeight: 800 }}
+                    >
+                      {gpsLoading ? '⏳ Đang lấy GPS...' : !gpsPosition ? '📍 Bắt buộc có GPS để chấm công' : submitting ? <span className="spinner" /> : `📍 BẮT ĐẦU CA (CHECK-IN ${shiftStart} - ${shiftEnd})`}
+                    </button>
+                  </div>
+
+                  {!gpsPosition && !gpsLoading && (
+                    <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                      <button onClick={acquireGPS} className="btn btn--ghost" style={{ fontSize: '12px' }}>
+                        <Crosshair size={13} /> Lấy lại vị trí GPS ngay
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : !isCheckedOut ? (
+                <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <LogOut size={18} color="var(--red)" /> KẾT THÚC CA LÀM (CHECK-OUT)
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '12px' }}>Kết quả công việc hôm nay</label>
+                    <input type="text" className="form-input" placeholder="VD: Hoàn thành thiết kế bản vẽ..." value={checkoutNote} onChange={e => setCheckoutNote(e.target.value)} />
+                  </div>
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={submitting || !gpsPosition}
+                    className="btn btn--full btn--lg"
+                    style={{ background: 'var(--red)', color: '#fff', border: 'none', opacity: !gpsPosition ? 0.6 : 1, padding: '14px', fontSize: '15px', fontWeight: 800 }}
+                  >
+                    {submitting ? <span className="spinner" /> : <><LogOut size={16} /> CHECK-OUT KẾT THÚC CA</>}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          );
+        })()}
 
         {/* HUB TIỆN ÍCH: ĐƠN NGHỈ PHÉP & BÁO CÁO SẾP */}
         <div className="card animate-fade-in" style={{ marginBottom: '16px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
