@@ -5,6 +5,35 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, Navigation, Compass, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+function loadLeafletAssets() {
+  return new Promise((resolve) => {
+    if (window.L) return resolve(window.L);
+
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    if (!document.getElementById('leaflet-js')) {
+      const script = document.createElement('script');
+      script.id = 'leaflet-js';
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = () => resolve(window.L);
+      document.body.appendChild(script);
+    } else {
+      const timer = setInterval(() => {
+        if (window.L) {
+          clearInterval(timer);
+          resolve(window.L);
+        }
+      }, 50);
+    }
+  });
+}
+
 export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -19,69 +48,75 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [addressDisplay, setAddressDisplay] = useState('');
+  const [mapLoading, setMapLoading] = useState(true);
 
-  // Khởi tạo bản đồ Leaflet
+  // Khởi tạo bản đồ Leaflet theo nhu cầu
   useEffect(() => {
-    if (!mapContainerRef.current || !window.L) return;
+    let isMounted = true;
+    loadLeafletAssets().then((L) => {
+      if (!isMounted || !mapContainerRef.current || !L) return;
+      setMapLoading(false);
 
-    if (!mapInstanceRef.current) {
-      const map = window.L.map(mapContainerRef.current, {
-        center: [defaultLat, defaultLng],
-        zoom: 16,
-        zoomControl: true,
-      });
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapContainerRef.current, {
+          center: [defaultLat, defaultLng],
+          zoom: 16,
+          zoomControl: true,
+        });
 
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap',
-      }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap',
+        }).addTo(map);
 
-      // Custom Red Pin Icon
-      const customIcon = window.L.divIcon({
-        className: 'custom-leaflet-pin',
-        html: `<div style="
-          width: 36px; height: 36px; border-radius: 50%;
-          background: #ef4444; border: 3px solid #ffffff;
-          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
-          display: flex; align-items: center; justify-content: center;
-          color: #ffffff; font-size: 18px; font-weight: bold;
-        ">📍</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
-      });
+        // Custom Red Pin Icon
+        const customIcon = L.divIcon({
+          className: 'custom-leaflet-pin',
+          html: `<div style="
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #ef4444; border: 3px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+            display: flex; align-items: center; justify-content: center;
+            color: #ffffff; font-size: 18px; font-weight: bold;
+          ">📍</div>`,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
 
-      // Marker
-      const marker = window.L.marker([defaultLat, defaultLng], {
-        draggable: true,
-        icon: customIcon,
-      }).addTo(map);
+        // Marker
+        const marker = L.marker([defaultLat, defaultLng], {
+          draggable: true,
+          icon: customIcon,
+        }).addTo(map);
 
-      // Bán kính vùng cho phép (Circle overlay)
-      const circle = window.L.circle([defaultLat, defaultLng], {
-        color: '#2563eb',
-        fillColor: '#3b82f6',
-        fillOpacity: 0.18,
-        radius: parseInt(radius, 10) || 100,
-      }).addTo(map);
+        // Bán kính vùng cho phép (Circle overlay)
+        const circle = L.circle([defaultLat, defaultLng], {
+          color: '#2563eb',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.18,
+          radius: parseInt(radius, 10) || 100,
+        }).addTo(map);
 
-      markerRef.current = marker;
-      circleRef.current = circle;
-      mapInstanceRef.current = map;
+        markerRef.current = marker;
+        circleRef.current = circle;
+        mapInstanceRef.current = map;
 
-      // Sự kiện Click chọn vị trí trên bản đồ
-      map.on('click', (e) => {
-        const { lat: newLat, lng: newLng } = e.latlng;
-        updateLocation(newLat, newLng);
-      });
+        // Sự kiện Click chọn vị trí trên bản đồ
+        map.on('click', (e) => {
+          const { lat: newLat, lng: newLng } = e.latlng;
+          updateLocation(newLat, newLng);
+        });
 
-      // Sự kiện Kéo/Rê Marker Pin
-      marker.on('dragend', () => {
-        const position = marker.getLatLng();
-        updateLocation(position.lat, position.lng);
-      });
-    }
+        // Sự kiện Kéo/Rê Marker Pin
+        marker.on('dragend', () => {
+          const position = marker.getLatLng();
+          updateLocation(position.lat, position.lng);
+        });
+      }
+    });
 
     return () => {
+      isMounted = false;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -202,6 +237,21 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
 
       {/* Interactive Leaflet Map Container */}
       <div style={{ position: 'relative', borderRadius: '14px', overflow: 'hidden', border: '2px solid var(--border)' }}>
+        {mapLoading && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 5,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--bg-raised)', color: 'var(--text-muted)',
+            gap: '8px', fontSize: '12px'
+          }}>
+            <div style={{
+              width: '18px', height: '18px',
+              border: '2px solid var(--border)', borderTopColor: 'var(--primary)',
+              borderRadius: '50%', animation: 'spin 0.8s linear infinite'
+            }} />
+            <span>Đang tải bản đồ OpenStreetMap...</span>
+          </div>
+        )}
         <div
           ref={mapContainerRef}
           style={{ width: '100%', height: '300px', zIndex: 1, background: 'var(--bg-raised)' }}
