@@ -4,7 +4,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Trophy, Flame, Clock, Zap, Calendar, User, Sparkles,
-  ChevronRight, Award, Crown, Medal, Search, Filter, ArrowUp
+  ChevronRight, Award, Crown, Medal, Search, Filter, ArrowUp,
+  X, Phone, Mail, Building2, ShieldCheck, MapPin, Bike
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -51,6 +52,8 @@ export default function LeaderboardPage() {
   const [data, setData] = useState({ top3: [], rankings: [], myRank: null });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   const myRowRef = useRef(null);
 
@@ -280,7 +283,12 @@ export default function LeaderboardPage() {
             <div className="podium-container">
               {/* TOP 2 (SILVER) */}
               {top2 ? (
-                <div className="podium-slot">
+                <div
+                  className="podium-slot card--interactive"
+                  onClick={() => setViewingStaffDetail(top2)}
+                  style={{ cursor: 'pointer' }}
+                  title="Click để xem hồ sơ nhân sự"
+                >
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
                     {top2.avatar_url ? (
                       <img src={top2.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #94a3b8', objectFit: 'cover' }} />
@@ -306,7 +314,12 @@ export default function LeaderboardPage() {
               ) : <div className="podium-slot" />}
 
               {/* TOP 1 (GOLD CHAMPION) */}
-              <div className="podium-slot podium-slot--top1">
+              <div
+                className="podium-slot podium-slot--top1 card--interactive"
+                onClick={() => setViewingStaffDetail(top1)}
+                style={{ cursor: 'pointer' }}
+                title="Click để xem hồ sơ Quán quân"
+              >
                 <Crown size={26} color="#eab308" style={{ marginBottom: '2px', filter: 'drop-shadow(0 2px 4px rgba(234,179,8,0.5))' }} />
                 <div style={{ position: 'relative', marginBottom: '6px' }}>
                   {top1.avatar_url ? (
@@ -333,7 +346,12 @@ export default function LeaderboardPage() {
 
               {/* TOP 3 (BRONZE) */}
               {top3 ? (
-                <div className="podium-slot">
+                <div
+                  className="podium-slot card--interactive"
+                  onClick={() => setViewingStaffDetail(top3)}
+                  style={{ cursor: 'pointer' }}
+                  title="Click để xem hồ sơ nhân sự"
+                >
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
                     {top3.avatar_url ? (
                       <img src={top3.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #d97706', objectFit: 'cover' }} />
@@ -368,7 +386,7 @@ export default function LeaderboardPage() {
               📋 Toàn Bộ Bảng Xếp Hạng ({filteredRankings.length} nhân sự)
             </span>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Cập nhật trực tiếp theo thời gian thực
+              💡 Bấm vào nhân sự bất kỳ để xem hồ sơ chi tiết
             </span>
           </div>
 
@@ -402,13 +420,17 @@ export default function LeaderboardPage() {
                     <tr
                       key={r.user_id}
                       ref={isCurrent ? myRowRef : null}
+                      onClick={() => setViewingStaffDetail(r)}
+                      className="table-row--interactive"
                       style={{
                         borderBottom: '1px solid var(--border-muted)',
                         background: isCurrent
                           ? 'var(--primary-subtle, rgba(59, 130, 246, 0.12))'
                           : rankNumber % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
                         fontWeight: isCurrent ? 700 : 500,
+                        cursor: 'pointer',
                       }}
+                      title="Click để xem hồ sơ nhân sự"
                     >
                       {/* Rank Column */}
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -503,8 +525,13 @@ export default function LeaderboardPage() {
       {/* Floating Sticky "My Rank" Bar at Bottom */}
       {data.myRank && (
         <div
-          onClick={scrollToMyRank}
+          onClick={() => {
+            scrollToMyRank();
+            if (data.myRank) setViewingStaffDetail(data.myRank);
+          }}
           className="sticky-my-rank"
+          style={{ cursor: 'pointer' }}
+          title="Click để xem hồ sơ và thành tích của bạn"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div
@@ -534,7 +561,201 @@ export default function LeaderboardPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '3px', color: 'var(--primary)', fontSize: '12px', fontWeight: 700 }}>
-            <span>Xem vị trí</span> <ChevronRight size={14} />
+            <span>Xem hồ sơ</span> <ChevronRight size={14} />
+          </div>
+        </div>
+      )}
+
+      {/* Staff Profile Detail Modal */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" style={{ zIndex: 1100, padding: '16px' }} onClick={() => setViewingStaffDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>👤</span>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                  Hồ Sơ Nhân Sự
+                </h3>
+              </div>
+              <button
+                onClick={() => setViewingStaffDetail(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Highlight Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 100%)',
+              padding: '18px', borderRadius: '16px',
+              border: '1px solid var(--primary-soft)', marginBottom: '16px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              <div
+                onClick={() => {
+                  if (viewingStaffDetail.avatar_url) {
+                    setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
+                  }
+                }}
+                style={{ cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default', position: 'relative' }}
+                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
+              >
+                {viewingStaffDetail.avatar_url ? (
+                  <img
+                    src={viewingStaffDetail.avatar_url}
+                    alt={viewingStaffDetail.full_name}
+                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  />
+                ) : (
+                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>
+                  {viewingStaffDetail.full_name}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                  #{viewingStaffDetail.employee_code || 'NS'} · {viewingStaffDetail.position || 'Nhân sự'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  🏢 {viewingStaffDetail.department_name || 'Văn Phòng'}
+                </div>
+              </div>
+            </div>
+
+            {/* Achievement Badge Banner */}
+            <div style={{
+              background: 'var(--bg-raised)', padding: '12px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', marginBottom: '16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Vị trí xếp hạng hiện tại:</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: viewingStaffDetail.rank <= 3 ? '#eab308' : 'var(--primary)', marginTop: '2px' }}>
+                  {viewingStaffDetail.rank === 1 ? '👑 Quán Quân (#1)' : viewingStaffDetail.rank === 2 ? '🥈 Á Quân (#2)' : viewingStaffDetail.rank === 3 ? '🥉 Hạng 3' : `Hạng #${viewingStaffDetail.rank}`}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Thành tích:</div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', marginTop: '2px' }}>
+                  {viewingStaffDetail.displayValue}
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Info List */}
+            <div style={{
+              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', fontSize: '13px',
+              display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={14} /> Email:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.email || 'Chưa cập nhật'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={14} /> Điện thoại:
+                </span>
+                {viewingStaffDetail.phone ? (
+                  <a href={`tel:${viewingStaffDetail.phone}`} style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+                    {viewingStaffDetail.phone}
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>Chưa cập nhật</span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={14} /> Ngày gia nhập:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.join_date || (viewingStaffDetail.start_year ? `Năm ${viewingStaffDetail.start_year}` : 'Chưa cập nhật')}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={14} /> Điểm gửi xe:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.parking_location || 'Tòa 17T10 Nguyễn Thị Định'}
+                </span>
+              </div>
+
+              {viewingStaffDetail.vehicle_info && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bike size={14} /> Phương tiện:
+                  </span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                    {viewingStaffDetail.vehicle_info}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingStaffDetail(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đóng hồ sơ ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Avatar Zoom Modal */}
+      {fullAvatarImage && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.85)' }}
+          onClick={() => setFullAvatarImage(null)}
+        >
+          <div
+            className="animate-fade-in"
+            onClick={e => e.stopPropagation()}
+            style={{ position: 'relative', maxWidth: '480px', width: '100%', textAlign: 'center' }}
+          >
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              className="btn btn--ghost"
+              style={{ position: 'absolute', top: '-40px', right: '0', color: '#fff', fontSize: '16px' }}
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
+            />
+            {fullAvatarImage.title && (
+              <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700, marginTop: '12px' }}>
+                {fullAvatarImage.title}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -532,8 +532,9 @@ const getLeaderboard = async (req, res) => {
     }
 
     const users = await User.find(userFilter)
-      .select('full_name employee_code avatar_url department_id department_ids role position')
+      .select('full_name employee_code avatar_url department_id department_ids role position email phone join_date start_year parking_location vehicle_info employment_status')
       .populate('department_id', 'name')
+      .populate('department_ids', 'name')
       .lean();
 
     const userIds = users.map(u => u._id);
@@ -631,13 +632,27 @@ const getLeaderboard = async (req, res) => {
         subText = `${onTimeDays} ngày đúng giờ`;
       }
 
+      const deptNames = (u.department_ids && u.department_ids.length > 0)
+        ? u.department_ids.map(dep => dep.name)
+        : (u.department_id?.name ? [u.department_id.name] : []);
+
       return {
         user_id: u._id,
+        _id: u._id,
+        id: u._id,
         full_name: u.full_name,
         employee_code: u.employee_code || 'NS',
         avatar_url: u.avatar_url || null,
-        department_name: u.department_id?.name || 'Văn Phòng',
+        department_name: deptNames.length > 0 ? deptNames.join(', ') : 'Văn Phòng',
         position: u.position || 'Nhân sự',
+        role: u.role || 'employee',
+        email: u.email || '',
+        phone: u.phone || '',
+        join_date: u.join_date ? u.join_date : (u.start_year ? `Năm ${u.start_year}` : ''),
+        start_year: u.start_year || '',
+        employment_status: u.employment_status || 'Đang làm việc',
+        parking_location: u.parking_location || 'Tòa 17T10 Nguyễn Thị Định',
+        vehicle_info: u.vehicle_info || '',
         score,
         displayValue,
         subText,
