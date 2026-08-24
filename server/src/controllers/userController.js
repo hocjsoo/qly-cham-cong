@@ -18,8 +18,11 @@ const generateEmployeeCode = async (employeeType = 'NS') => {
 // GET /api/users
 const getAllUsers = async (req, res) => {
   try {
-    // Leader & Admin have access to the full company employee directory
     const queryFilter = {};
+    if (req.query.active_only === 'true') {
+      queryFilter.is_active = { $ne: false };
+      queryFilter.employment_status = { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ việc', 'Nghi viec', 'resigned', 'inactive'] };
+    }
 
     const users = await User.find(queryFilter)
       .select('-password_hash')

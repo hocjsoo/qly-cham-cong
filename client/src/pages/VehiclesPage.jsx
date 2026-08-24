@@ -9,11 +9,28 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 
 const isCurrentlyWorking = (s) => {
+  if (!s) return false;
   if (s.is_active === false) return false;
-  const status = (s.employment_status || '').toLowerCase().trim();
-  if (status.includes('nghỉ việc') || status.includes('resigned') || status.includes('inactive') || status.includes('đã nghỉ')) {
+
+  const rawStatus = String(s.employment_status || '').trim();
+  if (!rawStatus) return true;
+
+  // Bỏ dấu tiếng Việt để so sánh chính xác: "Đã nghỉ việc" -> "da nghi viec", "Da nghi viec" -> "da nghi viec"
+  const normalized = rawStatus.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  // Kiểm tra từ khóa nghỉ việc / nghỉ hẳn / không hoạt động
+  if (
+    normalized.includes('da nghi') ||
+    normalized.includes('nghi viec') ||
+    normalized.includes('resigned') ||
+    normalized.includes('inactive') ||
+    normalized.includes('quit') ||
+    normalized.includes('thoi viec') ||
+    normalized.includes('nghi han')
+  ) {
     return false;
   }
+
   return true;
 };
 
@@ -46,11 +63,11 @@ export default function VehiclesPage() {
     setLoading(true);
     try {
       const [resUsers, resDepts] = await Promise.all([
-        api.get('/users'),
+        api.get('/users?active_only=true'),
         api.get('/departments'),
       ]);
       const allUsers = Array.isArray(resUsers.data) ? resUsers.data : [];
-      // Chỉ lấy nhân sự đang làm việc (loại bỏ nhân sự đã nghỉ việc)
+      // Lọc đa tầng để đảm bảo 100% không còn nhân sự đã nghỉ việc
       const activeStaff = allUsers.filter(isCurrentlyWorking);
       setStaff(activeStaff);
       setDepts(Array.isArray(resDepts.data) ? resDepts.data : []);

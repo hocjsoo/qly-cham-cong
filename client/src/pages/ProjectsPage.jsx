@@ -107,9 +107,13 @@ export default function ProjectsPage() {
 
   const fetchStaff = async () => {
     try {
-      const { data } = await api.get('/users').catch(() => ({ data: [] }));
+      const { data } = await api.get('/users?active_only=true').catch(() => ({ data: [] }));
       const users = Array.isArray(data) ? data : (data?.users || []);
-      setStaffList(users.filter(u => u.is_active !== false));
+      setStaffList(users.filter(u => {
+        if (u.is_active === false) return false;
+        const s = String(u.employment_status || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        return !s.includes('da nghi') && !s.includes('nghi viec') && !s.includes('resigned') && !s.includes('inactive');
+      }));
     } catch {
       setStaffList([]);
     }
