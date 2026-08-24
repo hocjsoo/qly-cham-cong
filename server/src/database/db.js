@@ -14,6 +14,11 @@ try {
 }
 
 const connectDB = async () => {
+  // BẢO VỆ ZERO-IMPACT: Trong môi trường kiểm thử (test), tuyệt đối không kết nối Atlas Prod
+  if (process.env.NODE_ENV === 'test') {
+    return null;
+  }
+
   const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
 
   if (!uri || uri.includes('<db_password>')) {

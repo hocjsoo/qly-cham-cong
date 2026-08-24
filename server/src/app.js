@@ -8,21 +8,11 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
-
-const connectDB = require('./database/db');
-const seedInitialData = require('./database/seed');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Trust reverse proxy (Vercel, Render.com) để lấy chính xác Client IP cho Rate Limiter
 app.set('trust proxy', 1);
-
-// Kết nối Database & Seed Data
-connectDB().then(() => {
-  seedInitialData();
-});
 
 // ==============================================
 // MIDDLEWARE CƠ BẢN
@@ -141,17 +131,6 @@ app.use((err, req, res, next) => {
     error: err.message || 'Lỗi server nội bộ',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
-});
-
-// KHỞI ĐỘNG SERVER
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`
-  ╔═══════════════════════════════════════════════════════╗
-  ║     ET OFFICE PORTAL — LIVE FULLSTACK SERVER         ║
-  ║     🚀 Đang chạy tại port ${PORT}                      ║
-  ║     🌐 Web Client & API sẵn sàng!                    ║
-  ╚═══════════════════════════════════════════════════════╝
-  `);
 });
 
 module.exports = app;

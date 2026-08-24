@@ -3,6 +3,10 @@
 // ET Office Portal — Zero-Impact Isolated Test Engine
 // ==============================================
 
+process.env.NODE_ENV = 'test';
+delete process.env.MONGODB_URI;
+delete process.env.DATABASE_URL;
+
 // Backend Suites
 const runHaversineTests = require('./unit/haversine.test');
 const runAttendanceTests = require('./unit/attendance.test');

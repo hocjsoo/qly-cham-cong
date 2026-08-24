@@ -3,6 +3,10 @@
 // Integration Testing for Real Express App, Routes, Middleware Pipeline & Supertest
 // ==============================================
 
+process.env.NODE_ENV = 'test';
+delete process.env.MONGODB_URI;
+delete process.env.DATABASE_URL;
+
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../../src/app');
