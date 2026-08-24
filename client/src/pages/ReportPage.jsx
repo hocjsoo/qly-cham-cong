@@ -1429,9 +1429,16 @@ export default function ReportPage() {
                   <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
                     {selectedCell.weekday ? `${selectedCell.weekday}, ` : ''}{selectedCell.dateStr}
                   </div>
-                  <div style={{ marginTop: '2px' }}>
-                    <span className="badge badge--neutral" style={{ fontSize: '11px', fontWeight: 800 }}>
-                      Ký hiệu: [{selectedCell.current_symbol || '—'}]
+                  <div style={{ marginTop: '3px' }}>
+                    <span
+                      className={`badge ${
+                        ['x', '0,75x', '0,5x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
+                        ['P', 'O'].includes(selectedCell.current_symbol) ? 'badge--warning' :
+                        ['KL', 'K'].includes(selectedCell.current_symbol) ? 'badge--danger' : 'badge--neutral'
+                      }`}
+                      style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px' }}
+                    >
+                      {selectedCell.current_symbol ? `Ký hiệu: [${selectedCell.current_symbol}]` : 'Chưa có ký hiệu'}
                     </span>
                   </div>
                 </div>
@@ -1440,11 +1447,19 @@ export default function ReportPage() {
 
             {/* Daily Attendance Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)' }}>
+              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>🕒 Giờ Check-in / Out</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
-                  {selectedCell.check_in_time || '—'} ➔ {selectedCell.check_out_time || '—'}
-                </div>
+                {selectedCell.check_in_time || selectedCell.check_out_time ? (
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                    {selectedCell.check_in_time || 'Chưa vào'} ➔ {selectedCell.check_out_time || 'Chưa ra'}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {selectedCell.weekday === 'CN' ? '🏖️ Nghỉ Chủ Nhật' :
+                     selectedCell.dateStr > new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) ? '⏳ Chưa đến ngày' :
+                     '🚫 Không có check-in'}
+                  </div>
+                )}
                 {selectedCell.is_late && (
                   <div style={{ fontSize: '10.5px', color: 'var(--red)', fontWeight: 600, marginTop: '2px' }}>
                     ⚠️ Muộn {selectedCell.late_minutes} phút
@@ -1452,35 +1467,34 @@ export default function ReportPage() {
                 )}
               </div>
 
-              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)' }}>
+              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>⏱️ Thời Gian Làm Việc</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
-                  {selectedCell.total_hours || 0} giờ
+                <div style={{ fontSize: '13px', fontWeight: 700, color: selectedCell.total_hours > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>
+                  {selectedCell.total_hours > 0 ? `${selectedCell.total_hours} giờ` : '0 giờ'}
                   {selectedCell.ot_hours > 0 && (
                     <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '4px' }}>(+{selectedCell.ot_hours}h OT)</span>
                   )}
                 </div>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
                   {selectedCell.check_in_type === 'wfh' ? '🏠 Work from home' :
-                   selectedCell.check_in_type === 'site' ? '🚗 Đi công tác' : '🏢 Tại văn phòng'}
+                   selectedCell.check_in_type === 'site' ? '🚗 Đi công tác' :
+                   selectedCell.total_hours > 0 ? '🏢 Tại văn phòng' : '—'}
                 </div>
               </div>
             </div>
 
             {/* Notes Section if any */}
-            {selectedCell.notes && (
-              <div style={{ background: 'var(--primary-subtle, rgba(59, 130, 246, 0.08))', border: '1px solid var(--primary-soft)', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px' }}>
-                <div style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '2px' }}>
-                  📝 Ghi Chú Ngày Điểm Danh:
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text)' }}>
-                  {selectedCell.notes}
-                </div>
+            <div style={{ background: selectedCell.notes ? 'var(--primary-subtle, rgba(59, 130, 246, 0.08))' : 'var(--bg-card)', border: '1px solid var(--border)', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px' }}>
+              <div style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '2px' }}>
+                📝 Ghi Chú Ngày:
               </div>
-            )}
+              <div style={{ fontSize: '12px', color: selectedCell.notes ? 'var(--text)' : 'var(--text-muted)', fontStyle: selectedCell.notes ? 'normal' : 'italic' }}>
+                {selectedCell.notes || 'Không có ghi chú thêm.'}
+              </div>
+            </div>
 
-            {/* Audit History Box (If cell was modified) */}
-            {selectedCell.audit_logs && selectedCell.audit_logs.length > 0 && (
+            {/* Audit History Box */}
+            {selectedCell.audit_logs && selectedCell.audit_logs.length > 0 ? (
               <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1.5px solid #f59e0b', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d97706', fontWeight: 800, fontSize: '11.5px', marginBottom: '6px' }}>
                   <History size={14} /> ⚠️ LỊCH SỬ ĐIỀU CHỈNH CÔNG ({selectedCell.audit_logs.length} lần)
@@ -1500,13 +1514,17 @@ export default function ReportPage() {
                   </div>
                 ))}
               </div>
+            ) : (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '6px 10px', background: 'var(--bg-raised)', borderRadius: '6px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span>✨ Dữ liệu nguyên bản từ máy chấm công / GPS (Chưa qua điều chỉnh)</span>
+              </div>
             )}
 
             {/* Admin / Leader Edit Section */}
             {isAdminOrManager ? (
               <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', marginTop: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Ô Công (Admin)
+                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Ô Công (Admin / Leader)
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -1526,7 +1544,7 @@ export default function ReportPage() {
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '10px' }}>
-                  <label className="form-label" style={{ fontSize: '11px' }}>Lý do chỉnh sửa * (Bắt buộc)</label>
+                  <label className="form-label" style={{ fontSize: '11px' }}>Lý do chỉnh sửa * (Bắt buộc lưu lịch sử)</label>
                   <textarea
                     className="form-input"
                     rows={2}

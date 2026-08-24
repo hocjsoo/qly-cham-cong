@@ -397,8 +397,22 @@ const getIndividualDetailReport = async (req, res) => {
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
       const att = attMap[dateStr];
-      const inStr = att?.check_in_time ? new Date(att.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '';
-      const outStr = att?.check_out_time ? new Date(att.check_out_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '';
+      const formatTimeStr = (t) => {
+        if (!t) return '';
+        if (typeof t === 'string') {
+          if (t.includes('T')) {
+            const d = new Date(t);
+            return isNaN(d.getTime()) ? t.slice(0, 5) : d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+          }
+          return t.slice(0, 5);
+        }
+        if (t instanceof Date) {
+          return t.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+        }
+        return String(t);
+      };
+      const inStr = formatTimeStr(att?.check_in_time);
+      const outStr = formatTimeStr(att?.check_out_time);
 
       const hrs = att?.total_hours || 0;
       const ot = att?.ot_hours || 0;
