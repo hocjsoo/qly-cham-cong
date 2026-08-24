@@ -123,7 +123,7 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 ```
 server/
 ├── tests/
-│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 223 Test Cases)
+│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 227 Test Cases)
 │   ├── unit/                          # 18 Backend Unit & Expert Suites
 │   │   ├── attendance.test.js
 │   │   ├── clientAuthStore.test.js

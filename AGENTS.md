@@ -78,9 +78,9 @@ QLY_CHAM_CONG/
 │   │   ├── models/                  # 15 Mongoose schemas
 │   │   ├── routes/                  # 16 Express route files
 │   │   ├── middlewares/             # Auth + Role + Rate limiting
-│   │   ├── database/               # DB connection + seed
-│   │   ├── app.js                  # Pure Express app factory + route mounting
-│   │   └── server.js               # Live HTTP Server entry point (connectDB + listen)
+│   │   ├── database/                # DB connection + seed
+│   │   ├── app.js                   # Pure Express app factory + route mounting
+│   │   └── server.js                # Live HTTP Server entry point (connectDB + listen)
 │   ├── tests/                       # 32 Test Suites / 227 Test Cases (Zero-Impact & Supertest)
 │   │   ├── runner.js                # Master test runner
 │   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
@@ -92,7 +92,7 @@ QLY_CHAM_CONG/
 │   └── package.json
 │
 ├── .agents/AGENTS.md               # Agent rules & conventions
-├── CLAUDE.md                       # AI development guide (file này)
+├── CLAUDE.md                       # AI development guide
 ├── CONTRIBUTING.md                 # Hướng dẫn đóng góp
 ├── README.md                       # Project documentation
 ├── TEST_SCENARIOS.md               # Tài liệu 227 kịch bản kiểm thử

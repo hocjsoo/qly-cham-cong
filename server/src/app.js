@@ -98,7 +98,7 @@ app.get('/api/health', (req, res) => {
   const isTesting = process.env.NODE_ENV === 'test';
 
   const status = isConnected || isTesting ? 'OK' : 'DEGRADED';
-  const dbStatus = isConnected ? 'connected' : (isTesting ? 'mocked (in-memory)' : 'disconnected');
+  const dbStatus = isConnected ? 'connected' : (isTesting ? 'mocked (test)' : 'disconnected');
 
   res.status(status === 'OK' ? 200 : 503).json({
     status,
