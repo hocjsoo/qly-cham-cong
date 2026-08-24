@@ -68,6 +68,8 @@ export default function ProjectsPage() {
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [pmSearchQuery, setPmSearchQuery] = useState('');
+  const [showPmDropdown, setShowPmDropdown] = useState(false);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -1077,72 +1079,165 @@ export default function ProjectsPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                  👔 PM (Chủ nhiệm / Quản lý) *
-                </label>
-                <select
-                  className="form-select"
-                  value={form.pm_name || ''}
-                  onChange={e => {
-                    const selectedName = e.target.value;
-                    const selectedUser = staffList.find(s => s.full_name === selectedName);
-                    const selectedUserId = selectedUser ? (selectedUser._id || selectedUser.id) : null;
-                    setForm(prev => {
-                      const updatedMembers = (selectedUserId && !prev.members.includes(selectedUserId))
-                        ? [...prev.members, selectedUserId]
-                        : prev.members;
-                      return {
-                        ...prev,
-                        pm_name: selectedName,
-                        pm_id: selectedUserId,
-                        members: updatedMembers
-                      };
-                    });
-                  }}
-                >
-                  <option value="">-- Chọn nhân sự làm PM --</option>
-                  {staffList.map(u => (
-                    <option key={u._id || u.id} value={u.full_name}>
-                      {u.full_name} (#{u.employee_code || 'NS'} · {u.position || 'Nhân sự'})
-                    </option>
-                  ))}
-                </select>
+              {/* SMART SEARCHABLE PM SELECTOR */}
+              <div className="form-group" style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label className="form-label" style={{ fontWeight: 800, color: 'var(--primary)', margin: 0 }}>
+                    👔 PM (Chủ nhiệm / Quản lý) *
+                  </label>
+                  {form.pm_name && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({ ...prev, pm_name: '', pm_id: null }));
+                        setPmSearchQuery('');
+                        setShowPmDropdown(true);
+                      }}
+                      style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      ✕ Đổi PM khác
+                    </button>
+                  )}
+                </div>
 
-                {/* Inline PM Preview Card */}
-                {form.pm_name && (() => {
-                  const selectedPmObj = staffList.find(s => s.full_name === form.pm_name);
-                  if (!selectedPmObj) return null;
-                  return (
-                    <div style={{
-                      marginTop: '6px', padding: '6px 10px', background: 'var(--bg-raised)',
-                      borderRadius: '8px', border: '1px solid var(--primary)',
-                      display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px'
-                    }}>
-                      {selectedPmObj.avatar_url ? (
-                        <img src={selectedPmObj.avatar_url} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {(selectedPmObj.full_name || 'P').charAt(0).toUpperCase()}
+                {form.pm_name ? (
+                  /* SELECTED PM CARD */
+                  (() => {
+                    const selectedPmObj = staffList.find(s => s.full_name === form.pm_name) || { full_name: form.pm_name };
+                    return (
+                      <div style={{
+                        padding: '7px 10px', background: 'var(--primary-soft)',
+                        borderRadius: '8px', border: '1.5px solid var(--primary)',
+                        display: 'flex', alignItems: 'center', gap: '8px'
+                      }}>
+                        {selectedPmObj.avatar_url ? (
+                          <img src={selectedPmObj.avatar_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {(selectedPmObj.full_name || 'P').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {selectedPmObj.full_name}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            #{selectedPmObj.employee_code || 'NS'} · {selectedPmObj.position || 'Quản lý'}
+                          </div>
                         </div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <strong style={{ color: 'var(--primary)' }}>{selectedPmObj.full_name}</strong>
-                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                          {selectedPmObj.position || 'PM'} · {selectedPmObj.phone || selectedPmObj.email || ''}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm(prev => ({ ...prev, pm_name: '', pm_id: null }));
+                            setPmSearchQuery('');
+                            setShowPmDropdown(true);
+                          }}
+                          className="btn btn--ghost"
+                          style={{ padding: '2px 7px', fontSize: '10.5px', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                        >
+                          Đổi
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setViewingStaffDetail(selectedPmObj)}
-                        className="btn btn--ghost"
-                        style={{ padding: '2px 6px', fontSize: '10px', color: 'var(--primary)' }}
-                      >
-                        Hồ sơ
-                      </button>
+                    );
+                  })()
+                ) : (
+                  /* SEARCH & PICK PM COMBOBOX */
+                  <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Search size={13} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        className="form-input"
+                        style={{ paddingLeft: '28px', fontSize: '12px' }}
+                        placeholder="🔍 Tìm nhanh theo tên hoặc chức danh PM..."
+                        value={pmSearchQuery}
+                        onChange={e => {
+                          setPmSearchQuery(e.target.value);
+                          setShowPmDropdown(true);
+                        }}
+                        onFocus={() => setShowPmDropdown(true)}
+                      />
                     </div>
-                  );
-                })()}
+
+                    {/* LIVE SEARCH DROPDOWN FOR PM */}
+                    {showPmDropdown && (
+                      <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60,
+                        background: 'var(--bg-card)', border: '1.5px solid var(--primary)',
+                        borderRadius: '8px', maxHeight: '180px', overflowY: 'auto',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.25)', marginTop: '4px', padding: '4px'
+                      }}>
+                        {staffList
+                          .filter(u => {
+                            if (!pmSearchQuery.trim()) return true;
+                            const q = pmSearchQuery.trim().toLowerCase();
+                            return (
+                              u.full_name?.toLowerCase().includes(q) ||
+                              u.employee_code?.toLowerCase().includes(q) ||
+                              u.position?.toLowerCase().includes(q)
+                            );
+                          })
+                          .map(u => (
+                            <div
+                              key={u._id || u.id}
+                              onClick={() => {
+                                const uid = u._id || u.id;
+                                setForm(prev => ({
+                                  ...prev,
+                                  pm_name: u.full_name,
+                                  pm_id: uid,
+                                  members: prev.members.includes(uid) ? prev.members : [...prev.members, uid]
+                                }));
+                                setShowPmDropdown(false);
+                                setPmSearchQuery('');
+                              }}
+                              style={{
+                                padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                transition: 'background 0.1s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-soft)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              {u.avatar_url ? (
+                                <img src={u.avatar_url} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  {(u.full_name || 'U').charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text)' }}>{u.full_name}</div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>#{u.employee_code || 'NS'} · {u.position || 'Nhân sự'}</div>
+                              </div>
+                            </div>
+                          ))}
+
+                        {/* Free text custom PM name option */}
+                        {pmSearchQuery.trim() && (
+                          <div
+                            onClick={() => {
+                              setForm(prev => ({
+                                ...prev,
+                                pm_name: pmSearchQuery.trim(),
+                                pm_id: null
+                              }));
+                              setShowPmDropdown(false);
+                              setPmSearchQuery('');
+                            }}
+                            style={{
+                              padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                              background: 'var(--bg-raised)', borderTop: '1px solid var(--border)',
+                              fontSize: '11.5px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px'
+                            }}
+                          >
+                            ➕ Dùng tên tự do: <strong>"{pmSearchQuery.trim()}"</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Chủ đầu tư / Khách hàng</label>
