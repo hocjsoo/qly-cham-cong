@@ -419,6 +419,31 @@ export default function ExpensesPage() {
               <option value="false">☐ Không có VAT</option>
             </select>
 
+            {/* Filter Month */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+            >
+              <option value="all">📅 Tháng: Tất cả</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                <option key={m} value={String(m)}>Tháng {m}</option>
+              ))}
+            </select>
+
+            {/* Filter Year */}
+            <select
+              className="form-select"
+              style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
+              value={filterYear}
+              onChange={e => setFilterYear(e.target.value)}
+            >
+              {[2024, 2025, 2026, 2027].map(y => (
+                <option key={y} value={String(y)}>Năm {y}</option>
+              ))}
+            </select>
+
             {/* View Mode Toggle */}
             <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: '8px', padding: '2px', border: '1px solid var(--border)', marginLeft: 'auto' }}>
               <button
