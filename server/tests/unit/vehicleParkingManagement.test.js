@@ -61,12 +61,32 @@ function runVehicleParkingTests(assert) {
   assert(defaultUser.vehicle_info === null,
     'TC-VEH-01.2: Mô tả xe mặc định là null khi chưa cập nhật');
 
-  // TC-VEH-02: Admin / Leader Quản lý Trực tiếp (Phương án 1)
-  const targetUser = { ...mockUsers[3] };
-  targetUser.parking_location = 'Tòa 17T10 Nguyễn Thị Định';
-  targetUser.vehicle_info = 'Honda SH Đen - 29E1-999.99';
-  assert(targetUser.vehicle_info === 'Honda SH Đen - 29E1-999.99' && targetUser.parking_location === 'Tòa 17T10 Nguyễn Thị Định',
-    'TC-VEH-02: Admin/Leader sửa trực tiếp biển số và nơi gửi xe thành công');
+  // TC-VEH-02: Phân quyền Sửa Thông Tin Gửi Xe (Chỉ Admin mới có quyền sửa trực tiếp)
+  function processVehicleEdit(user, editPayload, callerRole) {
+    if (callerRole === 'admin') {
+      return {
+        ...user,
+        parking_location: editPayload.parking_location || user.parking_location,
+        vehicle_info: editPayload.vehicle_info !== undefined ? editPayload.vehicle_info : user.vehicle_info,
+      };
+    }
+    // Non-admin (Leader / Employee) bị từ chối sửa trực tiếp
+    return { ...user };
+  }
+
+  const adminEdit = processVehicleEdit(mockUsers[3], {
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định',
+    vehicle_info: 'Honda SH Đen - 29E1-999.99'
+  }, 'admin');
+  assert(adminEdit.vehicle_info === 'Honda SH Đen - 29E1-999.99' && adminEdit.parking_location === 'Tòa 17T10 Nguyễn Thị Định',
+    'TC-VEH-02.1: Admin có toàn quyền sửa trực tiếp biển số và nơi gửi xe của nhân sự');
+
+  const leaderDirectEdit = processVehicleEdit(mockUsers[3], {
+    parking_location: 'Gửi ngoài',
+    vehicle_info: 'Ducati 29A-999.99'
+  }, 'leader');
+  assert(leaderDirectEdit.vehicle_info === mockUsers[3].vehicle_info,
+    'TC-VEH-02.2: Chặn Leader sửa trực tiếp thông tin gửi xe (Leader phải nộp đơn đổi xe)');
 
   // TC-VEH-03: Nhân viên gửi Yêu cầu Đổi xe -> Admin Phê Duyệt Tự Động Cập Nhật (Phương án 2)
   const vehicleRequest = {

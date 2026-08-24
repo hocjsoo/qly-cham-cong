@@ -29,12 +29,14 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(uri);
     console.log(`✅ Kết nối MongoDB Atlas thành công: ${conn.connection.host}`);
+    return conn;
   } catch (error) {
     console.error(`❌ Lỗi kết nối MongoDB: ${error.message}`);
     if (error.message.includes('authentication failed') || error.message.includes('bad auth')) {
       console.error('👉 Lỗi sai Mật khẩu hoặc Sai tên Database User trên MongoDB Atlas!');
       console.error('👉 Đồng thời nhớ kiểm tra Network Access trên Atlas đã add IP "0.0.0.0/0" chưa.');
     }
+    throw error;
   }
 };
 

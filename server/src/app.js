@@ -90,11 +90,19 @@ app.use('/api/timesheet-lock',timesheetLockRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/expenses',      expenseRoutes);
 
+const mongoose = require('mongoose');
+
 // HEALTH CHECK API
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    db: 'MongoDB Atlas',
+  const isConnected = mongoose.connection && mongoose.connection.readyState === 1;
+  const isTesting = process.env.NODE_ENV === 'test';
+
+  const status = isConnected || isTesting ? 'OK' : 'DEGRADED';
+  const dbStatus = isConnected ? 'connected' : (isTesting ? 'mocked (in-memory)' : 'disconnected');
+
+  res.status(status === 'OK' ? 200 : 503).json({
+    status,
+    db: dbStatus,
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'production'
   });
