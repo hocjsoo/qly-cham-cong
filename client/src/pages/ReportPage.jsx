@@ -941,31 +941,35 @@ export default function ReportPage() {
             </div>
 
             {/* Attendance Trend Chart */}
-            {(trend?.months || trend?.monthly_stats) && (trend?.months || trend?.monthly_stats).length > 0 && (
-              <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BarChart3 size={18} color="var(--primary)" /> Biểu đồ xu hướng đúng giờ 6 tháng gần nhất
+            {(() => {
+              const trendData = trend?.months || trend?.monthly_stats || [];
+              if (!trendData.length) return null;
+              return (
+                <div className="card" style={{ padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <BarChart3 size={18} color="var(--primary)" /> Biểu đồ xu hướng đúng giờ 6 tháng gần nhất
+                  </div>
+                  <div style={{ width: '100%', height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={trendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" />
+                        <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
+                        <YAxis stroke="var(--text-secondary)" fontSize={12} domain={[0, 100]} />
+                        <Tooltip
+                          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                          formatter={(val) => [`${val}%`, 'Tỷ lệ đúng giờ']}
+                        />
+                        <Bar dataKey="attendance_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
+                          {trendData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={(entry.attendance_rate ?? entry.on_time_rate) >= 90 ? '#10b981' : (entry.attendance_rate ?? entry.on_time_rate) >= 80 ? '#3b82f6' : '#f59e0b'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-                <div style={{ width: '100%', height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={trend.months || trend.monthly_stats}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" />
-                      <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
-                      <YAxis stroke="var(--text-secondary)" fontSize={12} domain={[0, 100]} />
-                      <Tooltip
-                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
-                        formatter={(val) => [`${val}%`, 'Tỷ lệ đúng giờ']}
-                      />
-                      <Bar dataKey="attendance_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
-                        {(trend.months || trend.monthly_stats).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={(entry.attendance_rate ?? entry.on_time_rate) >= 90 ? '#10b981' : (entry.attendance_rate ?? entry.on_time_rate) >= 80 ? '#3b82f6' : '#f59e0b'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
 

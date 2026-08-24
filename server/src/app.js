@@ -54,6 +54,19 @@ const checkInLimiter = rateLimit({
   message: { error: 'Thao tác quá nhanh, vui lòng chờ 1 phút.' }
 });
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50, // Tối đa 50 request auth/login/reset trong 15 phút
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.ip === '127.0.0.1' ||
+    req.ip === '::1' ||
+    req.ip === '::ffff:127.0.0.1' ||
+    process.env.NODE_ENV !== 'production',
+  message: { error: 'Bạn đã thao tác đăng nhập quá nhiều lần. Vui lòng thử lại sau 15 phút.' }
+});
+
 app.use('/api', generalLimiter);
 
 // ==============================================
@@ -78,7 +91,7 @@ const timesheetLockRoutes = require('./routes/timesheetLock.routes');
 const announcementRoutes  = require('./routes/announcement.routes');
 const expenseRoutes       = require('./routes/expense.routes');
 
-app.use('/api/auth',          authRoutes);
+app.use('/api/auth',          authLimiter, authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
 app.use('/api/requests',      requestRoutes);
 app.use('/api/dashboard',     dashboardRoutes);

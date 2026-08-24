@@ -15,7 +15,7 @@ const generateEmployeeCode = async (employeeType = 'NS') => {
   return code;
 };
 
-// GET /api/users
+// GET /api/users — Danh bạ nhân viên & Quản trị nhân sự
 const getAllUsers = async (req, res) => {
   try {
     const queryFilter = {};
@@ -24,8 +24,16 @@ const getAllUsers = async (req, res) => {
       queryFilter.employment_status = { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ việc', 'Nghi viec', 'resigned', 'inactive'] };
     }
 
+    const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(req.user?.role);
+    
+    // Nếu là nhân viên thông thường, loại bỏ triệt để các thông tin tài chính/cá nhân nhạy cảm
+    let selectFields = '-password_hash -reset_token -reset_token_expires';
+    if (!isAdminOrLeader) {
+      selectFields += ' -cccd -bank_name -bank_account -branch -bhxh_code -emergency_phone -address_current -hometown';
+    }
+
     const users = await User.find(queryFilter)
-      .select('-password_hash')
+      .select(selectFields)
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
       .populate('manager_id', 'full_name')
@@ -49,7 +57,7 @@ const getAllUsers = async (req, res) => {
     res.json(formatted);
   } catch (error) {
     console.error('GetAllUsers error:', error);
-    res.status(500).json({ error: 'Loi lay danh sach nhan vien.' });
+    res.status(500).json({ error: 'Lỗi lấy danh sách nhân viên.' });
   }
 };
 

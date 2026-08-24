@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,
-  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell
+  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
