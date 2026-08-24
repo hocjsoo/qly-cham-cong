@@ -230,13 +230,27 @@ export default function HistoryPage() {
     toast.success('Đã xuất CSV!');
   };
 
+  const extractVNTime = (isoOrDate) => {
+    if (!isoOrDate) return '';
+    const d = new Date(isoOrDate);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour12: false
+    });
+  };
+
   const handleOpenOverride = (rec) => {
     setOverrideRecord(rec);
-    const inStr = rec.check_in_time ? new Date(rec.check_in_time).toISOString().slice(0, 16) : '';
-    const outStr = rec.check_out_time ? new Date(rec.check_out_time).toISOString().slice(0, 16) : '';
+    const inTime = extractVNTime(rec.check_in_time);
+    const outTime = extractVNTime(rec.check_out_time);
     setOverrideForm({
-      check_in_time: inStr,
-      check_out_time: outStr,
+      date: rec.date || (rec.check_in_time ? new Date(rec.check_in_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''),
+      check_in_time: inTime,
+      check_out_time: outTime,
+      check_in_type: rec.check_in_type || 'office',
       is_late: Boolean(rec.is_late),
       notes: rec.notes || 'Đã sửa bởi Admin',
     });
@@ -251,8 +265,8 @@ export default function HistoryPage() {
       setOverrideRecord(null);
       setSelectedDayRecord(null);
       load();
-    } catch {
-      toast.error('Lỗi điều chỉnh bản ghi');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi điều chỉnh bản ghi');
     } finally {
       setSubmittingOverride(false);
     }
@@ -924,72 +938,155 @@ export default function HistoryPage() {
       {/* Admin Override Sheet */}
       {overrideRecord && (
         <div className="modal-overlay" onClick={() => setOverrideRecord(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', margin: '0 auto' }}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '540px',
+              width: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              margin: '0 auto',
+              borderRadius: '16px',
+              padding: '22px 26px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontWeight: 700, fontSize: '16px' }}>Sửa giờ chấm công</div>
-              <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Clock size={22} color="var(--primary)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                    Sửa Giờ Chấm Công
+                  </h3>
+                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
+                    Ngày: <strong style={{ color: 'var(--primary)' }}>{overrideRecord.date}</strong> {overrideRecord.user_id?.full_name ? `— ${overrideRecord.user_id.full_name}` : ''}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
+                <X size={20} />
+              </button>
             </div>
 
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Ngày: <strong>{overrideRecord.date}</strong>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Thời gian vào (Check-in)</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={overrideForm.check_in_time}
-                onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Thời gian ra (Check-out)</label>
-              <input
-                type="datetime-local"
-                className="form-input"
-                value={overrideForm.check_out_time}
-                onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              {/* Giờ vào (Check-in) */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🟢 Giờ vào (Check-in)</label>
                 <input
-                  type="checkbox"
-                  checked={overrideForm.is_late}
-                  onChange={e => setOverrideForm({ ...overrideForm, is_late: e.target.checked })}
+                  type="time"
+                  className="form-input"
+                  style={{ fontSize: '15px', fontWeight: 800, padding: '9px 12px' }}
+                  value={overrideForm.check_in_time}
+                  onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
                 />
-                Đánh dấu là Đi muộn
-              </label>
+              </div>
+
+              {/* Giờ ra (Check-out) */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🔴 Giờ ra (Check-out)</label>
+                <input
+                  type="time"
+                  className="form-input"
+                  style={{ fontSize: '15px', fontWeight: 800, padding: '9px 12px' }}
+                  value={overrideForm.check_out_time}
+                  onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Lý do điều chỉnh (Audit Note)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+              {/* Hình thức chấm công */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏢 Hình thức</label>
+                <select
+                  className="form-select"
+                  value={overrideForm.check_in_type}
+                  onChange={e => setOverrideForm({ ...overrideForm, check_in_type: e.target.value })}
+                  style={{ padding: '9px 12px', fontSize: '13px' }}
+                >
+                  <option value="office">🏢 Văn phòng</option>
+                  <option value="site">🏗️ Công trình (CT1)</option>
+                  <option value="client">👔 Khách hàng (CT2)</option>
+                  <option value="wfh">🏠 Làm từ xa (WFH)</option>
+                </select>
+              </div>
+
+              {/* Toggle Đi muộn */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>⚠️ Trạng thái kỷ luật</label>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    background: overrideForm.is_late ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-input)',
+                    border: overrideForm.is_late ? '1px solid var(--red)' : '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    height: '42px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={overrideForm.is_late}
+                    onChange={e => setOverrideForm({ ...overrideForm, is_late: e.target.checked })}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--red)' }}
+                  />
+                  <span style={{ fontSize: '13px', fontWeight: overrideForm.is_late ? 700 : 500, color: overrideForm.is_late ? 'var(--red)' : 'var(--text)' }}>
+                    {overrideForm.is_late ? '🔴 Đánh dấu Đi muộn' : '🟢 Đúng giờ (Không muộn)'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Lý do điều chỉnh */}
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>📝 Lý do điều chỉnh (Audit Note)</label>
               <input
                 type="text"
                 className="form-input"
                 value={overrideForm.notes}
                 onChange={e => setOverrideForm({ ...overrideForm, notes: e.target.value })}
-                placeholder="VD: Sửa theo giải trình..."
+                placeholder="VD: Sửa theo giải trình duyệt đơn, sự cố mạng..."
+                style={{ padding: '9px 12px', fontSize: '13px' }}
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '16px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost btn--full">Hủy</button>
-                <button onClick={handleSaveOverride} disabled={submittingOverride} className="btn btn--primary btn--full">
-                  {submittingOverride ? <span className="spinner" /> : 'Lưu điều chỉnh'}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setOverrideRecord(null)}
+                  className="btn btn--ghost"
+                  style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveOverride}
+                  disabled={submittingOverride}
+                  className="btn btn--primary"
+                  style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+                >
+                  {submittingOverride ? <span className="spinner" /> : '💾 Lưu điều chỉnh'}
                 </button>
               </div>
               <button
+                type="button"
                 onClick={() => handleDeleteAttendance(overrideRecord._id, overrideRecord.date)}
                 className="btn btn--ghost btn--full"
-                style={{ color: 'var(--red)', borderColor: 'var(--red)', fontSize: '12px' }}
+                style={{ color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '12px', padding: '8px', background: 'rgba(239, 68, 68, 0.05)' }}
               >
-                <Trash2 size={14} /> Xóa hẳn ca làm này (Cho phép nhân viên chấm lại)
+                <Trash2 size={15} /> Xóa hẳn ca làm này (Cho phép nhân viên chấm lại)
               </button>
             </div>
           </div>

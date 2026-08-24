@@ -659,7 +659,7 @@ const overrideAttendance = async (req, res) => {
       attendance = await Attendance.findOne({ user_id, date });
     }
 
-    const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00' };
+    const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00', work_end_time: '18:30' };
 
     if (!attendance) {
       if (!user_id || !date) {
@@ -672,8 +672,32 @@ const overrideAttendance = async (req, res) => {
       });
     }
 
+    const targetDate = date || attendance.date;
+
+    const parseVNTime = (tVal) => {
+      if (!tVal) return null;
+      if (tVal instanceof Date) return tVal;
+      if (typeof tVal === 'string') {
+        const s = tVal.trim();
+        // Case HH:mm or HH:mm:ss
+        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
+          const parts = s.split(':');
+          const hh = String(parts[0]).padStart(2, '0');
+          const mm = String(parts[1]).padStart(2, '0');
+          const ss = parts[2] ? String(parts[2]).padStart(2, '0') : '00';
+          return new Date(`${targetDate}T${hh}:${mm}:${ss}+07:00`);
+        }
+        // Case YYYY-MM-DDTHH:mm without timezone -> append +07:00
+        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+          return new Date(`${s}+07:00`);
+        }
+        return new Date(s);
+      }
+      return new Date(tVal);
+    };
+
     if (check_in_time) {
-      attendance.check_in_time = new Date(check_in_time);
+      attendance.check_in_time = parseVNTime(check_in_time);
       const lateInfo = calculateLateTier(attendance.check_in_time, settings.work_start_time);
       if (is_late !== undefined) {
         attendance.is_late = Boolean(is_late);
@@ -686,7 +710,9 @@ const overrideAttendance = async (req, res) => {
       attendance.is_late = Boolean(is_late);
     }
 
-    if (check_out_time) attendance.check_out_time = new Date(check_out_time);
+    if (check_out_time) {
+      attendance.check_out_time = parseVNTime(check_out_time);
+    }
     if (check_in_type) attendance.check_in_type = check_in_type;
     if (notes) attendance.notes = notes;
     if (status) attendance.status = status;
@@ -695,7 +721,7 @@ const overrideAttendance = async (req, res) => {
       const diffMs = new Date(attendance.check_out_time) - new Date(attendance.check_in_time);
       const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
       attendance.total_hours = Math.max(0, totalHours);
-      attendance.ot_hours = calculateOT(attendance.check_in_time, attendance.check_out_time, settings?.work_end_time || '17:30');
+      attendance.ot_hours = calculateOT(attendance.check_in_time, attendance.check_out_time, settings?.work_end_time || '18:30');
     }
 
     await attendance.save();
