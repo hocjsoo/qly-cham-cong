@@ -60,7 +60,12 @@ const createRequest = async (req, res) => {
   const { type, start_date, end_date, start_time, end_time, reason, project_id, project_name, attachment_url, proposed_parking_location, proposed_vehicle_info } = req.body;
   const userId = req.user._id;
 
-  if (!type || !start_date || !reason) {
+  const isVehicleUpdate = type === 'vehicle_update';
+  const finalReason = (reason && reason.trim())
+    ? reason.trim()
+    : (isVehicleUpdate ? 'Đăng ký thông tin phương tiện gửi xe' : '');
+
+  if (!type || !start_date || !finalReason) {
     return res.status(400).json({ error: 'Thiếu thông tin: loại đơn, ngày bắt đầu và lý do là bắt buộc.' });
   }
 
@@ -68,7 +73,7 @@ const createRequest = async (req, res) => {
     return res.status(400).json({ error: `Loại đơn không hợp lệ.` });
   }
 
-  if (reason.trim().length < 3) {
+  if (finalReason.length < 3) {
     return res.status(400).json({ error: 'Lý do giải trình quá ngắn.' });
   }
 
@@ -94,7 +99,7 @@ const createRequest = async (req, res) => {
       end_time: end_time || null,
       proposed_parking_location: proposed_parking_location || null,
       proposed_vehicle_info: proposed_vehicle_info || null,
-      reason: reason.trim(),
+      reason: finalReason,
       attachment_url: attachment_url || null,
     });
 

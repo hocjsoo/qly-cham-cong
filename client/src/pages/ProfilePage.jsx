@@ -175,10 +175,8 @@ export default function ProfilePage() {
 
   // Submit Vehicle Update Request (Staff/Employee -> Admin Approval)
   const handleSubmitVehicleRequest = async () => {
-    if (!reqReason.trim()) {
-      toast.error('Vui lòng nhập lý do đề xuất đổi xe / nơi gửi');
-      return;
-    }
+    const hasExistingVehicle = Boolean(user?.vehicle_info || user?.license_plate);
+    const finalReason = reqReason.trim() || (hasExistingVehicle ? 'Cập nhật đổi thông tin xe' : 'Đăng ký gửi xe lần đầu');
 
     setSubmittingVehicleReq(true);
     try {
@@ -186,12 +184,14 @@ export default function ProfilePage() {
       await api.post('/requests', {
         type: 'vehicle_update',
         start_date: today,
-        reason: reqReason.trim(),
+        reason: finalReason,
         proposed_parking_location: reqParkingLocation.trim() || 'Tòa 17T10 Nguyễn Thị Định',
         proposed_vehicle_info: reqVehicleInfo.trim() || null,
       });
 
-      toast.success('Đã gửi yêu cầu đổi thông tin xe tới Quản trị viên phê duyệt! 🛵');
+      toast.success(hasExistingVehicle 
+        ? 'Đã gửi yêu cầu đổi thông tin xe tới Quản trị viên phê duyệt! 🛵'
+        : 'Đã gửi thông tin đăng ký gửi xe tới Quản trị viên! 🛵');
       setShowVehicleRequestModal(false);
       setReqReason('');
       checkPendingVehicleRequest();
@@ -408,8 +408,12 @@ export default function ProfilePage() {
               >
                 <Bike size={18} color="var(--primary)" />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>Gửi yêu cầu đổi thông tin gửi xe</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đề xuất đổi biển số / nơi gửi nộp Admin duyệt</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {user?.vehicle_info || user?.license_plate ? 'Gửi yêu cầu đổi thông tin gửi xe' : 'Khai báo thông tin gửi xe'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    {user?.vehicle_info || user?.license_plate ? 'Đề xuất đổi biển số / nơi gửi nộp Admin duyệt' : 'Đăng ký vé xe tòa 17T10 hoặc báo gửi ngoài'}
+                  </div>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />
               </button>
@@ -500,10 +504,10 @@ export default function ProfilePage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                  🛵 Đề Xuất Đổi Thông Tin Gửi Xe
+                  {user?.vehicle_info || user?.license_plate ? '🛵 Đề Xuất Đổi Thông Tin Gửi Xe' : '🛵 Khai Báo Thông Tin Gửi Xe'}
                 </h3>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Thông tin sẽ được cập nhật sau khi Admin duyệt
+                  {user?.vehicle_info || user?.license_plate ? 'Thông tin sẽ được cập nhật sau khi Admin duyệt' : 'Đăng ký vé xe tòa nhà 17T10 hoặc báo gửi ngoài'}
                 </div>
               </div>
               <button onClick={() => setShowVehicleRequestModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
@@ -513,7 +517,7 @@ export default function ProfilePage() {
 
             {/* Quick Location Chips */}
             <div className="form-group">
-              <label className="form-label">🏢 Địa điểm gửi xe mới</label>
+              <label className="form-label">🏢 Địa điểm gửi xe</label>
               <input
                 type="text"
                 className="form-input"
@@ -546,7 +550,7 @@ export default function ProfilePage() {
 
             {/* Vehicle Info */}
             <div className="form-group">
-              <label className="form-label">🛵 Mô tả xe & Biển số xe mới</label>
+              <label className="form-label">🛵 Mô tả xe & Biển số xe</label>
               <input
                 type="text"
                 className="form-input"
@@ -561,13 +565,15 @@ export default function ProfilePage() {
 
             {/* Reason */}
             <div className="form-group">
-              <label className="form-label">Lý do thay đổi *</label>
+              <label className="form-label">
+                {user?.vehicle_info || user?.license_plate ? 'Lý do thay đổi (Tùy chọn)' : 'Lý do / Ghi chú (Không bắt buộc)'}
+              </label>
               <textarea
                 className="form-input"
                 rows={2}
                 value={reqReason}
                 onChange={e => setReqReason(e.target.value)}
-                placeholder="VD: Em mới mua xe mới / Em chuyển sang đi xe bus..."
+                placeholder={user?.vehicle_info || user?.license_plate ? "VD: Em mới mua xe mới..." : "VD: Đăng ký xe mới vào công ty..."}
               />
             </div>
 
@@ -577,7 +583,7 @@ export default function ProfilePage() {
               className="btn btn--primary btn--full btn--lg"
               style={{ marginTop: '8px' }}
             >
-              {submittingVehicleReq ? <span className="spinner" /> : 'Gửi Yêu Cầu Cho Admin Duyệt'}
+              {submittingVehicleReq ? <span className="spinner" /> : (user?.vehicle_info || user?.license_plate ? 'Gửi Yêu Cầu Cho Admin Duyệt' : 'Gửi Thông Tin Đăng Ký')}
             </button>
           </div>
         </div>

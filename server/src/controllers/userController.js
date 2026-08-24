@@ -149,6 +149,7 @@ const updateUser = async (req, res) => {
     employee_type, employee_code, position, employment_status,
     dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
+    parking_location, vehicle_info, license_plate,
   } = req.body;
 
   try {
