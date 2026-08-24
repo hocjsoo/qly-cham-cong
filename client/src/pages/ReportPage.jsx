@@ -696,25 +696,10 @@ export default function ReportPage() {
                                     cursor: 'pointer',
                                     background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                     borderLeft: '1px solid var(--border-muted)',
-                                    position: 'relative',
                                   }}
-                                  title={`Bấm xem chi tiết ngày ${d.dateStr}${d.is_modified ? ' (Đã sửa công)' : ''}`}
+                                  title={`Bấm xem chi tiết ngày ${d.dateStr}`}
                                 >
                                   {renderDaySymbol(d.symbol, isSun)}
-                                  {d.is_modified && (
-                                    <span
-                                      style={{
-                                        position: 'absolute',
-                                        top: '2px',
-                                        right: '2px',
-                                        width: '5px',
-                                        height: '5px',
-                                        borderRadius: '50%',
-                                        background: '#f59e0b',
-                                      }}
-                                      title="Ô công đã được điều chỉnh"
-                                    />
-                                  )}
                                 </td>
                               );
                             })}
