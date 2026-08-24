@@ -116,4 +116,28 @@ const deductLeaveOnApproval = async (userId, type, startDate, endDate) => {
   }
 };
 
-module.exports = { getMyBalance, getAllBalances, updateBalance, deductLeaveOnApproval };
+// Internal: Hoàn lại ngày phép khi đơn bị hủy hoặc hoàn tác
+const revertLeaveOnUndo = async (userId, type, startDate, endDate) => {
+  try {
+    const year = new Date(startDate).getFullYear();
+    const bal = await getOrCreateBalance(userId, year);
+
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date((endDate || startDate) + 'T00:00:00');
+    const days = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+
+    if (type === 'annual_leave') {
+      bal.annual_leave_used = Math.max(0, bal.annual_leave_used - days);
+    } else if (type === 'sick_leave') {
+      bal.sick_leave_used = Math.max(0, bal.sick_leave_used - days);
+    }
+
+    await bal.save();
+    return { success: true, days_reverted: days };
+  } catch (err) {
+    console.error('RevertLeave error:', err);
+    return { success: false };
+  }
+};
+
+module.exports = { getMyBalance, getAllBalances, updateBalance, deductLeaveOnApproval, revertLeaveOnUndo };

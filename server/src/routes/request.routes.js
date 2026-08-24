@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getMyRequests, createRequest, getPendingRequests, approveRequest, rejectRequest
+  getMyRequests, createRequest, getPendingRequests, approveRequest, rejectRequest, revertRequest, deleteRequest
 } = require('../controllers/requestController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
@@ -26,5 +26,12 @@ router.patch('/:id/approve', requireRole('admin', 'manager'), approveRequest);
 // PUT & PATCH /api/requests/:id/reject - [Admin, Leader, Manager]
 router.put('/:id/reject', requireRole('admin', 'manager'), rejectRequest);
 router.patch('/:id/reject', requireRole('admin', 'manager'), rejectRequest);
+
+// PUT & PATCH /api/requests/:id/revert - [Admin, Leader, Manager, Owner]
+router.put('/:id/revert', revertRequest);
+router.patch('/:id/revert', revertRequest);
+
+// DELETE /api/requests/:id - [Admin, Leader, Manager, Owner]
+router.delete('/:id', deleteRequest);
 
 module.exports = router;

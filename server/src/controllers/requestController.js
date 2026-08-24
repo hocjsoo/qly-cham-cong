@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
-const { deductLeaveOnApproval } = require('./leaveBalanceController');
+const { deductLeaveOnApproval, revertLeaveOnUndo } = require('./leaveBalanceController');
 
 const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'];
 
@@ -499,4 +499,173 @@ const rejectRequest = async (req, res) => {
   }
 };
 
-module.exports = { getMyRequests, createRequest, getPendingRequests, approveRequest, rejectRequest };
+// PUT /api/requests/:id/revert - Hoàn tác trạng thái đơn về Chờ duyệt (Pending)
+const revertRequest = async (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  try {
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn.' });
+    }
+
+    const isOwner = request.user_id.toString() === req.user._id.toString();
+    const isAdminOrLeader = ['admin', 'manager', 'leader'].includes(req.user.role);
+
+    if (!isOwner && !isAdminOrLeader) {
+      return res.status(403).json({ error: 'Bạn không có quyền hoàn tác đơn này.' });
+    }
+
+    // Nếu đơn trước đó đã được approved: hoàn nguyên ngày phép và điểm danh
+    if (request.status === 'approved') {
+      // 1. Hoàn lại ngày phép
+      if (['annual_leave', 'sick_leave'].includes(request.type)) {
+        await revertLeaveOnUndo(request.user_id, request.type, request.start_date, request.end_date);
+      }
+
+      // 2. Tính lại OT nếu là đơn OT
+      let calculatedOtHours = 0;
+      if (request.type === 'overtime') {
+        if (request.start_time && request.end_time) {
+          const [sH, sM] = request.start_time.split(':').map(Number);
+          const [eH, eM] = request.end_time.split(':').map(Number);
+          const diffMinutes = (eH * 60 + eM) - (sH * 60 + sM);
+          if (diffMinutes > 0) calculatedOtHours = parseFloat((diffMinutes / 60).toFixed(1));
+        }
+        if (calculatedOtHours <= 0) calculatedOtHours = 2.0;
+      }
+
+      // 3. Hoàn nguyên Attendance các ngày liên quan
+      const targetDates = getDatesInRange(request.start_date, request.end_date);
+      for (const d of targetDates) {
+        let att = await Attendance.findOne({ user_id: request.user_id, date: d });
+        if (att) {
+          if (request.type === 'overtime') {
+            att.ot_hours = Math.max(0, (att.ot_hours || 0) - calculatedOtHours);
+            att.notes = att.notes ? att.notes.replace(/Duyệt tăng ca OT[^\n|]*/g, '').trim() : '';
+            await att.save();
+          } else if (['annual_leave', 'sick_leave', 'unpaid_leave'].includes(request.type)) {
+            // Nếu là bản ghi được tạo hoàn toàn bởi đơn (không có check-in thực tế)
+            if (!att.check_in_time) {
+              await Attendance.findByIdAndDelete(att._id);
+            } else {
+              att.status = 'present';
+              att.notes = 'Đã hoàn tác duyệt nghỉ phép';
+              await att.save();
+            }
+          } else if (['business_trip', 'foreign_trip', 'wfh'].includes(request.type)) {
+            if (!att.check_in_time) {
+              await Attendance.findByIdAndDelete(att._id);
+            } else {
+              att.check_in_type = 'office';
+              att.notes = 'Đã hoàn tác duyệt công tác/WFH';
+              await att.save();
+            }
+          } else if (['late', 'early_leave'].includes(request.type)) {
+            att.notes = 'Đã hoàn tác duyệt giải trình';
+            await att.save();
+          }
+        }
+      }
+    }
+
+    const previousStatus = request.status;
+    request.status = 'pending';
+    request.approved_by = null;
+    request.approved_at = null;
+    request.reviewer_note = reason ? `Đã hoàn tác (Lý do: ${reason})` : 'Đã hoàn tác về chờ duyệt';
+    await request.save();
+
+    // Gửi thông báo cho nhân viên nếu hoàn tác bởi quản lý
+    if (!isOwner) {
+      await Notification.create({
+        user_id: request.user_id,
+        title: '🔄 Đơn đã được chuyển về Chờ duyệt',
+        message: `Đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date} đã được quản lý chuyển về trạng thái Chờ duyệt để xem xét lại.`,
+        type: 'request',
+        link: '/requests',
+      });
+    }
+
+    logAction({
+      performed_by: req.user._id,
+      action: 'REQUEST_REVERTED',
+      target_model: 'Request',
+      target_id: request._id,
+      description: `Hoàn tác đơn ${TYPE_LABELS[request.type]} từ ${previousStatus} về pending`,
+      req,
+    });
+
+    res.json({ message: 'Đã hoàn tác đơn về trạng thái Chờ duyệt thành công! 🔄', request });
+  } catch (error) {
+    console.error('RevertRequest error:', error);
+    res.status(500).json({ error: 'Lỗi hoàn tác đơn.' });
+  }
+};
+
+// DELETE /api/requests/:id - Xóa đơn
+const deleteRequest = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const request = await Request.findById(id);
+    if (!request) {
+      return res.status(404).json({ error: 'Không tìm thấy đơn.' });
+    }
+
+    const isOwner = request.user_id.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = ['manager', 'leader'].includes(req.user.role);
+
+    // Nhân viên chỉ được xóa đơn của mình khi chưa duyệt (pending hoặc cancelled)
+    if (isOwner && !isAdmin && !isLeader && request.status === 'approved') {
+      return res.status(403).json({ error: 'Không thể xóa đơn đã được duyệt. Vui lòng liên hệ Quản lý để hoàn tác trước.' });
+    }
+
+    if (!isOwner && !isAdmin && !isLeader) {
+      return res.status(403).json({ error: 'Bạn không có quyền xóa đơn này.' });
+    }
+
+    // Nếu đơn đang approved bị xóa bởi Admin/Leader: Hoàn nguyên ngày phép và attendance
+    if (request.status === 'approved') {
+      if (['annual_leave', 'sick_leave'].includes(request.type)) {
+        await revertLeaveOnUndo(request.user_id, request.type, request.start_date, request.end_date);
+      }
+
+      const targetDates = getDatesInRange(request.start_date, request.end_date);
+      for (const d of targetDates) {
+        let att = await Attendance.findOne({ user_id: request.user_id, date: d });
+        if (att && !att.check_in_time) {
+          await Attendance.findByIdAndDelete(att._id);
+        }
+      }
+    }
+
+    await Request.findByIdAndDelete(id);
+
+    logAction({
+      performed_by: req.user._id,
+      action: 'REQUEST_DELETED',
+      target_model: 'Request',
+      target_id: id,
+      description: `Xóa đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date}`,
+      req,
+    });
+
+    res.json({ message: 'Đã xóa đơn thành công! 🗑️', deleted_id: id });
+  } catch (error) {
+    console.error('DeleteRequest error:', error);
+    res.status(500).json({ error: 'Lỗi xóa đơn.' });
+  }
+};
+
+module.exports = {
+  getMyRequests,
+  createRequest,
+  getPendingRequests,
+  approveRequest,
+  rejectRequest,
+  revertRequest,
+  deleteRequest
+};
