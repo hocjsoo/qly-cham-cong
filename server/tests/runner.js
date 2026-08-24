@@ -26,6 +26,10 @@ const { runLeaderboardRankingTests } = require('./unit/leaderboardRanking.test')
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 
+// Expert QA & Process Validation Suites
+const runExpertRequestApprovalTests = require('./unit/expertRequestApproval.test');
+const runExpertTimeDateAdjusterTests = require('./unit/expertTimeDateAdjuster.test');
+
 // Frontend UI Suites
 const runClientAuthStoreTests = require('./unit/clientAuthStore.test');
 const runClientThemeTests = require('./unit/clientTheme.test');
@@ -109,9 +113,11 @@ async function runAllTests() {
     runClientExportCsvTests(assert);
     runClientUiBadgesTests(assert);
 
-    // === PHẦN 3: TÍCH HỢP TOÀN TRÌNH ===
+    // === PHẦN 3: TÍCH HỢP TOÀN TRÌNH & EXPERT QA ===
     await runE2EScenarioTests(assert);
     runAdvancedScenariosTests(assert);
+    runExpertRequestApprovalTests(assert);
+    runExpertTimeDateAdjusterTests(assert);
 
     // === PHẦN 4: KIỂM THỬ HIỆU NĂNG & BENCHMARK ===
     runPerformanceTests(assert);
