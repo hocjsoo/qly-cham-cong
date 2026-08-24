@@ -7,8 +7,7 @@ Hệ thống quản lý chấm công thông minh dành cho doanh nghiệp (~30�
 - **Stack**: React 19 (Vite 8) + Node.js (Express 4) + MongoDB Atlas (Mongoose 9)
 - **Deploy**: Vercel (frontend) + Render.com (backend) + MongoDB Atlas (DB)
 - **Auth**: JWT + bcrypt, role-based (admin / leader / employee)
-- **UI**: Mobile-first PWA, dark/light theme, vanilla CSS design system
-- **Testing**: Zero-Impact Test Suite (32 Suites / 227 Test Cases in-memory & Supertest)
+- **UI**: Mobile-first PWA, - **Testing**: Zero-Impact Test Suite (32 Suites / 231 Test Cases in-memory & Supertest)
 
 ---
 
@@ -78,10 +77,24 @@ QLY_CHAM_CONG/
 │   │   ├── models/                  # 15 Mongoose schemas
 │   │   ├── routes/                  # 16 Express route files
 │   │   ├── middlewares/             # Auth + Role + Rate limiting
-│   │   ├── database/               # DB connection + seed
-│   │   ├── app.js                  # Pure Express app factory + route mounting
-│   │   └── server.js               # Live HTTP Server entry point (connectDB + listen)
-│   ├── tests/                       # 32 Test Suites / 227 Test Cases (Zero-Impact & Supertest)
+│   │   ├── database/                # DB connection + seed
+│   │   ├── app.js                   # Pure Express app factory + route mounting
+│   │   └── server.js                # Live HTTP Server entry point (connectDB + listen)
+│   ├── tests/                       # 32 Test Suites / 231 Test Cases (Zero-Impact & Supertest)
+│   │   ├── runner.js                # Master test runner
+│   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
+│   │   ├── concurrency/             # Kiểm thử tranh chấp đồng thời
+│   │   ├── security/                # Fuzzing & NoSQL Injection resistance
+│   │   ├── performance/             # High-load benchmarks
+│   │   ├── mutation/                # Mutation testing engine
+│   │   └── integration/             # E2E, Transaction Rollback & Supertest HTTP Pipeline
+│   └── package.json
+│
+├── .agents/AGENTS.md               # Agent rules & conventions
+├── CLAUDE.md                       # AI development guide (file này)
+├── CONTRIBUTING.md                 # Hướng dẫn đóng góp
+├── README.md                       # Project documentation
+├── TEST_SCENARIOS.md               # Tài liệu 231 kịch bản kiểm thử�   ├── tests/                       # 32 Test Suites / 227 Test Cases (Zero-Impact & Supertest)
 │   │   ├── runner.js                # Master test runner
 │   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
 │   │   ├── concurrency/             # Kiểm thử tranh chấp đồng thời

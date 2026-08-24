@@ -18,9 +18,9 @@ const LOCATION_TYPES = [
 ];
 
 const LATE_TIERS = {
-  on_time:     { label: 'Đúng giờ (≤ 09:00)',          cls: 'badge--success', icon: '✅' },
+  on_time:     { label: 'Đúng giờ',                    cls: 'badge--success', icon: '✅' },
   late_minor:  { label: 'Muộn nhẹ 1–30p (1.0 công)',   cls: 'badge--warning', icon: '⏰' },
-  late_medium: { label: 'Muộn trừ công (>09:30 - 0.75c)', cls: 'badge--danger',  icon: '⚠️' },
+  late_medium: { label: 'Muộn trừ công (>30p - 0.75c)', cls: 'badge--danger',  icon: '⚠️' },
   late_severe: { label: 'Muộn nhiều (0.75 công)',       cls: 'badge--danger',  icon: '🚨' },
 };
 
@@ -272,11 +272,10 @@ export default function CheckInPage() {
                 <button className="btn btn--primary" style={{ flex: 1, fontSize: '11px', padding: '6px' }}
                   onClick={() => {
                     toast.dismiss(t.id);
-                    setSelfieReason('Chấm công ảnh xác thực dự phòng ngoài bán kính GPS');
-                    setIsPhotoFallbackMode(true);
+                    setSelfieReason('Chụp ảnh selfie xác thực vị trí ngoài bán kính văn phòng');
                     setShowSelfieModal(true);
                   }}>
-                  📸 Chụp ảnh xác thực
+                  📸 Chụp ảnh Selfie xác thực
                 </button>
                 <button className="btn btn--ghost" style={{ flex: 1, fontSize: '11px', padding: '6px' }}
                   onClick={() => { toast.dismiss(t.id); setSelected('wfh'); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>

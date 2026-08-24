@@ -54,7 +54,7 @@ git checkout -b fix/mo-ta-loi
 ### 3. Kiểm tra trước khi commit
 
 ```bash
-# 1. Chạy bộ kiểm thử tự động (227/227 Test Cases)
+# 1. Chạy bộ kiểm thử tự động (231/231 Test Cases)
 cd server && npm test
 
 # 2. Build test Frontend

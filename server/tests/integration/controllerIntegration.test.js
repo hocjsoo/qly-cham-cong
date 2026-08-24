@@ -11,6 +11,11 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../../src/app');
 const User = require('../../src/models/User');
+const Attendance = require('../../src/models/Attendance');
+const OfficeLocation = require('../../src/models/OfficeLocation');
+const SystemSetting = require('../../src/models/SystemSetting');
+const DeviceRegistry = require('../../src/models/DeviceRegistry');
+const DeviceSession = require('../../src/models/DeviceSession');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -36,6 +41,17 @@ async function runControllerIntegrationTests(assert) {
   const originalUserFind = User.find;
   const originalFindById = User.findById;
   const originalFindByIdAndUpdate = User.findByIdAndUpdate;
+
+  const originalSettingFindOne = SystemSetting.findOne;
+  const originalLocationFind = OfficeLocation.find;
+  const originalAttFindOne = Attendance.findOne;
+  const originalAttFind = Attendance.find;
+  const originalAttCreate = Attendance.create;
+  const originalAttSave = Attendance.prototype.save;
+  const originalDevRegFind = DeviceRegistry.find;
+  const originalDevRegFindOneAndUpdate = DeviceRegistry.findOneAndUpdate;
+  const originalDevSessFindOne = DeviceSession.findOne;
+  const originalDevSessSave = DeviceSession.prototype.save;
 
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -192,6 +208,75 @@ async function runControllerIntegrationTests(assert) {
     };
   };
 
+  // Stubs cho Luồng Chấm công qua Pipeline
+  SystemSetting.findOne = function() {
+    return Promise.resolve({
+      work_start_time: '09:00',
+      work_end_time: '18:30',
+      minor_late_mins: 30,
+      medium_late_mins: 60,
+      office_latitude: 21.0285,
+      office_longitude: 105.8542,
+      default_gps_radius_meters: 250,
+    });
+  };
+
+  OfficeLocation.find = function() {
+    return Promise.resolve([
+      { name: 'Văn phòng chính', lat: 21.0285, lng: 105.8542, radius_m: 250, is_active: true }
+    ]);
+  };
+
+  DeviceRegistry.find = function() {
+    return {
+      populate() {
+        return Promise.resolve([]);
+      }
+    };
+  };
+
+  DeviceRegistry.findOneAndUpdate = function() {
+    return Promise.resolve({});
+  };
+
+  DeviceSession.findOne = function() {
+    return Promise.resolve(null);
+  };
+
+  DeviceSession.prototype.save = function() {
+    return Promise.resolve(this);
+  };
+
+  let mockSavedAttendance = null;
+  Attendance.findOne = function(query) {
+    if (mockSavedAttendance && query?.user_id?.toString() === mockSavedAttendance.user_id?.toString()) {
+      return Promise.resolve(mockSavedAttendance);
+    }
+    return Promise.resolve(null);
+  };
+
+  Attendance.find = function() {
+    return {
+      populate() {
+        return Promise.resolve([]);
+      }
+    };
+  };
+
+  Attendance.create = function(data) {
+    mockSavedAttendance = {
+      ...data,
+      save: function() { return Promise.resolve(this); },
+      toObject: function() { return { ...this }; }
+    };
+    return Promise.resolve(mockSavedAttendance);
+  };
+
+  Attendance.prototype.save = function() {
+    mockSavedAttendance = this;
+    return Promise.resolve(this);
+  };
+
   try {
     // -------------------------------------------------------------
     // 1. Supertest: GET /api/users qua toàn bộ Middleware Pipeline
@@ -271,10 +356,56 @@ async function runControllerIntegrationTests(assert) {
     assert(resOverrideLeader.status === 403,
       'TC-HTTP-07: Leader gọi PUT /api/attendance/override/:id bị middleware requireRole chặn 403 Forbidden');
 
+    // -------------------------------------------------------------
+    // 4. Supertest: POST /api/attendance/checkin Pipeline & Anti-Fraud
+    // -------------------------------------------------------------
+
+    // Case 4.1: Check-in thiếu GPS -> 400 Bad Request
+    const resNoGps = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ type: 'office' });
+    assert(resNoGps.status === 400 && resNoGps.body.gps_required === true,
+      'TC-HTTP-08: POST /api/attendance/checkin thiếu GPS bị chặn 400 và yêu cầu bật GPS');
+
+    // Case 4.2: Check-in tọa độ hợp lệ (trong văn phòng) -> 200/201 OK
+    const resOfficeCheckIn = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: 21.0285, lng: 105.8542, type: 'office', note: 'Check-in chuẩn' });
+    assert((resOfficeCheckIn.status === 200 || resOfficeCheckIn.status === 201) && resOfficeCheckIn.body.attendance,
+      'TC-HTTP-09: POST /api/attendance/checkin thành công trong văn phòng qua Supertest pipeline');
+
+    // Case 4.3: Check-in WFH ngoài văn phòng -> 200 OK và lưu đúng check_in_type="wfh"
+    const resWfhCheckIn = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: 20.95, lng: 105.75, type: 'wfh', note: 'Làm việc từ xa WFH' });
+    assert(resWfhCheckIn.status === 200 && resWfhCheckIn.body.attendance.check_in_type === 'wfh',
+      'TC-HTTP-10: POST /api/attendance/checkin WFH lưu đúng check_in_type="wfh" và tính đủ công');
+
+    // Case 4.4: Check-in tọa độ 0, 0 -> Xử lý số hợp lệ
+    const resZeroCoord = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: 0, lng: 0, type: 'wfh' });
+    assert(resZeroCoord.status === 200,
+      'TC-HTTP-11: POST /api/attendance/checkin với tọa độ 0,0 được xử lý số hợp lệ');
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;
     User.findByIdAndUpdate = originalFindByIdAndUpdate;
+    SystemSetting.findOne = originalSettingFindOne;
+    OfficeLocation.find = originalLocationFind;
+    Attendance.findOne = originalAttFindOne;
+    Attendance.find = originalAttFind;
+    Attendance.create = originalAttCreate;
+    Attendance.prototype.save = originalAttSave;
+    DeviceRegistry.find = originalDevRegFind;
+    DeviceRegistry.findOneAndUpdate = originalDevRegFindOneAndUpdate;
+    DeviceSession.findOne = originalDevSessFindOne;
+    DeviceSession.prototype.save = originalDevSessSave;
   }
 }
 

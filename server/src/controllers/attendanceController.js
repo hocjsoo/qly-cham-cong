@@ -103,18 +103,14 @@ const checkIn = async (req, res) => {
   } = req.body;
   const userId = req.user._id;
 
-  if (!lat || !lng) {
+  const userLat = Number(lat);
+  const userLng = Number(lng);
+
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLng) || userLat < -90 || userLat > 90 || userLng < -180 || userLng > 180) {
     return res.status(400).json({
-      error: 'GPS bắt buộc để chấm công. Vui lòng bật quyền định vị trên thiết bị.',
+      error: 'GPS bắt buộc và phải là tọa độ hợp lệ để chấm công. Vui lòng bật quyền định vị trên thiết bị.',
       gps_required: true,
     });
-  }
-
-  const userLat = parseFloat(lat);
-  const userLng = parseFloat(lng);
-
-  if (isNaN(userLat) || isNaN(userLng) || userLat < -90 || userLat > 90 || userLng < -180 || userLng > 180) {
-    return res.status(400).json({ error: 'Tọa độ GPS không hợp lệ.' });
   }
 
   try {
@@ -137,6 +133,7 @@ const checkIn = async (req, res) => {
       const todayRegLogs = await DeviceRegistry.find({
         hardware_uuid: effectiveHardwareUuid,
         date: dateStr,
+        user_id: { $ne: userId },
       }).populate('user_id', 'full_name employee_code email');
 
       const todayAttLogs = await Attendance.find({
@@ -161,7 +158,7 @@ const checkIn = async (req, res) => {
         const otherUserObj = otherUserLogs[0]?.user_id;
         const otherName = typeof otherUserObj === 'object' ? otherUserObj?.full_name : 'tài khoản khác';
 
-        if (!selfie_url && !step_up_confirmed && !isPhotoFallback) {
+        if (!selfie_url && !step_up_confirmed) {
           return res.status(400).json({
             error: `🚨 CẢNH BÁO GIAN LẬN: Máy tính/Điện thoại này (IP: ${clientIP}) vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Phát hiện thao tác trên Tab ẩn danh / Trình duyệt khác! Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
             step_up_required: true,
@@ -198,44 +195,26 @@ const checkIn = async (req, res) => {
           if (!session.is_trusted) {
             deviceWarning = `⚠️ Thiết bị chưa duyệt (${session.device_name || 'Thiết bị lạ'}).`;
             isFlagged = true;
-            if (!flagReasons.includes('DEVICE_UNTRUSTED')) {
-              flagReasons.push('DEVICE_UNTRUSTED');
+            if (!flagReasons.includes('UNTRUSTED_DEVICE')) {
+              flagReasons.push('UNTRUSTED_DEVICE');
             }
           }
         } else {
-          const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
-          const isFirstDevice = totalDevices === 0;
-          session = await DeviceSession.create({
+          session = new DeviceSession({
             user_id: userId,
             device_fingerprint,
             device_name: device_name || 'Unknown',
             user_agent: userAgentStr,
             screen_info: screen_info || null,
-            is_trusted: isFirstDevice,
+            is_trusted: false,
             check_in_count: 1,
           });
-
-          if (!isFirstDevice) {
-            deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}).`;
-            isFlagged = true;
-            if (!flagReasons.includes('DEVICE_UNTRUSTED')) {
-              flagReasons.push('DEVICE_UNTRUSTED');
-            }
-          }
-        }
-
-        // Kiểm tra xem thiết bị này có bị nhiều tài khoản khác dùng cùng ngày không (chấm công hộ)
-        const duplicateDeviceAtt = await Attendance.findOne({
-          user_id: { $ne: userId },
-          date: dateStr,
-          hardware_uuid: effectiveHardwareUuid || device_fingerprint
-        });
-        if (duplicateDeviceAtt) {
+          await session.save();
+          deviceWarning = `⚠️ Thiết bị mới (${device_name || 'Unknown'}).`;
           isFlagged = true;
-          if (!flagReasons.includes('MULTI_ACCOUNT_SAME_DEVICE')) {
-            flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
+          if (!flagReasons.includes('NEW_DEVICE_DETECTED')) {
+            flagReasons.push('NEW_DEVICE_DETECTED');
           }
-          deviceWarning = '⚠️ Cảnh báo: Thiết bị này đã được nhân viên khác chấm công hôm nay!';
         }
       }
     } catch (sessionErr) {
@@ -284,10 +263,10 @@ const checkIn = async (req, res) => {
 
           if (!validOffice) {
             const allowedR = Math.max(closestOffice.radius_m || 100, settings.default_gps_radius_meters || 250);
-            if (isPhotoFallback) {
+            if (selfie_url || step_up_confirmed) {
               isFlagged = true;
-              if (!flagReasons.includes('GPS_OUTSIDE_PHOTO_FALLBACK')) {
-                flagReasons.push('GPS_OUTSIDE_PHOTO_FALLBACK');
+              if (!flagReasons.includes('GPS_OUTSIDE_GEOFENCE')) {
+                flagReasons.push('GPS_OUTSIDE_GEOFENCE');
               }
             } else {
               return res.status(400).json({
@@ -337,11 +316,11 @@ const checkIn = async (req, res) => {
       note,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
       `IP: ${clientIP}`,
-      isPhotoFallback ? `📸 Chấm công ảnh xác thực dự phòng` : null,
+      selfie_url ? `📸 Kèm ảnh Selfie xác thực` : null,
       isFlagged ? `🚨 Cảnh báo: ${flagReasons.join(', ')}` : null,
     ].filter(Boolean).join(' | ');
 
-    const checkInMode = isPhotoFallback || selfie_url ? 'photo' : 'gps';
+    const checkInMode = selfie_url ? 'photo' : 'gps';
     const finalWorkUnits = lateInfo.work_units ?? 1.0;
 
     if (attendance) {

@@ -74,25 +74,28 @@
 
 ---
 
-## 🧪 Hệ Thống Kiểm Thử (32 Suites / 227 Test Cases)
+## 🧪 Hệ Thống Kiểm Thử (32 Suites / 231 Test Cases)
 
-Hệ thống tích hợp bộ kiểm thử tự động toàn diện bao gồm Supertest HTTP Pipeline Integration, chạy hoàn toàn trên bộ nhớ (In-Memory), cam kết **Zero-Impact 100%** đến database MongoDB Atlas Prod.
+ET Office Portal tích hợp bộ test tự động chuyên sâu:
+
+- **18 Unit Test Suites**: Thuật toán GPS Haversine, 4 mức phạt muộn, tính OT, chốt công, phân quyền RBAC, DTO bảo vệ dữ liệu nhạy cảm.
+- **6 Frontend UI Suites**: Zustand store, Theme dark/light, Menu nav access, CSV BOM export, Hardware fingerprinting.
+- **Integration & Supertest**: Mô phỏng HTTP request, kiểm thử luồng End-to-End, Transaction rollback.
+- **Resilience & Security**: Concurrency race conditions, Fuzzing injection resistance, Mutation testing.
 
 Chạy kiểm thử:
 ```bash
-cd server
-npm test
+cd server && npm test
 ```
 
 ```
 =========================================================================
 📊 BÁO CÁO TỔNG KẾT KẾT QUẢ KIỂM THỬ (TEST SUMMARY REPORT)
 -------------------------------------------------------------------------
-  • Tổng số kịch bản test (Test Cases) : 227
-  • Kịch bản ĐẠT (Passed)              : 227
+  • Tổng số kịch bản test (Test Cases) : 231
+  • Kịch bản ĐẠT (Passed)              : 231
   • Kịch bản LỖI (Failed)              : 0
   • Tỷ lệ thành công (Pass Rate)       : 100%
-  • Thời gian thực thi (Execution)     : Thường hoàn thành dưới 1 giây (< 1s)
   • Cơ sở dữ liệu Prod (MongoDB Atlas) : HOÀN TOÀN NGUYÊN VẸN (0 TÁC ĐỘNG)
 =========================================================================
 ```

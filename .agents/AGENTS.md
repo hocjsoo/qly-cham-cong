@@ -83,7 +83,7 @@
 
 ## Testing & Quality Assurance
 - Kiểm thử tự động chạy qua lệnh `npm test` trong `server/`.
-- Toàn bộ 227/227 test cases chạy trên bộ nhớ In-Memory & Supertest, cam kết Zero-Impact 100% đến cơ sở dữ liệu Prod.
+- Toàn bộ 231/231 test cases chạy trên bộ nhớ In-Memory & Supertest, cam kết Zero-Impact 100% đến cơ sở dữ liệu Prod.
 - Luôn chạy `npm test` và `npm run build` trước mỗi lần commit.
 
 ## Error Handling
