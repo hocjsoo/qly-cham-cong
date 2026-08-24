@@ -64,11 +64,11 @@ function runUserManagementTests(assert) {
     { _id: 'u_emp_both', full_name: 'Chuyên viên IT & Sale', role: 'employee', department_ids: ['dept_it', 'dept_sale'] },
   ];
 
-  // TC-USER-01: Lọc danh sách nhân viên theo phòng ban của Leader
+  // TC-USER-01: Phân tầng dữ liệu nhân viên theo phòng ban của Leader
   const itLeader = mockUsers[1];
   const itTeam = filterUsersForLeader(mockUsers, itLeader);
-  assert(itTeam.length === 3, 'TC-USER-01.1: Leader IT chỉ thấy chính mình + 2 nhân viên có thuộc phòng IT');
-  assert(!itTeam.some(u => u._id === 'u_emp_sale'), 'TC-USER-01.2: Leader IT không thấy nhân viên phòng Sale độc lập');
+  assert(itTeam.length === 3, 'TC-USER-01.1: Leader IT có thẩm quyền quản lý đối với chính mình + 2 nhân viên thuộc phòng IT');
+  assert(!itTeam.some(u => u._id === 'u_emp_sale'), 'TC-USER-01.2: Nhân viên phòng Sale không thuộc phạm vi quản lý team của Leader IT');
 
   // TC-USER-02: Multi-department - Nhân viên thuộc nhiều phòng ban
   const multiDeptEmp = mockUsers.find(u => u._id === 'u_emp_both');
@@ -130,6 +130,19 @@ function runUserManagementTests(assert) {
   assert(empView.full_name === 'Nguyễn Văn A' && empView.employee_code === 'NS-001', 'TC-USER-06.1: Employee nhận được thông tin danh bạ cơ bản');
   assert(empView.dob === undefined && empView.cccd === undefined && empView.bank_account === undefined && empView.bhxh_code === undefined, 'TC-USER-06.2: Employee bị ẩn hoàn toàn ngày sinh, CCCD, Ngân hàng, BHXH');
   assert(empView.parking_location === undefined && empView.vehicle_info === undefined, 'TC-USER-06.3: Employee không nhận thông tin xe riêng tư của nhân viên khác');
+
+  // Leader xem nhân viên trong team nhận LEADER_TEAM_FIELDS nhưng KHÔNG nhận CCCD/Bank/Xe
+  function sanitizeForLeaderTeam(user) {
+    const leaderTeamWhitelist = ['_id', 'employee_code', 'full_name', 'email', 'phone', 'position', 'role', 'department_id', 'department_ids', 'manager_id', 'avatar_url', 'join_date', 'employment_status', 'is_active'];
+    const sanitized = {};
+    for (const key of leaderTeamWhitelist) {
+      if (user[key] !== undefined) sanitized[key] = user[key];
+    }
+    return sanitized;
+  }
+  const leaderTeamView = sanitizeForLeaderTeam(mockFullUser);
+  assert(leaderTeamView.position === 'Kiến trúc sư' && leaderTeamView.phone === '0912345678', 'TC-USER-06.4: Leader xem được trường quản lý team');
+  assert(leaderTeamView.cccd === undefined && leaderTeamView.bank_account === undefined && leaderTeamView.parking_location === undefined, 'TC-USER-06.5: Dữ liệu tài chính & xe cộ vẫn được bảo mật trước Leader');
 
   // TC-USER-07: Sửa thông tin cá nhân & Quyền sửa xe
   function processProfileUpdate(user, updatePayload, callerRole) {

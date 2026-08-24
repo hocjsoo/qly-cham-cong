@@ -1,49 +1,83 @@
 // ==============================================
 // tests/integration/controllerIntegration.test.js
-// Integration Testing for Real Express Controllers & Security Boundaries
+// Integration Testing for Real Express App, Routes, Middleware Pipeline & Supertest
 // ==============================================
 
-const userController = require('../../src/controllers/userController');
-const authController = require('../../src/controllers/authController');
-const attendanceController = require('../../src/controllers/attendanceController');
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+const app = require('../../src/app');
 const User = require('../../src/models/User');
 
-// Helper to create mock Express Req / Res
-function createMockHttp(reqOptions = {}) {
-  const req = {
-    user: reqOptions.user || { _id: 'u_admin', role: 'admin', full_name: 'Admin Tổng' },
-    query: reqOptions.query || {},
-    body: reqOptions.body || {},
-    params: reqOptions.params || {},
-    ...reqOptions,
-  };
+const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
-  const res = {
-    statusCode: 200,
-    data: null,
-    status(code) {
-      this.statusCode = code;
-      return this;
+// Helper tạo JWT Token thật để test Middleware Pipeline
+function generateTestToken(user) {
+  return jwt.sign(
+    {
+      userId: user._id,
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      department_id: user.department_id,
+      department_ids: user.department_ids
     },
-    json(payload) {
-      this.data = payload;
-      return this;
-    }
-  };
-
-  return { req, res };
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
 }
 
 async function runControllerIntegrationTests(assert) {
-  console.log('\n🎯 [TEST SUITE: REAL CONTROLLER INTEGRATION & RBAC PIPELINE]');
+  console.log('\n🎯 [TEST SUITE: REAL EXPRESS APP & SUPERTEST INTEGRATION PIPELINE]');
 
-  // Mock User.find() for userController testing
   const originalUserFind = User.find;
+  const originalFindById = User.findById;
   const originalFindByIdAndUpdate = User.findByIdAndUpdate;
+
+  process.env.JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
+
+  const mockAdminUser = {
+    _id: '507f1f77bcf86cd799439011',
+    employee_code: 'NS-000',
+    full_name: 'Admin Tổng',
+    role: 'admin',
+    email: 'admin@company.com',
+    is_active: true,
+    toObject() { return { ...this }; }
+  };
+
+  const mockLeaderUser = {
+    _id: '507f1f77bcf86cd799439012',
+    employee_code: 'NS-001',
+    full_name: 'Trưởng Phòng IT',
+    role: 'leader',
+    department_id: 'dept_it',
+    department_ids: ['dept_it'],
+    email: 'lead_it@company.com',
+    phone: '0901',
+    is_active: true,
+    toObject() { return { ...this }; }
+  };
+
+  const mockEmpUser = {
+    _id: '507f1f77bcf86cd799439013',
+    employee_code: 'NS-002',
+    full_name: 'Dev IT 1',
+    role: 'employee',
+    department_id: 'dept_it',
+    department_ids: ['dept_it'],
+    email: 'emp_it@company.com',
+    phone: '0902',
+    is_active: true,
+    toObject() { return { ...this }; }
+  };
+
+  const adminToken = generateTestToken(mockAdminUser);
+  const leaderToken = generateTestToken(mockLeaderUser);
+  const employeeToken = generateTestToken(mockEmpUser);
 
   const sampleDbUsers = [
     {
-      _id: 'u_lead_it',
+      _id: '507f1f77bcf86cd799439012',
       employee_code: 'NS-001',
       full_name: 'Trưởng Phòng IT',
       role: 'leader',
@@ -61,9 +95,10 @@ async function runControllerIntegrationTests(assert) {
       toObject() { return { ...this }; }
     },
     {
-      _id: 'u_emp_it',
+      _id: '507f1f77bcf86cd799439013',
       employee_code: 'NS-002',
       full_name: 'Dev IT 1',
+      position: 'Dev IT 1',
       role: 'employee',
       department_id: { _id: 'dept_it', name: 'Phòng IT' },
       department_ids: [{ _id: 'dept_it', name: 'Phòng IT' }],
@@ -79,7 +114,7 @@ async function runControllerIntegrationTests(assert) {
       toObject() { return { ...this }; }
     },
     {
-      _id: 'u_emp_sale',
+      _id: '507f1f77bcf86cd799439014',
       employee_code: 'NS-003',
       full_name: 'Kinh Doanh 1',
       role: 'employee',
@@ -98,9 +133,9 @@ async function runControllerIntegrationTests(assert) {
     }
   ];
 
-  User.find = function(filter) {
+  User.find = function() {
     return {
-      select(fields) {
+      select() {
         return {
           populate() {
             return {
@@ -122,105 +157,119 @@ async function runControllerIntegrationTests(assert) {
     };
   };
 
+  User.findById = function(id) {
+    const found = [mockAdminUser, mockLeaderUser, mockEmpUser].find(u => u._id.toString() === id.toString()) || mockAdminUser;
+    return {
+      select() {
+        return Promise.resolve({
+          ...found,
+          toObject() { return { ...found }; }
+        });
+      }
+    };
+  };
+
+  let lastUpdatedData = null;
+  User.findByIdAndUpdate = function(id, updateData) {
+    lastUpdatedData = updateData;
+    const baseUser = sampleDbUsers[0];
+    return {
+      select() {
+        return {
+          populate() {
+            return Promise.resolve({
+              ...baseUser,
+              ...updateData,
+              toObject() { return { ...baseUser, ...updateData }; }
+            });
+          }
+        };
+      }
+    };
+  };
+
   try {
     // -------------------------------------------------------------
-    // 1. Controller Integration: userController.getAllUsers
+    // 1. Supertest: GET /api/users qua toàn bộ Middleware Pipeline
     // -------------------------------------------------------------
 
-    // Case 1.1: Admin gọi getAllUsers -> Nhận full dữ liệu quản trị
-    const { req: reqAdmin, res: resAdmin } = createMockHttp({
-      user: { _id: 'u_admin', role: 'admin' }
-    });
-    await userController.getAllUsers(reqAdmin, resAdmin);
-    assert(resAdmin.statusCode === 200, 'TC-CTRL-01.1: Admin gọi getAllUsers trả về 200 OK');
-    assert(resAdmin.data.length === 3, 'TC-CTRL-01.2: Admin nhận đủ 3 nhân sự');
-    assert(resAdmin.data[1].dob === '1995-05-05' && resAdmin.data[1].cccd === '987654321098',
-      'TC-CTRL-01.3: Admin có toàn quyền truy xuất các trường quản trị (DOB, CCCD, Bank)');
+    // Case 1.1: Không có JWT Token -> 401 Unauthorized
+    const resNoAuth = await request(app).get('/api/users');
+    assert(resNoAuth.status === 401, 'TC-HTTP-01: GET /api/users không có Bearer token bị chặn 401 Unauthorized');
 
-    // Case 1.2: Leader IT gọi getAllUsers -> Nhận full dữ liệu phòng IT, nhưng phòng Sale bị Sanitize
-    const { req: reqLeader, res: resLeader } = createMockHttp({
-      user: { _id: 'u_lead_it', role: 'leader', department_ids: ['dept_it'] }
-    });
-    await userController.getAllUsers(reqLeader, resLeader);
-    assert(resLeader.statusCode === 200, 'TC-CTRL-02.1: Leader gọi getAllUsers trả về 200 OK');
-    const itMemberFromLeader = resLeader.data.find(u => u._id === 'u_emp_it');
-    const saleMemberFromLeader = resLeader.data.find(u => u._id === 'u_emp_sale');
+    // Case 1.2: Admin gọi GET /api/users -> 200 OK + Full Admin Fields
+    const resAdmin = await request(app)
+      .get('/api/users')
+      .set('Authorization', `Bearer ${adminToken}`);
+    assert(resAdmin.status === 200, 'TC-HTTP-02.1: Admin gọi GET /api/users qua Express pipeline trả về 200 OK');
+    assert(resAdmin.body.length === 3, 'TC-HTTP-02.2: Admin nhận đủ 3 nhân sự công ty');
+    assert(resAdmin.body[1].dob === '1995-05-05' && resAdmin.body[1].cccd === '987654321098',
+      'TC-HTTP-02.3: Admin có toàn quyền truy xuất các trường HR tối mật (DOB, CCCD, Bank)');
 
-    assert(itMemberFromLeader.dob === '1995-05-05',
-      'TC-CTRL-02.2: Leader xem được trường quản lý của nhân viên phòng ban mình');
-    assert(saleMemberFromLeader.dob === undefined && saleMemberFromLeader.cccd === undefined && saleMemberFromLeader.bank_account === undefined,
-      'TC-CTRL-02.3: Nhân viên phòng khác (Sale) tự động bị che giấu toàn bộ trường HR nhạy cảm trước Leader IT');
+    // Case 1.3: Leader gọi GET /api/users -> Team member có LEADER_TEAM_FIELDS, phòng khác có PUBLIC_DIRECTORY_FIELDS
+    const resLeader = await request(app)
+      .get('/api/users')
+      .set('Authorization', `Bearer ${leaderToken}`);
+    assert(resLeader.status === 200, 'TC-HTTP-03.1: Leader gọi GET /api/users trả về 200 OK');
+    const itEmp = resLeader.body.find(u => u._id === '507f1f77bcf86cd799439013');
+    const saleEmp = resLeader.body.find(u => u._id === '507f1f77bcf86cd799439014');
 
-    // Case 1.3: Employee gọi getAllUsers -> Tất cả nhân sự đều chuyển sang Whitelist DTO
-    const { req: reqEmp, res: resEmp } = createMockHttp({
-      user: { _id: 'u_emp_it', role: 'employee' }
-    });
-    await userController.getAllUsers(reqEmp, resEmp);
-    assert(resEmp.statusCode === 200, 'TC-CTRL-03.1: Employee gọi getAllUsers trả về 200 OK');
-    const anyUserFromEmp = resEmp.data[0];
-    assert(anyUserFromEmp.full_name && anyUserFromEmp.email && anyUserFromEmp.position,
-      'TC-CTRL-03.2: Employee nhận được thông tin danh bạ công việc tối thiểu');
-    assert(anyUserFromEmp.dob === undefined && anyUserFromEmp.cccd === undefined && anyUserFromEmp.parking_location === undefined,
-      'TC-CTRL-03.3: Employee hoàn toàn không thấy thông tin riêng tư của bất kỳ ai');
+    assert(itEmp.phone === '0902' && itEmp.position === 'Dev IT 1',
+      'TC-HTTP-03.2: Leader xem được trường quản trị công việc của thành viên trong team');
+    assert(itEmp.cccd === undefined && itEmp.bank_account === undefined && itEmp.parking_location === undefined,
+      'TC-HTTP-03.3: DTO bảo vệ loại bỏ hoàn toàn CCCD, Ngân hàng, Xe của thành viên team trước Leader');
+    assert(saleEmp.full_name && saleEmp.email && saleEmp.dob === undefined && saleEmp.cccd === undefined,
+      'TC-HTTP-03.4: Thành viên phòng ban khác (Sale) tự động chuyển sang Public Directory DTO');
 
-    // -------------------------------------------------------------
-    // 2. Controller Integration: authController.updateProfile
-    // -------------------------------------------------------------
-    let savedUpdateData = null;
-    User.findByIdAndUpdate = function(id, updateData, options) {
-      savedUpdateData = updateData;
-      const baseObj = sampleDbUsers[0];
-      return {
-        select() {
-          return {
-            populate() {
-              return Promise.resolve({
-                ...baseObj,
-                ...updateData,
-                toObject() { return { ...baseObj, ...updateData }; }
-              });
-            }
-          };
-        }
-      };
-    };
-
-    // Case 2.1: Leader cập nhật họ tên & số điện thoại
-    const { req: reqProfLeader, res: resProfLeader } = createMockHttp({
-      user: { _id: 'u_lead_it', role: 'leader' },
-      body: { full_name: 'Trưởng Phòng IT Mới', phone: '0988776655' }
-    });
-    await authController.updateProfile(reqProfLeader, resProfLeader);
-    assert(resProfLeader.statusCode === 200, 'TC-CTRL-04.1: Leader cập nhật profile trả về 200 OK');
-    assert(savedUpdateData.full_name === 'Trưởng Phòng IT Mới' && savedUpdateData.phone === '0988776655',
-      'TC-CTRL-04.2: Họ tên và SĐT được lưu chuẩn xác vào database');
-
-    // Case 2.2: Non-Admin gửi kèm trường xe -> Controller bỏ qua trường xe và thông báo lịch sự
-    savedUpdateData = null;
-    const { req: reqProfHack, res: resProfHack } = createMockHttp({
-      user: { _id: 'u_emp_it', role: 'employee' },
-      body: { full_name: 'Dev IT', parking_location: 'Gửi VIP Miễn Phí' }
-    });
-    await authController.updateProfile(reqProfHack, resProfHack);
-    assert(resProfHack.statusCode === 200, 'TC-CTRL-05.1: Request cập nhật của Employee không bị crash');
-    assert(savedUpdateData.parking_location === undefined,
-      'TC-CTRL-05.2: Backend từ chối ghi đè trường parking_location từ Non-Admin vào DB');
-    assert(resProfHack.data.message.includes('Đơn đổi xe'),
-      'TC-CTRL-05.3: Response thông báo rõ ràng cho user cần nộp Đơn đổi xe');
+    // Case 1.4: Employee gọi GET /api/users -> Toàn bộ danh sách là Public Directory DTO
+    const resEmp = await request(app)
+      .get('/api/users')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    assert(resEmp.status === 200, 'TC-HTTP-04.1: Employee gọi GET /api/users trả về 200 OK');
+    assert(resEmp.body[0].full_name && resEmp.body[0].email && resEmp.body[0].dob === undefined && resEmp.body[0].cccd === undefined,
+      'TC-HTTP-04.2: Employee chỉ nhận thông tin danh bạ công khai tối thiểu, ẩn 100% dữ liệu nhạy cảm');
 
     // -------------------------------------------------------------
-    // 3. Controller Integration: attendanceController.overrideAttendance
+    // 2. Supertest: PATCH /api/auth/profile
     // -------------------------------------------------------------
-    const { req: reqAttendLeader, res: resAttendLeader } = createMockHttp({
-      user: { _id: 'u_lead_it', role: 'leader' },
-      params: { id: 'att_123' }
-    });
-    await attendanceController.overrideAttendance(reqAttendLeader, resAttendLeader);
-    assert(resAttendLeader.statusCode === 403,
-      'TC-CTRL-06: Leader gọi trực tiếp overrideAttendance controller bị chặn 403 Forbidden');
+
+    // Case 2.1: Leader cập nhật họ tên & SĐT
+    lastUpdatedData = null;
+    const resProfLeader = await request(app)
+      .patch('/api/auth/profile')
+      .set('Authorization', `Bearer ${leaderToken}`)
+      .send({ full_name: 'Trưởng Phòng IT Mới', phone: '0988112233' });
+    assert(resProfLeader.status === 200, 'TC-HTTP-05.1: Leader cập nhật profile qua HTTP PATCH trả về 200 OK');
+    assert(lastUpdatedData.full_name === 'Trưởng Phòng IT Mới' && lastUpdatedData.phone === '0988112233',
+      'TC-HTTP-05.2: Họ tên và SĐT mới được lưu chính xác vào DB');
+
+    // Case 2.2: Non-admin gửi kèm trường xe -> Server lưu profile an toàn và trả thông báo rõ ràng
+    lastUpdatedData = null;
+    const resProfHack = await request(app)
+      .patch('/api/auth/profile')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ full_name: 'Dev IT', parking_location: 'Gửi VIP 17T10' });
+    assert(resProfHack.status === 200, 'TC-HTTP-06.1: Non-Admin gửi trường xe không gây lỗi 500');
+    assert(lastUpdatedData.parking_location === undefined,
+      'TC-HTTP-06.2: Backend từ chối ghi đè trường parking_location từ Non-Admin vào DB');
+    assert(resProfHack.body.message.includes('Đơn đổi xe'),
+      'TC-HTTP-06.3: Response thông báo rõ ràng cho user cần nộp Đơn đổi xe để Admin phê duyệt');
+
+    // -------------------------------------------------------------
+    // 3. Supertest: PUT /api/attendance/override/:id (Admin only)
+    // -------------------------------------------------------------
+
+    // Case 3.1: Leader gọi override giờ công -> 403 Forbidden qua Middleware
+    const resOverrideLeader = await request(app)
+      .put('/api/attendance/override/507f1f77bcf86cd799439099')
+      .set('Authorization', `Bearer ${leaderToken}`)
+      .send({ check_in: '08:30', check_out: '17:30' });
+    assert(resOverrideLeader.status === 403,
+      'TC-HTTP-07: Leader gọi PUT /api/attendance/override/:id bị middleware requireRole chặn 403 Forbidden');
 
   } finally {
     User.find = originalUserFind;
+    User.findById = originalFindById;
     User.findByIdAndUpdate = originalFindByIdAndUpdate;
   }
 }

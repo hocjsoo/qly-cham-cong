@@ -92,7 +92,7 @@ npm test
   • Kịch bản ĐẠT (Passed)              : 223
   • Kịch bản LỖI (Failed)              : 0
   • Tỷ lệ thành công (Pass Rate)       : 100%
-  • Thời gian thực thi (Execution)     : < 360ms
+  • Thời gian thực thi (Execution)     : Thường hoàn thành dưới 1 giây (< 1s)
   • Cơ sở dữ liệu Prod (MongoDB Atlas) : HOÀN TOÀN NGUYÊN VẸN (0 TÁC ĐỘNG)
 =========================================================================
 ```

@@ -56,35 +56,62 @@ const getAllUsers = async (req, res) => {
       const isSelf = String(obj._id) === String(req.user?._id);
       const isInLeaderTeam = isLeader && (isSelf || userDeptIdStrings.some(id => leaderDeptIds.includes(id)));
 
-      // Nếu không phải Admin và không thuộc Team của Leader (hoặc là nhân viên thường xem người khác)
-      // -> Chỉ trả về Whitelist DTO danh bạ công khai
-      if (!isAdmin && !isInLeaderTeam) {
+      // 1. Với Admin: Toàn quyền truy xuất đầy đủ các trường quản trị
+      if (isAdmin) {
+        return {
+          ...obj,
+          id: obj._id,
+          department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
+          department_names: deptNames,
+          manager_name: obj.manager_id?.full_name || '—',
+        };
+      }
+
+      // 2. Với Leader xem nhân viên trong phòng ban mình quản lý:
+      // Whitelist các trường phục vụ phân công & quản lý team, loại bỏ triệt để CCCD, Ngân hàng, BHXH, Địa chỉ, Quê quán, Xe
+      if (isInLeaderTeam) {
         return {
           id: obj._id,
           _id: obj._id,
           employee_code: obj.employee_code || 'NS',
           full_name: obj.full_name,
-          position: obj.position || 'Nhân viên',
           email: obj.email,
           phone: obj.phone,
+          position: obj.position || 'Nhân viên',
+          role: obj.role,
           department_id: obj.department_id,
           department_ids: obj.department_ids,
           department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
           department_names: deptNames,
+          manager_id: obj.manager_id,
+          manager_name: obj.manager_id?.full_name || '—',
           avatar_url: obj.avatar_url,
-          is_active: obj.is_active,
+          join_date: obj.join_date,
+          start_year: obj.start_year,
+          employee_type: obj.employee_type,
           employment_status: obj.employment_status,
-          role: obj.role,
+          is_active: obj.is_active,
         };
       }
 
-      // Với Admin hoặc Leader xem nhân viên trong phòng ban mình quản lý
+      // 3. Với Nhân viên thường HOẶC Leader xem nhân viên phòng ban khác:
+      // Whitelist danh bạ công khai tối thiểu
       return {
-        ...obj,
         id: obj._id,
+        _id: obj._id,
+        employee_code: obj.employee_code || 'NS',
+        full_name: obj.full_name,
+        position: obj.position || 'Nhân viên',
+        email: obj.email,
+        phone: obj.phone,
+        department_id: obj.department_id,
+        department_ids: obj.department_ids,
         department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
         department_names: deptNames,
-        manager_name: obj.manager_id?.full_name || '—',
+        avatar_url: obj.avatar_url,
+        is_active: obj.is_active,
+        employment_status: obj.employment_status,
+        role: obj.role,
       };
     });
 

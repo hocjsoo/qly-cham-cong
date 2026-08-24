@@ -10,9 +10,9 @@
 Hệ thống kiểm thử này được thiết kế theo các tiêu chuẩn kỹ thuật nghiêm ngặt:
 1. **Không kết nối hoặc làm thay đổi MongoDB Atlas Prod**: Tất cả dữ liệu thử nghiệm đều chạy trên bộ nhớ (In-Memory Mock), cô lập 100%.
 2. **Không làm gián đoạn người dùng thật**: Các yêu cầu kiểm thử diễn ra hoàn toàn độc lập, không tạo bản ghi rác, không kích hoạt thông báo thật, không gửi email/push.
-3. **Kiểm thử Trực tiếp Express Controllers (Real Controller Integration)**: Gọi trực tiếp các hàm điều khiển `userController.getAllUsers`, `authController.updateProfile`, `attendanceController.overrideAttendance` với đối tượng `req` và `res` thực tế, kiểm tra phân tầng dữ liệu DTO và ranh giới bảo mật.
+3. **Kiểm thử Trực tiếp Express App & Supertest (HTTP Pipeline Integration)**: Gửi request HTTP thật qua Supertest với JWT Bearer Tokens, kiểm tra qua toàn bộ Route, Middleware Auth, Phân quyền RBAC và Response Serialization.
 4. **Kiểm thử Phá hoại & Bất thường (Chaos & Adversarial Testing)**: Kiểm thử tải đồng thời (Race Condition), dữ liệu rác/Fuzzing, lỗi giao dịch giữa chừng (Transaction Rollback) và cấy lỗi đột biến (Mutation Testing Engine).
-5. **Thực thi siêu tốc (< 360ms)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
+5. **Thực thi siêu tốc (thường dưới 1 giây)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
 
 ---
 
