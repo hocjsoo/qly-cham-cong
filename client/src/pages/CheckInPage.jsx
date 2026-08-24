@@ -262,7 +262,7 @@ export default function CheckInPage() {
         setSelfieReason(errorMsg);
         setShowSelfieModal(true);
         toast.error(errorMsg, { duration: 6000 });
-      } else if (errorData?.suggest_business_trip || errorData?.suggest_photo_fallback) {
+      } else if (errorData?.suggest_business_trip || errorData?.suggest_selfie_supplement || errorData?.suggest_photo_fallback) {
         toast.error(errorMsg, { duration: 8000 });
         setTimeout(() => {
           toast((t) => (

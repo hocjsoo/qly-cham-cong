@@ -392,6 +392,38 @@ async function runControllerIntegrationTests(assert) {
     assert(resZeroCoord.status === 200,
       'TC-HTTP-11: POST /api/attendance/checkin với tọa độ 0,0 được xử lý số hợp lệ');
 
+    // Case 4.5: Check-in lat/lng null -> 400 Bad Request
+    const resNullCoord = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: null, lng: null, type: 'office' });
+    assert(resNullCoord.status === 400 && resNullCoord.body.gps_required === true,
+      'TC-HTTP-12: POST /api/attendance/checkin với lat/lng null bị chặn 400 và yêu cầu GPS');
+
+    // Case 4.6: Check-in lat/lng chuỗi rỗng -> 400 Bad Request
+    const resEmptyCoord = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: '', lng: '', type: 'office' });
+    assert(resEmptyCoord.status === 400 && resEmptyCoord.body.gps_required === true,
+      'TC-HTTP-13: POST /api/attendance/checkin với lat/lng chuỗi rỗng bị chặn 400 và yêu cầu GPS');
+
+    // Case 4.7: Check-in lat/lng khoảng trắng -> 400 Bad Request
+    const resWhitespaceCoord = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: '   ', lng: '   ', type: 'office' });
+    assert(resWhitespaceCoord.status === 400 && resWhitespaceCoord.body.gps_required === true,
+      'TC-HTTP-14: POST /api/attendance/checkin với lat/lng khoảng trắng bị chặn 400');
+
+    // Case 4.8: Check-in lat/lng chuỗi chữ không hợp lệ -> 400 Bad Request
+    const resNaNCoord = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ lat: 'invalid_lat', lng: 'invalid_lng', type: 'office' });
+    assert(resNaNCoord.status === 400 && resNaNCoord.body.gps_required === true,
+      'TC-HTTP-15: POST /api/attendance/checkin với lat/lng NaN bị chặn 400');
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;

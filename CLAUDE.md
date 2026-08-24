@@ -7,7 +7,8 @@ Hệ thống quản lý chấm công thông minh dành cho doanh nghiệp (~30�
 - **Stack**: React 19 (Vite 8) + Node.js (Express 4) + MongoDB Atlas (Mongoose 9)
 - **Deploy**: Vercel (frontend) + Render.com (backend) + MongoDB Atlas (DB)
 - **Auth**: JWT + bcrypt, role-based (admin / leader / employee)
-- **UI**: Mobile-first PWA, - **Testing**: Zero-Impact Test Suite (32 Suites / 231 Test Cases in-memory & Supertest)
+- **UI**: Mobile-first PWA, dark/light theme, vanilla CSS design system
+- **Testing**: Zero-Impact Test Suite (32 Suites / 235 Test Cases in-memory & Supertest)
 
 ---
 
@@ -80,7 +81,7 @@ QLY_CHAM_CONG/
 │   │   ├── database/                # DB connection + seed
 │   │   ├── app.js                   # Pure Express app factory + route mounting
 │   │   └── server.js                # Live HTTP Server entry point (connectDB + listen)
-│   ├── tests/                       # 32 Test Suites / 231 Test Cases (Zero-Impact & Supertest)
+│   ├── tests/                       # 32 Test Suites / 235 Test Cases (Zero-Impact & Supertest)
 │   │   ├── runner.js                # Master test runner
 │   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
 │   │   ├── concurrency/             # Kiểm thử tranh chấp đồng thời
@@ -91,24 +92,10 @@ QLY_CHAM_CONG/
 │   └── package.json
 │
 ├── .agents/AGENTS.md               # Agent rules & conventions
-├── CLAUDE.md                       # AI development guide (file này)
+├── CLAUDE.md                       # AI development guide
 ├── CONTRIBUTING.md                 # Hướng dẫn đóng góp
 ├── README.md                       # Project documentation
-├── TEST_SCENARIOS.md               # Tài liệu 231 kịch bản kiểm thử�   ├── tests/                       # 32 Test Suites / 227 Test Cases (Zero-Impact & Supertest)
-│   │   ├── runner.js                # Master test runner
-│   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
-│   │   ├── concurrency/             # Kiểm thử tranh chấp đồng thời
-│   │   ├── security/                # Fuzzing & NoSQL Injection resistance
-│   │   ├── performance/             # High-load benchmarks
-│   │   ├── mutation/                # Mutation testing engine
-│   │   └── integration/             # E2E, Transaction Rollback & Supertest HTTP Pipeline
-│   └── package.json
-│
-├── .agents/AGENTS.md               # Agent rules & conventions
-├── CLAUDE.md                       # AI development guide (file này)
-├── CONTRIBUTING.md                 # Hướng dẫn đóng góp
-├── README.md                       # Project documentation
-├── TEST_SCENARIOS.md               # Tài liệu 227 kịch bản kiểm thử
+├── TEST_SCENARIOS.md               # Tài liệu 235 kịch bản kiểm thử
 └── LICENSE                         # MIT License
 ```
 
@@ -148,14 +135,14 @@ Hệ thống có 3 vai trò chính. `roleMiddleware.js` tự động map tương
 | `/api/users/:id/devices` | userController | ✅ | **admin only** | Xem, đặt máy chính (`trust`), xóa thiết bị |
 | `/api/dashboard` | dashboardController | ✅ | admin/leader | Stats tổng quan |
 | `/api/departments` | departmentController | ✅ | — | CRUD phòng ban |
-| `/api/reports` | reportController | ✅ | admin/leader | Báo cáo matrix + chi tiết cá nhân |
+| `/api/reports` | reportController | ✅ | **admin only** | Báo cáo matrix + chi tiết cá nhân |
 | `/api/locations` | locationController | ✅ | admin | CRUD vị trí GPS |
 | `/api/leave-balance` | leaveBalanceController | ✅ | admin/leader | Quản lý ngày phép |
 | `/api/export` | exportController | ✅ | admin/leader | Xuất Excel |
 | `/api/settings` | systemSettingController | ✅ | admin | Cấu hình hệ thống |
 | `/api/notifications` | notificationController | ✅ | — | CRUD; broadcast (admin/leader) |
 | `/api/holidays` | holidayController | ✅ | admin/leader | CRUD ngày lễ |
-| `/api/timesheet-lock` | timesheetLockController | ✅ | admin/leader | Chốt công tháng |
+| `/api/timesheet-lock` | timesheetLockController | ✅ | **admin only** | Chốt công tháng |
 | `/api/health` | inline | ❌ | — | Health check endpoint (checks mongoose readyState) |
 
 ---
@@ -179,9 +166,9 @@ Hệ thống có 3 vai trò chính. `roleMiddleware.js` tự động map tương
 
 ## Quy trình Kiểm thử
 
-Chạy bộ test suite 227 kịch bản:
+Chạy bộ test suite 235 kịch bản:
 ```bash
 cd server
 npm test
 ```
-Tất cả 227/227 test cases chạy hoàn toàn trên bộ nhớ In-Memory & Supertest, cam kết không tác động đến cơ sở dữ liệu thật trên MongoDB Atlas.
+Tất cả 235/235 test cases chạy hoàn toàn trên bộ nhớ In-Memory & Supertest, cam kết không tác động đến cơ sở dữ liệu thật trên MongoDB Atlas.

@@ -103,6 +103,16 @@ const checkIn = async (req, res) => {
   } = req.body;
   const userId = req.user._id;
 
+  if (
+    lat === null || lat === undefined || (typeof lat === 'string' && lat.trim() === '') ||
+    lng === null || lng === undefined || (typeof lng === 'string' && lng.trim() === '')
+  ) {
+    return res.status(400).json({
+      error: 'GPS bắt buộc và phải là tọa độ hợp lệ để chấm công. Vui lòng bật quyền định vị trên thiết bị.',
+      gps_required: true,
+    });
+  }
+
   const userLat = Number(lat);
   const userLng = Number(lng);
 
@@ -270,8 +280,9 @@ const checkIn = async (req, res) => {
               }
             } else {
               return res.status(400).json({
-                error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${allowedR}m). Vui lòng chọn WFH, chụp ảnh xác thực dự phòng hoặc di chuyển lại gần hơn.`,
+                error: `Bạn đang cách địa điểm gần nhất [${closestOffice.name}] ${minDistance}m (bán kính cho phép: ${allowedR}m). Vui lòng chọn WFH, chụp ảnh selfie xác thực bổ sung hoặc di chuyển lại gần hơn.`,
                 suggest_business_trip: true,
+                suggest_selfie_supplement: true,
                 suggest_photo_fallback: true,
                 distance_meters: minDistance,
                 radius_m: allowedR,

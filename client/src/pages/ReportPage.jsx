@@ -41,6 +41,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 export default function ReportPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
   if (!isAdmin) {
     return (
@@ -719,7 +720,7 @@ export default function ReportPage() {
                             {isAdminOrManager && (
                               <td style={{ padding: '6px' }}>
                                 <button
-                                  onClick={() => handleToggleLock(r.id, r.is_locked)}
+                                  onClick={() => triggerToggleLock(r.id, r.is_locked)}
                                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
                                   title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
                                 >
@@ -772,7 +773,7 @@ export default function ReportPage() {
                   <select
                     className="form-select"
                     style={{ width: '280px', fontSize: '13px', padding: '6px 12px', fontWeight: 600 }}
-                    value={selectedDetailUserId || user._id}
+                    value={selectedDetailUserId || user?._id || user?.id || ''}
                     onChange={e => setSelectedDetailUserId(e.target.value)}
                   >
                     {matrixData.staff_rows.map(s => (

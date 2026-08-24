@@ -1,6 +1,6 @@
 # 🧪 TÀI LIỆU KỊCH BẢN KIỂM THỬ HỆ THỐNG TOÀN DIỆN (TEST SCENARIOS)
-**Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh  
-**Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Supertest HTTP Pipeline & Security Hardening — 32 Test Suites / 231 Test Cases)  
+**Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh
+**Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Supertest HTTP Pipeline & Security Hardening — 32 Test Suites / 235 Test Cases)
 **Tác giả:** [hocjsoo](https://github.com/hocjsoo)
 
 ---
@@ -31,7 +31,7 @@ npm test
 
 ---
 
-## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (32 Suites / 231 Test Cases)
+## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (32 Suites / 235 Test Cases)
 
 ### PHẦN A: KIỂM THỬ BACKEND & THUẬT TOÁN NGHIỆP VỤ (16 Suites)
 Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, chốt công ma trận, đơn từ, phép năm, chống gian lận phần cứng, đa phòng ban, đính chính giờ, ngày lễ, công trình, thông báo, thống kê dashboard, xuất Excel, xác thực mật khẩu, đa chi nhánh, ca làm việc.
@@ -39,7 +39,7 @@ Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, ch
 ### PHẦN B: KIỂM THỬ FRONTEND GIAO DIỆN & TRẠNG THÁI CLIENT (6 Suites)
 Bao gồm Zustand AuthStore, ThemeStore Dark/Light mode, menu điều hướng & Route Guards, băm phần cứng client, xuất CSV UTF-8 tiếng Việt, badge trạng thái UI.
 
-### PHẦN C: KIỂM THỬ TÍCH HỢP TOÀN TRÌNH & REAL CONTROLLERS (3 Suites / 23 Test Cases)
+### PHẦN C: KIỂM THỬ TÍCH HỢP TOÀN TRÌNH & REAL CONTROLLERS (3 Suites / 27 Test Cases)
 Bao gồm E2E single user lifecycle, kịch bản đa tầng phức hợp nhân sự đa phòng ban, và bộ kiểm thử trực tiếp controller production (`controllerIntegration.test.js`).
 
 | Test ID | Phân hệ (Module) | Kịch bản kiểm thử | Mô phỏng Tình huống (Scenario) | Kết quả mong đợi (Expected Output) |
@@ -59,6 +59,14 @@ Bao gồm E2E single user lifecycle, kịch bản đa tầng phức hợp nhân 
 | **TC-CTRL-05.2** | Real Controller | Chặn ghi đè trường xe | Kiểm tra payload update | Backend từ chối ghi đè trường xe |
 | **TC-CTRL-05.3** | Real Controller | Thông báo hướng dẫn nộp đơn | Xem message phản hồi | Nhắc nhở user nộp Đơn đổi xe |
 | **TC-CTRL-06** | Real Controller | Leader sửa giờ chấm công | Leader gọi `overrideAttendance` | Bị chặn `403 Forbidden` |
+| **TC-HTTP-08** | Real Controller | Check-in thiếu GPS | Không truyền lat/lng | Bị chặn 400 và yêu cầu GPS |
+| **TC-HTTP-09** | Real Controller | Check-in trong văn phòng | Gửi tọa độ văn phòng hợp lệ | Trả về 200/201 OK |
+| **TC-HTTP-10** | Real Controller | Check-in WFH ngoài văn phòng | Gửi tọa độ WFH ngoài văn phòng | Trả về 200 OK, `check_in_type="wfh"` |
+| **TC-HTTP-11** | Real Controller | Check-in tọa độ 0,0 | Gửi `lat: 0, lng: 0` | Xử lý số hợp lệ, 200 OK |
+| **TC-HTTP-12** | Real Controller | Check-in lat/lng null | Gửi `lat: null, lng: null` | Bị chặn 400 và yêu cầu GPS |
+| **TC-HTTP-13** | Real Controller | Check-in lat/lng chuỗi rỗng | Gửi `lat: '', lng: ''` | Bị chặn 400 và yêu cầu GPS |
+| **TC-HTTP-14** | Real Controller | Check-in lat/lng khoảng trắng | Gửi `lat: '   ', lng: '   '` | Bị chặn 400 và yêu cầu GPS |
+| **TC-HTTP-15** | Real Controller | Check-in lat/lng chuỗi chữ NaN | Gửi `lat: 'abc', lng: 'xyz'` | Bị chặn 400 và yêu cầu GPS |
 
 ### PHẦN D: KIỂM THỬ HIỆU NĂNG & BENCHMARK TẢI CAO (1 Suite / 6 Benchmarks)
 Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 30ms), ký & xác thực 1,000 JWT (< 250ms), băm 5,000 hardware strings (< 30ms), kiểm tra rò rỉ bộ nhớ Heap (< 15MB Delta), xuất CSV 500 nhân sự (< 25ms).
@@ -123,7 +131,7 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 ```
 server/
 ├── tests/
-│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 227 Test Cases)
+│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 235 Test Cases)
 │   ├── unit/                          # 18 Backend Unit & Expert Suites
 │   │   ├── attendance.test.js
 │   │   ├── clientAuthStore.test.js
