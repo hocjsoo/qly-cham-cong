@@ -552,6 +552,40 @@ const getLeaderboard = async (req, res) => {
 
     const currentUserIdStr = String(req.user._id);
 
+    const helperParseTime = (val) => {
+      if (!val) return null;
+      let d = null;
+      if (val instanceof Date) {
+        d = val;
+      } else if (typeof val === 'string') {
+        if (val.includes('T') || val.includes('-')) {
+          d = new Date(val);
+        } else if (val.includes(':')) {
+          const parts = val.trim().split(':').map(Number);
+          if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+            return {
+              formatted: `${String(parts[0]).padStart(2, '0')}:${String(parts[1]).padStart(2, '0')}`,
+              minutes: (parts[0] * 60) + parts[1]
+            };
+          }
+        }
+      }
+      if (d && !isNaN(d.getTime())) {
+        const formatted = d.toLocaleTimeString('vi-VN', {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Asia/Ho_Chi_Minh',
+          hour12: false
+        });
+        const [hh, mm] = formatted.split(':').map(Number);
+        return {
+          formatted,
+          minutes: (hh * 60) + mm
+        };
+      }
+      return null;
+    };
+
     const rankings = users.map(u => {
       const uid = String(u._id);
       const userAtts = attByUser[uid] || [];
@@ -559,35 +593,44 @@ const getLeaderboard = async (req, res) => {
       // Calculate Metrics
       let totalWorkHours = 0;
       let totalOtHours = 0;
-      let earlyBirdScore = 0;
-      let earliestCheckIn = null;
+      let earliestCheckInStr = null;
+      let earliestMinutes = 9999;
       let onTimeDays = 0;
       let lateDays = 0;
-      let totalAttDays = userAtts.length;
+      let totalAttDays = 0;
 
-      // On-time streak calculation
-      userAtts.sort((a, b) => (a.date > b.date ? 1 : -1));
+      // Sắp xếp các bản ghi theo ngày tăng dần để tính chuỗi đúng giờ
+      userAtts.sort((a, b) => (String(a.date) > String(b.date) ? 1 : -1));
       let currentStreak = 0;
       let maxStreak = 0;
 
       userAtts.forEach(att => {
-        const hrs = att.total_hours || (att.work_hours || 0);
+        const hrs = Number(att.total_hours) || Number(att.work_hours) || 0;
+        const ot = Number(att.ot_hours) || 0;
         totalWorkHours += hrs;
-        totalOtHours += (att.ot_hours || 0);
+        totalOtHours += ot;
+
+        const isPresent = att.status === 'present' || att.status === 'late' || (hrs > 0) || att.check_in_time;
+        if (isPresent) totalAttDays += 1;
 
         if (att.check_in_time) {
-          if (!earliestCheckIn || att.check_in_time < earliestCheckIn) {
-            earliestCheckIn = att.check_in_time;
+          const parsed = helperParseTime(att.check_in_time);
+          if (parsed && parsed.minutes < earliestMinutes) {
+            earliestMinutes = parsed.minutes;
+            earliestCheckInStr = parsed.formatted;
           }
         }
 
-        if (!att.is_late && att.status === 'present') {
-          onTimeDays += 1;
-          currentStreak += 1;
-          if (currentStreak > maxStreak) maxStreak = currentStreak;
-        } else {
-          currentStreak = 0;
-          if (att.is_late) lateDays += 1;
+        const isLate = Boolean(att.is_late) || (att.late_tier && att.late_tier !== 'on_time') || att.status === 'late';
+        if (isPresent) {
+          if (!isLate) {
+            onTimeDays += 1;
+            currentStreak += 1;
+            if (currentStreak > maxStreak) maxStreak = currentStreak;
+          } else {
+            lateDays += 1;
+            currentStreak = 0;
+          }
         }
       });
 
@@ -600,35 +643,43 @@ const getLeaderboard = async (req, res) => {
         if (timeframe === 'today') {
           const todayRec = userAtts.find(a => a.date === todayStr);
           if (todayRec && todayRec.check_in_time) {
-            // Converts "08:15" to minutes from midnight
-            const [hh, mm] = todayRec.check_in_time.split(':').map(Number);
-            const mins = (hh * 60) + mm;
-            // Lower minutes = better, so negative mins for descending sort
-            score = 10000 - mins;
-            displayValue = todayRec.check_in_time;
-            subText = todayRec.is_late ? `Muộn ${todayRec.late_minutes}p` : 'Đúng giờ 🌟';
+            const parsed = helperParseTime(todayRec.check_in_time);
+            if (parsed) {
+              // Điểm số: càng sớm điểm càng cao (10000 trừ phút)
+              score = 10000 - parsed.minutes;
+              displayValue = parsed.formatted;
+              const isLate = Boolean(todayRec.is_late) || (todayRec.late_tier && todayRec.late_tier !== 'on_time') || todayRec.status === 'late';
+              subText = isLate
+                ? (todayRec.late_minutes ? `Muộn ${todayRec.late_minutes}p` : 'Đi muộn')
+                : 'Đúng giờ 🌟';
+            } else {
+              score = -99999;
+              displayValue = 'Chưa check-in';
+              subText = '—';
+            }
           } else {
             score = -99999;
             displayValue = 'Chưa check-in';
             subText = '—';
           }
         } else {
-          // In Month / Year / All: Score = On time early days - late days penalty
-          score = (onTimeDays * 10) - (lateDays * 5) + (totalAttDays * 2);
-          displayValue = `${onTimeDays} ngày sớm`;
-          subText = earliestCheckIn ? `Sớm nhất: ${earliestCheckIn}` : `${totalAttDays} ngày đi làm`;
+          // Trong tháng / năm / toàn thời gian:
+          // Ưu tiên số ngày đúng giờ (1000 điểm/ngày) + tổng ngày đi làm (10 điểm/ngày) - số lần muộn (500 điểm)
+          score = (onTimeDays * 1000) + (totalAttDays * 10) - (lateDays * 500);
+          displayValue = `${onTimeDays} ngày đúng giờ`;
+          subText = earliestCheckInStr ? `Sớm nhất: ${earliestCheckInStr}` : (totalAttDays > 0 ? `${totalAttDays} ngày đi làm` : 'Chưa có dữ liệu');
         }
       } else if (category === 'work_hours') {
         score = parseFloat(totalWorkHours.toFixed(1));
         displayValue = `${score} giờ`;
-        subText = `${totalAttDays} ngày đi làm`;
+        subText = totalAttDays > 0 ? `${totalAttDays} ngày làm việc` : 'Chưa có giờ làm';
       } else if (category === 'ot_hours') {
         score = parseFloat(totalOtHours.toFixed(1));
         displayValue = `${score}h OT`;
-        subText = `Tăng ca cống hiến`;
+        subText = totalOtHours > 0 ? `Cống hiến ${totalAttDays} ngày` : 'Chưa có giờ OT';
       } else if (category === 'streak') {
         score = maxStreak;
-        displayValue = `${score} ngày liên tiếp`;
+        displayValue = `${maxStreak} ngày liên tiếp`;
         subText = `${onTimeDays} ngày đúng giờ`;
       }
 
@@ -664,10 +715,15 @@ const getLeaderboard = async (req, res) => {
       };
     });
 
-    // Sort descending by score
-    rankings.sort((a, b) => b.score - a.score);
+    // Sắp xếp giảm dần theo điểm thành tích (Tie-break: số ngày đúng giờ -> tổng giờ làm -> tên)
+    rankings.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.onTimeDays !== a.onTimeDays) return b.onTimeDays - a.onTimeDays;
+      if (b.totalWorkHours !== a.totalWorkHours) return b.totalWorkHours - a.totalWorkHours;
+      return a.full_name.localeCompare(b.full_name);
+    });
 
-    // Assign ranks and badges
+    // Gán thứ hạng và danh hiệu
     rankings.forEach((r, idx) => {
       r.rank = idx + 1;
       if (r.rank === 1) r.tier = 'gold';
@@ -686,12 +742,7 @@ const getLeaderboard = async (req, res) => {
       month: m,
       year: y,
       totalParticipants: rankings.length,
-      myRank: myRankItem ? {
-        rank: myRankItem.rank,
-        tier: myRankItem.tier,
-        displayValue: myRankItem.displayValue,
-        subText: myRankItem.subText,
-      } : null,
+      myRank: myRankItem || null,
       top3: rankings.slice(0, 3),
       rankings,
     });
