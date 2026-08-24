@@ -481,6 +481,206 @@ const getIndividualDetailReport = async (req, res) => {
   }
 };
 
-module.exports = { getMonthlyReport, getTrend, getAttendanceStats, getRanking, getPayroll, getIndividualDetailReport };
+// GET /api/reports/leaderboard — Bảng xếp hạng vinh danh đa chiều
+const getLeaderboard = async (req, res) => {
+  try {
+    const {
+      timeframe = 'month', // 'today' | 'month' | 'year' | 'all'
+      category = 'early_bird', // 'early_bird' | 'work_hours' | 'ot_hours' | 'streak'
+      month,
+      year,
+      department_id,
+    } = req.query;
+
+    const m = parseInt(month) || (new Date().getMonth() + 1);
+    const y = parseInt(year) || new Date().getFullYear();
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    let dateFilter = {};
+    if (timeframe === 'today') {
+      dateFilter = { date: todayStr };
+    } else if (timeframe === 'month') {
+      const monthStr = `${y}-${String(m).padStart(2, '0')}`;
+      dateFilter = { date: { $regex: `^${monthStr}` } };
+    } else if (timeframe === 'year') {
+      dateFilter = { date: { $regex: `^${y}-` } };
+    } // 'all' means all records
+
+    let userFilter = {
+      is_active: { $ne: false },
+      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
+    };
+    if (department_id && department_id !== 'all') {
+      userFilter.$or = [
+        { department_ids: department_id },
+        { department_id: department_id }
+      ];
+    }
+
+    const users = await User.find(userFilter)
+      .select('full_name employee_code avatar_url department_id department_ids role position')
+      .populate('department_id', 'name')
+      .lean();
+
+    const userIds = users.map(u => u._id);
+    const attendances = await Attendance.find({
+      user_id: { $in: userIds },
+      ...dateFilter,
+    }).lean();
+
+    const attByUser = {};
+    attendances.forEach(a => {
+      const uid = String(a.user_id);
+      if (!attByUser[uid]) attByUser[uid] = [];
+      attByUser[uid].push(a);
+    });
+
+    const currentUserIdStr = String(req.user._id);
+
+    const rankings = users.map(u => {
+      const uid = String(u._id);
+      const userAtts = attByUser[uid] || [];
+
+      // Calculate Metrics
+      let totalWorkHours = 0;
+      let totalOtHours = 0;
+      let earlyBirdScore = 0;
+      let earliestCheckIn = null;
+      let onTimeDays = 0;
+      let lateDays = 0;
+      let totalAttDays = userAtts.length;
+
+      // On-time streak calculation
+      userAtts.sort((a, b) => (a.date > b.date ? 1 : -1));
+      let currentStreak = 0;
+      let maxStreak = 0;
+
+      userAtts.forEach(att => {
+        const hrs = att.total_hours || (att.work_hours || 0);
+        totalWorkHours += hrs;
+        totalOtHours += (att.ot_hours || 0);
+
+        if (att.check_in_time) {
+          if (!earliestCheckIn || att.check_in_time < earliestCheckIn) {
+            earliestCheckIn = att.check_in_time;
+          }
+        }
+
+        if (!att.is_late && att.status === 'present') {
+          onTimeDays += 1;
+          currentStreak += 1;
+          if (currentStreak > maxStreak) maxStreak = currentStreak;
+        } else {
+          currentStreak = 0;
+          if (att.is_late) lateDays += 1;
+        }
+      });
+
+      // Specific score by category
+      let score = 0;
+      let displayValue = '';
+      let subText = '';
+
+      if (category === 'early_bird') {
+        if (timeframe === 'today') {
+          const todayRec = userAtts.find(a => a.date === todayStr);
+          if (todayRec && todayRec.check_in_time) {
+            // Converts "08:15" to minutes from midnight
+            const [hh, mm] = todayRec.check_in_time.split(':').map(Number);
+            const mins = (hh * 60) + mm;
+            // Lower minutes = better, so negative mins for descending sort
+            score = 10000 - mins;
+            displayValue = todayRec.check_in_time;
+            subText = todayRec.is_late ? `Muộn ${todayRec.late_minutes}p` : 'Đúng giờ 🌟';
+          } else {
+            score = -99999;
+            displayValue = 'Chưa check-in';
+            subText = '—';
+          }
+        } else {
+          // In Month / Year / All: Score = On time early days - late days penalty
+          score = (onTimeDays * 10) - (lateDays * 5) + (totalAttDays * 2);
+          displayValue = `${onTimeDays} ngày sớm`;
+          subText = earliestCheckIn ? `Sớm nhất: ${earliestCheckIn}` : `${totalAttDays} ngày đi làm`;
+        }
+      } else if (category === 'work_hours') {
+        score = parseFloat(totalWorkHours.toFixed(1));
+        displayValue = `${score} giờ`;
+        subText = `${totalAttDays} ngày đi làm`;
+      } else if (category === 'ot_hours') {
+        score = parseFloat(totalOtHours.toFixed(1));
+        displayValue = `${score}h OT`;
+        subText = `Tăng ca cống hiến`;
+      } else if (category === 'streak') {
+        score = maxStreak;
+        displayValue = `${score} ngày liên tiếp`;
+        subText = `${onTimeDays} ngày đúng giờ`;
+      }
+
+      return {
+        user_id: u._id,
+        full_name: u.full_name,
+        employee_code: u.employee_code || 'NS',
+        avatar_url: u.avatar_url || null,
+        department_name: u.department_id?.name || 'Văn Phòng',
+        position: u.position || 'Nhân sự',
+        score,
+        displayValue,
+        subText,
+        totalWorkHours: parseFloat(totalWorkHours.toFixed(1)),
+        totalOtHours: parseFloat(totalOtHours.toFixed(1)),
+        onTimeDays,
+        lateDays,
+        isCurrentUser: uid === currentUserIdStr,
+      };
+    });
+
+    // Sort descending by score
+    rankings.sort((a, b) => b.score - a.score);
+
+    // Assign ranks and badges
+    rankings.forEach((r, idx) => {
+      r.rank = idx + 1;
+      if (r.rank === 1) r.tier = 'gold';
+      else if (r.rank === 2) r.tier = 'silver';
+      else if (r.rank === 3) r.tier = 'bronze';
+      else if (r.rank <= 10) r.tier = 'elite';
+      else if (r.rank <= 20) r.tier = 'top20';
+      else r.tier = 'team';
+    });
+
+    const myRankItem = rankings.find(r => r.isCurrentUser);
+
+    res.json({
+      timeframe,
+      category,
+      month: m,
+      year: y,
+      totalParticipants: rankings.length,
+      myRank: myRankItem ? {
+        rank: myRankItem.rank,
+        tier: myRankItem.tier,
+        displayValue: myRankItem.displayValue,
+        subText: myRankItem.subText,
+      } : null,
+      top3: rankings.slice(0, 3),
+      rankings,
+    });
+  } catch (error) {
+    console.error('GetLeaderboard error:', error);
+    res.status(500).json({ error: 'Lỗi tải bảng xếp hạng vinh danh.' });
+  }
+};
+
+module.exports = {
+  getMonthlyReport,
+  getTrend,
+  getAttendanceStats,
+  getRanking,
+  getPayroll,
+  getIndividualDetailReport,
+  getLeaderboard,
+};
+
 
 

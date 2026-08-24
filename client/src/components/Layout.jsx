@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt } from 'lucide-react';
+import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
 
@@ -39,13 +39,14 @@ export default function Layout() {
   const tabs = [
     ...(!isStaff ? [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }] : []),
     { to: '/checkin', icon: Clock, label: 'Chấm công' },
+    { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
+    { to: '/reports', icon: BarChart2, label: 'Bảng công' },
     { to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null },
     { to: '/history', icon: History, label: 'Lịch sử' },
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
-    ...(isAdmin ? [{ to: '/reports', icon: BarChart2, label: 'Báo cáo' }] : []),
+    { to: '/vehicles', icon: Bike, label: 'Gửi xe' },
     { to: '/projects', icon: FolderKanban, label: 'Dự án' },
     ...(!isStaff ? [{ to: '/staff', icon: Users, label: 'Nhân viên' }] : []),
-    ...(!isStaff ? [{ to: '/vehicles', icon: Bike, label: 'Gửi xe' }] : []),
     ...(isAdmin ? [{ to: '/settings', icon: Settings, label: 'Cài đặt' }] : []),
     { to: '/profile', icon: User, label: 'Cá nhân' },
   ];

@@ -18,6 +18,7 @@ import SettingsPage from './pages/SettingsPage';
 import ProjectsPage from './pages/ProjectsPage';
 import VehiclesPage from './pages/VehiclesPage';
 import ExpensesPage from './pages/ExpensesPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MagicCursor from './components/MagicCursor';
 
@@ -67,24 +68,15 @@ export default function App() {
             </ProtectedRoute>
           } />
 
-          <Route path="/reports" element={
-            <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-              <ReportPage />
-            </ProtectedRoute>
-          } />
-
           <Route path="/staff" element={
             <ProtectedRoute roles={['admin', 'leader', 'manager']}>
               <StaffPage />
             </ProtectedRoute>
           } />
 
-          <Route path="/vehicles" element={
-            <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-              <VehiclesPage />
-            </ProtectedRoute>
-          } />
-
+          <Route path="/reports" element={<ReportPage />} />
+          <Route path="/vehicles" element={<VehiclesPage />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/expenses" element={<ExpensesPage />} />
 

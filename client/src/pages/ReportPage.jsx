@@ -145,24 +145,8 @@ export default function ReportPage() {
   }, [matrixData, searchQuery, deptFilter]);
 
   useEffect(() => {
-    if (isAdmin) {
-      loadTab();
-    }
-  }, [isAdmin, month, year, tab, selectedDetailUserId]);
-
-  if (!isAdmin) {
-    return (
-      <div className="page">
-        <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-          <div className="empty-state">
-            <div className="empty-state__icon">🔒</div>
-            <div className="empty-state__title">Truy cập bị từ chối</div>
-            <div className="empty-state__desc">Chỉ tài khoản Admin mới có quyền truy cập trang Báo cáo.</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    loadTab();
+  }, [month, year, tab, selectedDetailUserId]);
 
   const loadTab = async () => {
     setLoading(true);
@@ -422,20 +406,24 @@ export default function ReportPage() {
           {/* Navigation Tabs */}
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
             <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
-              <Lock size={13} /> Chốt Công ET_Staff
+              <Lock size={13} /> {isAdminOrManager ? 'Chốt Công ET_Staff' : 'Bảng Chấm Công Tổng Hợp'}
             </button>
             <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
               <FileText size={13} /> Bảng Chi Tiết Cá Nhân
             </button>
-            <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
-              <BarChart3 size={13} /> Tổng quan
-            </button>
-            <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
-              <Calculator size={13} /> Bảng tính công
-            </button>
-            <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
-              <Trophy size={13} /> Xếp hạng
-            </button>
+            {isAdminOrManager && (
+              <>
+                <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
+                  <BarChart3 size={13} /> Tổng quan
+                </button>
+                <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
+                  <Calculator size={13} /> Bảng tính công
+                </button>
+                <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
+                  <Trophy size={13} /> Xếp hạng
+                </button>
+              </>
+            )}
           </div>
         </div>
 

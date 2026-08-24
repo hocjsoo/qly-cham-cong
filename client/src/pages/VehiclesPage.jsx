@@ -11,6 +11,7 @@ import HeaderActions from '../components/HeaderActions';
 export default function VehiclesPage() {
   const { user: currentUser } = useAuthStore();
   const isAdmin = currentUser?.role === 'admin';
+  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(currentUser?.role);
   const [staff, setStaff] = useState([]);
   const [depts, setDepts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -391,14 +392,20 @@ export default function VehiclesPage() {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          onClick={() => openQuickEdit(s)}
-                          className="btn btn--ghost"
-                          style={{ padding: '5px 10px', fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}
-                          title="Sửa thông tin xe"
-                        >
-                          <Edit2 size={13} style={{ marginRight: '4px' }} /> Sửa
-                        </button>
+                        {isAdminOrManager ? (
+                          <button
+                            onClick={() => openQuickEdit(s)}
+                            className="btn btn--ghost"
+                            style={{ padding: '5px 10px', fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}
+                            title="Sửa thông tin xe"
+                          >
+                            <Edit2 size={13} style={{ marginRight: '4px' }} /> Sửa
+                          </button>
+                        ) : String(s._id || s.id) === String(currentUser?._id) ? (
+                          <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>Xe của tôi 🛵</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -413,6 +420,7 @@ export default function VehiclesPage() {
               const hasVehicle = Boolean(s.vehicle_info || s.license_plate);
               const is17T10 = (s.parking_location || '').includes('17T10');
               const isNoVehicle = (s.parking_location || '').toLowerCase().includes('không');
+              const isMine = String(s._id || s.id) === String(currentUser?._id);
 
               return (
                 <div key={s._id || s.id} className="card card--interactive animate-fade-in" style={{ padding: '14px', position: 'relative' }}>
@@ -426,18 +434,22 @@ export default function VehiclesPage() {
                         </div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>{s.full_name}</div>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                          {s.full_name} {isMine && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.department_name || 'Phòng ban'}</div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => openQuickEdit(s)}
-                      className="btn btn--ghost"
-                      style={{ padding: '4px', borderRadius: '6px', color: 'var(--primary)' }}
-                      title="Sửa thông tin xe"
-                    >
-                      <Edit2 size={14} />
-                    </button>
+                    {isAdminOrManager && (
+                      <button
+                        onClick={() => openQuickEdit(s)}
+                        className="btn btn--ghost"
+                        style={{ padding: '4px', borderRadius: '6px', color: 'var(--primary)' }}
+                        title="Sửa thông tin xe"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Vehicle License Plate Box */}
