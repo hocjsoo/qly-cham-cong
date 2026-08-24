@@ -765,24 +765,50 @@ const getFlaggedAttendance = async (req, res) => {
 
     let filter = {};
 
+    // Phân quyền cho Leader: chỉ thấy nhân sự cùng phòng ban nếu không phải Admin
+    if (req.user.role === 'leader' || req.user.role === 'manager') {
+      const managedDeptIds = req.user.department_ids?.length ? req.user.department_ids : (req.user.department_id ? [req.user.department_id] : []);
+      if (managedDeptIds.length > 0) {
+        const teamUsers = await User.find({
+          $or: [
+            { department_id: { $in: managedDeptIds } },
+            { department_ids: { $in: managedDeptIds } }
+          ]
+        }).select('_id');
+        const teamUserIds = teamUsers.map(u => u._id);
+        filter.user_id = { $in: teamUserIds };
+      }
+    }
+
     if (status === 'pending_review' || status === 'pending') {
-      filter.$or = [{ verification_status: 'pending_review' }, { is_flagged: true }];
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { verification_status: 'pending_review' },
+          { is_flagged: true, verification_status: { $ne: 'approved' } }
+        ]
+      });
     } else if (status === 'approved') {
       filter.verification_status = 'approved';
     } else if (status === 'rejected') {
       filter.verification_status = 'rejected';
+    } else if (status === 'photo') {
+      filter.selfie_url = { $ne: null, $nin: ['', 'null', 'undefined'] };
     } else {
       // 'all': lấy toàn bộ các ca có gắn cờ cảnh báo, có ảnh selfie hoặc có trạng thái xác thực
-      filter.$or = [
-        { is_flagged: true },
-        { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
-        { selfie_url: { $ne: null } },
-        { check_in_mode: 'photo' }
-      ];
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { is_flagged: true },
+          { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
+          { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } },
+          { check_in_mode: 'photo' }
+        ]
+      });
     }
 
     if (has_photo === 'true') {
-      filter.selfie_url = { $ne: null };
+      filter.selfie_url = { $ne: null, $nin: ['', 'null', 'undefined'] };
     }
 
     const list = await Attendance.find(filter)
@@ -791,11 +817,12 @@ const getFlaggedAttendance = async (req, res) => {
       .sort({ created_at: -1, createdAt: -1 });
 
     // Tính thống kê nhanh các nhóm trạng thái
+    const baseCountFilter = filter.user_id ? { user_id: filter.user_id } : {};
     const [pendingCount, approvedCount, rejectedCount, photoCount] = await Promise.all([
-      Attendance.countDocuments({ $or: [{ verification_status: 'pending_review' }, { is_flagged: true }] }),
-      Attendance.countDocuments({ verification_status: 'approved' }),
-      Attendance.countDocuments({ verification_status: 'rejected' }),
-      Attendance.countDocuments({ selfie_url: { $ne: null } }),
+      Attendance.countDocuments({ ...baseCountFilter, $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] }),
+      Attendance.countDocuments({ ...baseCountFilter, verification_status: 'approved' }),
+      Attendance.countDocuments({ ...baseCountFilter, verification_status: 'rejected' }),
+      Attendance.countDocuments({ ...baseCountFilter, selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } }),
     ]);
 
     res.json({
@@ -814,10 +841,11 @@ const getFlaggedAttendance = async (req, res) => {
   }
 };
 
-// PUT /api/attendance/approve-flagged/:id — Admin/Leader duyệt hoặc từ chối selfie / cảnh báo
+// PUT /api/attendance/approve-flagged/:id & /flagged/verify/:id — Admin/Leader duyệt / từ chối / hoàn tác / xóa
 const verifyFlaggedAttendance = async (req, res) => {
   const { id } = req.params;
-  const { action, reviewer_note, allow_recheckin } = req.body; // action: 'approve' | 'reject'
+  const { action, reviewer_note, allow_recheckin, reset_today } = req.body; // action: 'approve' | 'reject' | 'revert' | 'delete'
+  const allowReset = allow_recheckin ?? reset_today;
 
   try {
     const attendance = await Attendance.findById(id);
@@ -830,9 +858,9 @@ const verifyFlaggedAttendance = async (req, res) => {
       attendance.is_flagged = false;
       attendance.reviewed_by = req.user._id;
       attendance.reviewed_at = new Date();
-      attendance.reviewer_note = reviewer_note || 'Ban Giám Đốc đã phê duyệt hợp lệ';
+      attendance.reviewer_note = reviewer_note || 'Đã phê duyệt ca chấm công hợp lệ';
       if (reviewer_note) {
-        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp đã duyệt: ${reviewer_note}`;
+        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Duyệt ca: ${reviewer_note}`;
       }
       await attendance.save();
 
@@ -853,8 +881,8 @@ const verifyFlaggedAttendance = async (req, res) => {
     } else if (action === 'reject') {
       const { user_id, date } = attendance;
 
-      if (allow_recheckin) {
-        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại từ máy chính chủ
+      if (allowReset) {
+        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại
         await Attendance.findByIdAndDelete(id);
         if (user_id && date) {
           await DeviceRegistry.deleteMany({ user_id, date });
@@ -865,8 +893,8 @@ const verifyFlaggedAttendance = async (req, res) => {
         attendance.is_flagged = false;
         attendance.reviewed_by = req.user._id;
         attendance.reviewed_at = new Date();
-        attendance.reviewer_note = reviewer_note || 'Nghi vấn gian lận';
-        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Sếp từ chối: ${reviewer_note || 'Nghi vấn gian lận'}`;
+        attendance.reviewer_note = reviewer_note || 'Nghi vấn gian lận / Ca không hợp lệ';
+        attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Từ chối ca: ${reviewer_note || 'Nghi vấn gian lận'}`;
         await attendance.save();
 
         const populated = await Attendance.findById(id)
@@ -875,8 +903,25 @@ const verifyFlaggedAttendance = async (req, res) => {
 
         return res.json({ message: 'Đã từ chối chấm công. Ca này bị đánh dấu không hợp lệ! ❌', attendance: populated });
       }
+    } else if (action === 'revert') {
+      // Hoàn tác về trạng thái chờ duyệt (pending_review)
+      attendance.verification_status = 'pending_review';
+      attendance.is_flagged = true;
+      attendance.reviewed_by = null;
+      attendance.reviewed_at = null;
+      attendance.reviewer_note = 'Đã hoàn tác về chờ duyệt lại';
+      await attendance.save();
+
+      const populated = await Attendance.findById(id)
+        .populate('user_id', 'full_name employee_code code email department_id department_ids avatar_url role')
+        .populate('reviewed_by', 'full_name');
+
+      return res.json({ message: 'Đã hoàn tác ca về trạng thái Chờ duyệt! 🔄', attendance: populated });
+    } else if (action === 'delete') {
+      await Attendance.findByIdAndDelete(id);
+      return res.json({ message: 'Đã xóa ca chấm công thành công! 🗑️', id });
     } else {
-      return res.status(400).json({ error: 'Hành động không hợp lệ (approve hoặc reject).' });
+      return res.status(400).json({ error: 'Hành động không hợp lệ (approve, reject, revert hoặc delete).' });
     }
   } catch (error) {
     console.error('VerifyFlaggedAttendance error:', error);

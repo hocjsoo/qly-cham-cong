@@ -4,7 +4,7 @@ import {
   Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2,
   Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight,
   Search, Camera, AlertTriangle, Phone, Mail, MapPin, Bike, RotateCcw,
-  Trash2, Undo2, Filter, ChevronRight, UserCheck, RefreshCw
+  Trash2, Undo2, Filter, ChevronRight, UserCheck, RefreshCw, ZoomIn, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -71,6 +71,14 @@ const formatDate = (iso) => {
   return new Date(iso + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const REJECT_REASONS_SUGGESTIONS = [
+  'Ảnh Selfie không rõ mặt / Không hợp lệ',
+  'Vị trí ngoài văn phòng không báo trước',
+  'Nghi vấn chấm công hộ / Gian lận',
+  'Thiết bị lạ chưa đăng ký phê duyệt',
+  'Không có mặt tại nơi làm việc',
+];
+
 export default function RequestsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'mine';
@@ -94,17 +102,18 @@ export default function RequestsPage() {
   const [flaggedCounts, setFlaggedCounts] = useState({ pending: 0, approved: 0, rejected: 0, with_photo: 0, total: 0 });
   const [flaggedTab, setFlaggedTab] = useState('pending');
   const [flaggedLoading, setFlaggedLoading] = useState(false);
+  const [flaggedSearch, setFlaggedSearch] = useState('');
   const [verifyingId, setVerifyingId] = useState(null);
   const [rejectFlaggedTarget, setRejectFlaggedTarget] = useState(null);
   const [rejectFlaggedReason, setRejectFlaggedReason] = useState('');
   const [allowRecheckin, setAllowRecheckin] = useState(false);
 
-  // Status & Search Filters
+  // Status & Search Filters for Requests
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [typeFilter, setTypeFilter] = useState('all');
   const [search, setSearch] = useState('');
 
-  // Reject Modal State
+  // Reject Request Modal State
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
@@ -263,6 +272,9 @@ export default function RequestsPage() {
     });
   };
 
+  // ==========================================
+  // FLAGGED ATTENDANCE & PHOTO VERIFICATION
+  // ==========================================
   const fetchFlagged = async (targetStatus) => {
     try {
       setFlaggedLoading(true);
@@ -274,24 +286,24 @@ export default function RequestsPage() {
           setFlaggedCounts(res.data.counts);
         }
       }
-    } catch {
-      toast.error('Lỗi tải danh sách cảnh báo chấm công');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi tải danh sách cảnh báo chấm công');
     } finally {
       setFlaggedLoading(false);
     }
   };
 
-  const handleVerifyFlagged = async (recordId, action) => {
+  const handleVerifyFlagged = async (recordId, action, reviewerNote = '') => {
     try {
       setVerifyingId(recordId);
-      await api.put(`/attendance/flagged/verify/${recordId}`, {
+      const res = await api.put(`/attendance/flagged/verify/${recordId}`, {
         action,
-        reviewer_note: action === 'approve' ? 'Đã duyệt qua Portal Phê Duyệt' : 'Bị từ chối'
+        reviewer_note: reviewerNote || (action === 'approve' ? 'Đã phê duyệt ca chấm công hợp lệ' : 'Đã từ chối ca')
       });
-      toast.success(action === 'approve' ? 'Đã duyệt ca chấm công thành công! ✅' : 'Đã từ chối ca chấm công! ❌');
+      toast.success(res.data?.message || (action === 'approve' ? 'Đã duyệt ca chấm công thành công! ✅' : 'Đã xử lý ca!'));
       fetchFlagged();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi xử lý xác minh ca');
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý ca chấm công');
     } finally {
       setVerifyingId(null);
     }
@@ -301,12 +313,12 @@ export default function RequestsPage() {
     if (!rejectFlaggedTarget) return;
     try {
       setVerifyingId(rejectFlaggedTarget._id);
-      await api.put(`/attendance/flagged/verify/${rejectFlaggedTarget._id}`, {
+      const res = await api.put(`/attendance/flagged/verify/${rejectFlaggedTarget._id}`, {
         action: 'reject',
-        reviewer_note: rejectFlaggedReason.trim() || 'Từ chối ca chấm công',
-        reset_today: allowRecheckin
+        reviewer_note: rejectFlaggedReason.trim() || 'Nghi vấn ca chấm công không hợp lệ',
+        allow_recheckin: allowRecheckin
       });
-      toast.success(allowRecheckin ? 'Đã từ chối & Xóa ca để nhân viên chấm lại! 🗑️' : 'Đã từ chối ca chấm công! ❌');
+      toast.success(res.data?.message || 'Đã từ chối ca chấm công! ❌');
       setRejectFlaggedTarget(null);
       setRejectFlaggedReason('');
       setAllowRecheckin(false);
@@ -316,6 +328,32 @@ export default function RequestsPage() {
     } finally {
       setVerifyingId(null);
     }
+  };
+
+  const handleRevertFlagged = (item) => {
+    setConfirm({
+      title: 'Hoàn Tác Ca Chấm Công',
+      message: `Bạn có chắc muốn hoàn tác ca ngày ${formatDate(item.date)} của ${item.user_id?.full_name || 'nhân viên'} về trạng thái "Chờ duyệt"?`,
+      confirmLabel: 'Hoàn tác ngay',
+      danger: false,
+      onConfirm: async () => {
+        setConfirm(null);
+        await handleVerifyFlagged(item._id, 'revert', 'Hoàn tác về chờ duyệt');
+      }
+    });
+  };
+
+  const handleDeleteFlagged = (item) => {
+    setConfirm({
+      title: 'Xóa Ca Chấm Công?',
+      message: `Bạn có chắc chắn muốn xóa hẳn bản ghi chấm công ngày ${formatDate(item.date)} của ${item.user_id?.full_name || 'nhân viên'}?`,
+      confirmLabel: 'Xóa ca này',
+      danger: true,
+      onConfirm: async () => {
+        setConfirm(null);
+        await handleVerifyFlagged(item._id, 'delete');
+      }
+    });
   };
 
   const rawList = tab === 'mine' ? mine : pending;
@@ -333,7 +371,16 @@ export default function RequestsPage() {
     return matchStatus && matchType && matchSearch;
   });
 
-  // Summary counts
+  const filteredFlaggedList = flaggedList.filter(item => {
+    const q = flaggedSearch.trim().toLowerCase();
+    if (!q) return true;
+    return item.user_id?.full_name?.toLowerCase().includes(q) ||
+           item.user_id?.employee_code?.toLowerCase().includes(q) ||
+           item.flag_reason?.toLowerCase().includes(q) ||
+           item.date?.includes(q);
+  });
+
+  // Summary counts for Requests
   const pendingCount = rawList.filter(r => r.status === 'pending').length;
   const approvedCount = rawList.filter(r => r.status === 'approved').length;
   const rejectedCount = rawList.filter(r => r.status === 'rejected').length;
@@ -388,7 +435,16 @@ export default function RequestsPage() {
             <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--red)' }}>{rejectedCount}</div>
           </div>
           {isManager && (
-            <div className="card" style={{ padding: '10px 12px', textAlign: 'center', background: flaggedCounts.pending > 0 ? 'var(--yellow-soft)' : 'var(--bg-card)', border: flaggedCounts.pending > 0 ? '1px solid var(--yellow)' : '1px solid var(--border)' }}>
+            <div
+              className="card"
+              onClick={() => { setTab('flagged'); fetchFlagged(); }}
+              style={{
+                padding: '10px 12px', textAlign: 'center', cursor: 'pointer',
+                background: flaggedCounts.pending > 0 ? 'var(--yellow-soft)' : 'var(--bg-card)',
+                border: flaggedCounts.pending > 0 ? '1px solid var(--yellow)' : '1px solid var(--border)',
+                transition: 'all 0.15s'
+              }}
+            >
               <div style={{ fontSize: '11px', color: flaggedCounts.pending > 0 ? 'var(--yellow)' : 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
                 🛡️ CẢNH BÁO / ẢNH
               </div>
@@ -437,7 +493,7 @@ export default function RequestsPage() {
                 transition: 'all 0.15s'
               }}
             >
-              🛡️ Cảnh báo ca {flaggedCounts.pending > 0 && <span className="badge badge--warning" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '4px' }}>{flaggedCounts.pending}</span>}
+              🛡️ Cảnh báo & Ảnh {flaggedCounts.pending > 0 && <span className="badge badge--warning" style={{ fontSize: '9px', padding: '1px 5px', marginLeft: '4px' }}>{flaggedCounts.pending}</span>}
             </button>
           </div>
         )}
@@ -447,13 +503,36 @@ export default function RequestsPage() {
              FLAGGED ATTENDANCE & SELFIE PHOTO VERIFICATION TAB
              ========================================================================= */
           <div>
+            {/* Search and Quick Filters for Flagged Attendance */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
+                  placeholder="🔍 Tìm theo tên, mã NV, lý do cảnh báo..."
+                  value={flaggedSearch}
+                  onChange={e => setFlaggedSearch(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => fetchFlagged()}
+                className="btn btn--ghost"
+                style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                title="Làm mới danh sách"
+              >
+                <RefreshCw size={14} className={flaggedLoading ? 'spinner' : ''} /> Làm mới
+              </button>
+            </div>
+
             {/* Filter Tabs for Flagged Attendance */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
               {[
                 { key: 'pending', label: `⏳ Chờ duyệt (${flaggedCounts.pending})` },
+                { key: 'photo', label: `📸 Kèm ảnh Selfie (${flaggedCounts.with_photo})` },
                 { key: 'approved', label: `✅ Đã duyệt (${flaggedCounts.approved})` },
                 { key: 'rejected', label: `❌ Đã từ chối (${flaggedCounts.rejected})` },
-                { key: 'photo', label: `📸 Kèm ảnh Selfie (${flaggedCounts.with_photo})` },
                 { key: 'all', label: `Tất cả (${flaggedCounts.total})` },
               ].map(ft => (
                 <button
@@ -463,7 +542,7 @@ export default function RequestsPage() {
                     fetchFlagged(ft.key);
                   }}
                   className={`chip${flaggedTab === ft.key ? ' active' : ''}`}
-                  style={{ fontSize: '11.5px', padding: '6px 12px', whiteSpace: 'nowrap' }}
+                  style={{ fontSize: '12px', padding: '6px 14px', whiteSpace: 'nowrap' }}
                 >
                   {ft.label}
                 </button>
@@ -472,115 +551,205 @@ export default function RequestsPage() {
 
             {flaggedLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '110px', borderRadius: '12px' }} />)}
+                {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '120px', borderRadius: '14px' }} />)}
               </div>
-            ) : flaggedList.length === 0 ? (
+            ) : filteredFlaggedList.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state__icon">🛡️</div>
                 <div className="empty-state__title">Không có ca cảnh báo nào</div>
                 <div className="empty-state__desc">Tất cả các ca chấm công đã được xác thực an toàn</div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {flaggedList.map(item => {
-                  const isPending = item.verification_status === 'pending_review' || item.is_flagged;
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {filteredFlaggedList.map(item => {
                   const isApproved = item.verification_status === 'approved';
                   const isRejected = item.verification_status === 'rejected';
+                  const isPending = !isApproved && !isRejected;
+
+                  const empName = item.user_id?.full_name || 'Nhân sự';
+                  const empCode = item.user_id?.employee_code || item.user_id?.code || 'NS';
+                  const deptName = item.user_id?.department_id?.name || item.user_id?.department_name || 'Văn Phòng';
 
                   return (
-                    <div key={item._id} className="card animate-fade-in" style={{
-                      padding: '14px', borderRadius: '14px',
-                      borderLeft: `4px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
-                      background: 'var(--bg-card)'
-                    }}>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        {/* Selfie Photo Thumbnail with Zoom Click */}
+                    <div
+                      key={item._id}
+                      className="card animate-fade-in"
+                      style={{
+                        padding: '16px', borderRadius: '14px',
+                        borderLeft: `4px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
+                        background: 'var(--bg-card)',
+                        boxShadow: 'var(--shadow-xs)'
+                      }}
+                    >
+                      {/* Top Header Row */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div
+                            className="avatar"
+                            style={{
+                              width: '38px', height: '38px', fontSize: '13px', borderRadius: '50%',
+                              overflow: 'hidden', cursor: 'pointer', border: '1.5px solid var(--border)',
+                              background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800
+                            }}
+                            onClick={() => {
+                              if (item.user_id) setViewingStaffDetail(item.user_id);
+                            }}
+                            title="Xem hồ sơ nhân sự"
+                          >
+                            {item.user_id?.avatar_url ? (
+                              <img src={item.user_id.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              empName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase()
+                            )}
+                          </div>
+                          <div>
+                            <div
+                              onClick={() => { if (item.user_id) setViewingStaffDetail(item.user_id); }}
+                              style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', cursor: 'pointer' }}
+                            >
+                              {empName} <span style={{ color: 'var(--primary)', fontSize: '12px' }}>(#{empCode})</span>
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                              🏢 {deptName}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className={`badge badge--${isApproved ? 'success' : isRejected ? 'danger' : 'warning'}`} style={{ fontSize: '11.5px', padding: '4px 9px' }}>
+                          {isApproved ? '✅ Đã xác minh' : isRejected ? '❌ Bị từ chối' : '⏳ Chờ xem xét'}
+                        </span>
+                      </div>
+
+                      {/* Main Details Body */}
+                      <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        {/* Selfie Image Preview */}
                         {item.selfie_url ? (
-                          <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <div
+                            onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie Chấm Công: ${empName} (${formatDate(item.date)})` })}
+                            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}
+                            title="Click để phóng to ảnh Selfie"
+                          >
                             <img
                               src={item.selfie_url}
                               alt="Selfie"
-                              onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${item.user_id?.full_name || 'Nhân viên'}` })}
                               style={{
-                                width: 68, height: 68, borderRadius: '12px', objectFit: 'cover',
+                                width: 78, height: 78, borderRadius: '12px', objectFit: 'cover',
                                 border: `2px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
-                                cursor: 'pointer', display: 'block'
+                                display: 'block', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                               }}
-                              title="Click để phóng to ảnh Selfie"
                             />
-                            <span style={{
-                              position: 'absolute', bottom: '-4px', right: '-4px',
-                              background: 'var(--primary)', color: '#fff', fontSize: '9px',
-                              borderRadius: '6px', padding: '1px 4px', fontWeight: 800
+                            <div style={{
+                              position: 'absolute', bottom: '4px', right: '4px',
+                              background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px',
+                              borderRadius: '4px', padding: '1px 4px', fontWeight: 800,
+                              display: 'flex', alignItems: 'center', gap: '2px'
                             }}>
-                              📸 Zoom
-                            </span>
+                              <ZoomIn size={10} /> Phóng to
+                            </div>
                           </div>
                         ) : (
                           <div style={{
-                            width: 68, height: 68, borderRadius: '12px', background: 'var(--bg-raised)',
-                            color: 'var(--text-muted)', fontSize: '10px', display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontWeight: 700, textAlign: 'center', padding: '4px', flexShrink: 0,
-                            border: '1px dashed var(--border)'
+                            width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)',
+                            color: 'var(--text-muted)', fontSize: '10.5px', display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '6px',
+                            flexShrink: 0, border: '1px dashed var(--border)'
                           }}>
+                            <Camera size={18} style={{ marginBottom: '2px' }} />
                             Không có ảnh
                           </div>
                         )}
 
-                        {/* Details */}
+                        {/* Attendance Metadata Info */}
                         <div style={{ flex: 1, minWidth: '220px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <div style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--text)' }}>
-                              {item.user_id?.full_name || 'Nhân sự'} {item.user_id?.employee_code ? `(#${item.user_id.employee_code})` : ''}
-                            </div>
-                            <span className={`badge badge--${isApproved ? 'success' : isRejected ? 'danger' : 'warning'}`}>
-                              {isApproved ? '✅ Đã xác minh' : isRejected ? '❌ Bị từ chối' : '⏳ Chờ xem xét'}
-                            </span>
+                          <div style={{ fontSize: '12.5px', color: 'var(--text)', marginBottom: '4px' }}>
+                            📅 Ngày <strong>{formatDate(item.date)}</strong> · ⏰ Vào: <strong>{item.check_in_time ? new Date(item.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—'}</strong> {item.check_out_time ? `→ Ra: ${new Date(item.check_out_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' })}` : ''}
                           </div>
 
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                            📅 Ngày {formatDate(item.date)} · ⏰ Vào: <strong>{item.check_in_time ? new Date(item.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—'}</strong>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <span>📍 Phương thức: <strong>{item.check_in_mode === 'photo' ? 'Selfie + GPS' : item.check_in_type || 'Văn phòng'}</strong></span>
+                            {item.total_hours ? <span>⏱️ {item.total_hours}h</span> : null}
                           </div>
 
+                          {/* Flag Reason Banner */}
                           {item.flag_reason && (
-                            <div style={{ fontSize: '12px', color: 'var(--yellow)', background: 'var(--yellow-soft)', padding: '4px 8px', borderRadius: '6px', marginBottom: '6px' }}>
+                            <div style={{
+                              fontSize: '12px', color: 'var(--yellow)', background: 'var(--yellow-soft)',
+                              padding: '6px 10px', borderRadius: '8px', marginBottom: '6px', fontWeight: 600,
+                              border: '1px solid rgba(234, 179, 8, 0.2)'
+                            }}>
                               ⚠️ Lý do cảnh báo: {item.flag_reason}
                             </div>
                           )}
 
+                          {/* Reviewer Note */}
                           {item.reviewer_note && (
-                            <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '4px 8px', borderRadius: '6px' }}>
-                              💬 Ghi chú quản lý: {item.reviewer_note}
+                            <div style={{
+                              fontSize: '11.5px', color: 'var(--text-secondary)', background: 'var(--bg-raised)',
+                              padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)'
+                            }}>
+                              💬 <strong>Quản lý phản hồi:</strong> {item.reviewer_note}
+                              {item.reviewed_by?.full_name && ` (bởi ${item.reviewed_by.full_name})`}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      {/* Action Buttons for Flagged Attendance */}
-                      {isPending && (
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
+                      {/* Action Bar for Flagged Attendance */}
+                      <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {/* Left Action: Approve / Reject or Undo */}
+                        <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '220px' }}>
+                          {isPending ? (
+                            <>
+                              <button
+                                onClick={() => handleVerifyFlagged(item._id, 'approve')}
+                                disabled={verifyingId === item._id}
+                                className="btn btn--primary"
+                                style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
+                              >
+                                {verifyingId === item._id ? <span className="spinner" /> : <><Check size={14} /> Duyệt ca hợp lệ</>}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setRejectFlaggedTarget(item);
+                                  setRejectFlaggedReason('');
+                                  setAllowRecheckin(false);
+                                }}
+                                disabled={verifyingId === item._id}
+                                className="btn btn--ghost"
+                                style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
+                              >
+                                <X size={14} /> Từ chối ca
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRevertFlagged(item)}
+                              disabled={verifyingId === item._id}
+                              className="btn btn--ghost"
+                              style={{ fontSize: '12px', padding: '6px 12px', color: 'var(--primary)', fontWeight: 700 }}
+                            >
+                              <RotateCcw size={14} /> Hoàn tác về chờ duyệt
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Right Action: Delete Button */}
+                        <div>
                           <button
-                            onClick={() => handleVerifyFlagged(item._id, 'approve')}
-                            disabled={verifyingId === item._id}
-                            className="btn btn--primary"
-                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
-                          >
-                            <Check size={14} /> Duyệt ca hợp lệ
-                          </button>
-                          <button
-                            onClick={() => {
-                              setRejectFlaggedTarget(item);
-                              setRejectFlaggedReason('');
-                              setAllowRecheckin(false);
-                            }}
+                            onClick={() => handleDeleteFlagged(item)}
                             disabled={verifyingId === item._id}
                             className="btn btn--ghost"
-                            style={{ flex: 1, fontSize: '12px', padding: '7px 12px', color: 'var(--red)', fontWeight: 600 }}
+                            style={{
+                              padding: '6px 10px', fontSize: '11.5px', color: 'var(--red)',
+                              borderColor: 'rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)',
+                              borderRadius: '6px'
+                            }}
+                            title="Xóa bản ghi ca này"
                           >
-                            <X size={14} /> Từ chối ca
+                            <Trash2 size={13} /> Xóa ca
                           </button>
                         </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1060,7 +1229,7 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {/* Reject Reason Modal */}
+      {/* Reject Reason Modal for Requests */}
       {rejectTarget && (
         <div className="modal-overlay" onClick={() => setRejectTarget(null)}>
           <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px', margin: '0 auto' }}>
@@ -1094,33 +1263,53 @@ export default function RequestsPage() {
       {/* Reject Flagged Attendance Modal */}
       {rejectFlaggedTarget && (
         <div className="modal-overlay" onClick={() => setRejectFlaggedTarget(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <AlertTriangle size={18} color="var(--red)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--red)' }}>Từ chối ca chấm công</h3>
+                <AlertTriangle size={20} color="var(--red)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--red)', margin: 0 }}>Từ chối ca chấm công</h3>
               </div>
               <button onClick={() => setRejectFlaggedTarget(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
               Xác nhận từ chối ca chấm công của nhân sự <strong>{rejectFlaggedTarget.user_id?.full_name || 'Nhân viên'}</strong> vào ngày <strong>{formatDate(rejectFlaggedTarget.date)}</strong>.
             </div>
 
+            {/* Quick Reason Suggestions */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Gợi ý lý do nhanh:
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {REJECT_REASONS_SUGGESTIONS.map((sug, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setRejectFlaggedReason(sug)}
+                    className="chip"
+                    style={{ fontSize: '11px', padding: '4px 8px' }}
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="form-group">
-              <label className="form-label">Lý do từ chối *</label>
+              <label className="form-label" style={{ fontWeight: 700 }}>Lý do từ chối cụ thể *</label>
               <textarea
                 className="form-input"
                 rows={3}
                 value={rejectFlaggedReason}
                 onChange={e => setRejectFlaggedReason(e.target.value)}
-                placeholder="Nhập lý do (ví dụ: Ảnh không rõ mặt, vị trí ngoài văn phòng không báo trước...)"
+                placeholder="Nhập lý do hoặc chọn từ gợi ý phía trên..."
               />
             </div>
 
-            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
+            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
                 <input
                   type="checkbox"
                   checked={allowRecheckin}
@@ -1131,10 +1320,17 @@ export default function RequestsPage() {
               </label>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={() => setRejectFlaggedTarget(null)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleConfirmRejectFlagged} disabled={verifyingId === rejectFlaggedTarget._id} className="btn btn--full" style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 700 }}>
-                {verifyingId === rejectFlaggedTarget._id ? <span className="spinner" /> : 'Xác nhận từ chối'}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button onClick={() => setRejectFlaggedTarget(null)} className="btn btn--ghost btn--full" style={{ padding: '10px', fontWeight: 700 }}>
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmRejectFlagged}
+                disabled={verifyingId === rejectFlaggedTarget._id}
+                className="btn btn--full"
+                style={{ background: 'var(--red)', color: '#fff', border: 'none', fontWeight: 800, padding: '10px' }}
+              >
+                {verifyingId === rejectFlaggedTarget._id ? <span className="spinner" /> : 'Xác nhận từ chối ❌'}
               </button>
             </div>
           </div>

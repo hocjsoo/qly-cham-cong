@@ -26,11 +26,12 @@ router.get('/history', getHistory);
 // GET /api/attendance/record?user_id=...&date=YYYY-MM-DD
 router.get('/record', getRecordByUserAndDate);
 
-// GET /api/attendance/flagged — Admin duy nhất lấy danh sách nghi vấn & selfie chờ duyệt
-router.get('/flagged', requireRole('admin'), getFlaggedAttendance);
+// GET /api/attendance/flagged — Admin/Leader lấy danh sách nghi vấn & selfie chờ duyệt
+router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);
 
-// PUT /api/attendance/approve-flagged/:id — Admin duy nhất duyệt / từ chối selfie & cảnh báo
-router.put('/approve-flagged/:id', requireRole('admin'), verifyFlaggedAttendance);
+// PUT /api/attendance/flagged/verify/:id & /approve-flagged/:id — Admin/Leader duyệt / từ chối selfie & cảnh báo
+router.put('/flagged/verify/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);
+router.put('/approve-flagged/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);
 
 // PUT /api/attendance/override/:id — Admin override
 router.put('/override/:id', requireRole('admin', 'manager'), overrideAttendance);
