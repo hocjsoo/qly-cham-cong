@@ -1,6 +1,6 @@
 # Hướng Dẫn Đóng Góp — ET Office Portal
 
-Cảm ơn bạn đã quan tâm đến dự án! Dưới đây là quy trình đóng góp code.
+Cảm ơn bạn đã quan tâm đến dự án! Dưới đây là quy trình và quy chuẩn đóng góp code.
 
 ---
 
@@ -20,10 +20,10 @@ Cảm ơn bạn đã quan tâm đến dự án! Dưới đây là quy trình đ�
 4. Copy `.env.example` → `.env` và cấu hình MongoDB URI
 5. Chạy dự án:
    ```bash
-   # Terminal 1
+   # Terminal 1 (Backend)
    cd server && npm run dev
 
-   # Terminal 2
+   # Terminal 2 (Frontend)
    cd client && npm run dev
    ```
 
@@ -40,65 +40,27 @@ git checkout -b fix/mo-ta-loi
 ```
 
 ### 2. Code theo quy tắc
-
-- **JavaScript thuần** — không TypeScript
-- **Vanilla CSS** — không TailwindCSS
-- **Tiếng Việt** cho user-facing strings, **tiếng Anh** cho code
-- **Mobile-first** responsive design
-- Xem thêm: [AGENTS.md](.agents/AGENTS.md)
+- **JavaScript thuần** — không TypeScript.
+- **Vanilla CSS** với CSS Variables — không TailwindCSS.
+- **Tiếng Việt** cho user-facing strings (labels, toast messages, thông báo).
+- **Tiếng Anh** cho code (variable names, functions, comments).
+- **Mobile-first** responsive design (min-width 320px).
+- **Phân quyền chuẩn**:
+  - `admin`: Toàn quyền quản trị, sửa/xóa giờ công, sửa thông tin xe, tạo/xóa dự án.
+  - `leader`: Quản lý team, duyệt đơn, duyệt ca cảnh báo. Không sửa giờ công hay gửi xe.
+  - `PM`: Có quyền chỉnh sửa thông tin dự án mình phụ trách.
+- Xem chi tiết tại: [.agents/AGENTS.md](.agents/AGENTS.md) và [CLAUDE.md](CLAUDE.md).
 
 ### 3. Kiểm tra trước khi commit
 
 ```bash
-# Lint
-cd client && npm run lint
+# 1. Chạy bộ kiểm thử tự động (203/203 Test Cases)
+cd server && npm test
 
-# Build test
-cd client && npm run build
+# 2. Build test Frontend
+cd ../client && npm run build
 ```
 
-### 4. Commit
-
-```bash
-git add .
-git commit -m "feat: mô tả tính năng mới"
-# hoặc
-git commit -m "fix: mô tả lỗi đã sửa"
-```
-
-**Commit message format:**
-- `feat:` — Tính năng mới
-- `fix:` — Sửa lỗi
-- `docs:` — Cập nhật documentation
-- `style:` — Thay đổi CSS / formatting
-- `refactor:` — Tái cấu trúc code
-- `perf:` — Cải thiện hiệu suất
-
-### 5. Push & tạo Pull Request
-
-```bash
-git push origin feature/ten-tinh-nang
-```
-
-Tạo Pull Request trên GitHub với:
-- Mô tả rõ thay đổi
-- Screenshots (nếu liên quan UI)
-- Liên kết đến issue (nếu có)
-
----
-
-## 🐛 Báo cáo lỗi
-
-Tạo [Issue](https://github.com/hocjsoo/qly-cham-cong/issues) với:
-- Mô tả lỗi chi tiết
-- Các bước để tái tạo lỗi
-- Screenshots / logs
-- Thông tin trình duyệt & thiết bị
-
----
-
-## 📋 Quy tắc ứng xử
-
-- Tôn trọng lẫn nhau
-- Review code mang tính xây dựng
-- Không spam, không quảng cáo
+### 4. Commit & Tạo Pull Request
+- Commit messages viết bằng tiếng Anh theo chuẩn Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`).
+- Đẩy branch lên fork và tạo Pull Request vào branch `main`.

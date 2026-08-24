@@ -15,7 +15,7 @@
 - API calls: Luôn qua `client/src/services/api.js` (Axios instance có interceptor JWT + offline fallback).
 - Custom hooks: đặt trong `client/src/hooks/`.
 
-## Role System
+## Role System & Permission Matrix
 - Hệ thống có 3 vai trò chính: `admin`, `leader`, `employee`.
 - Legacy roles `manager` và `staff` vẫn được hỗ trợ (backward compatible).
 - `roleMiddleware.js` tự động map: `manager` ↔ `leader`, `staff` ↔ `employee`.
@@ -23,6 +23,25 @@
   - `isStaff`: check `=== 'staff' || === 'employee'`
   - `isAdminOrManager`: check `['admin', 'leader', 'manager'].includes(role)`
 - Role dropdown trong form chỉ hiển thị 3 giá trị mới: `admin`, `leader`, `employee`.
+
+### Ranh Giới Quyền Hạn Chi Tiết:
+- **Chấm công (Attendance Override & Delete)**:
+  - **Chỉ Admin** có quyền sửa giờ công (`PUT /api/attendance/override/:id`) và xóa ca chấm công (`DELETE /api/attendance/:id`).
+  - Leader **không có quyền** can thiệp hoặc điều chỉnh ca chấm công của nhân viên.
+- **Phương tiện & Gửi xe (Vehicles)**:
+  - **Chỉ Admin** có quyền cập nhật thông tin gửi xe của nhân viên. Bảng gửi xe tinh gọn, đã bỏ cột phòng ban.
+  - Leader không có quyền sửa thông tin gửi xe. Nhân viên đổi xe nộp đơn qua mục Đơn từ.
+- **Dự án & Công trình (Projects)**:
+  - **Chỉ Admin** có quyền tạo mới (`POST /api/projects`) và xóa dự án (`DELETE /api/projects/:id`).
+  - **Admin hoặc PM phụ trách dự án** (`project.pm_id` hoặc `project.pm_name`) có quyền cập nhật thông tin dự án (`PUT /api/projects/:id`).
+  - Leader thông thường (không phải PM) không sửa thông tin dự án.
+- **Duyệt Đơn từ (Requests)**:
+  - Leader duyệt đơn cho nhân viên thuộc phòng ban mình quản lý.
+  - Leader bị chặn, **không được duyệt đơn của Admin** (bảo vệ phân quyền tối cao).
+  - Hỗ trợ thao tác **Hoàn tác đơn (`revert`)** về pending và **Xóa đơn (`delete`)**.
+- **Cảnh báo Ca & Thiết bị lạ (Flagged Attendance)**:
+  - Admin & Leader xem và duyệt ca có gắn cờ cảnh báo (ảnh selfie, thiết bị lạ).
+  - Khi duyệt ca cảnh báo thiết bị lạ, hệ thống tự động lưu thiết bị đó thành **`⭐ Máy chính chủ`** (`is_trusted = true`).
 
 ## Multi-Department
 - 1 user có thể thuộc nhiều phòng ban cùng lúc.
@@ -46,11 +65,11 @@
 ## UI/UX Rules
 - Mobile-first design (min-width 320px).
 - Hỗ trợ dark/light theme qua `[data-theme="dark"]` CSS selector.
-- Dùng `lucide-react` cho icons (line-art style, không filled).
+- Dùng `lucide-react` cho icons (line-art style, không filled). Luôn kiểm tra import đầy đủ icon để tránh ReferenceError.
 - Toast notifications qua `react-hot-toast`.
 - Loading states: dùng skeleton cards hoặc spinner.
 - Empty states: dùng icon lớn + text mô tả + CTA button.
-- Modals dùng class `.modal-overlay` + `.modal-sheet.animate-slide-up`.
+- Modals dùng class `.modal-overlay` + `.modal-sheet.animate-slide-up`, form tạo/sửa dùng kích thước rộng rãi (560px–720px).
 - Confirm dialogs: dùng custom `ConfirmDialog` component (không dùng `window.confirm`).
 
 ## Performance Rules
@@ -59,12 +78,17 @@
 - Pagination cho lists có nhiều hơn 50 items.
 - Image export dùng offscreen container với scale 3x cho chất lượng cao.
 
+## Testing & Quality Assurance
+- Kiểm thử tự động chạy qua lệnh `npm test` trong `server/`.
+- Toàn bộ 203/203 test cases chạy trên bộ nhớ In-Memory, cam kết Zero-Impact 100% đến cơ sở dữ liệu Prod.
+- Luôn chạy `npm test` và `npm run build` trước mỗi lần commit.
+
 ## Error Handling
 - Backend: try/catch trong mọi controller function, trả `{ error: "message" }`.
 - Frontend: try/catch cho mọi API call, hiển thị `toast.error()` cho user.
 - Network errors: hiển thị toast kèm hướng dẫn retry.
 
 ## Git Workflow
-- Commit messages viết bằng tiếng Anh, mô tả rõ thay đổi.
+- Commit messages viết bằng tiếng Anh theo chuẩn Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`).
 - Không commit `.env`, `node_modules/`, `client/dist/`.
-- Build test (`npm run build`) trước mỗi commit.
+- Build test (`npm run build`) và test runner (`npm test`) trước mỗi commit.

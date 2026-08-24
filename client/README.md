@@ -1,16 +1,51 @@
-# React + Vite
+# 🖥️ ET Office Portal — Frontend Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Ứng dụng Single Page Application (SPA) xây dựng bằng **React 19** và **Vite 8**, thiết kế theo phong cách hiện đại với **Vanilla CSS Design System**.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠️ Công Nghệ Sử Dụng
 
-## React Compiler
+- **Framework**: React 19 (JSX thuần, JavaScript ES Modules)
+- **Bundler / Build tool**: Vite 8
+- **State Management**: Zustand stores (`authStore`, `themeStore`)
+- **Routing**: `react-router-dom` v7
+- **HTTP Client**: Axios (với interceptor tự động đính kèm JWT Token và xử lý offline fallback)
+- **Icons**: `lucide-react` (line-art style)
+- **Toast Notifications**: `react-hot-toast`
+- **UI Design System**: Vanilla CSS tokens trong `src/index.css` với hỗ trợ Dark / Light theme
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 📁 Cấu Trúc Mã Nguồn Frontend
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```
+client/src/
+├── components/         # Shared components (Layout, HeaderActions, ConfirmDialog, MagicCursor...)
+├── hooks/              # Custom React hooks (useGeolocation...)
+├── pages/              # 14 Page components (CheckIn, Dashboard, History, Staff, Requests, Projects...)
+├── services/           # Axios API instance (api.js)
+├── stores/             # Zustand stores (authStore.js, themeStore.js)
+├── utils/              # Helper functions (exportCsv.js, deviceFingerprint.js)
+├── App.jsx             # Root routing component
+├── main.jsx            # Entry point
+└── index.css           # Global CSS variables & token system
+```
+
+---
+
+## 🚀 Lệnh Phát Triển & Build
+
+```bash
+# Cài đặt dependencies
+npm install
+
+# Khởi chạy dev server (HMR tức thì)
+npm run dev
+
+# Build đóng gói bản production
+npm run build
+
+# Xem trước bản build
+npm run preview
+```

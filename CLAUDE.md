@@ -8,6 +8,7 @@ Hệ thống quản lý chấm công thông minh dành cho doanh nghiệp (~30�
 - **Deploy**: Vercel (frontend) + Render.com (backend) + MongoDB Atlas (DB)
 - **Auth**: JWT + bcrypt, role-based (admin / leader / employee)
 - **UI**: Mobile-first PWA, dark/light theme, vanilla CSS design system
+- **Testing**: Zero-Impact Test Suite (31 Suites / 203 Test Cases in-memory)
 
 ---
 
@@ -17,20 +18,22 @@ Hệ thống quản lý chấm công thông minh dành cho doanh nghiệp (~30�
 QLY_CHAM_CONG/
 ├── client/                          # React Frontend (Vite 8)
 │   ├── src/
-│   │   ├── pages/                   # 12 page components
-│   │   │   ├── CheckInPage.jsx      # Chấm công GPS (check-in / check-out)
+│   │   ├── pages/                   # 14 page components
+│   │   │   ├── CheckInPage.jsx      # Chấm công GPS + Selfie xác thực
 │   │   │   ├── DashboardPage.jsx    # Dashboard tổng quan (admin/leader)
-│   │   │   ├── HistoryPage.jsx      # Lịch sử chấm công + Calendar view
+│   │   │   ├── ExpensesPage.jsx     # Bảng tổng hợp chi tiêu & hoàn ứng
+│   │   │   ├── ForgotPasswordPage.jsx # Quên mật khẩu / Reset mã code
+│   │   │   ├── HistoryPage.jsx      # Lịch sử chấm công + Calendar view + Stepper +-15p
+│   │   │   ├── LeaderboardPage.jsx  # Bảng xếp hạng chuyên cần (Hôm nay / Tuần / Tháng)
 │   │   │   ├── LoginPage.jsx        # Đăng nhập
-│   │   │   ├── ForgotPasswordPage.jsx # Quên mật khẩu
-│   │   │   ├── ProfilePage.jsx      # Thông tin cá nhân + đổi mật khẩu
-│   │   │   ├── ProjectsPage.jsx     # Quản lý dự án / công trình
+│   │   │   ├── ProfilePage.jsx      # Thông tin cá nhân + đổi mật khẩu & xe
+│   │   │   ├── ProjectsPage.jsx     # Quản lý dự án / công trình (PM có quyền sửa)
 │   │   │   ├── ReportPage.jsx       # Báo cáo tổng hợp + PDF export
-│   │   │   ├── RequestsPage.jsx     # Đơn từ (nghỉ phép, OT, giải trình...)
+│   │   │   ├── RequestsPage.jsx     # Quản lý đơn từ + Cảnh báo ca & thiết bị lạ + Hoàn tác
 │   │   │   ├── SettingsPage.jsx     # Cài đặt hệ thống (admin only)
-│   │   │   ├── StaffPage.jsx        # Quản lý nhân sự (admin/leader)
-│   │   │   └── UsersPage.jsx        # Quản lý tài khoản nội bộ
-│   │   ├── components/              # 6 shared components
+│   │   │   ├── StaffPage.jsx        # Quản lý nhân sự + thiết bị chính (admin/leader)
+│   │   │   └── VehiclesPage.jsx     # Bảng phương tiện gửi xe tinh gọn (admin only edit)
+│   │   ├── components/              # Shared components
 │   │   │   ├── Layout.jsx           # App shell (desktop sidebar + mobile bottom nav)
 │   │   │   ├── HeaderActions.jsx    # Theme toggle + notification bell
 │   │   │   ├── MagicCursor.jsx      # Animated cursor effect (desktop)
@@ -46,8 +49,8 @@ QLY_CHAM_CONG/
 │   │   ├── hooks/                   # Custom React hooks
 │   │   │   └── useGeolocation.js    # GPS position hook
 │   │   ├── utils/                   # Utilities
-│   │   │   ├── exportCsv.js         # CSV export helper
-│   │   │   └── deviceFingerprint.js # Device fingerprint for anti-fraud
+│   │   │   ├── exportCsv.js         # CSV export helper (UTF-8 BOM)
+│   │   │   └── deviceFingerprint.js # Pure hardware UUID for anti-fraud
 │   │   ├── App.jsx                  # Root component + routing
 │   │   ├── main.jsx                 # Entry point
 │   │   └── index.css                # Design system (CSS variables + tokens)
@@ -58,54 +61,40 @@ QLY_CHAM_CONG/
 │   ├── src/
 │   │   ├── controllers/             # 15 business logic controllers
 │   │   │   ├── authController.js    # login, register, forgot/reset password, change password
-│   │   │   ├── attendanceController.js # checkin, checkout, today, history, override
+│   │   │   ├── attendanceController.js # checkin, checkout, today, history, override, flagged
 │   │   │   ├── correctionController.js # Yêu cầu sửa chấm công
 │   │   │   ├── dashboardController.js  # Dashboard stats + pending count
 │   │   │   ├── exportController.js     # Excel export (xlsx)
 │   │   │   ├── holidayController.js    # Quản lý ngày lễ
-│   │   │   ├── leaveBalanceController.js # Quản lý ngày phép
+│   │   │   ├── leaveBalanceController.js # Quản lý ngày phép + hoàn phép khi undo
 │   │   │   ├── locationController.js   # CRUD vị trí GPS văn phòng
 │   │   │   ├── notificationController.js # CRUD thông báo + broadcast
-│   │   │   ├── projectController.js    # CRUD dự án / công trình
+│   │   │   ├── projectController.js    # CRUD dự án / công trình (Admin + PM)
 │   │   │   ├── reportController.js     # Báo cáo matrix + chi tiết cá nhân
-│   │   │   ├── requestController.js    # CRUD đơn từ + approve/reject
+│   │   │   ├── requestController.js    # CRUD đơn từ + approve/reject/revert/delete
 │   │   │   ├── systemSettingController.js # Cấu hình ca làm việc
 │   │   │   ├── timesheetLockController.js # Chốt công + lock/unlock
-│   │   │   └── userController.js       # CRUD nhân viên
+│   │   │   └── userController.js       # CRUD nhân viên + quản lý thiết bị
 │   │   ├── models/                  # 15 Mongoose schemas
-│   │   │   ├── User.js              # Nhân viên (multi-department, roles)
-│   │   │   ├── Attendance.js        # Bản ghi chấm công/ngày
-│   │   │   ├── AttendanceAuditLog.js # Log thay đổi chấm công
-│   │   │   ├── AuditLog.js          # Nhật ký thao tác hệ thống
-│   │   │   ├── Correction.js        # Yêu cầu sửa công
-│   │   │   ├── Department.js        # Phòng ban
-│   │   │   ├── DeviceSession.js     # Thiết bị đã xác thực
-│   │   │   ├── Holiday.js           # Ngày lễ / ngày nghỉ
-│   │   │   ├── LeaveBalance.js      # Số ngày phép còn lại
-│   │   │   ├── Notification.js      # Thông báo hệ thống
-│   │   │   ├── OfficeLocation.js    # Vị trí GPS văn phòng + geofence
-│   │   │   ├── Project.js           # Dự án / công trình
-│   │   │   ├── Request.js           # Đơn từ (nghỉ phép, OT, WFH...)
-│   │   │   ├── SystemSetting.js     # Cấu hình giờ làm, OT
-│   │   │   └── TimesheetLock.js     # Chốt công theo tháng
 │   │   ├── routes/                  # 16 Express route files
 │   │   ├── middlewares/             # Auth + Role + Rate limiting
-│   │   │   ├── authMiddleware.js    # JWT verification
-│   │   │   └── roleMiddleware.js    # Role-based access control
 │   │   ├── database/               # DB connection + seed
-│   │   │   ├── db.js               # MongoDB Atlas connection
-│   │   │   └── seed.js             # Initial data seeding
-│   │   ├── utils/                  # Helpers
-│   │   │   ├── auditLogger.js      # Audit log writer
-│   │   │   └── haversine.js        # GPS distance calculation
 │   │   └── app.js                  # Entry point + middleware + route mounting
-│   ├── .env                        # Environment variables (KHÔNG commit)
-│   └── .env.example                # Template biến môi trường
+│   ├── tests/                       # 31 Test Suites / 203 Test Cases (Zero-Impact)
+│   │   ├── runner.js                # Master test runner
+│   │   ├── unit/                    # 18 Unit test suites (Nghiệp vụ, Stepper, Lifecycle)
+│   │   ├── concurrency/             # Kiểm thử tranh chấp đồng thời
+│   │   ├── security/                # Fuzzing & NoSQL Injection resistance
+│   │   ├── performance/             # High-load benchmarks (< 350ms total)
+│   │   ├── mutation/                # Mutation testing engine
+│   │   └── integration/             # E2E & Transaction Rollback
+│   └── package.json
 │
 ├── .agents/AGENTS.md               # Agent rules & conventions
 ├── CLAUDE.md                       # AI development guide (file này)
 ├── CONTRIBUTING.md                 # Hướng dẫn đóng góp
 ├── README.md                       # Project documentation
+├── TEST_SCENARIOS.md               # Tài liệu 203 kịch bản kiểm thử
 └── LICENSE                         # MIT License
 ```
 
@@ -113,96 +102,47 @@ QLY_CHAM_CONG/
 
 ## Phân quyền (Role-Based Access Control)
 
-Hệ thống sử dụng 3 vai trò chính. `roleMiddleware.js` tự động map tương thích giữa legacy (`manager`/`staff`) và roles mới (`leader`/`employee`).
+Hệ thống có 3 vai trò chính. `roleMiddleware.js` tự động map tương thích giữa legacy (`manager`/`staff`) và roles mới (`leader`/`employee`).
 
-| Role | DB Value | Quyền hạn |
-|------|----------|-----------|
-| **Admin** | `admin` | Toàn quyền: quản lý nhân sự, cài đặt, chốt công, duyệt đơn, xuất báo cáo |
-| **Leader** | `leader` (compat: `manager`) | Dashboard, duyệt đơn, xem báo cáo team, quản lý dự án |
-| **Nhân viên** | `employee` (compat: `staff`) | Chấm công, nộp đơn, xem lịch sử cá nhân |
-
-### Multi-Department
-
-User model có 2 trường:
-- `department_id` (ObjectId) — phòng ban chính (backward compatible)
-- `department_ids` (ObjectId[]) — danh sách nhiều phòng ban cùng lúc
+| Role | DB Value | Quyền hạn chi tiết |
+|------|----------|-------------------|
+| **Admin** | `admin` | **Toàn quyền tối cao**: Quản lý nhân sự, cài đặt hệ thống, chốt công, sửa/xóa giờ chấm công (`overrideAttendance`), sửa thông tin xe, tạo/xóa dự án, xuất báo cáo. |
+| **Leader** | `leader` (compat: `manager`) | **Quản lý phòng ban**: Dashboard sĩ số team, duyệt đơn cho nhân viên thuộc phòng ban mình quản lý, duyệt ca cảnh báo/selfie. **Không được sửa giờ chấm công, không sửa gửi xe, không sửa dự án chung**. |
+| **PM (Phụ trách DA)** | `admin` / `leader` / `employee` | **Quản lý dự án phụ trách**: Được phân quyền chỉnh sửa thông tin, tiến độ, deadline của dự án mình được giao làm PM (`pm_id` hoặc `pm_name`). |
+| **Nhân viên** | `employee` (compat: `staff`) | **Cá nhân**: Chấm công GPS + Selfie, nộp đơn từ, xem lịch sử cá nhân, xem dự án tham gia. |
 
 ---
 
-## Database Models (MongoDB / Mongoose)
-
-| Model | Collection | Mục đích | Unique Index |
-|-------|-----------|----------|--------------|
-| `User` | users | Nhân viên (email, role, department_ids) | `email` |
-| `Attendance` | attendances | Bản ghi chấm công/ngày (GPS, late_tier, OT) | `user_id + date` |
-| `AttendanceAuditLog` | attendanceauditlogs | Log thay đổi chấm công | — |
-| `AuditLog` | auditlogs | Nhật ký thao tác (append-only) | — |
-| `Correction` | corrections | Yêu cầu sửa chấm công | — |
-| `Department` | departments | Phòng ban | `name` |
-| `DeviceSession` | devicesessions | Thiết bị đã xác thực | — |
-| `Holiday` | holidays | Ngày lễ / ngày nghỉ | `date` |
-| `LeaveBalance` | leavebalances | Số ngày phép theo năm | `user_id + year` |
-| `Notification` | notifications | Thông báo hệ thống | — |
-| `OfficeLocation` | officelocations | Vị trí GPS + bán kính geofence | — |
-| `Project` | projects | Dự án / công trình | — |
-| `Request` | requests | Đơn từ (leave, OT, WFH, business_trip) | — |
-| `SystemSetting` | systemsettings | Cấu hình ca làm việc (singleton) | — |
-| `TimesheetLock` | timesheetlocks | Chốt công theo tháng | `month + year` |
-
----
-
-## API Routes
+## API Routes Chi Tiết
 
 | Prefix | Controller | Auth | Role | Ghi chú |
 |--------|-----------|------|------|---------|
-| `/api/auth` | authController | Mixed | — | login (public), register/forgot-password (admin/leader) |
-| `/api/attendance` | attendanceController | ✅ | — | checkin, checkout, today, history; override (admin/leader) |
+| `/api/auth` | authController | Mixed | — | login (public), forgot-password, change-password |
+| `/api/attendance` | attendanceController | ✅ | — | checkin, checkout, today, history |
+| `/api/attendance/flagged` | attendanceController | ✅ | admin/leader | Lấy danh sách ca nghi vấn & selfie |
+| `/api/attendance/flagged/verify/:id` | attendanceController | ✅ | admin/leader | Duyệt/Từ chối/Hoàn tác/Xóa ca cảnh báo (tự động trust device) |
+| `/api/attendance/override/:id` | attendanceController | ✅ | **admin only** | Điều chỉnh giờ chấm công |
+| `/api/attendance/:id` (DELETE) | attendanceController | ✅ | **admin only** | Xóa ca chấm công để nhân viên chấm lại |
 | `/api/requests` | requestController | ✅ | — | CRUD đơn từ; approve/reject (admin/leader) |
+| `/api/requests/:id/revert` | requestController | ✅ | admin/leader | Hoàn tác đơn về pending (hoàn phép, trừ OT) |
+| `/api/requests/:id` (DELETE) | requestController | ✅ | admin/leader | Xóa đơn an toàn |
+| `/api/projects` | projectController | ✅ | — | Lấy danh sách dự án |
+| `/api/projects` (POST) | projectController | ✅ | **admin only** | Tạo mới dự án |
+| `/api/projects/:id` (PUT) | projectController | ✅ | **admin / PM** | Sửa dự án (Admin hoặc PM phụ trách dự án) |
+| `/api/projects/:id` (DELETE) | projectController | ✅ | **admin only** | Xóa dự án |
+| `/api/users` | userController | ✅ | admin/leader | CRUD nhân viên (sửa xe: admin only) |
+| `/api/users/:id/devices` | userController | ✅ | **admin only** | Xem, đặt máy chính (`trust`), xóa thiết bị |
 | `/api/dashboard` | dashboardController | ✅ | admin/leader | Stats tổng quan |
-| `/api/users` | userController | ✅ | admin/leader | CRUD nhân viên |
 | `/api/departments` | departmentController | ✅ | — | CRUD phòng ban |
 | `/api/reports` | reportController | ✅ | admin/leader | Báo cáo matrix + chi tiết cá nhân |
 | `/api/locations` | locationController | ✅ | admin | CRUD vị trí GPS |
-| `/api/projects` | projectController | ✅ | — | CRUD dự án; create/edit/delete (admin/leader) |
 | `/api/leave-balance` | leaveBalanceController | ✅ | admin/leader | Quản lý ngày phép |
 | `/api/export` | exportController | ✅ | admin/leader | Xuất Excel |
-| `/api/corrections` | correctionController | ✅ | — | CRUD yêu cầu sửa; approve/reject (admin/leader) |
 | `/api/settings` | systemSettingController | ✅ | admin | Cấu hình hệ thống |
 | `/api/notifications` | notificationController | ✅ | — | CRUD; broadcast (admin/leader) |
 | `/api/holidays` | holidayController | ✅ | admin/leader | CRUD ngày lễ |
 | `/api/timesheet-lock` | timesheetLockController | ✅ | admin/leader | Chốt công tháng |
 | `/api/health` | inline | ❌ | — | Health check endpoint |
-
----
-
-## Quy tắc code
-
-### Backend (Node.js / Express)
-- CommonJS: `require()` / `module.exports`
-- snake_case cho DB fields, camelCase cho JS variables
-- Mỗi domain có 1 controller + 1 route file
-- Error response format: `{ error: "message" }`
-- Timezone: `Asia/Ho_Chi_Minh` cho mọi tính toán ngày/giờ
-- Date format: `YYYY-MM-DD` (string, không phải Date object)
-
-### Frontend (React / Vite)
-- ES Modules: `import` / `export`
-- JSX (không TypeScript)
-- Zustand cho state management
-- API calls qua `services/api.js` (Axios instance có JWT interceptor)
-- Routing: `react-router-dom` v7
-
-### CSS / Styling
-- Vanilla CSS với CSS variables (không TailwindCSS)
-- Design tokens trong `index.css`
-- Mobile-first responsive design (min-width 320px)
-- Dark/light theme via `[data-theme="dark"]` selector
-- Icons: `lucide-react` (line-art, không filled)
-- Toast: `react-hot-toast`
-
-### Ngôn ngữ
-- Tiếng Việt cho user-facing strings (labels, toast messages, error messages)
-- Tiếng Anh cho code (variable names, function names, technical comments)
 
 ---
 
@@ -215,84 +155,19 @@ User model có 2 trường:
   - Mã hóa từ GPU WebGL unmasked renderer, CPU cores, Screen resolution, Audio sample rate, Timezone.
   - Chống 100% việc gian lận qua Tab ẩn danh (Incognito) hoặc chuyển trình duyệt (Chrome vs Edge) trên cùng 1 máy.
   - Tự động bắt chụp ảnh Selfie khi phát hiện dùng chung máy hoặc nhiều tài khoản.
-- **Trung Tâm Duyệt Cảnh Báo (Admin Only)**:
-  - Khung duyệt selfie & thiết bị nghi vấn dành riêng cho `admin` (`requireRole('admin')`).
-  - Hỗ trợ Duyệt (`verification_status = 'approved'`, tự động lưu máy chính) và Từ Chối kèm tùy chọn **"Xóa dữ liệu để nhân viên chấm công lại"** (`allow_recheckin: true`).
+- **Trung Tâm Duyệt Cảnh Báo (Admin & Leader)**:
+  - Khung duyệt selfie & thiết bị nghi vấn, hỗ trợ filter `Chờ duyệt`, `Thiết bị lạ`, `Kèm ảnh Selfie`, `Đã duyệt`, `Từ chối`.
+  - Hỗ trợ Duyệt (`verification_status = 'approved'`, tự động lưu máy chính `is_trusted = true`), Từ Chối kèm gợi ý lý do nhanh + tùy chọn **"Xóa dữ liệu để nhân viên chấm công lại"**, Hoàn tác (`revert`) và Xóa ca (`delete`).
 - **Quản Lý Thiết Bị Chính Chủ (Device Management)**:
   - API `GET/PUT/DELETE /api/users/:id/devices` xem danh sách thiết bị, đặt **`⭐ MÁY CHÍNH`** (`trustUserDevice`) hoặc xóa thiết bị cũ (`deleteUserDevice`).
-- Rate limiting: 5000 req/15min (general, auto-skip localhost/dev mode), 100 req/min (check-in)
-- CORS: `origin: true` (frontend/backend tách domain)
-- `password_hash` KHÔNG BAO GIỜ trả về trong API response
-- GPS coordinates phải validate là số hợp lệ trước khi lưu
 
 ---
 
-## Database Rules
+## Quy trình Kiểm thử
 
-- Mỗi user chỉ có 1 attendance record/ngày (unique index `user_id + date`)
-- `date` field luôn format `YYYY-MM-DD` (string)
-- Timezone luôn là `Asia/Ho_Chi_Minh`
-- `department_ids` là array ObjectId, `department_id` là ObjectId đơn (backward compat)
-
----
-
-## Environment Variables
-
-```env
-# Server
-PORT=5000
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/<db>
-JWT_SECRET=<random-secret-key>
-JWT_EXPIRES_IN=7d
-NODE_ENV=production
-
-# GPS Office mặc định
-OFFICE_LAT=10.7769
-OFFICE_LNG=106.7009
-OFFICE_RADIUS_METERS=100
-```
-
----
-
-## Seed Data mặc định
-
-- **Admin**: Cấu hình qua `INITIAL_ADMIN_EMAIL` & `INITIAL_ADMIN_PASSWORD` (mặc định: `admin@company.com`)
-- **Phòng ban**: Kiến trúc, Kết cấu, Nội thất, Hành chính
-- **Văn phòng**: GPS HCM (10.7769, 106.7009), bán kính 100m
-
----
-
-## Lệnh phát triển
-
+Chạy bộ test suite 203 kịch bản:
 ```bash
-# Frontend development server
-cd client && npm run dev          # http://localhost:5173
-
-# Backend development server
-cd server && npm run dev          # http://localhost:5000 (nodemon)
-
-# Production build
-cd client && npm run build        # Output → client/dist/
-
-# Start production server (serves both API + built frontend)
-cd server && npm start            # http://localhost:5000
-
-# Lint
-cd client && npm run lint         # oxlint
+cd server
+npm test
 ```
-
----
-
-## Deployment
-
-### Frontend (Vercel)
-- Build command: `cd client && npm run build`
-- Output directory: `client/dist`
-- Framework preset: Vite
-- SPA routing: `vercel.json` → rewrites all paths to `index.html`
-
-### Backend (Render.com)
-- Build command: `cd server && npm install`
-- Start command: `cd server && npm start`
-- Environment: Node.js
-- Auto-deploy from `main` branch
+Tất cả 203/203 test cases chạy hoàn toàn trên bộ nhớ In-Memory, cam kết không tác động đến cơ sở dữ liệu thật trên MongoDB Atlas.

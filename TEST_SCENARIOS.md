@@ -1,6 +1,6 @@
 # 🧪 TÀI LIỆU KỊCH BẢN KIỂM THỬ HỆ THỐNG TOÀN DIỆN (TEST SCENARIOS)
 **Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh  
-**Phiên bản kiểm thử:** 6.0.0 (Zero-Impact Resilience, Concurrency & Mutation Testing — 29 Test Suites / 158 Test Cases)  
+**Phiên bản kiểm thử:** 7.0.0 (Zero-Impact Resilience, Concurrency, Mutation & Expert Business Suites — 31 Test Suites / 203 Test Cases)  
 **Tác giả:** [hocjsoo](https://github.com/hocjsoo)
 
 ---
@@ -11,7 +11,8 @@ Hệ thống kiểm thử này được thiết kế theo các tiêu chuẩn k�
 1. **Không kết nối hoặc làm thay đổi MongoDB Atlas Prod**: Tất cả dữ liệu thử nghiệm đều chạy trên bộ nhớ (In-Memory Mock), cô lập 100%.
 2. **Không làm gián đoạn người dùng thật**: Các yêu cầu kiểm thử diễn ra hoàn toàn độc lập, không tạo bản ghi rác, không kích hoạt thông báo thật, không gửi email/push.
 3. **Kiểm thử Phá hoại & Bất thường (Chaos & Adversarial Testing)**: Kiểm thử tải đồng thời (Race Condition), dữ liệu rác/Fuzzing, lỗi giao dịch giữa chừng (Transaction Rollback) và cấy lỗi đột biến (Mutation Testing Engine).
-4. **Thực thi siêu tốc (< 350ms)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
+4. **Kiểm thử Nghiệp vụ Chuyên Gia (Expert QA Suites)**: Kiểm thử vòng đời duyệt đơn nhiều ngày, tính công OT tự động, ranh giới phân quyền bảo vệ Admin, bộ chọn thời gian +-15p và chuyển ngày tự động.
+5. **Thực thi siêu tốc (< 350ms)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
 
 ---
 
@@ -30,7 +31,7 @@ npm test
 
 ---
 
-## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử
+## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (31 Suites / 203 Test Cases)
 
 ### PHẦN A: KIỂM THỬ BACKEND & THUẬT TOÁN NGHIỆP VỤ (16 Suites)
 Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, chốt công ma trận, đơn từ, phép năm, chống gian lận phần cứng, đa phòng ban, đính chính giờ, ngày lễ, công trình, thông báo, thống kê dashboard, xuất Excel, xác thực mật khẩu, đa chi nhánh, ca làm việc.
@@ -68,6 +69,35 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 | **TC-MUT-03** | Mutation Testing | Tiêu diệt Mutant 3: Cấy bug bảo mật bypass RBAC | Bỏ qua middleware kiểm tra quyền `requireRole` | **ĐÃ TIÊU DIỆT (KILLED)** — Bộ test phát hiện lỗ hổng ngay lập tức |
 | **TC-MUT-04** | Mutation Testing | Tiêu diệt Mutant 4: Cấy bug bỏ qua cờ cảnh báo vượt phép | Luôn trả về `is_overdrawn = false` | **ĐÃ TIÊU DIỆT (KILLED)** — Bộ test phát hiện thiếu cờ cảnh báo ngay lập tức |
 
+### PHẦN F: KIỂM THỬ CHUYÊN GIA NGHIỆP VỤ & BỘ CHỌN THỜI GIAN THÔNG MINH (2 Suites / 24 Test Cases)
+
+| Test ID | Phân hệ (Module) | Kịch bản kiểm thử | Mô phỏng Tình huống (Scenario) | Kết quả mong đợi (Expected Output) |
+|---|---|---|---|---|
+| **TC-EXP-REQ-01.1** | Expert Request | Duyệt đơn nghỉ phép nhiều ngày | Trưởng phòng duyệt đơn nghỉ 3 ngày (25-27/08) | Duyệt thành công 200 OK |
+| **TC-EXP-REQ-01.2** | Expert Request | Tính chính xác số ngày nghỉ dải ngày | Dải ngày 2026-08-25 đến 2026-08-27 | Tính ra chính xác 3 ngày nghỉ phép |
+| **TC-EXP-REQ-01.3** | Expert Request | Tự động đồng bộ điểm danh nhiều ngày | Kiểm tra 3 bản ghi điểm danh tương ứng | Tạo đủ 3 bản ghi status="leave", công 1.0 |
+| **TC-EXP-REQ-02.1** | Expert Request | Duyệt đơn tăng ca ngoài giờ | Duyệt đơn làm ca tối 18:30 -> 21:30 | Đơn chuyển trạng thái approved |
+| **TC-EXP-REQ-02.2** | Expert Request | Tự động cộng dồn giờ OT | Ca 18:30 -> 21:30 (3 giờ) | Tự động cập nhật `ot_hours = 3.0` trong bảng công |
+| **TC-EXP-REQ-03.1** | Expert Request | Chặn Leader duyệt đơn của Admin | Leader cố tình gửi request duyệt đơn Admin | Bị chặn với lỗi `403 Forbidden` |
+| **TC-EXP-REQ-03.2** | Expert Request | Quyền Admin duyệt đơn toàn hệ thống | Admin duyệt đơn cho nhân viên bất kỳ | Duyệt thành công 200 OK |
+| **TC-EXP-REQ-04.1** | Expert Request | Xóa phạt đi muộn khi duyệt giải trình | Nhân viên gửi đơn giải trình đi muộn hợp lệ | Xóa cờ is_late=false, late_minutes=0 |
+| **TC-EXP-REQ-04.2** | Expert Request | Phục hồi đủ công lao động | Ngày bị trừ công do đi muộn | Phục hồi trọn vẹn `work_units = 1.0` |
+| **TC-EXP-REQ-05.1** | Expert Request | Duyệt đơn WFH làm từ xa | Đơn WFH được quản lý phê duyệt | Ghi nhận `check_in_type = "wfh"`, status="present" |
+| **TC-EXP-REQ-05.2** | Expert Request | Tính công chuẩn cho ngày WFH | Ngày làm từ xa được chấp thuận | Ghi nhận đủ 1.0 công chuẩn |
+| **TC-EXP-TIME-01.1** | Time Stepper | Stepper tăng 15 phút thường | 08:30 + 15p | 08:45 |
+| **TC-EXP-TIME-01.2** | Time Stepper | Stepper tăng 15 phút chuyển giờ tròn | 08:45 + 15p | 09:00 |
+| **TC-EXP-TIME-01.3** | Time Stepper | Stepper tăng 30 phút | 17:30 + 30p | 18:00 |
+| **TC-EXP-TIME-02.1** | Time Stepper | Stepper giảm 15 phút chuyển giờ | 09:00 - 15p | 08:45 |
+| **TC-EXP-TIME-02.2** | Time Stepper | Stepper giảm 30 phút | 08:15 - 30p | 07:45 |
+| **TC-EXP-TIME-03.1** | Time Stepper | Chặn an toàn ở biên dưới 00:00 | 00:05 - 15p | Chặn an toàn tại `00:00` (không bị âm) |
+| **TC-EXP-TIME-03.2** | Time Stepper | Chặn an toàn ở biên trên 23:59 | 23:50 + 20p | Chặn an toàn tại `23:59` |
+| **TC-EXP-TIME-04.1** | Date Shifter | Chuyển ngày tới (+1 ngày) | 2026-08-24 + 1 ngày | 2026-08-25 |
+| **TC-EXP-TIME-04.2** | Date Shifter | Chuyển ngày lùi (-1 ngày) | 2026-08-24 - 1 ngày | 2026-08-23 |
+| **TC-EXP-TIME-04.3** | Date Shifter | Chuyển ngày qua tháng mới | 2026-08-31 + 1 ngày | 2026-09-01 (Chuyển tháng chính xác) |
+| **TC-EXP-TIME-05.1** | Live Calc | Tính giờ làm ca chuẩn | 08:30 -> 17:30 | 9.0h làm việc, 0h OT |
+| **TC-EXP-TIME-05.2** | Live Calc | Tính giờ làm & OT ca tối | 08:30 -> 20:00 | 11.5h làm việc, 1.5h OT (sau 18:30) |
+| **TC-EXP-TIME-05.3** | Live Calc | Xử lý an toàn giờ ra < giờ vào | Giờ ra 08:00, giờ vào 08:30 | Xử lý an toàn trả về 0h |
+
 ---
 
 ## 4. Cấu trúc Mã nguồn Thư mục Tests
@@ -75,8 +105,8 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 ```
 server/
 ├── tests/
-│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (29 Suites)
-│   ├── unit/                          # 16 Backend Unit Suites
+│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (31 Suites / 203 Test Cases)
+│   ├── unit/                          # 18 Backend Unit & Expert Suites
 │   │   ├── attendance.test.js
 │   │   ├── clientAuthStore.test.js
 │   │   ├── clientDeviceFingerprint.test.js
@@ -87,6 +117,8 @@ server/
 │   │   ├── correctionWorkflow.test.js
 │   │   ├── dashboardStats.test.js
 │   │   ├── deviceFingerprint.test.js
+│   │   ├── expertRequestApproval.test.js  # [EXP-REQ] Vòng đời duyệt đơn nhiều ngày, OT & RBAC
+│   │   ├── expertTimeDateAdjuster.test.js # [EXP-TIME] Bộ chọn giờ +-15p & tính giờ làm việc
 │   │   ├── exportCalculations.test.js
 │   │   ├── haversine.test.js
 │   │   ├── holidayMatrix.test.js
