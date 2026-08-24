@@ -80,7 +80,6 @@ function loadLeafletScript(timeoutMs = 12000) {
 }
 
 async function loadLeafletAssets(timeoutMs = 12000) {
-  if (window.L) return window.L;
   const [, L] = await Promise.all([
     loadLeafletStylesheet(timeoutMs),
     loadLeafletScript(timeoutMs)
