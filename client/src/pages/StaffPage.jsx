@@ -439,9 +439,29 @@ export default function StaffPage() {
     toast.success('Đã tải xuống danh sách gửi xe tòa 17T10 thành công! 📄');
   };
 
-  const activeCount = staff.filter(s => s.is_active !== false).length;
-  const adminCount  = staff.filter(s => s.role === 'admin').length;
-  const mgCount     = staff.filter(s => s.role === 'manager' || s.role === 'leader').length;
+  const activeCount = staff.filter(s => normalizeStatus(s.employment_status) === 'dang_lam_viec' && s.is_active !== false).length;
+  const resignedCount = staff.filter(s => normalizeStatus(s.employment_status) === 'da_nghi_viec' || s.is_active === false).length;
+  const sickCount = staff.filter(s => normalizeStatus(s.employment_status) === 'nghi_om').length;
+  const matCount = staff.filter(s => normalizeStatus(s.employment_status) === 'nghi_thai_san').length;
+
+  const adminCount = staff.filter(s => s.role === 'admin').length;
+  const mgCount = staff.filter(s => s.role === 'manager' || s.role === 'leader').length;
+  const empCount = staff.filter(s => s.role === 'employee' || s.role === 'staff' || !s.role).length;
+
+  const nsCount = staff.filter(s => (s.employee_type || 'NS') === 'NS').length;
+  const tvCount = staff.filter(s => s.employee_type === 'TV').length;
+  const ttsCount = staff.filter(s => s.employee_type === 'TTS').length;
+
+  const isFiltered = Boolean(search || filterRole || filterStatus || filterEmpType || filterDept);
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setFilterRole('');
+    setFilterStatus('');
+    setFilterEmpType('');
+    setFilterDept('');
+    setSortBy('name_asc');
+  };
 
   return (
     <div className="page">
@@ -449,7 +469,9 @@ export default function StaffPage() {
         <div className="header__inner">
           <div>
             <div className="header__title">Nhân viên</div>
-            <div className="header__subtitle">{staff.length} người · {depts.length} phòng ban</div>
+            <div className="header__subtitle">
+              {activeCount} đang làm việc · {resignedCount > 0 ? `${resignedCount} đã nghỉ · ` : ''}{depts.length} phòng ban
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button
@@ -471,18 +493,49 @@ export default function StaffPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* Quick stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '12px' }}>
-          {[
-            { label: 'Đang hoạt động', value: activeCount, color: 'var(--green)', bg: 'var(--green-soft)' },
-            { label: 'Leader', value: mgCount, color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
-            { label: 'Quản trị viên', value: adminCount, color: 'var(--red)', bg: 'var(--red-soft)' },
-          ].map((item, i) => (
-            <div key={i} style={{ background: item.bg, borderRadius: '10px', padding: '10px', textAlign: 'center', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: item.color }}>{item.value}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>{item.label}</div>
-            </div>
-          ))}
+        {/* Interactive KPI Summary Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+          <div
+            onClick={() => setFilterStatus(filterStatus === 'Dang lam viec' ? '' : 'Dang lam viec')}
+            className="card card--interactive"
+            style={{
+              background: filterStatus === 'Dang lam viec' ? 'var(--green-soft)' : 'var(--bg-card)',
+              borderRadius: '10px', padding: '10px', textAlign: 'center',
+              border: filterStatus === 'Dang lam viec' ? '2px solid var(--green)' : '1px solid var(--border)',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--green)' }}>{activeCount}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>🟢 Đang làm việc</div>
+          </div>
+
+          <div
+            onClick={() => setFilterStatus(filterStatus === 'Da nghi viec' ? '' : 'Da nghi viec')}
+            className="card card--interactive"
+            style={{
+              background: filterStatus === 'Da nghi viec' ? 'rgba(150, 150, 150, 0.15)' : 'var(--bg-card)',
+              borderRadius: '10px', padding: '10px', textAlign: 'center',
+              border: filterStatus === 'Da nghi viec' ? '2px solid var(--text-muted)' : '1px solid var(--border)',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-secondary)' }}>{resignedCount}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>⚪ Đã nghỉ việc</div>
+          </div>
+
+          <div
+            onClick={() => setFilterRole(filterRole === 'leader' ? '' : 'leader')}
+            className="card card--interactive"
+            style={{
+              background: filterRole === 'leader' ? 'var(--yellow-soft)' : 'var(--bg-card)',
+              borderRadius: '10px', padding: '10px', textAlign: 'center',
+              border: filterRole === 'leader' ? '2px solid var(--yellow)' : '1px solid var(--border)',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--yellow)' }}>{mgCount + adminCount}</div>
+            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>👑 Leader & QTV</div>
+          </div>
         </div>
 
         {/* Search + Multi-type Filters */}
@@ -508,45 +561,79 @@ export default function StaffPage() {
               <option value="code_asc">🏷️ Mã nhân viên</option>
             </select>
 
-            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
-              <option value="">👤 Vai trò: Tất cả</option>
-              <option value="employee">Nhân viên</option>
-              <option value="leader">Leader</option>
-              <option value="admin">Admin</option>
+            {/* Role Filter with Dynamic Counts */}
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0, fontWeight: filterRole ? 700 : 500 }} value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+              <option value="">👤 Vai trò: Tất cả ({staff.length})</option>
+              <option value="employee">Nhân viên ({empCount})</option>
+              <option value="leader">Leader ({mgCount})</option>
+              <option value="admin">Admin ({adminCount})</option>
             </select>
 
-            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="">📌 Trạng thái: Tất cả</option>
-              <option value="Dang lam viec">🟢 Đang làm việc</option>
-              <option value="Da nghi viec">⚪ Đã nghỉ việc</option>
-              <option value="Nghi om">🟡 Nghỉ ốm</option>
-              <option value="Nghi thai san">🔵 Nghỉ thai sản</option>
+            {/* Status Filter with Dynamic Counts */}
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0, fontWeight: filterStatus ? 700 : 500 }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">📌 Trạng thái: Tất cả ({staff.length})</option>
+              <option value="Dang lam viec">🟢 Đang làm việc ({activeCount})</option>
+              <option value="Da nghi viec">⚪ Đã nghỉ việc ({resignedCount})</option>
+              {sickCount > 0 && <option value="Nghi om">🟡 Nghỉ ốm ({sickCount})</option>}
+              {matCount > 0 && <option value="Nghi thai san">🔵 Nghỉ thai sản ({matCount})</option>}
             </select>
 
-            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0 }} value={filterEmpType} onChange={e => setFilterEmpType(e.target.value)}>
-              <option value="">🏷️ Loại NS: Tất cả</option>
-              <option value="NS">NS - Chính thức</option>
-              <option value="TV">TV - Thử việc</option>
-              <option value="TTS">TTS - Thực tập sinh</option>
+            {/* Employee Type Filter with Dynamic Counts */}
+            <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0, fontWeight: filterEmpType ? 700 : 500 }} value={filterEmpType} onChange={e => setFilterEmpType(e.target.value)}>
+              <option value="">🏷️ Loại NS: Tất cả ({staff.length})</option>
+              <option value="NS">NS - Chính thức ({nsCount})</option>
+              <option value="TV">TV - Thử việc ({tvCount})</option>
+              <option value="TTS">TTS - Thực tập sinh ({ttsCount})</option>
             </select>
           </div>
         </div>
 
-        {/* Dept filter chips */}
+        {/* Dept filter chips with Dynamic Counts */}
         {depts.length > 1 ? (
           <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '2px' }}>
-            <button onClick={() => setFilterDept('')} className={`chip${!filterDept ? ' active' : ''}`}>Tất cả phòng ban</button>
-            {depts.map(d => (
-              <button key={d._id} onClick={() => setFilterDept(d._id)} className={`chip${filterDept === d._id ? ' active' : ''}`}>
-                {d.name}
-              </button>
-            ))}
+            <button onClick={() => setFilterDept('')} className={`chip${!filterDept ? ' active' : ''}`}>
+              Tất cả phòng ban ({staff.length})
+            </button>
+            {depts.map(d => {
+              const dIdStr = String(d._id);
+              const countInDept = staff.filter(s => {
+                const userDeptIds = (s.department_ids && s.department_ids.length > 0)
+                  ? s.department_ids.map(item => String(item?._id || item))
+                  : (s.department_id ? [String(s.department_id?._id || s.department_id)] : []);
+                return userDeptIds.includes(dIdStr);
+              }).length;
+
+              return (
+                <button key={d._id} onClick={() => setFilterDept(d._id)} className={`chip${filterDept === d._id ? ' active' : ''}`}>
+                  {d.name} ({countInDept})
+                </button>
+              );
+            })}
           </div>
         ) : depts.length === 1 ? (
           <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>🏢 Phòng ban:</span> <span className="chip active" style={{ fontSize: '11px', padding: '3px 10px' }}>{depts[0].name}</span>
+            <span>🏢 Phòng ban:</span> <span className="chip active" style={{ fontSize: '11px', padding: '3px 10px' }}>{depts[0].name} ({staff.length})</span>
           </div>
         ) : null}
+
+        {/* Filter Result Counter & Reset Button */}
+        {isFiltered && (
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: 'var(--bg-raised)', padding: '6px 12px', borderRadius: '8px',
+            border: '1px solid var(--border)', fontSize: '12px', marginBottom: '12px'
+          }}>
+            <span style={{ color: 'var(--text-secondary)' }}>
+              Đang lọc: <strong style={{ color: 'var(--primary)' }}>{filtered.length}</strong> / {staff.length} nhân sự
+            </span>
+            <button
+              onClick={handleResetFilters}
+              style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '11.5px', fontWeight: 700 }}
+            >
+              ✕ Xóa bộ lọc
+            </button>
+          </div>
+        )}
 
         {/* Staff list */}
         {loading ? (
