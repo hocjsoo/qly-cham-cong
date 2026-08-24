@@ -41,7 +41,22 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 export default function ReportPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
-  const isAdminOrManager = isAdmin;
+
+  if (!isAdmin) {
+    return (
+      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '32px', maxWidth: '480px', margin: '0 auto' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px' }}>
+            Quyền Hạn Bị Giới Hạn
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Bảng công tổng hợp và Bảng chi tiết chấm công chỉ dành riêng cho Ban Quản Trị (Admin).
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -406,24 +421,20 @@ export default function ReportPage() {
           {/* Navigation Tabs */}
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
             <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
-              <Lock size={13} /> {isAdminOrManager ? 'Chốt Công ET_Staff' : 'Bảng Chấm Công Tổng Hợp'}
+              <Lock size={13} /> Chốt Công ET_Staff
             </button>
             <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
               <FileText size={13} /> Bảng Chi Tiết Cá Nhân
             </button>
-            {isAdminOrManager && (
-              <>
-                <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
-                  <BarChart3 size={13} /> Tổng quan
-                </button>
-                <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
-                  <Calculator size={13} /> Bảng tính công
-                </button>
-                <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
-                  <Trophy size={13} /> Xếp hạng
-                </button>
-              </>
-            )}
+            <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
+              <BarChart3 size={13} /> Tổng quan
+            </button>
+            <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
+              <Calculator size={13} /> Bảng tính công
+            </button>
+            <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
+              <Trophy size={13} /> Xếp hạng
+            </button>
           </div>
         </div>
 

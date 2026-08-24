@@ -40,7 +40,7 @@ export default function Layout() {
     ...(!isStaff ? [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }] : []),
     { to: '/checkin', icon: Clock, label: 'Chấm công' },
     { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
-    { to: '/reports', icon: BarChart2, label: 'Bảng công' },
+    ...(isAdmin ? [{ to: '/reports', icon: BarChart2, label: 'Bảng công' }] : []),
     { to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null },
     { to: '/history', icon: History, label: 'Lịch sử' },
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
