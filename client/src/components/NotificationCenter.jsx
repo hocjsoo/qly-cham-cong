@@ -90,21 +90,18 @@ export default function NotificationCenter() {
     let detailNotif = { ...notif };
 
     // Auto-enrich holiday notification with detailed letter note if not already full
-    if (notif.type === 'announcement' && notif.title && notif.title.includes('NGHỈ LỄ')) {
+    if (notif.type === 'announcement' && notif.title && (notif.title.includes('NGHỈ LỄ') || notif.title.includes('THÔNG BÁO'))) {
       try {
         const { data: holidays } = await api.get('/holidays');
         if (Array.isArray(holidays)) {
-          const cleanTitle = notif.title.replace(/^📢\s*(THÔNG BÁO|CẬP NHẬT LỊCH)\s*NGHỈ LỄ:\s*/i, '').trim().toUpperCase();
+          const cleanTitle = notif.title.replace(/^📢\s*(THÔNG BÁO|CẬP NHẬT LỊCH)?\s*(NGHỈ LỄ:?)?\s*/i, '').trim().toUpperCase();
           const matched = holidays.find(h => 
             h.name.toUpperCase().includes(cleanTitle) ||
             cleanTitle.includes(h.name.toUpperCase()) ||
             (notif.message && notif.message.includes(h.name))
           );
           if (matched && matched.note && matched.note.trim()) {
-            const dateText = matched.end_date && matched.end_date !== matched.date
-              ? `từ ${matched.date} đến ${matched.end_date}`
-              : `ngày ${matched.date}`;
-            detailNotif.message = `Công ty trân trọng thông báo lịch nghỉ lễ "${matched.name}" (${dateText}):\n\n${matched.note.trim()}`;
+            detailNotif.message = matched.note.trim();
           }
         }
       } catch {
