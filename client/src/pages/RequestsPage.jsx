@@ -455,7 +455,7 @@ export default function RequestsPage() {
                               style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }}
                               title="Click để xem hồ sơ nhân sự"
                             >
-                              <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)', textDecoration: 'underline' }}>
+                              <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)' }}>
                                 👤 {item.user_id?.full_name || 'Nhân viên'}
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>
@@ -640,8 +640,7 @@ export default function RequestsPage() {
                                 style={{
                                   fontSize: '12px', fontWeight: 700,
                                   color: r.user_id ? 'var(--primary)' : 'var(--text)',
-                                  cursor: r.user_id ? 'pointer' : 'default',
-                                  textDecoration: r.user_id ? 'underline' : 'none'
+                                  cursor: r.user_id ? 'pointer' : 'default'
                                 }}
                                 title={r.user_id ? 'Click để xem hồ sơ nhân sự' : ''}
                               >

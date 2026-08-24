@@ -729,7 +729,7 @@ export default function ProjectsPage() {
                                 </div>
                               )}
                               <div style={{ lineHeight: 1.2 }}>
-                                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)' }}>
                                   {p.pm_name}
                                 </div>
                                 {foundPm.position && (
@@ -942,7 +942,7 @@ export default function ProjectsPage() {
                                 {pmInitials}
                               </div>
                             )}
-                            <span style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                            <span>
                               👷 PM: {p.pm_name}
                             </span>
                           </div>
@@ -1457,7 +1457,7 @@ export default function ProjectsPage() {
                 })()}
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Trưởng dự án (PM)</div>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', textDecoration: selectedProjectDetail.pm_name ? 'underline' : 'none', textUnderlineOffset: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {selectedProjectDetail.pm_name || 'Chưa phân công'}
                   </div>
                 </div>

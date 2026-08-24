@@ -383,8 +383,8 @@ export default function VehiclesPage() {
                             </div>
                           )}
                           <div>
-                            <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '13px', whiteSpace: 'nowrap', textDecoration: 'underline' }}>{s.full_name}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--primary)' }}>#{s.employee_code || 'NS'}</div>
+                            <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{s.full_name}</div>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>#{s.employee_code || 'NS'}</div>
                           </div>
                         </div>
                       </td>
@@ -475,7 +475,7 @@ export default function VehiclesPage() {
                         </div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)', textDecoration: 'underline' }}>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)' }}>
                           {s.full_name} {isMine && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.department_name || 'Phòng ban'}</div>
