@@ -749,41 +749,71 @@ export default function StaffPage() {
       {/* Create/Edit Form Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '720px',
+              width: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              margin: 'auto',
+              borderRadius: '16px',
+              padding: '22px 26px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>
-                {editing ? `Sửa: ${editing.full_name}` : 'Thêm nhân viên mới'}
-              </h3>
-              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
-                <X size={18} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UserPlus size={22} color="var(--primary)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                    {editing ? `Chỉnh Sửa Nhân Viên: ${editing.full_name}` : 'Thêm Nhân Viên Mới'}
+                  </h3>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {editing ? `Mã định danh: #${editing.employee_code || 'NS'}` : 'Điền đầy đủ thông tin để tạo hồ sơ và cấp tài khoản nhân sự'}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
+                <X size={20} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Họ và Tên *</label>
-              <input type="text" className="form-input" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder="Nguyễn Văn A" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Email *</label>
-              <input type="email" className="form-input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="nva@company.com" disabled={Boolean(editing)} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{editing ? 'Mật khẩu mới (bỏ trống nếu không đổi)' : 'Mật khẩu *'}</label>
-              <input type="password" className="form-input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div className="form-group">
-                <label className="form-label">Số điện thoại</label>
-                <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="0912345678" />
+            {/* Row 1: Full name & Email */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Họ và Tên *</label>
+                <input type="text" className="form-input" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} placeholder="VD: Nguyễn Văn A" />
               </div>
-              <div className="form-group">
-                <label className="form-label">🎂 Ngày sinh</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Email đăng nhập *</label>
+                <input type="email" className="form-input" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="nva@company.com" disabled={Boolean(editing)} />
+              </div>
+            </div>
+
+            {/* Row 2: Password & Phone */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>{editing ? 'Mật khẩu mới (bỏ trống nếu giữ nguyên)' : 'Mật khẩu đăng nhập *'}</label>
+                <input type="password" className="form-input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Tối thiểu 6 ký tự" />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Số điện thoại liên hệ</label>
+                <input type="text" className="form-input" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="VD: 0912345678" />
+              </div>
+            </div>
+
+            {/* Row 3: DOB & Join Date */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🎂 Ngày sinh</label>
                 <input type="date" className="form-input" value={form.dob} onChange={e => setForm({ ...form, dob: e.target.value })} onClick={e => e.target.showPicker && e.target.showPicker()} />
               </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div className="form-group">
+              <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
                   📅 Ngày vào công ty
                 </label>
@@ -795,37 +825,39 @@ export default function StaffPage() {
                   onClick={e => e.target.showPicker && e.target.showPicker()}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Mã nhân sự / ID (Tùy chọn)</label>
+            </div>
+
+            {/* Row 4: Employee code & Position */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏷️ Mã nhân sự / ID (Tùy chọn)</label>
                 <input
                   type="text"
                   className="form-input"
                   value={form.employee_code}
                   onChange={e => setForm({ ...form, employee_code: e.target.value })}
-                  placeholder="VD: NS-001, TV-002, ET-88 (để trống tự sinh)"
+                  placeholder="VD: NS-001, TV-002 (để trống tự sinh)"
                 />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>👔 Chức vụ / Vị trí</label>
+                <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kiến trúc sư, Kỹ sư MEP..." />
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div className="form-group">
-                <label className="form-label">Chức vụ / Vị trí</label>
-                <input type="text" className="form-input" value={form.position} onChange={e => setForm({ ...form, position: e.target.value })} placeholder="VD: Kiến trúc sư, Trưởng phòng..." />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Loại nhân sự</label>
-                <select className="form-input" value={form.employee_type} onChange={e => setForm({ ...form, employee_type: e.target.value })}>
+            {/* Row 5: Employee Type, Employment Status & Role */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Loại nhân sự</label>
+                <select className="form-select" value={form.employee_type} onChange={e => setForm({ ...form, employee_type: e.target.value })}>
                   <option value="NS">NS - Nhân sự chính thức</option>
                   <option value="TV">TV - Thử việc</option>
                   <option value="TTS">TTS - Thực tập sinh</option>
                 </select>
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div className="form-group">
-                <label className="form-label">Trạng thái</label>
-                <select className="form-input" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Trạng thái làm việc</label>
+                <select className="form-select" value={form.employment_status} onChange={e => setForm({ ...form, employment_status: e.target.value })}>
                   <option value="Dang lam viec">Đang làm việc</option>
                   <option value="Da nghi viec">Đã nghỉ việc</option>
                   <option value="Nghi om">Nghỉ ốm</option>
@@ -833,19 +865,21 @@ export default function StaffPage() {
                   <option value="Khac">Khác</option>
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">Vai trò *</label>
-                <select className="form-input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>Vai trò hệ thống *</label>
+                <select className="form-select" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                   <option value="employee">Nhân viên (Employee)</option>
                   <option value="leader">Leader (Trưởng nhóm)</option>
                   {currentUser?.role === 'admin' && <option value="admin">Admin (Quản trị viên)</option>}
                 </select>
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Ảnh đại diện (Avatar)</label>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <label className="btn btn--primary" style={{ cursor: 'pointer', padding: '8px 14px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+
+            {/* Row 6: Avatar upload */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>Ảnh đại diện (Avatar)</label>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-raised)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <label className="btn btn--primary" style={{ cursor: 'pointer', padding: '8px 14px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                   📸 Chọn ảnh từ thiết bị
                   <input
                     type="file"
@@ -884,8 +918,8 @@ export default function StaffPage() {
                     }}
                   />
                 </label>
-                {form.avatar_url && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {form.avatar_url ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <img
                       src={form.avatar_url}
                       alt="avatar"
@@ -895,17 +929,20 @@ export default function StaffPage() {
                     />
                     <button type="button" onClick={() => setForm({ ...form, avatar_url: '' })} className="btn btn--ghost" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--red)' }}>Xóa ảnh</button>
                   </div>
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chưa có ảnh (sẽ dùng avatar chữ cái mặc định)</span>
                 )}
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Phòng ban * (Có thể chọn nhiều phòng ban)</label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px', background: 'var(--bg-raised)', padding: '10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            {/* Row 7: Multi-Department Selection */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>🏢 Phòng ban phụ trách * (Có thể chọn nhiều phòng ban)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '8px', background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
                 {depts.map(d => {
                   const checked = (form.department_ids || []).includes(d._id);
                   return (
-                    <label key={d._id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)' }}>
+                    <label key={d._id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text)', padding: '4px 6px', borderRadius: '6px', background: checked ? 'var(--primary-soft)' : 'transparent' }}>
                       <input
                         type="checkbox"
                         checked={checked}
@@ -919,21 +956,21 @@ export default function StaffPage() {
                           setForm({ ...form, department_ids: updated, department_id: updated[0] || '' });
                         }}
                       />
-                      <span>{d.name}</span>
+                      <span style={{ fontWeight: checked ? 700 : 500 }}>{d.name}</span>
                     </label>
                   );
                 })}
               </div>
             </div>
 
-            {/* Phương Tiện & Gửi Xe */}
-            <div style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '14px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Row 8: Phương Tiện & Gửi Xe */}
+            <div style={{ background: 'var(--bg-raised)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--primary)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>🛵 Phương Tiện & Địa Điểm Gửi Xe</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">🏢 Địa điểm gửi xe</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>🏢 Địa điểm gửi xe</label>
                   <input
                     type="text"
                     className="form-input"
@@ -941,7 +978,7 @@ export default function StaffPage() {
                     onChange={e => setForm({ ...form, parking_location: e.target.value })}
                     placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
                   />
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                     {['Tòa 17T10 Nguyễn Thị Định', 'Gửi ngoài', 'Không gửi xe'].map(loc => (
                       <button
                         key={loc}
@@ -949,10 +986,10 @@ export default function StaffPage() {
                         onClick={() => setForm({ ...form, parking_location: loc })}
                         className="btn btn--ghost"
                         style={{
-                          fontSize: '10px',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          background: form.parking_location === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'transparent',
+                          fontSize: '11px',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          background: form.parking_location === loc ? 'var(--primary-soft)' : 'transparent',
                           color: form.parking_location === loc ? 'var(--primary)' : 'var(--text-muted)',
                           borderColor: form.parking_location === loc ? 'var(--primary)' : 'var(--border)'
                         }}
@@ -963,7 +1000,7 @@ export default function StaffPage() {
                   </div>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">🛵 Mô tả xe & Biển số</label>
+                  <label className="form-label" style={{ fontWeight: 700 }}>🛵 Mô tả xe & Biển số</label>
                   <input
                     type="text"
                     className="form-input"
@@ -975,9 +1012,26 @@ export default function StaffPage() {
               </div>
             </div>
 
-            <button onClick={handleSubmit} disabled={submitting} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
-              {submitting ? <span className="spinner" /> : editing ? 'Lưu thay đổi' : 'Tạo tài khoản'}
-            </button>
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="btn btn--primary"
+                style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+              >
+                {submitting ? <span className="spinner" /> : editing ? '💾 Lưu thay đổi nhân viên' : '🚀 Tạo tài khoản nhân viên'}
+              </button>
+            </div>
           </div>
         </div>
       )}

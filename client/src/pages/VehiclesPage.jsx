@@ -526,25 +526,43 @@ export default function VehiclesPage() {
       {/* Quick Edit Modal */}
       {editingStaff && (
         <div className="modal-overlay" onClick={() => setEditingStaff(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px',
+              width: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              margin: 'auto',
+              borderRadius: '16px',
+              padding: '22px 26px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                  🛵 Cập Nhật Phương Tiện
-                </h3>
-                <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 600, marginTop: '2px' }}>
-                  {editingStaff.full_name} (#{editingStaff.employee_code || 'NS'})
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Bike size={22} color="var(--primary)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                    Cập Nhật Phương Tiện
+                  </h3>
+                  <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                    {editingStaff.full_name} (#{editingStaff.employee_code || 'NS'})
+                  </div>
                 </div>
               </div>
-              <button onClick={() => setEditingStaff(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
-                <X size={18} />
+              <button onClick={() => setEditingStaff(null)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
+                <X size={20} />
               </button>
             </div>
 
             {/* Quick Location Chips */}
-            <div className="form-group">
-              <label className="form-label">🏢 Địa điểm gửi xe</label>
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>🏢 Địa điểm gửi xe</label>
               <input
                 type="text"
                 className="form-input"
@@ -552,7 +570,7 @@ export default function VehiclesPage() {
                 onChange={e => setEditForm({ ...editForm, parking_location: e.target.value })}
                 placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
               />
-              <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
                 {['Tòa 17T10 Nguyễn Thị Định', 'Gửi ngoài', 'Không gửi xe'].map(loc => (
                   <button
                     key={loc}
@@ -560,10 +578,10 @@ export default function VehiclesPage() {
                     onClick={() => setEditForm({ ...editForm, parking_location: loc })}
                     className="btn btn--ghost"
                     style={{
-                      fontSize: '11px',
-                      padding: '4px 8px',
+                      fontSize: '12px',
+                      padding: '5px 10px',
                       borderRadius: '6px',
-                      background: editForm.parking_location === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-input)',
+                      background: editForm.parking_location === loc ? 'var(--primary-soft)' : 'var(--bg-input)',
                       color: editForm.parking_location === loc ? 'var(--primary)' : 'var(--text-secondary)',
                       borderColor: editForm.parking_location === loc ? 'var(--primary)' : 'var(--border)',
                       fontWeight: editForm.parking_location === loc ? 700 : 500
@@ -576,8 +594,8 @@ export default function VehiclesPage() {
             </div>
 
             {/* Vehicle Info & License Plate */}
-            <div className="form-group">
-              <label className="form-label">🛵 Mô tả xe & Biển số xe</label>
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>🛵 Mô tả xe & Biển số xe</label>
               <input
                 type="text"
                 className="form-input"
@@ -585,19 +603,30 @@ export default function VehiclesPage() {
                 onChange={e => setEditForm({ ...editForm, vehicle_info: e.target.value })}
                 placeholder="VD: Honda Vision Trắng - 29G1-123.45"
               />
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 💡 Ghi rõ Hãng xe, Màu sắc và Biển số xe để nộp BQL Tòa 17T10 cấp vé tháng.
               </div>
             </div>
 
-            <button
-              onClick={handleSaveQuickEdit}
-              disabled={submittingEdit}
-              className="btn btn--primary btn--full btn--lg"
-              style={{ marginTop: '10px' }}
-            >
-              {submittingEdit ? <span className="spinner" /> : 'Lưu Thay Đổi'}
-            </button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setEditingStaff(null)}
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickEdit}
+                disabled={submittingEdit}
+                className="btn btn--primary"
+                style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+              >
+                {submittingEdit ? <span className="spinner" /> : '💾 Lưu thay đổi'}
+              </button>
+            </div>
           </div>
         </div>
       )}

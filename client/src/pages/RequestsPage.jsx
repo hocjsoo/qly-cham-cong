@@ -769,21 +769,39 @@ export default function RequestsPage() {
       {/* Create Request Modal */}
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto' }}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '640px',
+              width: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              margin: 'auto',
+              borderRadius: '16px',
+              padding: '22px 26px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Tạo đơn từ mới</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Sparkles size={22} color="var(--primary)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>Tạo Đơn Từ Mới</h3>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Gửi đơn xin nghỉ phép, giải trình đi muộn, làm ngoài giờ (OT)...</div>
+                </div>
               </div>
-              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
-                <X size={18} />
+              <button onClick={() => setShowForm(false)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
+                <X size={20} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Loại đơn *</label>
-              <select className="form-input" value={type} onChange={e => setType(e.target.value)}>
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>Loại đơn xin phép *</label>
+              <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
                 {Object.entries(TYPE_CONFIG).map(([k, v]) => (
                   <option key={k} value={k}>{v.label}</option>
                 ))}
@@ -792,16 +810,16 @@ export default function RequestsPage() {
 
             {/* Dynamic Impact Preview Banner */}
             <div style={{
-              fontSize: '11px', color: 'var(--primary)', background: 'var(--primary-soft)',
-              padding: '8px 12px', borderRadius: '8px', marginBottom: '12px', lineHeight: 1.4,
-              border: '1px solid var(--primary-soft)'
+              fontSize: '12px', color: 'var(--primary)', background: 'var(--primary-soft)',
+              padding: '10px 14px', borderRadius: '10px', marginBottom: '14px', lineHeight: 1.4,
+              border: '1px solid var(--primary-soft)', fontWeight: 500
             }}>
               {getWorkflowImpactText(type)}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div className="form-group">
-                <label className="form-label">Từ ngày *</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>📅 Từ ngày *</label>
                 <input
                   type="date"
                   className="form-input"
@@ -810,8 +828,8 @@ export default function RequestsPage() {
                   onClick={e => e.target.showPicker && e.target.showPicker()}
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">Đến ngày</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>📅 Đến ngày</label>
                 <input
                   type="date"
                   className="form-input"
@@ -823,9 +841,9 @@ export default function RequestsPage() {
             </div>
 
             {['late', 'early_leave', 'overtime'].includes(type) && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div className="form-group">
-                  <label className="form-label">Từ giờ</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>⏱️ Từ giờ</label>
                   <input
                     type="time"
                     className="form-input"
@@ -834,8 +852,8 @@ export default function RequestsPage() {
                     onClick={e => e.target.showPicker && e.target.showPicker()}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Đến giờ</label>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>⏱️ Đến giờ</label>
                   <input
                     type="time"
                     className="form-input"
@@ -848,32 +866,32 @@ export default function RequestsPage() {
             )}
 
             {['business_trip', 'overtime'].includes(type) && (
-              <div className="form-group">
-                <label className="form-label">Chọn dự án / công trình (Nếu có)</label>
-                <select className="form-input" value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
-                  <option value="">-- Không chọn dự án --</option>
-                  {projects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏗️ Dự án / Công trình liên quan (Nếu có)</label>
+                <select className="form-select" value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
+                  <option value="">-- Không gắn dự án --</option>
+                  {projects.map(p => <option key={p._id} value={p._id}>{p.name} ({p.code || 'DA'})</option>)}
                 </select>
               </div>
             )}
 
-            <div className="form-group">
-              <label className="form-label">Lý do cụ thể *</label>
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>📝 Lý do cụ thể *</label>
               <textarea
                 className="form-input"
                 rows={3}
                 value={reason}
                 onChange={e => setReason(e.target.value)}
-                placeholder="Nhập lý do xin phép hoặc giải trình..."
+                placeholder="Nhập lý do xin nghỉ, giải trình đi muộn, nội dung công việc..."
               />
             </div>
 
             {/* Ảnh minh chứng đính kèm (Ảnh selfie, vé xe, đơn thuốc, ảnh công trình) */}
-            <div className="form-group">
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700 }}>
                 <span>📸 Ảnh minh chứng đính kèm (Không bắt buộc)</span>
                 {attachmentUrl && (
-                  <button type="button" onClick={() => setAttachmentUrl('')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: '11px', cursor: 'pointer' }}>
+                  <button type="button" onClick={() => setAttachmentUrl('')} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: '11.5px', cursor: 'pointer', fontWeight: 700 }}>
                     Xóa ảnh
                   </button>
                 )}
@@ -884,17 +902,18 @@ export default function RequestsPage() {
                   <img
                     src={attachmentUrl}
                     alt="Preview"
-                    style={{ width: '80px', height: '80px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--primary)' }}
+                    style={{ width: '84px', height: '84px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--primary)' }}
                   />
                 </div>
               ) : (
                 <label style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  padding: '12px', borderRadius: '10px', border: '1px dashed var(--border)',
-                  background: 'var(--bg-raised)', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)'
+                  padding: '14px', borderRadius: '10px', border: '1.5px dashed var(--border)',
+                  background: 'var(--bg-raised)', cursor: 'pointer', fontSize: '12.5px', color: 'var(--text-secondary)',
+                  transition: 'all 0.15s'
                 }}>
-                  <Camera size={18} color="var(--primary)" />
-                  <span>Chạm để chọn ảnh / chụp từ camera</span>
+                  <Camera size={20} color="var(--primary)" />
+                  <span>Chạm để chọn ảnh / chụp từ camera điện thoại</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -905,10 +924,23 @@ export default function RequestsPage() {
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={() => setShowForm(false)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleCreateRequest} disabled={submitting} className="btn btn--primary btn--full">
-                {submitting ? <span className="spinner" /> : 'Gửi đơn xác nhận'}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateRequest}
+                disabled={submitting}
+                className="btn btn--primary"
+                style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+              >
+                {submitting ? <span className="spinner" /> : '🚀 Gửi đơn xác nhận'}
               </button>
             </div>
           </div>
