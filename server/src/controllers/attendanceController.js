@@ -675,8 +675,11 @@ const getRecordByUserAndDate = async (req, res) => {
   }
 };
 
-// PUT /api/attendance/override/:id - Admin/Manager sửa hoặc tạo mới bản ghi chấm công
+// PUT /api/attendance/override/:id - CHỈ ADMIN sửa hoặc tạo mới bản ghi chấm công
 const overrideAttendance = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Admin mới có quyền điều chỉnh bản ghi chấm công.' });
+  }
   const { id } = req.params;
   const { user_id, date, check_in_time, check_out_time, check_in_type = 'office', is_late, notes, status } = req.body;
   try {
@@ -760,8 +763,11 @@ const overrideAttendance = async (req, res) => {
   }
 };
 
-// DELETE /api/attendance/:id — Admin/Leader xóa bản ghi chấm công để nhân viên chấm lại
+// DELETE /api/attendance/:id — CHỈ ADMIN xóa bản ghi chấm công để nhân viên chấm lại
 const deleteAttendance = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Admin mới có quyền xóa bản ghi chấm công.' });
+  }
   const { id } = req.params;
   try {
     const attendance = await Attendance.findById(id);

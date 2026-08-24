@@ -170,6 +170,11 @@ const updateUser = async (req, res) => {
       return res.status(403).json({ error: 'Chỉ Admin mới có quyền gán vai trò Admin.' });
     }
 
+    // Safety Rule: Leader cannot edit vehicle/parking info directly
+    if ((parking_location !== undefined || vehicle_info !== undefined || license_plate !== undefined) && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Leader không có quyền sửa thông tin gửi xe. Vui lòng nộp đơn đổi thông tin gửi xe hoặc liên hệ Admin.' });
+    }
+
     const updateData = {};
     if (full_name !== undefined) updateData.full_name = full_name;
     if (email !== undefined) updateData.email = email.toLowerCase().trim();

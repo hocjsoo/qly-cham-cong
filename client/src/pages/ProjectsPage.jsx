@@ -52,6 +52,17 @@ export default function ProjectsPage() {
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
   const isStaff = !isAdminOrManager;
 
+  // Quyền sửa dự án: Admin hoặc PM phụ trách dự án đó
+  const canEditProject = (p) => {
+    if (!p) return false;
+    if (isAdmin) return true;
+    const pmId = p?.pm_id?._id || p?.pm_id?.id || p?.pm_id;
+    if (pmId && String(pmId) === String(user?._id || user?.id)) return true;
+    if (p?.pm_name && user?.full_name && p.pm_name.trim().toLowerCase() === user.full_name.trim().toLowerCase()) return true;
+    return false;
+  };
+  const canDeleteProject = () => isAdmin;
+
   const [projects, setProjects] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -373,7 +384,7 @@ export default function ProjectsPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {isAdminOrManager && (
+            {isAdmin && (
               <button onClick={handleOpenCreate} className="btn btn--primary" style={{ padding: '6px 14px', fontSize: '13px' }}>
                 <Plus size={15} /> Thêm dự án
               </button>
@@ -827,26 +838,30 @@ export default function ProjectsPage() {
                       </td>
 
                       {/* THAO TÁC */}
-                      {isAdminOrManager && (
-                        <td style={{ padding: '9px 12px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                      <td style={{ padding: '9px 12px', textAlign: 'center', verticalAlign: 'middle', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                          {canEditProject(p) ? (
                             <button
                               onClick={() => handleOpenEdit(p)}
                               style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--primary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
-                              title="Sửa thông tin"
+                              title={isAdmin ? "Sửa thông tin dự án (Admin)" : "Sửa thông tin dự án (PM phụ trách)"}
                             >
                               <Edit2 size={13} />
                             </button>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
+                          )}
+                          {isAdmin && (
                             <button
                               onClick={() => handleDelete(p)}
                               style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}
-                              title="Xóa dự án"
+                              title="Xóa dự án (Admin)"
                             >
                               <Trash2 size={13} />
                             </button>
-                          </div>
-                        </td>
-                      )}
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -989,22 +1004,28 @@ export default function ProjectsPage() {
                     </div>
                   </div>
 
-                  {isAdminOrManager && (
+                  {(canEditProject(p) || isAdmin) && (
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid var(--border-muted)' }} onClick={e => e.stopPropagation()}>
-                      <button
-                        onClick={() => handleOpenEdit(p)}
-                        className="btn btn--ghost"
-                        style={{ flex: 1, fontSize: '12px', padding: '5px' }}
-                      >
-                        <Edit2 size={13} /> Sửa
-                      </button>
-                      <button
-                        onClick={() => handleDelete(p)}
-                        className="btn btn--ghost"
-                        style={{ fontSize: '12px', padding: '5px 10px', color: 'var(--red)' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {canEditProject(p) && (
+                        <button
+                          onClick={() => handleOpenEdit(p)}
+                          className="btn btn--ghost"
+                          style={{ flex: 1, fontSize: '12px', padding: '5px' }}
+                          title={isAdmin ? "Sửa dự án" : "Chỉnh sửa (PM phụ trách)"}
+                        >
+                          <Edit2 size={13} /> Sửa {isAdmin ? '' : '(PM)'}
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(p)}
+                          className="btn btn--ghost"
+                          style={{ fontSize: '12px', padding: '5px 10px', color: 'var(--red)' }}
+                          title="Xóa dự án (Admin)"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1709,7 +1730,7 @@ export default function ProjectsPage() {
               >
                 Đóng
               </button>
-              {isAdminOrManager && (
+              {canEditProject(selectedProjectDetail) && (
                 <button
                   onClick={() => {
                     const target = selectedProjectDetail;
@@ -1719,7 +1740,7 @@ export default function ProjectsPage() {
                   className="btn btn--ghost"
                   style={{ padding: '10px 16px', fontWeight: 700 }}
                 >
-                  <Edit2 size={14} /> Chỉnh sửa
+                  <Edit2 size={14} /> Chỉnh sửa {isAdmin ? '' : '(PM)'}
                 </button>
               )}
             </div>

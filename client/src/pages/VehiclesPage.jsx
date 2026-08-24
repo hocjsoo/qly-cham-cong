@@ -340,13 +340,12 @@ export default function VehiclesPage() {
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
           <div className="card animate-fade-in" style={{ padding: 0, overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: '100%' }}>
-            <table style={{ width: '100%', minWidth: '940px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table style={{ width: '100%', minWidth: '780px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
                   <th style={{ padding: '12px 14px', width: '50px', textAlign: 'center', whiteSpace: 'nowrap' }}>STT</th>
                   <th style={{ padding: '12px 14px', minWidth: '180px', whiteSpace: 'nowrap' }}>CHỦ XE / NHÂN VIÊN</th>
                   <th style={{ padding: '12px 14px', width: '120px', whiteSpace: 'nowrap' }}>SĐT</th>
-                  <th style={{ padding: '12px 14px', maxWidth: '220px', whiteSpace: 'nowrap' }}>PHÒNG BAN</th>
                   <th style={{ padding: '12px 14px', minWidth: '170px', whiteSpace: 'nowrap' }}>ĐỊA ĐIỂM GỬI XE</th>
                   <th style={{ padding: '12px 14px', minWidth: '200px', whiteSpace: 'nowrap' }}>MÔ TẢ XE & BIỂN SỐ</th>
                   <th style={{ padding: '12px 14px', width: '85px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
@@ -397,15 +396,6 @@ export default function VehiclesPage() {
                           <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
-                      <td
-                        style={{
-                          padding: '10px 14px', color: 'var(--text-secondary)',
-                          maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
-                        }}
-                        title={s.department_name}
-                      >
-                        {s.department_name || '—'}
-                      </td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         <span
                           className={`badge ${is17T10 ? 'badge--info' : isNoVehicle ? 'badge--neutral' : 'badge--warning'}`}
@@ -429,7 +419,7 @@ export default function VehiclesPage() {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        {isAdminOrManager ? (
+                        {isAdmin ? (
                           <button
                             onClick={() => openQuickEdit(s)}
                             className="btn btn--ghost"

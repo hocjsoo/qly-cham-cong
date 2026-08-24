@@ -33,10 +33,10 @@ router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);
 router.put('/flagged/verify/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);
 router.put('/approve-flagged/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);
 
-// PUT /api/attendance/override/:id — Admin override
-router.put('/override/:id', requireRole('admin', 'manager'), overrideAttendance);
+// PUT /api/attendance/override/:id — CHỈ ADMIN có quyền sửa giờ công
+router.put('/override/:id', requireRole('admin'), overrideAttendance);
 
-// DELETE /api/attendance/:id — Admin/Leader xóa bản ghi chấm công
-router.delete('/:id', requireRole('admin', 'manager'), deleteAttendance);
+// DELETE /api/attendance/:id — CHỈ ADMIN có quyền xóa bản ghi chấm công
+router.delete('/:id', requireRole('admin'), deleteAttendance);
 
 module.exports = router;

@@ -927,7 +927,7 @@ export default function HistoryPage() {
                             </div>
                           )}
 
-                          {isAdminOrManager && (
+                          {isAdmin && (
                             <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                               <button onClick={() => { handleOpenOverride(selectedDayRecord); setSelectedDayDate(''); }} className="btn btn--primary" style={{ flex: 1, padding: '7px', fontSize: '12px' }}>
                                 <Edit2 size={13} /> Điều chỉnh ca làm

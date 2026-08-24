@@ -13,8 +13,8 @@ router.get('/', getProjects);
 // POST /api/projects (Admin only)
 router.post('/', requireRole('admin'), createProject);
 
-// PUT /api/projects/:id (Admin only)
-router.put('/:id', requireRole('admin'), updateProject);
+// PUT /api/projects/:id (Admin hoặc PM phụ trách dự án)
+router.put('/:id', updateProject);
 
 // DELETE /api/projects/:id (Admin only)
 router.delete('/:id', requireRole('admin'), deleteProject);

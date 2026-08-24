@@ -104,6 +104,15 @@ const updateProject = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy dự án.' });
     }
 
+    // Phân quyền: Chỉ Admin hoặc PM phụ trách dự án mới có quyền sửa
+    const isAdmin = req.user.role === 'admin';
+    const isPM = (project.pm_id && project.pm_id.toString() === req.user._id.toString()) ||
+                 (project.pm_name && req.user.full_name && project.pm_name.trim().toLowerCase() === req.user.full_name.trim().toLowerCase());
+
+    if (!isAdmin && !isPM) {
+      return res.status(403).json({ error: 'Chỉ Admin hoặc PM phụ trách dự án này mới có quyền chỉnh sửa thông tin dự án.' });
+    }
+
     if (name !== undefined) project.name = name.trim();
     if (code !== undefined) project.code = code.trim();
     if (category !== undefined) project.category = category;
