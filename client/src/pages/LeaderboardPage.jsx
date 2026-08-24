@@ -14,8 +14,10 @@ import HeaderActions from '../components/HeaderActions';
 
 const TIMEFRAMES = [
   { id: 'today', label: '☀️ Hôm nay', desc: 'Đua top trực tiếp sáng nay' },
-  { id: 'month', label: '📅 Tháng này', desc: 'Nhân viên chăm chỉ của tháng' },
-  { id: 'year', label: '📆 Năm nay', desc: 'Bảng vàng tổng kết năm' },
+  { id: 'day', label: '📅 Theo ngày', desc: 'Chọn ngày cụ thể bất kỳ' },
+  { id: 'week', label: '📆 Theo tuần', desc: 'Vinh danh tuần này / tuần chọn' },
+  { id: 'month', label: '🗓️ Theo tháng', desc: 'Nhân viên chăm chỉ của tháng' },
+  { id: 'year', label: '📊 Năm nay', desc: 'Bảng vàng tổng kết năm' },
   { id: 'all', label: '👑 Toàn thời gian', desc: 'Kỷ lục từ trước đến nay' },
 ];
 
@@ -41,10 +43,32 @@ function SunriseIcon({ size = 18, color = 'currentColor' }) {
   );
 }
 
+// Helper tính khoảng thời gian Thứ 2 - CN của một tuần
+const getWeekRange = (baseDateStr) => {
+  const [y, m, d] = (baseDateStr || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' })).split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  const dayOfWeek = date.getDay();
+  const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+  const monday = new Date(date);
+  monday.setDate(date.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  const fmtDisplay = (dt) => `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+  return {
+    startDate: fmt(monday),
+    endDate: fmt(sunday),
+    displayLabel: `Tuần ${fmtDisplay(monday)} - ${fmtDisplay(sunday)}/${monday.getFullYear()}`,
+  };
+};
+
 export default function LeaderboardPage() {
   const { user } = useAuthStore();
   const [timeframe, setTimeframe] = useState('today');
   const [category, setCategory] = useState('early_bird');
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
+  const [selectedWeekDate, setSelectedWeekDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
   const [month, setMonth] = useState(String(new Date().getMonth() + 1));
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [departmentId, setDepartmentId] = useState('all');
@@ -63,7 +87,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     loadLeaderboard();
-  }, [timeframe, category, month, year, departmentId]);
+  }, [timeframe, category, selectedDate, selectedWeekDate, month, year, departmentId]);
 
   const loadDepartments = async () => {
     try {
@@ -78,8 +102,20 @@ export default function LeaderboardPage() {
       const params = new URLSearchParams();
       params.append('timeframe', timeframe);
       params.append('category', category);
-      if (timeframe === 'month') params.append('month', month);
-      if (timeframe === 'month' || timeframe === 'year') params.append('year', year);
+      
+      if (timeframe === 'day') {
+        params.append('date', selectedDate);
+      } else if (timeframe === 'week') {
+        const wr = getWeekRange(selectedWeekDate);
+        params.append('week_start', wr.startDate);
+        params.append('week_end', wr.endDate);
+      } else if (timeframe === 'month') {
+        params.append('month', month);
+        params.append('year', year);
+      } else if (timeframe === 'year') {
+        params.append('year', year);
+      }
+      
       if (departmentId !== 'all') params.append('department_id', departmentId);
 
       const res = await api.get(`/reports/leaderboard?${params.toString()}`);
@@ -118,6 +154,26 @@ export default function LeaderboardPage() {
   const top2 = data.top3?.[1] || null;
   const top3 = data.top3?.[2] || null;
 
+  // Shift day helper
+  const shiftSelectedDay = (offsetDays) => {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + offsetDays);
+    const newStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    setSelectedDate(newStr);
+  };
+
+  // Shift week helper
+  const shiftSelectedWeek = (offsetWeeks) => {
+    const [y, m, d] = selectedWeekDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + (offsetWeeks * 7));
+    const newStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    setSelectedWeekDate(newStr);
+  };
+
+  const activeWeekInfo = getWeekRange(selectedWeekDate);
+
   return (
     <div className="page" style={{ paddingBottom: '90px' }}>
       {/* Header */}
@@ -127,7 +183,7 @@ export default function LeaderboardPage() {
             <div className="header__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Trophy size={22} color="#f59e0b" /> Bảng Vinh Danh & Đua Top
             </div>
-            <div className="header__subtitle">Vinh danh thành tích chăm chỉ & cống hiến</div>
+            <div className="header__subtitle">Vinh danh thành tích chăm chỉ & cống hiến theo Ngày, Tuần, Tháng, Năm</div>
           </div>
           <HeaderActions />
         </div>
@@ -146,9 +202,9 @@ export default function LeaderboardPage() {
                   padding: '8px 14px',
                   borderRadius: '10px',
                   border: isActive ? '1.5px solid var(--primary)' : '1px solid var(--border)',
-                  background: isActive ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-card)',
+                  background: isActive ? 'var(--primary-soft)' : 'var(--bg-card)',
                   color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-                  fontWeight: isActive ? 700 : 500,
+                  fontWeight: isActive ? 800 : 500,
                   fontSize: '13px',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
@@ -200,15 +256,15 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Filters Toolbar */}
-        <div className="card" style={{ padding: '10px 12px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
+        <div className="card" style={{ padding: '12px 14px', marginBottom: '16px', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
               <input
                 type="text"
                 className="form-input"
-                style={{ paddingLeft: '32px', fontSize: '12.5px', height: '32px' }}
-                placeholder="Tìm nhân sự, phòng ban..."
+                style={{ paddingLeft: '32px', fontSize: '12.5px', height: '34px' }}
+                placeholder="🔍 Tìm nhân sự, phòng ban..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -217,7 +273,7 @@ export default function LeaderboardPage() {
             {/* Department Filter */}
             <select
               className="form-select"
-              style={{ width: 'auto', minWidth: '130px', fontSize: '12.5px', padding: '5px 8px', height: '32px' }}
+              style={{ width: 'auto', minWidth: '140px', fontSize: '12.5px', padding: '5px 10px', height: '34px' }}
               value={departmentId}
               onChange={e => setDepartmentId(e.target.value)}
             >
@@ -227,11 +283,90 @@ export default function LeaderboardPage() {
               ))}
             </select>
 
+            {/* 📅 Day Specific Switcher */}
+            {timeframe === 'day' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedDay(-1)}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '12px', height: '34px' }}
+                  title="Ngày trước"
+                >
+                  ◀
+                </button>
+                <input
+                  type="date"
+                  className="form-input"
+                  style={{ width: 'auto', fontSize: '12.5px', padding: '5px 8px', height: '34px', fontWeight: 700 }}
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                />
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedDay(1)}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '12px', height: '34px' }}
+                  title="Ngày sau"
+                >
+                  ▶
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }))}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '11px', height: '34px', color: 'var(--primary)' }}
+                >
+                  Hôm nay
+                </button>
+              </div>
+            )}
+
+            {/* 📆 Week Specific Switcher */}
+            {timeframe === 'week' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedWeek(-1)}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '12px', height: '34px' }}
+                  title="Tuần trước"
+                >
+                  ◀ Tuần trước
+                </button>
+                <div style={{
+                  padding: '6px 10px', background: 'var(--primary-soft)', border: '1px solid var(--primary)',
+                  borderRadius: '8px', fontSize: '12.5px', fontWeight: 800, color: 'var(--primary)', height: '34px',
+                  display: 'flex', alignItems: 'center'
+                }}>
+                  {activeWeekInfo.displayLabel}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => shiftSelectedWeek(1)}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '12px', height: '34px' }}
+                  title="Tuần sau"
+                >
+                  Tuần sau ▶
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedWeekDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }))}
+                  className="btn btn--ghost"
+                  style={{ padding: '4px 8px', fontSize: '11px', height: '34px', color: 'var(--primary)' }}
+                >
+                  Tuần này
+                </button>
+              </div>
+            )}
+
             {/* Month & Year Selectors */}
             {timeframe === 'month' && (
               <select
                 className="form-select"
-                style={{ width: 'auto', fontSize: '12.5px', padding: '5px 8px', height: '32px' }}
+                style={{ width: 'auto', fontSize: '12.5px', padding: '5px 10px', height: '34px', fontWeight: 700 }}
                 value={month}
                 onChange={e => setMonth(e.target.value)}
               >
@@ -244,7 +379,7 @@ export default function LeaderboardPage() {
             {(timeframe === 'month' || timeframe === 'year') && (
               <select
                 className="form-select"
-                style={{ width: 'auto', fontSize: '12.5px', padding: '5px 8px', height: '32px' }}
+                style={{ width: 'auto', fontSize: '12.5px', padding: '5px 10px', height: '34px', fontWeight: 700 }}
                 value={year}
                 onChange={e => setYear(e.target.value)}
               >
@@ -274,8 +409,12 @@ export default function LeaderboardPage() {
               <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800, color: '#f59e0b' }}>
                 🌟 BỤC VINH DANH TOP 3 🌟
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {CATEGORIES.find(c => c.id === category)?.label} · {TIMEFRAMES.find(t => t.id === timeframe)?.label}
+              <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
+                {CATEGORIES.find(c => c.id === category)?.label} · {
+                  timeframe === 'day' ? `Ngày ${selectedDate.split('-').reverse().join('/')}`
+                  : timeframe === 'week' ? activeWeekInfo.displayLabel
+                  : TIMEFRAMES.find(t => t.id === timeframe)?.label
+                }
               </div>
             </div>
 

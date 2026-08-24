@@ -495,14 +495,17 @@ const getIndividualDetailReport = async (req, res) => {
   }
 };
 
-// GET /api/reports/leaderboard — Bảng xếp hạng vinh danh đa chiều
+// GET /api/reports/leaderboard — Bảng xếp hạng vinh danh đa chiều (Hôm nay / Ngày / Tuần / Tháng / Năm / Toàn bộ)
 const getLeaderboard = async (req, res) => {
   try {
     const {
-      timeframe = 'month', // 'today' | 'month' | 'year' | 'all'
+      timeframe = 'today', // 'today' | 'day' | 'week' | 'month' | 'year' | 'all'
       category = 'early_bird', // 'early_bird' | 'work_hours' | 'ot_hours' | 'streak'
       month,
       year,
+      date, // YYYY-MM-DD for timeframe === 'day'
+      week_start, // YYYY-MM-DD for timeframe === 'week'
+      week_end, // YYYY-MM-DD for timeframe === 'week'
       department_id,
     } = req.query;
 
@@ -510,9 +513,40 @@ const getLeaderboard = async (req, res) => {
     const y = parseInt(year) || new Date().getFullYear();
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
+    let targetDayStr = todayStr;
+    let startW = null;
+    let endW = null;
     let dateFilter = {};
+
     if (timeframe === 'today') {
+      targetDayStr = todayStr;
       dateFilter = { date: todayStr };
+    } else if (timeframe === 'day') {
+      targetDayStr = (date && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) ? date : todayStr;
+      dateFilter = { date: targetDayStr };
+    } else if (timeframe === 'week') {
+      startW = week_start;
+      endW = week_end;
+      if (!startW || !endW) {
+        // Calculate Monday & Sunday based on provided `date` or today in Vietnam Time
+        const refStr = (date && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) ? date : todayStr;
+        const [rY, rM, rD] = refStr.split('-').map(Number);
+        const refDate = new Date(rY, rM - 1, rD);
+        
+        // Day of week: 0 is Sunday, 1 is Monday, ..., 6 is Saturday
+        const dayOfWeek = refDate.getDay();
+        const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+        
+        const monday = new Date(refDate);
+        monday.setDate(refDate.getDate() + diffToMonday);
+        
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        
+        startW = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+        endW = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
+      }
+      dateFilter = { date: { $gte: startW, $lte: endW } };
     } else if (timeframe === 'month') {
       const monthStr = `${y}-${String(m).padStart(2, '0')}`;
       dateFilter = { date: { $regex: `^${monthStr}` } };
@@ -640,17 +674,17 @@ const getLeaderboard = async (req, res) => {
       let subText = '';
 
       if (category === 'early_bird') {
-        if (timeframe === 'today') {
-          const todayRec = userAtts.find(a => a.date === todayStr);
-          if (todayRec && todayRec.check_in_time) {
-            const parsed = helperParseTime(todayRec.check_in_time);
+        if (timeframe === 'today' || timeframe === 'day') {
+          const dayRec = userAtts.find(a => a.date === targetDayStr);
+          if (dayRec && dayRec.check_in_time) {
+            const parsed = helperParseTime(dayRec.check_in_time);
             if (parsed) {
               // Điểm số: càng sớm điểm càng cao (10000 trừ phút)
               score = 10000 - parsed.minutes;
               displayValue = parsed.formatted;
-              const isLate = Boolean(todayRec.is_late) || (todayRec.late_tier && todayRec.late_tier !== 'on_time') || todayRec.status === 'late';
+              const isLate = Boolean(dayRec.is_late) || (dayRec.late_tier && dayRec.late_tier !== 'on_time') || dayRec.status === 'late';
               subText = isLate
-                ? (todayRec.late_minutes ? `Muộn ${todayRec.late_minutes}p` : 'Đi muộn')
+                ? (dayRec.late_minutes ? `Muộn ${dayRec.late_minutes}p` : 'Đi muộn')
                 : 'Đúng giờ 🌟';
             } else {
               score = -99999;
@@ -663,8 +697,7 @@ const getLeaderboard = async (req, res) => {
             subText = '—';
           }
         } else {
-          // Trong tháng / năm / toàn thời gian:
-          // Ưu tiên số ngày đúng giờ (1000 điểm/ngày) + tổng ngày đi làm (10 điểm/ngày) - số lần muộn (500 điểm)
+          // Trong tuần / tháng / năm / toàn thời gian:
           score = (onTimeDays * 1000) + (totalAttDays * 10) - (lateDays * 500);
           displayValue = `${onTimeDays} ngày đúng giờ`;
           subText = earliestCheckInStr ? `Sớm nhất: ${earliestCheckInStr}` : (totalAttDays > 0 ? `${totalAttDays} ngày đi làm` : 'Chưa có dữ liệu');
@@ -739,6 +772,9 @@ const getLeaderboard = async (req, res) => {
     res.json({
       timeframe,
       category,
+      date: targetDayStr,
+      week_start: startW,
+      week_end: endW,
       month: m,
       year: y,
       totalParticipants: rankings.length,
