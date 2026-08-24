@@ -161,11 +161,11 @@ export default function RequestsPage() {
 
   const handleApprove = async (id) => {
     try {
-      await api.put(`/requests/${id}/approve`);
-      toast.success('Đã duyệt đơn thành công! ✅');
+      const res = await api.put(`/requests/${id}/approve`);
+      toast.success(res.data?.message || 'Đã duyệt đơn thành công! ✅');
       loadData();
-    } catch {
-      toast.error('Lỗi duyệt đơn');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi duyệt đơn');
     }
   };
 
@@ -177,13 +177,13 @@ export default function RequestsPage() {
 
     setRejecting(true);
     try {
-      await api.put(`/requests/${rejectTarget._id}/reject`, { reviewer_note: rejectNote.trim() });
-      toast.success('Đã từ chối đơn! ❌');
+      const res = await api.put(`/requests/${rejectTarget._id}/reject`, { reviewer_note: rejectNote.trim() });
+      toast.success(res.data?.message || 'Đã từ chối đơn! ❌');
       setRejectTarget(null);
       setRejectNote('');
       loadData();
-    } catch {
-      toast.error('Lỗi từ chối đơn');
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi từ chối đơn');
     } finally {
       setRejecting(false);
     }
@@ -728,7 +728,15 @@ export default function RequestsPage() {
                   {/* Manager Quick Action Panel */}
                   {tab === 'pending' && r.status === 'pending' && (
                     <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)' }}>
-                      {isAdmin ? (
+                      {(!isAdmin && r.user_id?.role === 'admin') ? (
+                        <div style={{
+                          fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)',
+                          padding: '6px 10px', borderRadius: '6px', textAlign: 'center', fontWeight: 600,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                        }}>
+                          <Clock size={13} color="var(--yellow)" /> Đơn của Ban Giám Đốc (Chỉ Admin duyệt)
+                        </div>
+                      ) : (isAdmin || isManager) ? (
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
                             onClick={() => handleApprove(r._id)}
@@ -745,15 +753,7 @@ export default function RequestsPage() {
                             <X size={14} /> Từ chối
                           </button>
                         </div>
-                      ) : (
-                        <div style={{
-                          fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-raised)',
-                          padding: '6px 10px', borderRadius: '6px', textAlign: 'center', fontWeight: 600,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                        }}>
-                          <Clock size={13} color="var(--yellow)" /> Chờ Ban Giám Đốc (Admin) phê duyệt
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   )}
                 </div>

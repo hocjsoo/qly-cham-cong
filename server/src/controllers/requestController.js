@@ -156,8 +156,30 @@ const createRequest = async (req, res) => {
   }
 };
 
+// Helper tính toán các ngày trong khoảng start_date đến end_date
+const getDatesInRange = (startDateStr, endDateStr) => {
+  if (!startDateStr) return [];
+  const endStr = endDateStr || startDateStr;
+  const dates = [];
+  const start = new Date(startDateStr + 'T00:00:00+07:00');
+  const end = new Date(endStr + 'T00:00:00+07:00');
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    return [startDateStr];
+  }
+
+  const current = new Date(start);
+  while (current <= end) {
+    dates.push(current.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
 // GET /api/requests/pending (Manager xem team, Admin xem tất cả)
 const getPendingRequests = async (req, res) => {
+  const { status, type } = req.query;
+
   try {
     let requests;
     const userPopulateConfig = {
@@ -166,8 +188,16 @@ const getPendingRequests = async (req, res) => {
       populate: { path: 'department_id', select: 'name' }
     };
 
+    const filter = {};
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    if (type && type !== 'all') {
+      filter.type = type;
+    }
+
     if (req.user.role === 'admin') {
-      requests = await Request.find({ status: 'pending' })
+      requests = await Request.find(filter)
         .populate(userPopulateConfig)
         .sort({ created_at: -1 });
     } else {
@@ -183,7 +213,7 @@ const getPendingRequests = async (req, res) => {
         ]
       }).distinct('_id');
 
-      requests = await Request.find({ status: 'pending', user_id: { $in: teamUserIds } })
+      requests = await Request.find({ ...filter, user_id: { $in: teamUserIds } })
         .populate(userPopulateConfig)
         .sort({ created_at: -1 });
     }
@@ -248,34 +278,140 @@ const approveRequest = async (req, res) => {
       });
     }
 
-    // 3. Tự động xóa phạt muộn & phục hồi đầy đủ 1.0 công (work_units = 1.0) khi duyệt đơn
-    let att = await Attendance.findOne({ user_id: request.user_id, date: request.start_date });
-    if (att) {
-      if (['late', 'business_trip', 'foreign_trip', 'wfh', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
-        att.is_late = false;
-        att.late_minutes = 0;
-        att.late_tier = 'on_time';
-        att.work_units = 1.0; // Phục hồi đủ 1.0 công
-        att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type] || request.type}: ${request.reason}) - Hoàn đủ 1.0 công`;
-        await att.save();
+    // 3. Tính toán số giờ OT nếu là đơn tăng ca
+    let calculatedOtHours = 0;
+    if (request.type === 'overtime') {
+      if (request.start_time && request.end_time) {
+        const [sH, sM] = request.start_time.split(':').map(Number);
+        const [eH, eM] = request.end_time.split(':').map(Number);
+        const diffMinutes = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diffMinutes > 0) {
+          calculatedOtHours = parseFloat((diffMinutes / 60).toFixed(1));
+        }
       }
-    } else if (['annual_leave', 'sick_leave', 'unpaid_leave', 'business_trip', 'foreign_trip', 'wfh', 'other'].includes(request.type)) {
-      // Tạo bản ghi điểm danh phép/công tác/WFH để tính công đầy đủ
-      await Attendance.create({
-        user_id: request.user_id,
-        date: request.start_date,
-        check_in_type: ['business_trip', 'foreign_trip'].includes(request.type) ? 'site' : request.type === 'wfh' ? 'wfh' : 'office',
-        status: ['annual_leave', 'sick_leave', 'unpaid_leave'].includes(request.type) ? 'leave' : 'present',
-        total_hours: 8.5,
-        work_units: 1.0,
-        is_late: false,
-        late_minutes: 0,
-        late_tier: 'on_time',
-        notes: `Được duyệt đơn: ${TYPE_LABELS[request.type] || request.type} (${request.reason})`,
-      });
+      if (calculatedOtHours <= 0) calculatedOtHours = 2.0; // Mặc định nếu không ghi giờ cụ thể
     }
 
-    // 4. Gửi thông báo cho Nhân viên
+    // 4. Đồng bộ tất cả ngày trong dải [start_date, end_date] vào Bảng Chấm Công (Attendance)
+    const targetDates = getDatesInRange(request.start_date, request.end_date);
+
+    for (const d of targetDates) {
+      let att = await Attendance.findOne({ user_id: request.user_id, date: d });
+
+      if (att) {
+        if (['late', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
+          att.is_late = false;
+          att.late_minutes = 0;
+          att.late_tier = 'on_time';
+          att.work_units = 1.0;
+          att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type] || request.type}: ${request.reason}) - Hoàn đủ 1.0 công`;
+          await att.save();
+        } else if (['business_trip', 'foreign_trip'].includes(request.type)) {
+          att.check_in_type = 'site';
+          att.status = 'present';
+          att.work_units = 1.0;
+          att.is_late = false;
+          att.late_minutes = 0;
+          att.late_tier = 'on_time';
+          att.total_hours = Math.max(att.total_hours || 0, 8.5);
+          att.notes = `Đã duyệt công tác (${TYPE_LABELS[request.type] || request.type}: ${request.reason})`;
+          await att.save();
+        } else if (request.type === 'wfh') {
+          att.check_in_type = 'wfh';
+          att.status = 'present';
+          att.work_units = 1.0;
+          att.is_late = false;
+          att.late_minutes = 0;
+          att.late_tier = 'on_time';
+          att.total_hours = Math.max(att.total_hours || 0, 8.5);
+          att.notes = `Đã duyệt làm việc từ xa WFH (${request.reason})`;
+          await att.save();
+        } else if (['annual_leave', 'sick_leave', 'unpaid_leave'].includes(request.type)) {
+          att.status = 'leave';
+          att.work_units = 1.0;
+          att.total_hours = 8.5;
+          att.is_late = false;
+          att.late_minutes = 0;
+          att.late_tier = 'on_time';
+          att.notes = `Đã duyệt nghỉ phép (${TYPE_LABELS[request.type] || request.type}: ${request.reason})`;
+          await att.save();
+        } else if (request.type === 'overtime') {
+          att.ot_hours = (att.ot_hours || 0) + calculatedOtHours;
+          att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt tăng ca OT +${calculatedOtHours}h (${request.reason})`;
+          await att.save();
+        }
+      } else {
+        // Chưa có bản ghi điểm danh trong ngày này -> Tạo mới
+        if (['annual_leave', 'sick_leave', 'unpaid_leave'].includes(request.type)) {
+          await Attendance.create({
+            user_id: request.user_id,
+            date: d,
+            check_in_type: 'office',
+            status: 'leave',
+            total_hours: 8.5,
+            work_units: 1.0,
+            is_late: false,
+            late_minutes: 0,
+            late_tier: 'on_time',
+            notes: `Được duyệt đơn: ${TYPE_LABELS[request.type] || request.type} (${request.reason})`,
+          });
+        } else if (['business_trip', 'foreign_trip'].includes(request.type)) {
+          await Attendance.create({
+            user_id: request.user_id,
+            date: d,
+            check_in_type: 'site',
+            status: 'present',
+            total_hours: 8.5,
+            work_units: 1.0,
+            is_late: false,
+            late_minutes: 0,
+            late_tier: 'on_time',
+            notes: `Được duyệt công tác: ${TYPE_LABELS[request.type] || request.type} (${request.reason})`,
+          });
+        } else if (request.type === 'wfh') {
+          await Attendance.create({
+            user_id: request.user_id,
+            date: d,
+            check_in_type: 'wfh',
+            status: 'present',
+            total_hours: 8.5,
+            work_units: 1.0,
+            is_late: false,
+            late_minutes: 0,
+            late_tier: 'on_time',
+            notes: `Được duyệt làm việc từ xa WFH (${request.reason})`,
+          });
+        } else if (request.type === 'overtime') {
+          await Attendance.create({
+            user_id: request.user_id,
+            date: d,
+            check_in_type: 'office',
+            status: 'present',
+            total_hours: calculatedOtHours,
+            ot_hours: calculatedOtHours,
+            work_units: 1.0,
+            is_late: false,
+            late_tier: 'on_time',
+            notes: `Duyệt tăng ca OT +${calculatedOtHours}h (${request.reason})`,
+          });
+        } else if (['late', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
+          await Attendance.create({
+            user_id: request.user_id,
+            date: d,
+            check_in_type: 'office',
+            status: 'present',
+            total_hours: 8.5,
+            work_units: 1.0,
+            is_late: false,
+            late_minutes: 0,
+            late_tier: 'on_time',
+            notes: `Được duyệt đơn giải trình (${TYPE_LABELS[request.type] || request.type}: ${request.reason})`,
+          });
+        }
+      }
+    }
+
+    // 5. Gửi thông báo cho Nhân viên
     if (request.type === 'vehicle_update') {
       await Notification.create({
         user_id: request.user_id,

@@ -19,12 +19,12 @@ router.post('/', createRequest);
 // GET /api/requests/pending - Đơn chờ duyệt [Leader, Admin]
 router.get('/pending', requireRole('admin', 'manager'), getPendingRequests);
 
-// PUT & PATCH /api/requests/:id/approve - CHỈ ADMIN (GIÁM ĐỐC) CÓ QUYỀN DUYỆT ĐƠN
-router.put('/:id/approve', requireRole('admin'), approveRequest);
-router.patch('/:id/approve', requireRole('admin'), approveRequest);
+// PUT & PATCH /api/requests/:id/approve - [Admin, Leader, Manager]
+router.put('/:id/approve', requireRole('admin', 'manager'), approveRequest);
+router.patch('/:id/approve', requireRole('admin', 'manager'), approveRequest);
 
-// PUT & PATCH /api/requests/:id/reject - CHỈ ADMIN (GIÁM ĐỐC) CÓ QUYỀN TỪ CHỐI ĐƠN
-router.put('/:id/reject', requireRole('admin'), rejectRequest);
-router.patch('/:id/reject', requireRole('admin'), rejectRequest);
+// PUT & PATCH /api/requests/:id/reject - [Admin, Leader, Manager]
+router.put('/:id/reject', requireRole('admin', 'manager'), rejectRequest);
+router.patch('/:id/reject', requireRole('admin', 'manager'), rejectRequest);
 
 module.exports = router;
