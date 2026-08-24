@@ -603,19 +603,20 @@ export default function ProjectsPage() {
             <div className="empty-state__desc">Thử thay đổi từ khóa hoặc bộ lọc tìm kiếm</div>
           </div>
         ) : viewMode === 'table' ? (
-          /* VIEW MODE 1: EXACT MATCH EXCEL TABLE (Mẫu THÔNG TIN NS+DA) */
-          <div className="card animate-fade-in" style={{ padding: '0', overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)' }}>
+          /* VIEW MODE 1: PREMIUM ARCHITECTURAL PROJECT TABLE */
+          <div className="card animate-fade-in" style={{ padding: '0', overflowX: 'auto', borderRadius: '14px', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
             <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
-                  <th style={{ padding: '11px 14px', width: '100px' }}>NO. (Mã dự án)</th>
-                  <th style={{ padding: '11px 14px', minWidth: '160px' }}>DỰ ÁN</th>
-                  <th style={{ padding: '11px 14px', width: '110px' }}>THÀNH VIÊN</th>
-                  <th style={{ padding: '11px 14px', width: '150px' }}>TIẾN ĐỘ</th>
-                  <th style={{ padding: '11px 14px', width: '110px' }}>PHÂN LOẠI</th>
-                  <th style={{ padding: '11px 14px', width: '120px' }}>PM</th>
-                  <th style={{ padding: '11px 14px', width: '130px' }}>TRẠNG THÁI</th>
-                  {isAdminOrManager && <th style={{ padding: '11px 14px', width: '90px', textAlign: 'center' }}>THAO TÁC</th>}
+                <tr style={{ background: 'var(--bg-raised)', borderBottom: '2px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
+                  <th style={{ padding: '13px 16px', width: '110px', letterSpacing: '0.3px' }}>🏷️ MÃ DỰ ÁN</th>
+                  <th style={{ padding: '13px 16px', minWidth: '220px', letterSpacing: '0.3px' }}>🏗️ DỰ ÁN & DA THÀNH PHẦN</th>
+                  <th style={{ padding: '13px 16px', minWidth: '160px', letterSpacing: '0.3px' }}>🏢 CHỦ ĐẦU TƯ</th>
+                  <th style={{ padding: '13px 16px', minWidth: '150px', letterSpacing: '0.3px' }}>👔 TRƯỞNG DỰ ÁN (PM)</th>
+                  <th style={{ padding: '13px 16px', width: '120px', letterSpacing: '0.3px' }}>👥 THÀNH VIÊN</th>
+                  <th style={{ padding: '13px 16px', width: '140px', letterSpacing: '0.3px' }}>📊 TIẾN ĐỘ</th>
+                  <th style={{ padding: '13px 16px', width: '120px', letterSpacing: '0.3px' }}>🎨 PHÂN LOẠI</th>
+                  <th style={{ padding: '13px 16px', width: '130px', letterSpacing: '0.3px' }}>📌 TRẠNG THÁI</th>
+                  {isAdminOrManager && <th style={{ padding: '13px 16px', width: '90px', textAlign: 'center', letterSpacing: '0.3px' }}>⚙️ THAO TÁC</th>}
                 </tr>
               </thead>
               <tbody>
@@ -631,28 +632,36 @@ export default function ProjectsPage() {
                         borderBottom: '1px solid var(--border-muted)',
                         background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
                         cursor: 'pointer',
-                        transition: 'background 0.1s'
+                        transition: 'all 0.15s ease'
                       }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-soft)'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)'}
                       title="Click để xem chi tiết dự án"
                     >
                       {/* NO. (Mã dự án) */}
-                      <td style={{ padding: '11px 14px', fontWeight: 800, color: 'var(--primary)' }}>
-                        {p.code}
+                      <td style={{ padding: '12px 16px', fontWeight: 800 }}>
+                        <span style={{
+                          background: 'var(--primary-soft)', color: 'var(--primary)',
+                          padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+                          border: '1px solid var(--primary)'
+                        }}>
+                          {p.code}
+                        </span>
                       </td>
 
                       {/* DỰ ÁN & DA THÀNH PHẦN */}
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.3 }}>
                           {p.name}
                         </div>
                         {p.sub_project && (
                           <div style={{
-                            fontSize: '11px', color: 'var(--primary)', fontWeight: 700,
+                            fontSize: '11.5px', color: 'var(--primary)', fontWeight: 700,
                             marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px'
                           }}>
                             <span style={{
-                              background: 'var(--primary-soft)', padding: '1px 6px',
-                              borderRadius: '4px', fontSize: '9.5px', fontWeight: 800
+                              background: 'var(--primary-soft)', padding: '2px 7px',
+                              borderRadius: '4px', fontSize: '10px', fontWeight: 800
                             }}>
                               🔖 DA thành phần:
                             </span>
@@ -660,87 +669,26 @@ export default function ProjectsPage() {
                           </div>
                         )}
                         {p.deadline && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
-                            ⏱️ Hạn chót: {p.deadline}
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontWeight: 600, marginTop: '3px' }}>
+                            ⏱️ Hạn chót: <span style={{ color: 'var(--yellow)', fontWeight: 700 }}>{p.deadline}</span>
                           </div>
                         )}
                       </td>
 
-                      {/* THÀNH VIÊN (Stacked Avatars) */}
-                      <td style={{ padding: '11px 14px' }}>
-                        {members.length > 0 ? (
-                          <div style={{ display: 'flex', alignItems: 'center' }}>
-                            {members.slice(0, 3).map((m, mIdx) => (
-                              <div
-                                key={m._id || mIdx}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const foundStaff = staffList.find(s => String(s._id) === String(m._id || m.id || m)) || m;
-                                  setViewingStaffDetail(foundStaff);
-                                }}
-                                title={`Click để xem hồ sơ: ${m.full_name || 'Thành viên'}`}
-                                style={{
-                                  width: '26px', height: '26px', borderRadius: '50%',
-                                  background: 'var(--primary)', color: '#fff',
-                                  fontSize: '10px', fontWeight: 700,
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  marginLeft: mIdx > 0 ? '-8px' : '0',
-                                  border: '2px solid var(--bg-card)',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                {m.avatar_url ? (
-                                  <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                ) : (
-                                  (m.full_name || 'U').charAt(0).toUpperCase()
-                                )}
-                              </div>
-                            ))}
-                            {members.length > 3 && (
-                              <div style={{
-                                width: '26px', height: '26px', borderRadius: '50%',
-                                background: 'var(--bg-raised)', color: 'var(--text-secondary)',
-                                fontSize: '10px', fontWeight: 700,
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                marginLeft: '-8px', border: '2px solid var(--bg-card)'
-                              }}>
-                                +{members.length - 3}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
-                        )}
-                      </td>
-
-                      {/* TIẾN ĐỘ */}
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-                          <div style={{ flex: 1, height: '7px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{
-                              height: '100%',
-                              width: `${Math.min(100, Math.max(0, p.progress || 0))}%`,
-                              background: (p.progress || 0) >= 100 ? 'var(--blue)' : 'var(--green)',
-                              borderRadius: '4px'
-                            }} />
-                          </div>
-                          <span style={{ fontSize: '11px', fontWeight: 700, minWidth: '32px', color: 'var(--text-secondary)' }}>{p.progress || 0}%</span>
+                      {/* CHỦ ĐẦU TƯ / KHÁCH HÀNG */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span>🏢</span> {p.client_name || <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>Nội bộ ET</span>}
                         </div>
-                      </td>
-
-                      {/* PHÂN LOẠI */}
-                      <td style={{ padding: '11px 14px' }}>
-                        <span style={{
-                          background: 'var(--primary-soft)', color: 'var(--primary)',
-                          padding: '3px 8px', borderRadius: '6px', fontWeight: 700, fontSize: '11px'
-                        }}>
-                          {p.category || 'Kiến trúc'}
-                        </span>
+                        {p.address && (
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <span>📍</span> {p.address}
+                          </div>
+                        )}
                       </td>
 
                       {/* PM (Với Avatar hình ảnh & Thông tin chi tiết) */}
-                      <td style={{ padding: '11px 14px' }}>
+                      <td style={{ padding: '12px 16px' }}>
                         {p.pm_name ? (() => {
                           const foundPm = (p.pm_id && p.pm_id.full_name)
                             ? p.pm_id
@@ -758,18 +706,22 @@ export default function ProjectsPage() {
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '8px'
+                                gap: '8px',
+                                background: 'var(--bg-raised)',
+                                padding: '4px 8px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)'
                               }}
                             >
                               {foundPm.avatar_url ? (
                                 <img
                                   src={foundPm.avatar_url}
                                   alt=""
-                                  style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
+                                  style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
                                 />
                               ) : (
                                 <div style={{
-                                  width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary)',
+                                  width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary)',
                                   color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex',
                                   alignItems: 'center', justifyContent: 'center', flexShrink: 0
                                 }}>
@@ -777,7 +729,7 @@ export default function ProjectsPage() {
                                 </div>
                               )}
                               <div style={{ lineHeight: 1.2 }}>
-                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
                                   {p.pm_name}
                                 </div>
                                 {foundPm.position && (
@@ -793,30 +745,107 @@ export default function ProjectsPage() {
                         )}
                       </td>
 
+                      {/* THÀNH VIÊN (Stacked Avatars) */}
+                      <td style={{ padding: '12px 16px' }}>
+                        {members.length > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {members.slice(0, 4).map((m, mIdx) => (
+                              <div
+                                key={m._id || mIdx}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const foundStaff = staffList.find(s => String(s._id) === String(m._id || m.id || m)) || m;
+                                  setViewingStaffDetail(foundStaff);
+                                }}
+                                title={`Click để xem hồ sơ: ${m.full_name || 'Thành viên'}`}
+                                style={{
+                                  width: '26px', height: '26px', borderRadius: '50%',
+                                  background: 'var(--primary)', color: '#fff',
+                                  fontSize: '10px', fontWeight: 700,
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  marginLeft: mIdx > 0 ? '-8px' : '0',
+                                  border: '2px solid var(--bg-card)',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {m.avatar_url ? (
+                                  <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : (
+                                  (m.full_name || 'U').charAt(0).toUpperCase()
+                                )}
+                              </div>
+                            ))}
+                            {members.length > 4 && (
+                              <div style={{
+                                width: '26px', height: '26px', borderRadius: '50%',
+                                background: 'var(--bg-raised)', color: 'var(--text-secondary)',
+                                fontSize: '10px', fontWeight: 800,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                marginLeft: '-8px', border: '2px solid var(--bg-card)'
+                              }}>
+                                +{members.length - 4}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* TIẾN ĐỘ */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '110px' }}>
+                          <div style={{ flex: 1, height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{
+                              height: '100%',
+                              width: `${Math.min(100, Math.max(0, p.progress || 0))}%`,
+                              background: (p.progress || 0) >= 100 ? 'var(--blue)' : (p.progress || 0) >= 50 ? 'var(--green)' : 'var(--yellow)',
+                              borderRadius: '4px',
+                              transition: 'width 0.3s'
+                            }} />
+                          </div>
+                          <span style={{ fontSize: '11.5px', fontWeight: 800, minWidth: '32px', color: (p.progress || 0) >= 100 ? 'var(--blue)' : 'var(--text)' }}>
+                            {p.progress || 0}%
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* PHÂN LOẠI */}
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{
+                          background: 'var(--primary-soft)', color: 'var(--primary)',
+                          padding: '4px 9px', borderRadius: '6px', fontWeight: 700, fontSize: '11px',
+                          border: '1px solid rgba(var(--primary-rgb), 0.2)'
+                        }}>
+                          {p.category || 'Kiến trúc'}
+                        </span>
+                      </td>
+
                       {/* TRẠNG THÁI */}
-                      <td style={{ padding: '11px 14px' }}>
-                        <span className={`badge ${statObj.cls}`} style={{ fontSize: '11px', padding: '4px 10px' }}>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span className={`badge ${statObj.cls}`} style={{ fontSize: '11px', padding: '4px 10px', fontWeight: 700 }}>
                           {statObj.label}
                         </span>
                       </td>
 
                       {/* THAO TÁC */}
                       {isAdminOrManager && (
-                        <td style={{ padding: '10px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                             <button
                               onClick={() => handleOpenEdit(p)}
-                              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px' }}
+                              style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--primary)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center' }}
                               title="Sửa thông tin"
                             >
-                              <Edit2 size={15} />
+                              <Edit2 size={14} />
                             </button>
                             <button
                               onClick={() => handleDelete(p)}
-                              style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '4px' }}
+                              style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--red)', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center' }}
                               title="Xóa dự án"
                             >
-                              <Trash2 size={15} />
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
