@@ -1015,72 +1015,109 @@ export default function ProjectsPage() {
       </div>
 
       {/* Modal Create / Edit Project */}
+      {/* Modal Create / Edit Project */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', margin: '0 auto' }}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '720px',
+              width: '95vw',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              margin: 'auto',
+              borderRadius: '16px',
+              padding: '22px 26px',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
+            }}
+          >
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FolderKanban size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>
-                  {editingProject ? 'Sửa Dự án' : 'Tạo Dự án Mới'}
-                </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <FolderKanban size={22} color="var(--primary)" />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                    {editingProject ? 'Chỉnh Sửa Dự Án' : 'Tạo Dự Án Mới'}
+                  </h3>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {editingProject ? `Mã dự án: ${form.code || '—'}` : 'Điền đầy đủ thông tin để khởi tạo dự án'}
+                  </div>
+                </div>
               </div>
-              <button onClick={() => setShowModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}><X size={20} /></button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px' }}>
-              <div className="form-group">
-                <label className="form-label">NO. (Mã dự án) *</label>
+            {/* Form Fields: Row 1 - Code & Name */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏷️ NO. (Mã dự án) *</label>
                 <input
                   type="text"
                   className="form-input"
                   value={form.code}
                   onChange={e => setForm({ ...form, code: e.target.value })}
-                  placeholder="VD: NS 01"
+                  placeholder="VD: 24.00L"
                 />
               </div>
-              <div className="form-group">
-                <label className="form-label">DỰ ÁN *</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏗️ Tên dự án *</label>
                 <input
                   type="text"
                   className="form-input"
                   value={form.name}
                   onChange={e => setForm({ ...form, name: e.target.value })}
-                  placeholder="VD: Biệt thự Palm City"
+                  placeholder="VD: Biệt thự Ecopark Grand"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">DA THÀNH PHẦN</label>
-              <input
-                type="text"
-                className="form-input"
-                value={form.sub_project}
-                onChange={e => setForm({ ...form, sub_project: e.target.value })}
-                placeholder="VD: Hạng mục Nội thất / Cảnh quan"
-              />
+            {/* Form Fields: Row 2 - Sub project & Client name */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>🔖 DA Thành phần</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.sub_project}
+                  onChange={e => setForm({ ...form, sub_project: e.target.value })}
+                  placeholder="VD: Hạng mục Nội thất / Kiến trúc / Cảnh quan"
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🏢 Chủ đầu tư / Khách hàng</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={form.client_name}
+                  onChange={e => setForm({ ...form, client_name: e.target.value })}
+                  placeholder="VD: Tập đoàn Ecopark / Anh Minh"
+                />
+              </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div className="form-group">
-                <label className="form-label">PHÂN LOẠI *</label>
+            {/* Form Fields: Row 3 - Category & Status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>🎨 Phân loại dự án *</label>
                 <select className="form-select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              <div className="form-group">
-                <label className="form-label">TRẠNG THÁI *</label>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>📌 Trạng thái dự án *</label>
                 <select className="form-select" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                   {SELECT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            {/* Form Fields: Row 4 - PM Selector & Project Address */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               {/* SMART SEARCHABLE PM SELECTOR */}
-              <div className="form-group" style={{ position: 'relative' }}>
+              <div className="form-group" style={{ position: 'relative', margin: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                   <label className="form-label" style={{ fontWeight: 800, color: 'var(--primary)', margin: 0 }}>
                     👔 PM (Chủ nhiệm / Quản lý) *
@@ -1106,23 +1143,23 @@ export default function ProjectsPage() {
                     const selectedPmObj = staffList.find(s => s.full_name === form.pm_name) || { full_name: form.pm_name };
                     return (
                       <div style={{
-                        padding: '7px 10px', background: 'var(--primary-soft)',
+                        padding: '8px 12px', background: 'var(--primary-soft)',
                         borderRadius: '8px', border: '1.5px solid var(--primary)',
-                        display: 'flex', alignItems: 'center', gap: '8px'
+                        display: 'flex', alignItems: 'center', gap: '10px'
                       }}>
                         {selectedPmObj.avatar_url ? (
-                          <img src={selectedPmObj.avatar_url} alt="" style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }} />
+                          <img src={selectedPmObj.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }} />
                         ) : (
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {(selectedPmObj.full_name || 'P').charAt(0).toUpperCase()}
                           </div>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '12.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {selectedPmObj.full_name}
                           </div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            #{selectedPmObj.employee_code || 'NS'} · {selectedPmObj.position || 'Quản lý'}
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            #{selectedPmObj.employee_code || 'NS'} · {selectedPmObj.position || 'Quản lý dự án'}
                           </div>
                         </div>
                         <button
@@ -1133,7 +1170,7 @@ export default function ProjectsPage() {
                             setShowPmDropdown(true);
                           }}
                           className="btn btn--ghost"
-                          style={{ padding: '2px 7px', fontSize: '10.5px', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+                          style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
                         >
                           Đổi
                         </button>
@@ -1144,12 +1181,12 @@ export default function ProjectsPage() {
                   /* SEARCH & PICK PM COMBOBOX */
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'relative' }}>
-                      <Search size={13} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                       <input
                         type="text"
                         className="form-input"
-                        style={{ paddingLeft: '28px', fontSize: '12px' }}
-                        placeholder="🔍 Tìm nhanh theo tên hoặc chức danh PM..."
+                        style={{ paddingLeft: '32px', fontSize: '12px' }}
+                        placeholder="🔍 Tìm theo tên hoặc chức danh PM..."
                         value={pmSearchQuery}
                         onChange={e => {
                           setPmSearchQuery(e.target.value);
@@ -1164,7 +1201,7 @@ export default function ProjectsPage() {
                       <div style={{
                         position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 60,
                         background: 'var(--bg-card)', border: '1.5px solid var(--primary)',
-                        borderRadius: '8px', maxHeight: '180px', overflowY: 'auto',
+                        borderRadius: '8px', maxHeight: '200px', overflowY: 'auto',
                         boxShadow: '0 8px 24px rgba(0,0,0,0.25)', marginTop: '4px', padding: '4px'
                       }}>
                         {staffList
@@ -1192,7 +1229,7 @@ export default function ProjectsPage() {
                                 setPmSearchQuery('');
                               }}
                               style={{
-                                padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                                padding: '7px 10px', borderRadius: '6px', cursor: 'pointer',
                                 display: 'flex', alignItems: 'center', gap: '8px',
                                 transition: 'background 0.1s'
                               }}
@@ -1200,15 +1237,15 @@ export default function ProjectsPage() {
                               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                             >
                               {u.avatar_url ? (
-                                <img src={u.avatar_url} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                <img src={u.avatar_url} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                               ) : (
-                                <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   {(u.full_name || 'U').charAt(0).toUpperCase()}
                                 </div>
                               )}
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text)' }}>{u.full_name}</div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>#{u.employee_code || 'NS'} · {u.position || 'Nhân sự'}</div>
+                                <div style={{ fontWeight: 700, fontSize: '12.5px', color: 'var(--text)' }}>{u.full_name}</div>
+                                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>#{u.employee_code || 'NS'} · {u.position || 'Nhân sự'}</div>
                               </div>
                             </div>
                           ))}
@@ -1226,9 +1263,9 @@ export default function ProjectsPage() {
                               setPmSearchQuery('');
                             }}
                             style={{
-                              padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                              padding: '7px 10px', borderRadius: '6px', cursor: 'pointer',
                               background: 'var(--bg-raised)', borderTop: '1px solid var(--border)',
-                              fontSize: '11.5px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px'
+                              fontSize: '12px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px'
                             }}
                           >
                             ➕ Dùng tên tự do: <strong>"{pmSearchQuery.trim()}"</strong>
@@ -1239,21 +1276,23 @@ export default function ProjectsPage() {
                   </div>
                 )}
               </div>
-              <div className="form-group">
-                <label className="form-label">Chủ đầu tư / Khách hàng</label>
+
+              {/* Project Address */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>📍 Địa chỉ công trình / dự án</label>
                 <input
                   type="text"
                   className="form-input"
-                  value={form.client_name}
-                  onChange={e => setForm({ ...form, client_name: e.target.value })}
-                  placeholder="VD: Anh Minh / Ecopark"
+                  value={form.address || ''}
+                  onChange={e => setForm({ ...form, address: e.target.value })}
+                  placeholder="VD: Văn Giang, Hưng Yên"
                 />
               </div>
             </div>
 
-            {/* Project Timeline: Start Date & Deadline */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div className="form-group">
+            {/* Form Fields: Row 5 - Timeline (Start date & Deadline) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
                   📅 Ngày bắt đầu
                 </label>
@@ -1265,7 +1304,7 @@ export default function ProjectsPage() {
                   onClick={e => e.target.showPicker && e.target.showPicker()}
                 />
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label" style={{ fontWeight: 700, color: 'var(--yellow)' }}>
                   ⏱️ Hạn chót (Deadline)
                 </label>
@@ -1279,21 +1318,22 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div className="form-group">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label className="form-label" style={{ margin: 0 }}>Tiến độ dự án</label>
-                <strong style={{ fontSize: '13px', color: form.progress >= 100 ? 'var(--blue)' : 'var(--green)' }}>
+            {/* Form Fields: Row 6 - Progress */}
+            <div className="form-group" style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 700 }}>📊 Tiến độ dự án</label>
+                <strong style={{ fontSize: '14px', color: form.progress >= 100 ? 'var(--blue)' : 'var(--green)' }}>
                   {form.progress}%
                 </strong>
               </div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <input
                   type="range"
                   min="0"
                   max="100"
                   step="5"
                   className="form-input"
-                  style={{ padding: '4px 0', flex: 1 }}
+                  style={{ padding: '6px 0', flex: 1, cursor: 'pointer' }}
                   value={form.progress}
                   onChange={e => setForm({ ...form, progress: Number(e.target.value) })}
                 />
@@ -1302,34 +1342,34 @@ export default function ProjectsPage() {
                   min="0"
                   max="100"
                   className="form-input"
-                  style={{ width: '65px', padding: '6px', textAlign: 'center', fontSize: '12px', fontWeight: 700 }}
+                  style={{ width: '70px', padding: '6px', textAlign: 'center', fontSize: '13px', fontWeight: 800 }}
                   value={form.progress}
                   onChange={e => setForm({ ...form, progress: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
                 />
               </div>
             </div>
 
-            {/* SUPER EASY MEMBER PICKER */}
-            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <label className="form-label" style={{ margin: 0, fontWeight: 800, color: 'var(--primary)', fontSize: '13px' }}>
-                  👥 Thành viên dự án ({form.members.length} người)
+            {/* Form Fields: Row 7 - SUPER EASY & SPATIOUS MEMBER PICKER */}
+            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 800, color: 'var(--primary)', fontSize: '13.5px' }}>
+                  👥 Thành viên tham gia dự án ({form.members.length} người đã chọn)
                 </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     type="button"
                     onClick={() => {
                       const allIds = staffList.map(u => u._id || u.id);
                       setForm({ ...form, members: allIds });
                     }}
-                    style={{ background: 'var(--primary-soft)', color: 'var(--primary)', border: 'none', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ background: 'var(--primary-soft)', color: 'var(--primary)', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer' }}
                   >
                     + Chọn tất cả
                   </button>
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, members: [] })}
-                    style={{ background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                    style={{ background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: '6px', fontSize: '11.5px', cursor: 'pointer' }}
                   >
                     Bỏ chọn hết
                   </button>
@@ -1338,7 +1378,7 @@ export default function ProjectsPage() {
 
               {/* Selected Members Chips */}
               {form.members.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px', maxHeight: '70px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px', maxHeight: '80px', overflowY: 'auto' }}>
                   {form.members.map(memId => {
                     const foundUser = staffList.find(s => String(s._id || s.id) === String(memId));
                     if (!foundUser) return null;
@@ -1346,15 +1386,15 @@ export default function ProjectsPage() {
                       <span
                         key={memId}
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
                           background: 'var(--bg-card)', border: '1px solid var(--primary)',
-                          borderRadius: '16px', padding: '2px 8px 2px 4px', fontSize: '11px'
+                          borderRadius: '16px', padding: '3px 10px 3px 6px', fontSize: '11.5px'
                         }}
                       >
                         {foundUser.avatar_url ? (
-                          <img src={foundUser.avatar_url} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <img src={foundUser.avatar_url} alt="" style={{ width: '18px', height: '18px', borderRadius: '50%', objectFit: 'cover' }} />
                         ) : (
-                          <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ width: '18px', height: '18px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                             {(foundUser.full_name || 'U')[0]}
                           </span>
                         )}
@@ -1374,13 +1414,13 @@ export default function ProjectsPage() {
               )}
 
               {/* Quick Search Input for Members */}
-              <div style={{ position: 'relative', marginBottom: '8px' }}>
-                <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <div style={{ position: 'relative', marginBottom: '10px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   type="text"
                   className="form-input"
-                  style={{ paddingLeft: '26px', padding: '6px 8px 6px 26px', fontSize: '12px', width: '100%' }}
-                  placeholder="🔍 Tìm nhanh theo tên hoặc mã nhân viên..."
+                  style={{ paddingLeft: '32px', padding: '7px 10px 7px 32px', fontSize: '12.5px', width: '100%' }}
+                  placeholder="🔍 Tìm nhanh theo tên, chức danh hoặc mã nhân viên..."
                   value={memberSearchQuery}
                   onChange={e => setMemberSearchQuery(e.target.value)}
                 />
@@ -1388,10 +1428,10 @@ export default function ProjectsPage() {
 
               {/* Staff selection grid */}
               <div style={{
-                maxHeight: '160px', overflowY: 'auto',
-                border: '1px solid var(--border)', borderRadius: '8px',
-                padding: '6px', background: 'var(--bg-card)',
-                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px'
+                maxHeight: '200px', overflowY: 'auto',
+                border: '1px solid var(--border)', borderRadius: '10px',
+                padding: '8px', background: 'var(--bg-card)',
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px'
               }}>
                 {staffList
                   .filter(u => {
@@ -1411,8 +1451,8 @@ export default function ProjectsPage() {
                         key={uid}
                         onClick={() => toggleMemberSelection(uid)}
                         style={{
-                          padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: '6px',
+                          padding: '8px 10px', borderRadius: '8px', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '8px',
                           background: isSelected ? 'var(--primary-soft)' : 'var(--bg-raised)',
                           border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-muted)',
                           transition: 'all 0.1s'
@@ -1422,10 +1462,10 @@ export default function ProjectsPage() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => {}}
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: 'pointer', width: '15px', height: '15px' }}
                         />
                         <div style={{
-                          width: '24px', height: '24px', borderRadius: '50%',
+                          width: '26px', height: '26px', borderRadius: '50%',
                           background: 'var(--primary)', color: '#fff',
                           fontSize: '10px', fontWeight: 700,
                           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
@@ -1436,11 +1476,11 @@ export default function ProjectsPage() {
                             (u.full_name || 'U').charAt(0).toUpperCase()
                           )}
                         </div>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11.5px', lineHeight: 1.2 }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '12px', lineHeight: 1.25 }}>
                           <div style={{ fontWeight: isSelected ? 800 : 600, color: 'var(--text)' }}>
                             {u.full_name}
                           </div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
                             #{u.employee_code || 'NS'} · {u.position || 'Nhân sự'}
                           </div>
                         </div>
@@ -1450,21 +1490,36 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">NOTE (Ghi chú)</label>
+            {/* Note */}
+            <div className="form-group" style={{ marginBottom: '18px' }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>📝 Ghi chú chi tiết về dự án</label>
               <textarea
                 className="form-input"
-                rows={2}
+                rows={3}
                 value={form.note}
                 onChange={e => setForm({ ...form, note: e.target.value })}
-                placeholder="Nhập ghi chú chi tiết về dự án..."
+                placeholder="Nhập phạm vi công việc, yêu cầu đặc biệt, lưu ý tiến độ..."
               />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={() => setShowModal(false)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleSubmit} disabled={submitting} className="btn btn--primary btn--full">
-                {submitting ? <span className="spinner" /> : editingProject ? 'Lưu thông tin' : 'Tạo dự án'}
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="btn btn--ghost"
+                style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="btn btn--primary"
+                style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+              >
+                {submitting ? <span className="spinner" /> : editingProject ? '💾 Lưu thay đổi dự án' : '🚀 Tạo dự án mới'}
               </button>
             </div>
           </div>
