@@ -277,10 +277,10 @@ export default function LeaderboardPage() {
             </div>
 
             {/* Podium Container: Top 2 - Top 1 - Top 3 */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', minHeight: '180px' }}>
+            <div className="podium-container">
               {/* TOP 2 (SILVER) */}
               {top2 ? (
-                <div style={{ flex: 1, maxWidth: '140px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div className="podium-slot">
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
                     {top2.avatar_url ? (
                       <img src={top2.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #94a3b8', objectFit: 'cover' }} />
@@ -303,16 +303,16 @@ export default function LeaderboardPage() {
                     2
                   </div>
                 </div>
-              ) : <div style={{ flex: 1, maxWidth: '140px' }} />}
+              ) : <div className="podium-slot" />}
 
               {/* TOP 1 (GOLD CHAMPION) */}
-              <div style={{ flex: 1, maxWidth: '160px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="podium-slot podium-slot--top1">
                 <Crown size={26} color="#eab308" style={{ marginBottom: '2px', filter: 'drop-shadow(0 2px 4px rgba(234,179,8,0.5))' }} />
                 <div style={{ position: 'relative', marginBottom: '6px' }}>
                   {top1.avatar_url ? (
-                    <img src={top1.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)', objectFit: 'cover' }} />
+                    <img src={top1.avatar_url} alt="" style={{ width: 54, height: 54, borderRadius: '50%', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)', objectFit: 'cover' }} />
                   ) : (
-                    <div className="avatar" style={{ width: 56, height: 56, fontSize: '16px', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)' }}>
+                    <div className="avatar" style={{ width: 54, height: 54, fontSize: '16px', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)' }}>
                       {top1.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                     </div>
                   )}
@@ -333,7 +333,7 @@ export default function LeaderboardPage() {
 
               {/* TOP 3 (BRONZE) */}
               {top3 ? (
-                <div style={{ flex: 1, maxWidth: '140px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div className="podium-slot">
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
                     {top3.avatar_url ? (
                       <img src={top3.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #d97706', objectFit: 'cover' }} />
@@ -356,7 +356,7 @@ export default function LeaderboardPage() {
                     3
                   </div>
                 </div>
-              ) : <div style={{ flex: 1, maxWidth: '140px' }} />}
+              ) : <div className="podium-slot" />}
             </div>
           </div>
         )}
@@ -504,25 +504,7 @@ export default function LeaderboardPage() {
       {data.myRank && (
         <div
           onClick={scrollToMyRank}
-          style={{
-            position: 'fixed',
-            bottom: '72px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            maxWidth: '480px',
-            width: '92%',
-            background: 'var(--bg-card)',
-            border: '1.5px solid var(--primary)',
-            borderRadius: '12px',
-            padding: '10px 16px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            zIndex: 100,
-            backdropFilter: 'blur(8px)',
-          }}
+          className="sticky-my-rank"
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div

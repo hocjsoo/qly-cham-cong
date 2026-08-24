@@ -164,7 +164,7 @@ export default function VehiclesPage() {
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
         {/* Top KPI Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+        <div className="kpi-grid-4" style={{ marginBottom: '14px' }}>
           <div
             onClick={() => setFilterLocation(filterLocation === '17T10' ? 'all' : '17T10')}
             className="card card--interactive"

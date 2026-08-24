@@ -1423,3 +1423,113 @@ tr:hover .table-sticky-col-3 {
   background: var(--bg-card-hover) !important;
 }
 
+/* =============================================
+   RESPONSIVE OPTIMIZATIONS FOR ALL PAGES
+   ============================================= */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.table-responsive-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive-container::-webkit-scrollbar-thumb {
+  background: var(--border-muted);
+  border-radius: 4px;
+}
+
+/* Podium Responsive Layout */
+.podium-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  min-height: 180px;
+  width: 100%;
+}
+
+.podium-slot {
+  flex: 1;
+  max-width: 140px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.podium-slot--top1 {
+  max-width: 160px;
+}
+
+@media (max-width: 480px) {
+  .podium-container {
+    gap: 6px;
+    min-height: 160px;
+  }
+  .podium-slot {
+    max-width: 105px;
+  }
+  .podium-slot--top1 {
+    max-width: 120px;
+  }
+}
+
+/* Floating Sticky My Rank */
+.sticky-my-rank {
+  position: fixed;
+  bottom: calc(64px + env(safe-area-inset-bottom, 10px) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 480px;
+  width: 92%;
+  background: var(--bg-card);
+  border: 1.5px solid var(--primary);
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  z-index: 99;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sticky-my-rank:active {
+  transform: translateX(-50%) scale(0.98);
+}
+
+@media (min-width: 1024px) {
+  .sticky-my-rank {
+    bottom: 24px;
+    left: calc(50% + 125px);
+  }
+}
+
+/* Responsive Grid Helper for KPIs */
+.kpi-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .kpi-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .kpi-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+

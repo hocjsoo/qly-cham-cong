@@ -295,7 +295,7 @@ export default function ExpensesPage() {
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
         {/* Top Financial KPI Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+        <div className="kpi-grid-4" style={{ marginBottom: '14px' }}>
           <div className="card" style={{ padding: '12px', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
             <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
               {formatVND(summary.totalApprovedAmount)}
