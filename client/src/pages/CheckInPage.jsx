@@ -743,13 +743,13 @@ export default function CheckInPage() {
           );
         })()}
 
-        {/* HUB TIỆN ÍCH: ĐƠN NGHỈ PHÉP & BÁO CÁO SẾP */}
+        {/* HUB TIỆN ÍCH: ĐƠN NGHỈ PHÉP & BÁO CÁO ADMIN */}
         <div className="card animate-fade-in" style={{ marginBottom: '16px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Sparkles size={18} color="var(--primary)" />
               <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)' }}>
-                NỘP ĐƠN NGHỈ PHÉP & BÁO CÁO SẾP
+                NỘP ĐƠN NGHỈ PHÉP & BÁO CÁO ADMIN
               </div>
             </div>
             <button onClick={() => navigate('/requests')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '4px 10px', color: 'var(--primary)' }}>
@@ -775,7 +775,7 @@ export default function CheckInPage() {
                 <span className="badge badge--success" style={{ fontSize: '10px', padding: '2px 6px' }}>Kế hoạch trước</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Xin nghỉ phép trước 1 tuần, tự động trừ ngày phép khi Sếp duyệt.
+                Xin nghỉ phép trước 1 tuần, tự động trừ ngày phép khi Admin duyệt.
               </div>
             </div>
 
@@ -796,7 +796,7 @@ export default function CheckInPage() {
                 <span className="badge badge--warning" style={{ fontSize: '10px', padding: '2px 6px' }}>Báo gấp</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Báo cáo nhanh trường hợp ốm đau, việc gia đình đột xuất gửi Sếp.
+                Báo cáo nhanh trường hợp ốm đau, việc gia đình đột xuất gửi Admin.
               </div>
             </div>
 

@@ -419,7 +419,7 @@ const checkIn = async (req, res) => {
 
     res.status(201).json({
       message: isFlagged
-        ? `Check-in được ghi nhận! (Chờ Sếp xác nhận do dùng chung thiết bị)`
+        ? `Check-in được ghi nhận! (Chờ Admin xác nhận do dùng chung thiết bị)`
         : `Check-in thành công! ${lateInfo.label}`,
       attendance,
       late_info: lateInfo,
