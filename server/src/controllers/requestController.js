@@ -6,7 +6,7 @@ const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval } = require('./leaveBalanceController');
 
-const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'other'];
+const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'];
 
 const TYPE_LABELS = {
   late: 'Đi muộn',
@@ -18,6 +18,7 @@ const TYPE_LABELS = {
   annual_leave: 'Nghỉ phép (P)',
   sick_leave: 'Nghỉ ốm (O)',
   unpaid_leave: 'Nghỉ không lương (KL)',
+  vehicle_update: '🛵 Đổi thông tin gửi xe',
   other: 'Khác (K)',
 };
 
@@ -56,7 +57,7 @@ const getMyRequests = async (req, res) => {
 
 // POST /api/requests
 const createRequest = async (req, res) => {
-  const { type, start_date, end_date, start_time, end_time, reason, project_id, project_name, attachment_url } = req.body;
+  const { type, start_date, end_date, start_time, end_time, reason, project_id, project_name, attachment_url, proposed_parking_location, proposed_vehicle_info } = req.body;
   const userId = req.user._id;
 
   if (!type || !start_date || !reason) {
@@ -72,16 +73,16 @@ const createRequest = async (req, res) => {
   }
 
   try {
-    // Kiểm tra trùng đơn ngày này
+    // Kiểm tra trùng đơn ngày này (ngoại trừ vehicle_update có thể gửi nếu chưa duyệt)
     const existing = await Request.findOne({
       user_id: userId,
       type,
       start_date,
-      status: { $in: ['pending', 'approved'] },
+      status: 'pending',
     });
 
     if (existing) {
-      return res.status(409).json({ error: `Bạn đã có đơn "${TYPE_LABELS[type]}" cho ngày ${start_date} đang chờ hoặc đã duyệt.` });
+      return res.status(409).json({ error: `Bạn đang có một yêu cầu "${TYPE_LABELS[type]}" đang chờ Admin phê duyệt.` });
     }
 
     const request = await Request.create({
@@ -91,6 +92,8 @@ const createRequest = async (req, res) => {
       end_date: end_date || start_date,
       start_time: start_time || null,
       end_time: end_time || null,
+      proposed_parking_location: proposed_parking_location || null,
+      proposed_vehicle_info: proposed_vehicle_info || null,
       reason: reason.trim(),
       attachment_url: attachment_url || null,
     });
@@ -101,10 +104,17 @@ const createRequest = async (req, res) => {
     
     for (const m of managers) {
       if (m._id.toString() !== userId.toString()) {
+        const notifTitle = type === 'vehicle_update'
+          ? `🛵 Yêu cầu đổi thông tin xe: ${senderName}`
+          : `📝 Đơn từ mới cần duyệt: ${senderName}`;
+        const notifMsg = type === 'vehicle_update'
+          ? `${senderName} đề xuất đổi thông tin xe sang: [${proposed_vehicle_info || 'Không xe'} - ${proposed_parking_location || '17T10'}]. Lý do: "${reason.trim()}"`
+          : `${senderName} vừa gửi đơn "${TYPE_LABELS[type]}" ngày ${start_date}. Lý do: "${reason.trim()}"`;
+
         await Notification.create({
           user_id: m._id,
-          title: `📝 Đơn từ mới cần duyệt: ${senderName}`,
-          message: `${senderName} vừa gửi đơn "${TYPE_LABELS[type]}" ngày ${start_date}. Lý do: "${reason.trim()}"`,
+          title: notifTitle,
+          message: notifMsg,
           type: 'request',
           link: '/requests',
         });
@@ -203,7 +213,15 @@ const approveRequest = async (req, res) => {
       await deductLeaveOnApproval(request.user_id, request.type, request.start_date, request.end_date);
     }
 
-    // 2. Tự động xóa phạt muộn & phục hồi đầy đủ 1.0 công (work_units = 1.0) khi duyệt đơn
+    // 2. Cập nhật thông tin xe nếu là đơn đổi thông tin gửi xe
+    if (request.type === 'vehicle_update') {
+      await User.findByIdAndUpdate(request.user_id, {
+        parking_location: request.proposed_parking_location || 'Tòa 17T10 Nguyễn Thị Định',
+        vehicle_info: request.proposed_vehicle_info || null,
+      });
+    }
+
+    // 3. Tự động xóa phạt muộn & phục hồi đầy đủ 1.0 công (work_units = 1.0) khi duyệt đơn
     let att = await Attendance.findOne({ user_id: request.user_id, date: request.start_date });
     if (att) {
       if (['late', 'business_trip', 'foreign_trip', 'wfh', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
@@ -230,14 +248,24 @@ const approveRequest = async (req, res) => {
       });
     }
 
-    // 3. Gửi thông báo cho Nhân viên
-    await Notification.create({
-      user_id: request.user_id,
-      title: '✅ Đơn của bạn đã được duyệt',
-      message: `Đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date} đã được duyệt!`,
-      type: 'request',
-      link: '/requests',
-    });
+    // 4. Gửi thông báo cho Nhân viên
+    if (request.type === 'vehicle_update') {
+      await Notification.create({
+        user_id: request.user_id,
+        title: '✅ Đã duyệt đổi thông tin gửi xe',
+        message: `Thông tin xe của bạn đã được cập nhật thành: ${request.proposed_vehicle_info || 'Không gửi xe'} (${request.proposed_parking_location || 'Tòa 17T10'}).`,
+        type: 'request',
+        link: '/profile',
+      });
+    } else {
+      await Notification.create({
+        user_id: request.user_id,
+        title: '✅ Đơn của bạn đã được duyệt',
+        message: `Đơn ${TYPE_LABELS[request.type] || request.type} ngày ${request.start_date} đã được duyệt!`,
+        type: 'request',
+        link: '/requests',
+      });
+    }
 
     // Audit log
     logAction({

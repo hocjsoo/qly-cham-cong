@@ -10,7 +10,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'other'],
+      enum: ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'],
       required: true,
     },
     start_date: {
@@ -26,6 +26,14 @@ const requestSchema = new mongoose.Schema(
       default: null,
     },
     end_time: {
+      type: String,
+      default: null,
+    },
+    proposed_parking_location: {
+      type: String,
+      default: null,
+    },
+    proposed_vehicle_info: {
       type: String,
       default: null,
     },

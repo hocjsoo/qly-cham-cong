@@ -16,6 +16,7 @@ const TYPE_CONFIG = {
   late:          { label: '⏰ Giải trình đi muộn',      color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
   early_leave:   { label: '🏃 Giải trình về sớm',      color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
   overtime:      { label: '⏱️ Tăng ca (OT)',            color: 'var(--primary)', bg: 'var(--primary-soft)' },
+  vehicle_update:{ label: '🛵 Đổi thông tin gửi xe',   color: 'var(--primary)', bg: 'var(--primary-soft)' },
   other:         { label: '📌 Khác (K)',                color: 'var(--text-secondary)', bg: 'var(--bg-raised)' },
 };
 
@@ -273,6 +274,8 @@ export default function RequestsPage() {
       case 'annual_leave':
       case 'sick_leave':
         return '⚡ Tác động tự động: Trừ vào quỹ phép năm & tính nghỉ phép được hưởng lương.';
+      case 'vehicle_update':
+        return '⚡ Tác động tự động: Tự động cập nhật biển số & nơi gửi xe mới vào hồ sơ nhân sự ngay sau khi duyệt.';
       default:
         return '⚡ Tác động tự động: Lưu nhật ký giải trình & gửi thông báo đến quản lý.';
     }
@@ -537,6 +540,7 @@ export default function RequestsPage() {
                 <option value="wfh">🏠 Làm WFH</option>
                 <option value="late">⏰ Giải trình muộn/về sớm</option>
                 <option value="overtime">💪 Đơn tăng ca (OT)</option>
+                <option value="vehicle_update">🛵 Đổi thông tin gửi xe</option>
                 <option value="unpaid_leave">📄 Nghỉ không lương</option>
                 <option value="sick_leave">🤒 Nghỉ ốm</option>
               </select>
@@ -634,6 +638,25 @@ export default function RequestsPage() {
                           {statusCfg.icon} {statusCfg.label}
                         </span>
                       </div>
+
+                  {/* Proposed Vehicle Info Box for vehicle_update */}
+                  {r.type === 'vehicle_update' && (
+                    <div style={{
+                      background: 'var(--primary-subtle, rgba(59, 130, 246, 0.12))',
+                      border: '1px solid var(--primary)',
+                      borderRadius: '8px', padding: '8px 12px', margin: '6px 0 8px 0'
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', marginBottom: '3px' }}>
+                        🛵 THÔNG TIN XE ĐỀ XUẤT CẬP NHẬT:
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>
+                        {r.proposed_vehicle_info || 'Không sử dụng xe'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        🏢 Địa điểm gửi: <strong>{r.proposed_parking_location || 'Tòa 17T10 Nguyễn Thị Định'}</strong>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Reason Details */}
                   <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 500, margin: '6px 0 8px 0', lineHeight: 1.5 }}>
