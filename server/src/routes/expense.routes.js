@@ -1,4 +1,4 @@
-// server/src/routes/expenseRoutes.js
+// server/src/routes/expense.routes.js
 // Định tuyến API cho Module Chi Tiêu & Hoàn Ứng Công Ty
 
 const express = require('express');

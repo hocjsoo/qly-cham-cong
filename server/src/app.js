@@ -76,7 +76,7 @@ const notificationRoutes  = require('./routes/notification.routes');
 const holidayRoutes       = require('./routes/holiday.routes');
 const timesheetLockRoutes = require('./routes/timesheetLock.routes');
 const announcementRoutes  = require('./routes/announcement.routes');
-const expenseRoutes       = require('./routes/expenseRoutes');
+const expenseRoutes       = require('./routes/expense.routes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
