@@ -21,6 +21,7 @@ export default function ProfilePage() {
 
   const [showChangePass, setShowChangePass] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
+  const [showEditPhoneModal, setShowEditPhoneModal] = useState(false);
   const [showVehicleRequestModal, setShowVehicleRequestModal] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
@@ -31,6 +32,10 @@ export default function ProfilePage() {
   const [parkingLocation, setParkingLocation] = useState(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
   const [vehicleInfo, setVehicleInfo] = useState(user?.vehicle_info || user?.license_plate || '');
   const [updatingInfo, setUpdatingInfo] = useState(false);
+
+  // Employee Phone Update State
+  const [employeePhone, setEmployeePhone] = useState(user?.phone || '');
+  const [updatingPhone, setUpdatingPhone] = useState(false);
 
   // Vehicle update request state (for Employee -> Admin approval)
   const [reqParkingLocation, setReqParkingLocation] = useState(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
@@ -56,6 +61,7 @@ export default function ProfilePage() {
     if (user) {
       setFullName(user.full_name || '');
       setPhone(user.phone || '');
+      setEmployeePhone(user.phone || '');
       setParkingLocation(user.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
       setVehicleInfo(user.vehicle_info || user.license_plate || '');
       setReqParkingLocation(user.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
@@ -148,6 +154,23 @@ export default function ProfilePage() {
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi cập nhật thông tin');
     } finally { setUpdatingInfo(false); }
+  };
+
+  // Direct Update Phone (For Employee / Staff)
+  const handleUpdateEmployeePhone = async () => {
+    setUpdatingPhone(true);
+    try {
+      const { data } = await api.patch('/auth/profile', {
+        phone: employeePhone.trim() || null
+      });
+      toast.success(data.message || 'Đã cập nhật số điện thoại thành công! 📞');
+      setUser(data.user);
+      setShowEditPhoneModal(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật số điện thoại');
+    } finally {
+      setUpdatingPhone(false);
+    }
   };
 
   // Submit Vehicle Update Request (Staff/Employee -> Admin Approval)
@@ -346,28 +369,51 @@ export default function ProfilePage() {
         {/* Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {isStaff && (
-            <button
-              onClick={() => {
-                setReqParkingLocation(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
-                setReqVehicleInfo(user?.vehicle_info || user?.license_plate || '');
-                setReqReason('');
-                setShowVehicleRequestModal(true);
-              }}
-              className="card animate-fade-in"
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                cursor: 'pointer', width: '100%', textAlign: 'left',
-                fontFamily: 'inherit', fontSize: '14px', color: 'var(--text)',
-                border: '1px solid var(--primary-soft)', background: 'var(--bg-card)'
-              }}
-            >
-              <Bike size={18} color="var(--primary)" />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>Gửi yêu cầu đổi thông tin gửi xe</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đề xuất đổi biển số / nơi gửi nộp Admin duyệt</div>
-              </div>
-              <ChevronRight size={16} color="var(--text-muted)" />
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setEmployeePhone(user?.phone || '');
+                  setShowEditPhoneModal(true);
+                }}
+                className="card animate-fade-in"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                  fontFamily: 'inherit', fontSize: '14px', color: 'var(--text)',
+                  border: '1px solid var(--border)', background: 'var(--bg-card)'
+                }}
+              >
+                <Phone size={18} color="var(--primary)" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>Cập nhật số điện thoại</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đổi SĐT liên hệ công việc & khẩn cấp</div>
+                </div>
+                <ChevronRight size={16} color="var(--text-muted)" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setReqParkingLocation(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
+                  setReqVehicleInfo(user?.vehicle_info || user?.license_plate || '');
+                  setReqReason('');
+                  setShowVehicleRequestModal(true);
+                }}
+                className="card animate-fade-in"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                  fontFamily: 'inherit', fontSize: '14px', color: 'var(--text)',
+                  border: '1px solid var(--primary-soft)', background: 'var(--bg-card)'
+                }}
+              >
+                <Bike size={18} color="var(--primary)" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>Gửi yêu cầu đổi thông tin gửi xe</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đề xuất đổi biển số / nơi gửi nộp Admin duyệt</div>
+                </div>
+                <ChevronRight size={16} color="var(--text-muted)" />
+              </button>
+            </>
           )}
 
           <button
@@ -399,6 +445,52 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
+
+      {/* Staff Phone Update Modal */}
+      {showEditPhoneModal && (
+        <div className="modal-overlay" onClick={() => setShowEditPhoneModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+            <div className="modal-sheet__handle" />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                  📞 Cập Nhật Số Điện Thoại
+                </h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Thông tin liên hệ công việc và xử lý khẩn cấp
+                </div>
+              </div>
+              <button onClick={() => setShowEditPhoneModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Số điện thoại liên hệ</label>
+              <input
+                type="tel"
+                className="form-input"
+                value={employeePhone}
+                onChange={e => setEmployeePhone(e.target.value)}
+                placeholder="VD: 0912345678"
+                autoFocus
+              />
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                💡 Số điện thoại sẽ được cập nhật ngay lập tức vào danh bạ nội bộ công ty.
+              </div>
+            </div>
+
+            <button
+              onClick={handleUpdateEmployeePhone}
+              disabled={updatingPhone}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ marginTop: '8px' }}
+            >
+              {updatingPhone ? <span className="spinner" /> : 'Lưu Số Điện Thoại'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Staff Vehicle Update Request Modal (Employee -> Admin Approval) */}
       {showVehicleRequestModal && (

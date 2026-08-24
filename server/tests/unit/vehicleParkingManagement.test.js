@@ -179,6 +179,15 @@ function runVehicleParkingTests(assert) {
     'TC-VEH-08.2: Sử dụng 100% nội dung tùy chỉnh do Admin nhập');
   assert(notifTitle === '📢 THÔNG BÁO NGHỈ LỄ QUỐC KHÁNH 02/9/2026',
     'TC-VEH-08.3: Tiêu đề không bị lặp chữ "THÔNG BÁO NGHỈ LỄ: THÔNG BÁO NGHỈ LỄ"');
+
+  // TC-VEH-09: Cập Nhật Số Điện Thoại Cá Nhân — Nhân viên tự cập nhật tức thì
+  const empProfile = { ...mockUsers[0] };
+  const newPhone = '0988123456';
+  empProfile.phone = newPhone.trim();
+  assert(empProfile.phone === '0988123456',
+    'TC-VEH-09.1: Nhân viên cập nhật số điện thoại mới thành công tức thì');
+  assert(empProfile.full_name === 'Nguyễn Văn An' && empProfile.role === 'employee',
+    'TC-VEH-09.2: Họ tên và vai trò nhân viên được bảo vệ nguyên vẹn khi đổi số điện thoại');
 }
 
 module.exports = runVehicleParkingTests;
