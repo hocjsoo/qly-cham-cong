@@ -667,20 +667,54 @@ export default function ReportPage() {
                                 <td
                                   key={d.day}
                                   onClick={() => {
-                                    if (isAdminOrManager) {
-                                      setSelectedCell({ user_id: r.id, staff_name: r.full_name, dateStr: d.dateStr, current_symbol: d.symbol });
-                                      setCellSymbol(d.symbol || 'x');
-                                      setCellReason('');
-                                    }
+                                    setSelectedCell({
+                                      user_id: r.id,
+                                      staff_name: r.full_name,
+                                      staff_code: r.code,
+                                      department_name: r.department_name,
+                                      dateStr: d.dateStr,
+                                      day: d.day,
+                                      weekday: hdObj?.weekday,
+                                      current_symbol: d.symbol,
+                                      check_in_time: d.check_in_time,
+                                      check_out_time: d.check_out_time,
+                                      total_hours: d.total_hours,
+                                      ot_hours: d.ot_hours,
+                                      is_late: d.is_late,
+                                      late_minutes: d.late_minutes,
+                                      status: d.status,
+                                      notes: d.notes,
+                                      check_in_type: d.check_in_type,
+                                      is_modified: d.is_modified,
+                                      audit_logs: d.audit_logs || [],
+                                    });
+                                    setCellSymbol(d.symbol || 'x');
+                                    setCellReason('');
                                   }}
                                   style={{
-                                    padding: '6px 2px', cursor: isAdminOrManager ? 'pointer' : 'default',
+                                    padding: '6px 2px',
+                                    cursor: 'pointer',
                                     background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
-                                    borderLeft: '1px solid var(--border-muted)'
+                                    borderLeft: '1px solid var(--border-muted)',
+                                    position: 'relative',
                                   }}
-                                  title={isAdminOrManager ? `Bấm để chỉnh sửa ô công ngày ${d.dateStr}` : d.symbol}
+                                  title={`Bấm xem chi tiết ngày ${d.dateStr}${d.is_modified ? ' (Đã sửa công)' : ''}`}
                                 >
                                   {renderDaySymbol(d.symbol, isSun)}
+                                  {d.is_modified && (
+                                    <span
+                                      style={{
+                                        position: 'absolute',
+                                        top: '2px',
+                                        right: '2px',
+                                        width: '5px',
+                                        height: '5px',
+                                        borderRadius: '50%',
+                                        background: '#f59e0b',
+                                      }}
+                                      title="Ô công đã được điều chỉnh"
+                                    />
+                                  )}
                                 </td>
                               );
                             })}
@@ -1367,57 +1401,154 @@ export default function ReportPage() {
         </div>
       </div>
 
-      {/* MODAL 1: OVERRIDE CELL WITH MANDATORY REASON */}
+      {/* MODAL 1: CHI TIẾT NGÀY ĐIỂM DANH & CHỈNH SỬA Ô CÔNG */}
       {selectedCell && (
         <div className="modal-overlay" onClick={() => setSelectedCell(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', margin: '0 auto' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', margin: '0 auto' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Edit2 size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Chỉnh Sửa Ô Công</h3>
+                <Calendar size={18} color="var(--primary)" />
+                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Chi Tiết Ngày Điểm Danh</h3>
               </div>
               <button onClick={() => setSelectedCell(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '10px', borderRadius: '8px', marginBottom: '12px' }}>
-              <div>Nhân sự: <strong>{selectedCell.staff_name}</strong></div>
-              <div>Ngày: <strong>{selectedCell.dateStr}</strong> (Hiện tại: <code>{selectedCell.current_symbol || '—'}</code>)</div>
+            {/* Employee & Date Banner */}
+            <div style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', marginBottom: '12px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                    {selectedCell.staff_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    #{selectedCell.staff_code || 'NS'} · {selectedCell.department_name || 'Phòng ban'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
+                    {selectedCell.weekday ? `${selectedCell.weekday}, ` : ''}{selectedCell.dateStr}
+                  </div>
+                  <div style={{ marginTop: '2px' }}>
+                    <span className="badge badge--neutral" style={{ fontSize: '11px', fontWeight: 800 }}>
+                      Ký hiệu: [{selectedCell.current_symbol || '—'}]
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Ký hiệu công mới *</label>
-              <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)}>
-                <option value="x">x : Đủ công (1.0)</option>
-                <option value="0,75x">0,75x : 3/4 công (0.75)</option>
-                <option value="0,5x">0,5x : 1/2 công (0.5)</option>
-                <option value="CT1">CT1 : CT Trong nước</option>
-                <option value="CT2">CT2 : CT Nước ngoài</option>
-                <option value="WFH">WFH : Work from home</option>
-                <option value="P">P : Nghỉ phép</option>
-                <option value="O">O : Nghỉ ốm</option>
-                <option value="KL">KL : Nghỉ không lương</option>
-                <option value="K">K : Khác</option>
-              </select>
+            {/* Daily Attendance Stats Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)' }}>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>🕒 Giờ Check-in / Out</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                  {selectedCell.check_in_time || '—'} ➔ {selectedCell.check_out_time || '—'}
+                </div>
+                {selectedCell.is_late && (
+                  <div style={{ fontSize: '10.5px', color: 'var(--red)', fontWeight: 600, marginTop: '2px' }}>
+                    ⚠️ Muộn {selectedCell.late_minutes} phút
+                  </div>
+                )}
+              </div>
+
+              <div className="card" style={{ padding: '10px', background: 'var(--bg-card)' }}>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>⏱️ Thời Gian Làm Việc</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                  {selectedCell.total_hours || 0} giờ
+                  {selectedCell.ot_hours > 0 && (
+                    <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '4px' }}>(+{selectedCell.ot_hours}h OT)</span>
+                  )}
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {selectedCell.check_in_type === 'wfh' ? '🏠 Work from home' :
+                   selectedCell.check_in_type === 'site' ? '🚗 Đi công tác' : '🏢 Tại văn phòng'}
+                </div>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Lý do chỉnh sửa * (Bắt buộc lưu Lịch sử Audit Log)</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                value={cellReason}
-                onChange={e => setCellReason(e.target.value)}
-                placeholder="Nhập lý do điều chỉnh ô công..."
-              />
-            </div>
+            {/* Notes Section if any */}
+            {selectedCell.notes && (
+              <div style={{ background: 'var(--primary-subtle, rgba(59, 130, 246, 0.08))', border: '1px solid var(--primary-soft)', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ fontSize: '10.5px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '2px' }}>
+                  📝 Ghi Chú Ngày Điểm Danh:
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text)' }}>
+                  {selectedCell.notes}
+                </div>
+              </div>
+            )}
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-              <button onClick={() => setSelectedCell(null)} className="btn btn--ghost btn--full">Hủy</button>
-              <button onClick={handleSaveCellOverride} disabled={submittingCell} className="btn btn--primary btn--full">
-                {submittingCell ? <span className="spinner" /> : 'Lưu & Ghi Lịch Sử'}
-              </button>
-            </div>
+            {/* Audit History Box (If cell was modified) */}
+            {selectedCell.audit_logs && selectedCell.audit_logs.length > 0 && (
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1.5px solid #f59e0b', padding: '10px 12px', borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#d97706', fontWeight: 800, fontSize: '11.5px', marginBottom: '6px' }}>
+                  <History size={14} /> ⚠️ LỊCH SỬ ĐIỀU CHỈNH CÔNG ({selectedCell.audit_logs.length} lần)
+                </div>
+                {selectedCell.audit_logs.map((log, idx) => (
+                  <div key={idx} style={{ fontSize: '11.5px', color: 'var(--text)', borderTop: idx > 0 ? '1px dashed rgba(245, 158, 11, 0.3)' : 'none', paddingTop: idx > 0 ? '6px' : 0, marginTop: idx > 0 ? '6px' : 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Thay đổi: <code>[{log.old_symbol}]</code> ➔ <strong style={{ color: 'var(--primary)' }}>[{log.new_symbol}]</strong></span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>{new Date(log.modified_at).toLocaleString('vi-VN')}</span>
+                    </div>
+                    <div style={{ marginTop: '2px', color: 'var(--text-secondary)' }}>
+                      👤 Người sửa: <strong>{log.modified_by_name}</strong>
+                    </div>
+                    <div style={{ marginTop: '2px', fontStyle: 'italic', color: '#b45309' }}>
+                      💬 Lý do: "{log.reason}"
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Admin / Leader Edit Section */}
+            {isAdminOrManager ? (
+              <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', marginTop: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Ô Công (Admin)
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '8px' }}>
+                  <label className="form-label" style={{ fontSize: '11px' }}>Ký hiệu công mới *</label>
+                  <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)} style={{ fontSize: '12.5px' }}>
+                    <option value="x">x : Đủ công (1.0)</option>
+                    <option value="0,75x">0,75x : 3/4 công (0.75)</option>
+                    <option value="0,5x">0,5x : 1/2 công (0.5)</option>
+                    <option value="CT1">CT1 : CT Trong nước</option>
+                    <option value="CT2">CT2 : CT Nước ngoài</option>
+                    <option value="WFH">WFH : Work from home</option>
+                    <option value="P">P : Nghỉ phép</option>
+                    <option value="O">O : Nghỉ ốm</option>
+                    <option value="KL">KL : Nghỉ không lương</option>
+                    <option value="K">K : Khác</option>
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '10px' }}>
+                  <label className="form-label" style={{ fontSize: '11px' }}>Lý do chỉnh sửa * (Bắt buộc)</label>
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    value={cellReason}
+                    onChange={e => setCellReason(e.target.value)}
+                    placeholder="Nhập lý do điều chỉnh ô công..."
+                    style={{ fontSize: '12px' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={() => setSelectedCell(null)} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
+                  <button onClick={handleSaveCellOverride} disabled={submittingCell} className="btn btn--primary btn--full" style={{ padding: '8px' }}>
+                    {submittingCell ? <span className="spinner" /> : 'Lưu & Ghi Lịch Sử'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                <button onClick={() => setSelectedCell(null)} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
+              </div>
+            )}
           </div>
         </div>
       )}

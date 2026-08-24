@@ -38,10 +38,11 @@ const getFullMatrix = async (req, res) => {
       .populate('department_ids', 'name')
       .sort({ employee_code: 1, full_name: 1 });
 
-    // Lấy tất cả bản ghi điểm danh tháng này
-    const attendances = await Attendance.find({
-      date: { $gte: startDateStr, $lte: endDateStr },
-    });
+    // Lấy tất cả bản ghi điểm danh và lịch sử chỉnh sửa tháng này
+    const [attendances, auditLogsList] = await Promise.all([
+      Attendance.find({ date: { $gte: startDateStr, $lte: endDateStr } }).lean(),
+      AttendanceAuditLog.find({ date: { $gte: startDateStr, $lte: endDateStr } }).sort({ modified_at: -1 }).lean(),
+    ]);
 
     // Lấy danh sách chốt công tháng này
     const lockRecords = await TimesheetLock.find({ month, year });
@@ -73,9 +74,12 @@ const getFullMatrix = async (req, res) => {
 
     // Xây dựng Bảng Tổng Hợp Nhân Sự Khớp 100% ET_Staff 2026
     const staffRows = users.map((u, idx) => {
-      const userAtts = attendances.filter(a => a.user_id.toString() === u._id.toString());
+      const uIdStr = String(u._id);
+      const userAtts = attendances.filter(a => String(a.user_id) === uIdStr);
       const attDateMap = {};
       userAtts.forEach(a => { attDateMap[a.date] = a; });
+
+      const userAudits = auditLogsList.filter(l => String(l.user_id) === uIdStr);
 
       let nlv_office = 0;
       let ct_domestic = 0;
@@ -128,11 +132,31 @@ const getFullMatrix = async (req, res) => {
           }
         }
 
+        // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên
+        const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
+
         return {
           day: hd.day,
           dateStr: hd.dateStr,
           symbol,
           attendance_id: att?._id || null,
+          check_in_time: att?.check_in_time || null,
+          check_out_time: att?.check_out_time || null,
+          total_hours: att?.total_hours || 0,
+          ot_hours: att?.ot_hours || 0,
+          is_late: Boolean(att?.is_late),
+          late_minutes: att?.late_minutes || 0,
+          status: att?.status || (att ? 'present' : 'none'),
+          notes: att?.notes || '',
+          check_in_type: att?.check_in_type || 'office',
+          is_modified: dayAudits.length > 0 || Boolean(att?.notes && att.notes.includes('Sửa:')),
+          audit_logs: dayAudits.map(a => ({
+            old_symbol: a.old_symbol,
+            new_symbol: a.new_symbol,
+            reason: a.reason,
+            modified_by_name: a.modified_by_name || 'Admin',
+            modified_at: a.modified_at,
+          })),
         };
       });
 
