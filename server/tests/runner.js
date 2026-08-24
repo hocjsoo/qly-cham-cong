@@ -25,6 +25,7 @@ const { runExpenseManagementTests } = require('./unit/expenseManagement.test');
 const { runLeaderboardRankingTests } = require('./unit/leaderboardRanking.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
+const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
 
 // Expert QA & Process Validation Suites
 const runExpertRequestApprovalTests = require('./unit/expertRequestApproval.test');
@@ -118,6 +119,7 @@ async function runAllTests() {
     runAdvancedScenariosTests(assert);
     runExpertRequestApprovalTests(assert);
     runExpertTimeDateAdjusterTests(assert);
+    await runControllerIntegrationTests(assert);
 
     // === PHẦN 4: KIỂM THỬ HIỆU NĂNG & BENCHMARK ===
     runPerformanceTests(assert);

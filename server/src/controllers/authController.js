@@ -262,7 +262,12 @@ const updateProfile = async (req, res) => {
     userObj.id = userObj._id;
     userObj.department_name = userObj.department_id?.name || null;
 
-    res.json({ message: 'Cập nhật thông tin thành công! ✅', user: userObj });
+    let message = 'Cập nhật thông tin thành công! ✅';
+    if ((parking_location !== undefined || vehicle_info !== undefined) && req.user.role !== 'admin') {
+      message = 'Đã cập nhật thông tin cá nhân. (Lưu ý: Thay đổi nơi gửi xe/biển số cần nộp Đơn đổi xe để Admin phê duyệt)';
+    }
+
+    res.json({ message, user: userObj });
 
   } catch (error) {
     console.error('UpdateProfile error:', error);

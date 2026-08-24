@@ -1,6 +1,6 @@
 # 🧪 TÀI LIỆU KỊCH BẢN KIỂM THỬ HỆ THỐNG TOÀN DIỆN (TEST SCENARIOS)
 **Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh  
-**Phiên bản kiểm thử:** 7.0.0 (Zero-Impact Resilience, Concurrency, Mutation & Expert Business Suites — 31 Test Suites / 203 Test Cases)  
+**Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Controller Integration & Security Hardening — 32 Test Suites / 223 Test Cases)  
 **Tác giả:** [hocjsoo](https://github.com/hocjsoo)
 
 ---
@@ -10,9 +10,9 @@
 Hệ thống kiểm thử này được thiết kế theo các tiêu chuẩn kỹ thuật nghiêm ngặt:
 1. **Không kết nối hoặc làm thay đổi MongoDB Atlas Prod**: Tất cả dữ liệu thử nghiệm đều chạy trên bộ nhớ (In-Memory Mock), cô lập 100%.
 2. **Không làm gián đoạn người dùng thật**: Các yêu cầu kiểm thử diễn ra hoàn toàn độc lập, không tạo bản ghi rác, không kích hoạt thông báo thật, không gửi email/push.
-3. **Kiểm thử Phá hoại & Bất thường (Chaos & Adversarial Testing)**: Kiểm thử tải đồng thời (Race Condition), dữ liệu rác/Fuzzing, lỗi giao dịch giữa chừng (Transaction Rollback) và cấy lỗi đột biến (Mutation Testing Engine).
-4. **Kiểm thử Nghiệp vụ Chuyên Gia (Expert QA Suites)**: Kiểm thử vòng đời duyệt đơn nhiều ngày, tính công OT tự động, ranh giới phân quyền bảo vệ Admin, bộ chọn thời gian +-15p và chuyển ngày tự động.
-5. **Thực thi siêu tốc (< 350ms)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
+3. **Kiểm thử Trực tiếp Express Controllers (Real Controller Integration)**: Gọi trực tiếp các hàm điều khiển `userController.getAllUsers`, `authController.updateProfile`, `attendanceController.overrideAttendance` với đối tượng `req` và `res` thực tế, kiểm tra phân tầng dữ liệu DTO và ranh giới bảo mật.
+4. **Kiểm thử Phá hoại & Bất thường (Chaos & Adversarial Testing)**: Kiểm thử tải đồng thời (Race Condition), dữ liệu rác/Fuzzing, lỗi giao dịch giữa chừng (Transaction Rollback) và cấy lỗi đột biến (Mutation Testing Engine).
+5. **Thực thi siêu tốc (< 360ms)**: Quản trị viên hoặc lập trình viên có thể chạy kiểm thử bất kỳ lúc nào ngay trên môi trường phát triển / CI/CD.
 
 ---
 
@@ -31,7 +31,7 @@ npm test
 
 ---
 
-## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (31 Suites / 203 Test Cases)
+## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (32 Suites / 223 Test Cases)
 
 ### PHẦN A: KIỂM THỬ BACKEND & THUẬT TOÁN NGHIỆP VỤ (16 Suites)
 Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, chốt công ma trận, đơn từ, phép năm, chống gian lận phần cứng, đa phòng ban, đính chính giờ, ngày lễ, công trình, thông báo, thống kê dashboard, xuất Excel, xác thực mật khẩu, đa chi nhánh, ca làm việc.
@@ -39,11 +39,29 @@ Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, ch
 ### PHẦN B: KIỂM THỬ FRONTEND GIAO DIỆN & TRẠNG THÁI CLIENT (6 Suites)
 Bao gồm Zustand AuthStore, ThemeStore Dark/Light mode, menu điều hướng & Route Guards, băm phần cứng client, xuất CSV UTF-8 tiếng Việt, badge trạng thái UI.
 
-### PHẦN C: KIỂM THỬ TÍCH HỢP TOÀN TRÌNH (2 Suites)
-Bao gồm E2E single user lifecycle và kịch bản đa tầng phức hợp nhân sự đa phòng ban.
+### PHẦN C: KIỂM THỬ TÍCH HỢP TOÀN TRÌNH & REAL CONTROLLERS (3 Suites / 23 Test Cases)
+Bao gồm E2E single user lifecycle, kịch bản đa tầng phức hợp nhân sự đa phòng ban, và bộ kiểm thử trực tiếp controller production (`controllerIntegration.test.js`).
+
+| Test ID | Phân hệ (Module) | Kịch bản kiểm thử | Mô phỏng Tình huống (Scenario) | Kết quả mong đợi (Expected Output) |
+|---|---|---|---|---|
+| **TC-CTRL-01.1** | Real Controller | Admin gọi `getAllUsers` | Admin gửi request lấy danh bạ | Trả về 200 OK |
+| **TC-CTRL-01.2** | Real Controller | Admin nhận đủ sĩ số nhân sự | 3 nhân sự trong hệ thống | Trả về đủ 3 bản ghi |
+| **TC-CTRL-01.3** | Real Controller | Admin truy xuất toàn bộ trường HR | Xem ngày sinh, CCCD, Ngân hàng | Nhận đầy đủ dữ liệu quản trị |
+| **TC-CTRL-02.1** | Real Controller | Leader gọi `getAllUsers` | Leader IT gửi request | Trả về 200 OK |
+| **TC-CTRL-02.2** | Real Controller | Leader xem dữ liệu team mình | Nhân viên thuộc phòng IT | Hiển thị trường quản lý phòng ban |
+| **TC-CTRL-02.3** | Real Controller | Sanitize nhân viên phòng khác | Nhân viên phòng Kinh Doanh | Tự động ẩn toàn bộ trường HR nhạy cảm |
+| **TC-CTRL-03.1** | Real Controller | Employee gọi `getAllUsers` | Nhân viên thông thường gọi API | Trả về 200 OK |
+| **TC-CTRL-03.2** | Real Controller | Employee nhận danh bạ whitelist | Tên, Email, SĐT, Chức vụ, Phòng | Nhận đúng thông tin danh bạ công khai |
+| **TC-CTRL-03.3** | Real Controller | Không rò rỉ dữ liệu riêng tư | Kiểm tra trường DOB, CCCD, Xe | Ẩn hoàn toàn 100% |
+| **TC-CTRL-04.1** | Real Controller | Leader sửa hồ sơ cá nhân | Gửi họ tên và SĐT mới | Trả về 200 OK thành công |
+| **TC-CTRL-04.2** | Real Controller | Lưu đúng dữ liệu vào database | Kiểm tra payload update | Họ tên và SĐT mới được lưu chính xác |
+| **TC-CTRL-05.1** | Real Controller | Non-admin gửi kèm trường xe | Employee gửi `parking_location` | Request không bị crash, 200 OK |
+| **TC-CTRL-05.2** | Real Controller | Chặn ghi đè trường xe | Kiểm tra payload update | Backend từ chối ghi đè trường xe |
+| **TC-CTRL-05.3** | Real Controller | Thông báo hướng dẫn nộp đơn | Xem message phản hồi | Nhắc nhở user nộp Đơn đổi xe |
+| **TC-CTRL-06** | Real Controller | Leader sửa giờ chấm công | Leader gọi `overrideAttendance` | Bị chặn `403 Forbidden` |
 
 ### PHẦN D: KIỂM THỬ HIỆU NĂNG & BENCHMARK TẢI CAO (1 Suite / 6 Benchmarks)
-Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 30ms), ký & xác thực 1,000 JWT (< 100ms), băm 5,000 hardware strings (< 30ms), kiểm tra rò rỉ bộ nhớ Heap (< 15MB Delta), xuất CSV 500 nhân sự (< 25ms).
+Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 30ms), ký & xác thực 1,000 JWT (< 250ms), băm 5,000 hardware strings (< 30ms), kiểm tra rò rỉ bộ nhớ Heap (< 15MB Delta), xuất CSV 500 nhân sự (< 25ms).
 
 ### PHẦN E: KIỂM THỬ ĐỒNG THỜI, BẢO MẬT & ĐỘ BỀN HỆ THỐNG (RESILIENCE) (4 Suites / 19 Test Cases)
 
@@ -105,7 +123,7 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 ```
 server/
 ├── tests/
-│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (31 Suites / 203 Test Cases)
+│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 223 Test Cases)
 │   ├── unit/                          # 18 Backend Unit & Expert Suites
 │   │   ├── attendance.test.js
 │   │   ├── clientAuthStore.test.js
@@ -141,6 +159,7 @@ server/
 │   │   └── mutationEngine.test.js     # [MUT] Động cơ cấy lỗi đột biến và tiêu diệt Mutants
 │   └── integration/
 │       ├── advancedScenarios.test.js
+│       ├── controllerIntegration.test.js # [CTRL] Kiểm thử trực tiếp Controller & Express Middleware thật
 │       ├── e2eScenario.test.js
 │       └── transactionRollback.test.js# [TX] Kiểm thử xử lý sự cố giao dịch & Rollback
 └── package.json                       # Script "test": "node tests/runner.js"

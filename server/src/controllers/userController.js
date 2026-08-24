@@ -24,13 +24,11 @@ const getAllUsers = async (req, res) => {
       queryFilter.employment_status = { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ việc', 'Nghi viec', 'resigned', 'inactive'] };
     }
 
-    const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(req.user?.role);
+    const isAdmin = req.user?.role === 'admin';
+    const isLeader = ['leader', 'manager'].includes(req.user?.role);
     
-    // Nếu là nhân viên thông thường, sử dụng STRICT WHITELIST chỉ cho phép thông tin danh bạ công việc tối thiểu
-    let selectFields = '-password_hash -reset_token -reset_token_expires';
-    if (!isAdminOrLeader) {
-      selectFields = '_id employee_code full_name position email phone department_id department_ids avatar_url is_active employment_status';
-    }
+    // Admin lấy toàn bộ trường quản trị; Leader và Employee lấy trường có chọn lọc
+    const selectFields = '-password_hash -reset_token -reset_token_expires';
 
     const users = await User.find(queryFilter)
       .select(selectFields)
@@ -39,12 +37,48 @@ const getAllUsers = async (req, res) => {
       .populate('manager_id', 'full_name')
       .sort({ employee_code: 1, created_at: -1 });
 
+    const leaderDeptIds = isLeader
+      ? (req.user.department_ids && req.user.department_ids.length > 0
+          ? req.user.department_ids.map(id => String(id._id || id))
+          : (req.user.department_id ? [String(req.user.department_id._id || req.user.department_id)] : []))
+      : [];
+
     const formatted = users.map(u => {
       const obj = u.toObject();
+      const userDeptIdStrings = (obj.department_ids && obj.department_ids.length > 0)
+        ? obj.department_ids.map(d => String(d._id || d))
+        : (obj.department_id?._id || obj.department_id ? [String(obj.department_id._id || obj.department_id)] : []);
+
       const deptNames = (obj.department_ids && obj.department_ids.length > 0)
         ? obj.department_ids.map(d => d.name)
         : (obj.department_id?.name ? [obj.department_id.name] : []);
 
+      const isSelf = String(obj._id) === String(req.user?._id);
+      const isInLeaderTeam = isLeader && (isSelf || userDeptIdStrings.some(id => leaderDeptIds.includes(id)));
+
+      // Nếu không phải Admin và không thuộc Team của Leader (hoặc là nhân viên thường xem người khác)
+      // -> Chỉ trả về Whitelist DTO danh bạ công khai
+      if (!isAdmin && !isInLeaderTeam) {
+        return {
+          id: obj._id,
+          _id: obj._id,
+          employee_code: obj.employee_code || 'NS',
+          full_name: obj.full_name,
+          position: obj.position || 'Nhân viên',
+          email: obj.email,
+          phone: obj.phone,
+          department_id: obj.department_id,
+          department_ids: obj.department_ids,
+          department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
+          department_names: deptNames,
+          avatar_url: obj.avatar_url,
+          is_active: obj.is_active,
+          employment_status: obj.employment_status,
+          role: obj.role,
+        };
+      }
+
+      // Với Admin hoặc Leader xem nhân viên trong phòng ban mình quản lý
       return {
         ...obj,
         id: obj._id,
