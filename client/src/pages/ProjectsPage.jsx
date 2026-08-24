@@ -67,6 +67,7 @@ export default function ProjectsPage() {
   const [selectedProjectDetail, setSelectedProjectDetail] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -639,9 +640,25 @@ export default function ProjectsPage() {
                         {p.code}
                       </td>
 
-                      {/* DỰ ÁN */}
-                      <td style={{ padding: '11px 14px', fontWeight: 700, color: 'var(--text)' }}>
-                        <div style={{ fontSize: '13px' }}>{p.name}</div>
+                      {/* DỰ ÁN & DA THÀNH PHẦN */}
+                      <td style={{ padding: '11px 14px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                          {p.name}
+                        </div>
+                        {p.sub_project && (
+                          <div style={{
+                            fontSize: '11px', color: 'var(--primary)', fontWeight: 700,
+                            marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px'
+                          }}>
+                            <span style={{
+                              background: 'var(--primary-soft)', padding: '1px 6px',
+                              borderRadius: '4px', fontSize: '9.5px', fontWeight: 800
+                            }}>
+                              🔖 DA thành phần:
+                            </span>
+                            <span>{p.sub_project}</span>
+                          </div>
+                        )}
                         {p.deadline && (
                           <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
                             ⏱️ Hạn chót: {p.deadline}
@@ -722,33 +739,57 @@ export default function ProjectsPage() {
                         </span>
                       </td>
 
-                      {/* PM */}
-                      <td style={{ padding: '11px 14px', color: 'var(--text)', fontWeight: 600 }}>
-                        {p.pm_name ? (
-                          <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const foundPm = (p.pm_id && p.pm_id.full_name)
-                                ? p.pm_id
-                                : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'Quản lý dự án (PM)' });
-                              setViewingStaffDetail(foundPm);
-                            }}
-                            title={`Click xem hồ sơ PM: ${p.pm_name}`}
-                            style={{
-                              cursor: 'pointer',
-                              color: 'var(--primary)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              fontWeight: 700
-                            }}
-                          >
-                            <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px' }}>
-                              👤 {p.pm_name}
-                            </span>
-                          </div>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)' }}>—</span>
+                      {/* PM (Với Avatar hình ảnh & Thông tin chi tiết) */}
+                      <td style={{ padding: '11px 14px' }}>
+                        {p.pm_name ? (() => {
+                          const foundPm = (p.pm_id && p.pm_id.full_name)
+                            ? p.pm_id
+                            : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'PM' });
+                          const pmInitials = (foundPm.full_name || 'PM').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
+
+                          return (
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingStaffDetail(foundPm);
+                              }}
+                              title={`Click xem hồ sơ PM: ${p.pm_name}`}
+                              style={{
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}
+                            >
+                              {foundPm.avatar_url ? (
+                                <img
+                                  src={foundPm.avatar_url}
+                                  alt=""
+                                  style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
+                                />
+                              ) : (
+                                <div style={{
+                                  width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary)',
+                                  color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex',
+                                  alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                }}>
+                                  {pmInitials}
+                                </div>
+                              )}
+                              <div style={{ lineHeight: 1.2 }}>
+                                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)', textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                                  {p.pm_name}
+                                </div>
+                                {foundPm.position && (
+                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                                    {foundPm.position}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
                         )}
                       </td>
 
@@ -817,8 +858,12 @@ export default function ProjectsPage() {
                     </div>
 
                     {p.sub_project && (
-                      <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 600, marginBottom: '6px' }}>
-                        🔖 DA Thành phần: {p.sub_project}
+                      <div style={{
+                        fontSize: '11.5px', color: 'var(--primary)', fontWeight: 700,
+                        background: 'var(--primary-soft)', padding: '3px 8px', borderRadius: '6px',
+                        display: 'inline-flex', alignItems: 'center', gap: '4px', marginBottom: '6px'
+                      }}>
+                        <span>🔖 DA Thành phần:</span> {p.sub_project}
                       </div>
                     )}
 
@@ -834,31 +879,46 @@ export default function ProjectsPage() {
                     </div>
 
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, marginTop: '6px' }}>
-                      {p.pm_name && (
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const foundPm = (p.pm_id && p.pm_id.full_name)
-                              ? p.pm_id
-                              : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'Quản lý dự án (PM)' });
-                            setViewingStaffDetail(foundPm);
-                          }}
-                          title={`Click xem hồ sơ PM: ${p.pm_name}`}
-                          style={{
-                            color: 'var(--primary)',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            marginBottom: '4px',
-                            textDecoration: 'underline',
-                            textUnderlineOffset: '2px'
-                          }}
-                        >
-                          👷 PM: {p.pm_name}
-                        </div>
-                      )}
+                      {p.pm_name && (() => {
+                        const foundPm = (p.pm_id && p.pm_id.full_name)
+                          ? p.pm_id
+                          : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'PM' });
+                        const pmInitials = (foundPm.full_name || 'PM').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
+
+                        return (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingStaffDetail(foundPm);
+                            }}
+                            title={`Click xem hồ sơ PM: ${p.pm_name}`}
+                            style={{
+                              color: 'var(--primary)',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              marginBottom: '6px',
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: 'var(--bg-raised)',
+                              border: '1px solid var(--border)'
+                            }}
+                          >
+                            {foundPm.avatar_url ? (
+                              <img src={foundPm.avatar_url} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)' }} />
+                            ) : (
+                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {pmInitials}
+                              </div>
+                            )}
+                            <span style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>
+                              👷 PM: {p.pm_name}
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {p.members && p.members.length > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', margin: '4px 0' }}>
                           <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>👥:</span>
@@ -1024,6 +1084,41 @@ export default function ProjectsPage() {
                     </option>
                   ))}
                 </select>
+
+                {/* Inline PM Preview Card */}
+                {form.pm_name && (() => {
+                  const selectedPmObj = staffList.find(s => s.full_name === form.pm_name);
+                  if (!selectedPmObj) return null;
+                  return (
+                    <div style={{
+                      marginTop: '6px', padding: '6px 10px', background: 'var(--bg-raised)',
+                      borderRadius: '8px', border: '1px solid var(--primary)',
+                      display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11.5px'
+                    }}>
+                      {selectedPmObj.avatar_url ? (
+                        <img src={selectedPmObj.avatar_url} alt="" style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '10px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {(selectedPmObj.full_name || 'P').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <strong style={{ color: 'var(--primary)' }}>{selectedPmObj.full_name}</strong>
+                        <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                          {selectedPmObj.position || 'PM'} · {selectedPmObj.phone || selectedPmObj.email || ''}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setViewingStaffDetail(selectedPmObj)}
+                        className="btn btn--ghost"
+                        style={{ padding: '2px 6px', fontSize: '10px', color: 'var(--primary)' }}
+                      >
+                        Hồ sơ
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="form-group">
                 <label className="form-label">Chủ đầu tư / Khách hàng</label>
@@ -1095,56 +1190,144 @@ export default function ProjectsPage() {
               </div>
             </div>
 
-            {/* Multi-member selection list */}
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                👥 Thành viên dự án ({form.members.length} người đã chọn)
-              </label>
+            {/* SUPER EASY MEMBER PICKER */}
+            <div className="form-group" style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 800, color: 'var(--primary)', fontSize: '13px' }}>
+                  👥 Thành viên dự án ({form.members.length} người)
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allIds = staffList.map(u => u._id || u.id);
+                      setForm({ ...form, members: allIds });
+                    }}
+                    style={{ background: 'var(--primary-soft)', color: 'var(--primary)', border: 'none', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    + Chọn tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, members: [] })}
+                    style={{ background: 'none', color: 'var(--text-muted)', border: '1px solid var(--border)', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', cursor: 'pointer' }}
+                  >
+                    Bỏ chọn hết
+                  </button>
+                </div>
+              </div>
+
+              {/* Selected Members Chips */}
+              {form.members.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '8px', maxHeight: '70px', overflowY: 'auto' }}>
+                  {form.members.map(memId => {
+                    const foundUser = staffList.find(s => String(s._id || s.id) === String(memId));
+                    if (!foundUser) return null;
+                    return (
+                      <span
+                        key={memId}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          background: 'var(--bg-card)', border: '1px solid var(--primary)',
+                          borderRadius: '16px', padding: '2px 8px 2px 4px', fontSize: '11px'
+                        }}
+                      >
+                        {foundUser.avatar_url ? (
+                          <img src={foundUser.avatar_url} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {(foundUser.full_name || 'U')[0]}
+                          </span>
+                        )}
+                        <strong style={{ color: 'var(--text)' }}>{foundUser.full_name}</strong>
+                        <button
+                          type="button"
+                          onClick={() => toggleMemberSelection(memId)}
+                          style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', padding: '0 2px', fontWeight: 800, fontSize: '12px' }}
+                          title="Xóa thành viên này"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Quick Search Input for Members */}
+              <div style={{ position: 'relative', marginBottom: '8px' }}>
+                <Search size={13} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  style={{ paddingLeft: '26px', padding: '6px 8px 6px 26px', fontSize: '12px', width: '100%' }}
+                  placeholder="🔍 Tìm nhanh theo tên hoặc mã nhân viên..."
+                  value={memberSearchQuery}
+                  onChange={e => setMemberSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Staff selection grid */}
               <div style={{
-                maxHeight: '140px', overflowY: 'auto',
+                maxHeight: '160px', overflowY: 'auto',
                 border: '1px solid var(--border)', borderRadius: '8px',
-                padding: '6px', background: 'var(--bg-raised)',
+                padding: '6px', background: 'var(--bg-card)',
                 display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '4px'
               }}>
-                {staffList.map(u => {
-                  const uid = u._id || u.id;
-                  const isSelected = form.members.includes(uid);
-                  return (
-                    <div
-                      key={uid}
-                      onClick={() => toggleMemberSelection(uid)}
-                      style={{
-                        padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        background: isSelected ? 'var(--primary-soft)' : 'var(--bg-card)',
-                        border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-muted)',
-                        transition: 'all 0.1s'
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      <div style={{
-                        width: '20px', height: '20px', borderRadius: '50%',
-                        background: 'var(--primary)', color: '#fff',
-                        fontSize: '9px', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                      }}>
-                        {u.avatar_url ? (
-                          <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          (u.full_name || 'U').charAt(0).toUpperCase()
-                        )}
+                {staffList
+                  .filter(u => {
+                    if (!memberSearchQuery.trim()) return true;
+                    const q = memberSearchQuery.trim().toLowerCase();
+                    return (
+                      u.full_name?.toLowerCase().includes(q) ||
+                      u.employee_code?.toLowerCase().includes(q) ||
+                      u.position?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(u => {
+                    const uid = u._id || u.id;
+                    const isSelected = form.members.includes(uid);
+                    return (
+                      <div
+                        key={uid}
+                        onClick={() => toggleMemberSelection(uid)}
+                        style={{
+                          padding: '6px 8px', borderRadius: '6px', cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: '6px',
+                          background: isSelected ? 'var(--primary-soft)' : 'var(--bg-raised)',
+                          border: isSelected ? '1.5px solid var(--primary)' : '1px solid var(--border-muted)',
+                          transition: 'all 0.1s'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <div style={{
+                          width: '24px', height: '24px', borderRadius: '50%',
+                          background: 'var(--primary)', color: '#fff',
+                          fontSize: '10px', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                        }}>
+                          {u.avatar_url ? (
+                            <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            (u.full_name || 'U').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11.5px', lineHeight: 1.2 }}>
+                          <div style={{ fontWeight: isSelected ? 800 : 600, color: 'var(--text)' }}>
+                            {u.full_name}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            #{u.employee_code || 'NS'} · {u.position || 'Nhân sự'}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '11px', fontWeight: isSelected ? 700 : 500 }}>
-                        {u.full_name}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </div>
 
@@ -1217,20 +1400,37 @@ export default function ProjectsPage() {
               <div
                 onClick={() => {
                   if (selectedProjectDetail.pm_name) {
-                    const foundPm = staffList.find(s => s.full_name === selectedProjectDetail.pm_name);
-                    if (foundPm) setViewingStaffDetail(foundPm);
+                    const foundPm = (selectedProjectDetail.pm_id && selectedProjectDetail.pm_id.full_name)
+                      ? selectedProjectDetail.pm_id
+                      : (staffList.find(s => s.full_name === selectedProjectDetail.pm_name) || { full_name: selectedProjectDetail.pm_name, position: 'Quản lý dự án (PM)' });
+                    setViewingStaffDetail(foundPm);
                   }
                 }}
                 style={{
                   background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px',
                   border: '1px solid var(--border)',
-                  cursor: staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'pointer' : 'default'
+                  cursor: selectedProjectDetail.pm_name ? 'pointer' : 'default',
+                  display: 'flex', alignItems: 'center', gap: '8px'
                 }}
-                title={staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'Click để xem hồ sơ PM' : ''}
+                title={selectedProjectDetail.pm_name ? 'Click để xem hồ sơ PM' : ''}
               >
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Trưởng dự án (PM)</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textDecoration: staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'underline' : 'none' }}>
-                  👷 {selectedProjectDetail.pm_name || 'Chưa phân công'}
+                {(() => {
+                  const foundPm = (selectedProjectDetail.pm_id && selectedProjectDetail.pm_id.full_name)
+                    ? selectedProjectDetail.pm_id
+                    : staffList.find(s => s.full_name === selectedProjectDetail.pm_name);
+                  return foundPm?.avatar_url ? (
+                    <img src={foundPm.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {(selectedProjectDetail.pm_name || 'P').charAt(0).toUpperCase()}
+                    </div>
+                  );
+                })()}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Trưởng dự án (PM)</div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', textDecoration: selectedProjectDetail.pm_name ? 'underline' : 'none', textUnderlineOffset: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedProjectDetail.pm_name || 'Chưa phân công'}
+                  </div>
                 </div>
               </div>
               <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
