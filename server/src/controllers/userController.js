@@ -26,10 +26,10 @@ const getAllUsers = async (req, res) => {
 
     const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(req.user?.role);
     
-    // Nếu là nhân viên thông thường, loại bỏ triệt để các thông tin tài chính/cá nhân nhạy cảm
+    // Nếu là nhân viên thông thường, sử dụng STRICT WHITELIST chỉ cho phép thông tin danh bạ công việc tối thiểu
     let selectFields = '-password_hash -reset_token -reset_token_expires';
     if (!isAdminOrLeader) {
-      selectFields += ' -cccd -bank_name -bank_account -branch -bhxh_code -emergency_phone -address_current -hometown';
+      selectFields = '_id employee_code full_name position email phone department_id department_ids avatar_url is_active employment_status';
     }
 
     const users = await User.find(queryFilter)

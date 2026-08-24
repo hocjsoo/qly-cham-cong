@@ -142,12 +142,15 @@ export default function ProfilePage() {
     }
     setUpdatingInfo(true);
     try {
-      const { data } = await api.patch('/auth/profile', {
+      const payload = {
         full_name: fullName.trim(),
-        phone: phone.trim(),
-        parking_location: parkingLocation.trim(),
-        vehicle_info: vehicleInfo.trim()
-      });
+        phone: phone.trim()
+      };
+      if (user?.role === 'admin') {
+        payload.parking_location = parkingLocation.trim();
+        payload.vehicle_info = vehicleInfo.trim();
+      }
+      const { data } = await api.patch('/auth/profile', payload);
       toast.success(data.message);
       setUser(data.user);
       setShowEditInfo(false);
@@ -611,49 +614,53 @@ export default function ProfilePage() {
               <input type="text" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="0912345678" />
             </div>
 
-            {/* Thông tin gửi xe */}
-            <div className="form-group">
-              <label className="form-label">🏢 Địa điểm gửi xe</label>
-              <input
-                type="text"
-                className="form-input"
-                value={parkingLocation}
-                onChange={e => setParkingLocation(e.target.value)}
-                placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
-              />
-              <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                {['Tòa 17T10 Nguyễn Thị Định', 'Gửi ngoài', 'Không gửi xe'].map(loc => (
-                  <button
-                    key={loc}
-                    type="button"
-                    onClick={() => setParkingLocation(loc)}
-                    className="btn btn--ghost"
-                    style={{
-                      fontSize: '11px',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      background: parkingLocation === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-input)',
-                      color: parkingLocation === loc ? 'var(--primary)' : 'var(--text-secondary)',
-                      borderColor: parkingLocation === loc ? 'var(--primary)' : 'var(--border)',
-                      fontWeight: parkingLocation === loc ? 700 : 500
-                    }}
-                  >
-                    {loc === 'Tòa 17T10 Nguyễn Thị Định' ? '🏢 ' : loc === 'Gửi ngoài' ? '🅿️ ' : '🚫 '}{loc}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Thông tin gửi xe — Chỉ Admin mới sửa trực tiếp, các vai trò khác nộp đơn đổi xe */}
+            {user?.role === 'admin' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">🏢 Địa điểm gửi xe</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={parkingLocation}
+                    onChange={e => setParkingLocation(e.target.value)}
+                    placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
+                  />
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    {['Tòa 17T10 Nguyễn Thị Định', 'Gửi ngoài', 'Không gửi xe'].map(loc => (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => setParkingLocation(loc)}
+                        className="btn btn--ghost"
+                        style={{
+                          fontSize: '11px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          background: parkingLocation === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-input)',
+                          color: parkingLocation === loc ? 'var(--primary)' : 'var(--text-secondary)',
+                          borderColor: parkingLocation === loc ? 'var(--primary)' : 'var(--border)',
+                          fontWeight: parkingLocation === loc ? 700 : 500
+                        }}
+                      >
+                        {loc === 'Tòa 17T10 Nguyễn Thị Định' ? '🏢 ' : loc === 'Gửi ngoài' ? '🅿️ ' : '🚫 '}{loc}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            <div className="form-group">
-              <label className="form-label">🛵 Mô tả xe & Biển số xe</label>
-              <input
-                type="text"
-                className="form-input"
-                value={vehicleInfo}
-                onChange={e => setVehicleInfo(e.target.value)}
-                placeholder="VD: Honda Lead Vàng - 29E1-456.78"
-              />
-            </div>
+                <div className="form-group">
+                  <label className="form-label">🛵 Mô tả xe & Biển số xe</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={vehicleInfo}
+                    onChange={e => setVehicleInfo(e.target.value)}
+                    placeholder="VD: Honda Lead Vàng - 29E1-456.78"
+                  />
+                </div>
+              </>
+            )}
 
             <button onClick={handleUpdateProfile} disabled={updatingInfo} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
               {updatingInfo ? <span className="spinner" /> : 'Lưu thay đổi'}

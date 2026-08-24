@@ -240,18 +240,13 @@ const updateProfile = async (req, res) => {
     return res.status(400).json({ error: 'Họ tên không được để trống.' });
   }
 
-  // Chặn nhân viên / leader đi vòng để tự sửa thông tin gửi xe
-  if ((parking_location !== undefined || vehicle_info !== undefined) && req.user.role !== 'admin') {
-    return res.status(403).json({
-      error: 'Chỉ Quản trị viên (Admin) mới có quyền chỉnh sửa thông tin gửi xe. Vui lòng nộp Đơn đổi xe để được phê duyệt.'
-    });
-  }
-
   try {
     const updateData = {};
     if (full_name !== undefined) updateData.full_name = full_name.trim();
     if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
     if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+    
+    // Chỉ Quản trị viên (Admin) mới có quyền cập nhật trực tiếp nơi gửi xe và biển số xe
     if (req.user.role === 'admin') {
       if (parking_location !== undefined) updateData.parking_location = parking_location ? parking_location.trim() : 'Tòa 17T10 Nguyễn Thị Định';
       if (vehicle_info !== undefined) updateData.vehicle_info = vehicle_info ? vehicle_info.trim() : null;
