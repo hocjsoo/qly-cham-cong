@@ -4,7 +4,7 @@
 const Expense = require('../models/Expense');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { logAction } = require('./auditLogController');
+const { logAction } = require('../utils/auditLogger');
 
 const formatVND = (num) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);

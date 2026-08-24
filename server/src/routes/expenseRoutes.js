@@ -3,7 +3,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const authMiddleware = require('../middlewares/authMiddleware');
+const { requireRole } = require('../middlewares/roleMiddleware');
 const {
   getExpenses,
   createExpense,
