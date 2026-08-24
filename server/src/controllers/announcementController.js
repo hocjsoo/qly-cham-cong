@@ -195,14 +195,19 @@ const getAnniversaries = async (req, res) => {
           anniversaries.push({
             user_id: u._id,
             id: u._id,
+            _id: u._id,
             full_name: u.full_name,
             email: u.email,
+            phone: u.phone || '',
             avatar_url: u.avatar_url,
-            employee_code: u.employee_code,
+            employee_code: u.employee_code || 'NS-000',
             position: u.position || 'Nhân viên',
             department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
+            years: yearsCount,
             years_count: yearsCount,
             start_year: joinYear,
+            join_date: u.join_date || (u.start_year ? `Năm ${u.start_year}` : ''),
+            anniversary_date: u.join_date ? u.join_date : `Năm ${joinYear}`,
             badge: yearsCount >= 5 ? '🏆 5+ Năm Gắn Bó' : yearsCount >= 3 ? '🎖️ 3+ Năm Cống Hiến' : `${yearsCount} Năm Đồng Hành`,
           });
         }

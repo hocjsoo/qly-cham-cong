@@ -67,6 +67,7 @@ export default function DashboardPage() {
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [selectedBirthday, setSelectedBirthday] = useState(null);
+  const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [flaggedList, setFlaggedList] = useState([]);
@@ -464,27 +465,35 @@ export default function DashboardPage() {
                 {/* Work Anniversaries */}
                 {anniversaries?.map((a, aIdx) => (
                   <div
-                    key={`anniv-${a._id || aIdx}`}
+                    key={`anniv-${a._id || a.user_id || aIdx}`}
+                    onClick={() => setSelectedAnniversary(a)}
+                    className="card--interactive"
                     style={{
                       background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
                       border: '1px solid var(--primary)', fontSize: '12px', display: 'flex',
-                      alignItems: 'center', gap: '10px', flexShrink: 0,
+                      alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
                       boxShadow: 'var(--shadow-xs)'
                     }}
+                    title="Click để xem chi tiết vinh danh cống hiến"
                   >
-                    <div style={{
-                      width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-soft)',
-                      color: 'var(--primary)', fontSize: '16px', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontWeight: 800, flexShrink: 0
-                    }}>
-                      🏅
-                    </div>
+                    {a.avatar_url ? (
+                      <img src={a.avatar_url} alt={a.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }} />
+                    ) : (
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-soft)',
+                        color: 'var(--primary)', fontSize: '16px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontWeight: 800, flexShrink: 0
+                      }}>
+                        🏅
+                      </div>
+                    )}
                     <div>
-                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px' }}>
-                        {a.full_name}
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{a.full_name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{a.employee_code || 'NS'}</span>
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, marginTop: '1px' }}>
-                        🎉 Tròn {a.years} năm cống hiến ({a.anniversary_date})
+                        🎉 {a.badge || `Tròn ${a.years_count || a.years || 1} năm cống hiến`} ({a.anniversary_date || (a.start_year ? `Năm ${a.start_year}` : '')})
                       </div>
                     </div>
                   </div>
@@ -1115,6 +1124,229 @@ export default function DashboardPage() {
               style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
             >
               Đã hiểu & Xác nhận ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Birthday Detail Modal */}
+      {selectedBirthday && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedBirthday(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid rgba(245, 158, 11, 0.4)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '42px', height: '42px', borderRadius: '12px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1.5px solid var(--yellow)', fontSize: '22px'
+                }}>
+                  🎂
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Chúc Mừng Sinh Nhật
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                    Sinh Nhật Tháng Này 🎉
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedBirthday(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Highlight Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%)',
+              padding: '16px', borderRadius: '14px',
+              border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: '16px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              {selectedBirthday.avatar_url ? (
+                <img src={selectedBirthday.avatar_url} alt={selectedBirthday.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)' }} />
+              ) : (
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                  {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
+                  {selectedBirthday.full_name}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  #{selectedBirthday.employee_code || 'NS'} · {selectedBirthday.position || 'Nhân viên'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                  🏢 {selectedBirthday.department_name || 'Phòng ban'}
+                </div>
+              </div>
+            </div>
+
+            {/* Birthday Date Info */}
+            <div style={{
+              background: 'var(--bg-raised)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', marginBottom: '16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Ngày sinh nhật:</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--yellow)', marginTop: '2px' }}>
+                  🎂 Ngày {selectedBirthday.day || selectedBirthday.dob}
+                </div>
+              </div>
+              {selectedBirthday.phone && (
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Số điện thoại chúc mừng:</div>
+                  <a href={`tel:${selectedBirthday.phone}`} style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+                    📞 {selectedBirthday.phone}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            {/* Birthday Message Box */}
+            <div style={{
+              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px dashed rgba(245, 158, 11, 0.4)', fontSize: '13px', color: 'var(--text)',
+              lineHeight: 1.6, marginBottom: '20px'
+            }}>
+              ✨ <strong>ET Architects kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
+            </div>
+
+            <button
+              onClick={() => setSelectedBirthday(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đóng cửa sổ ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Work Anniversary Detail Modal */}
+      {selectedAnniversary && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedAnniversary(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--primary)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '42px', height: '42px', borderRadius: '12px',
+                  background: 'var(--primary-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1.5px solid var(--primary)', fontSize: '22px'
+                }}>
+                  🏅
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Vinh Danh & Tri Ân
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.2 }}>
+                    Kỷ Niệm Cống Hiến Gắn Bó 🏆
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAnniversary(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Highlight Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 100%)',
+              padding: '16px', borderRadius: '14px',
+              border: '1px solid var(--primary-soft)', marginBottom: '16px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              {selectedAnniversary.avatar_url ? (
+                <img src={selectedAnniversary.avatar_url} alt={selectedAnniversary.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
+              ) : (
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                  {selectedAnniversary.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
+                  {selectedAnniversary.full_name}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  #{selectedAnniversary.employee_code || 'NS'} · {selectedAnniversary.position || 'Nhân viên'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                  🏢 {selectedAnniversary.department_name || 'Phòng ban'}
+                </div>
+              </div>
+            </div>
+
+            {/* Work Anniversary Milestone Card */}
+            <div style={{
+              background: 'var(--bg-raised)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', marginBottom: '16px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Cột mốc cống hiến:</div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>
+                    🏆 {selectedAnniversary.badge || `Tròn ${selectedAnniversary.years_count || selectedAnniversary.years || 1} Năm Gắn Bó`}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Thời gian gia nhập:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginTop: '2px' }}>
+                    {selectedAnniversary.anniversary_date || (selectedAnniversary.start_year ? `Năm ${selectedAnniversary.start_year}` : 'Thành viên cốt cán')}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Appreciation Note */}
+            <div style={{
+              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px dashed var(--primary)', fontSize: '13px', color: 'var(--text)',
+              lineHeight: 1.6, marginBottom: '20px'
+            }}>
+              🌟 <strong>Ban Giám Đốc và Đại Gia Đình ET Architects</strong> xin gửi lời tri ân chân thành nhất tới những đóng góp bền bỉ, tâm huyết và tinh thần trách nhiệm của <strong>{selectedAnniversary.full_name}</strong> trong suốt chặng đường phát triển của công ty!
+            </div>
+
+            <button
+              onClick={() => setSelectedAnniversary(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đóng cửa sổ ✓
             </button>
           </div>
         </div>
