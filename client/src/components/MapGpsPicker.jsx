@@ -5,60 +5,87 @@ import { useEffect, useRef, useState } from 'react';
 import { Search, MapPin, Navigation, Compass, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-function loadLeafletAssets(timeoutMs = 12000) {
+function loadLeafletStylesheet(timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    const existing = document.getElementById('leaflet-css');
+    if (existing && existing.dataset.loaded === 'true') {
+      return resolve();
+    }
+    if (existing) {
+      existing.remove();
+    }
+
+    const link = document.createElement('link');
+    link.id = 'leaflet-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+
+    const timer = setTimeout(() => {
+      link.remove();
+      reject(new Error('Tải Leaflet CSS quá thời gian (Timeout 12s)'));
+    }, timeoutMs);
+
+    link.onload = () => {
+      clearTimeout(timer);
+      link.dataset.loaded = 'true';
+      resolve();
+    };
+
+    link.onerror = () => {
+      clearTimeout(timer);
+      link.remove();
+      reject(new Error('Không thể tải Leaflet CSS từ CDN'));
+    };
+
+    document.head.appendChild(link);
+  });
+}
+
+function loadLeafletScript(timeoutMs = 12000) {
   return new Promise((resolve, reject) => {
     if (window.L) return resolve(window.L);
 
-    let isDone = false;
-    let timer = null;
+    const existing = document.getElementById('leaflet-js');
+    if (existing) {
+      existing.remove();
+    }
 
-    const timeout = setTimeout(() => {
-      if (isDone) return;
-      isDone = true;
-      if (timer) clearInterval(timer);
-      reject(new Error('Tải bản đồ Leaflet quá thời gian (Timeout 12s)'));
+    const script = document.createElement('script');
+    script.id = 'leaflet-js';
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+
+    const timer = setTimeout(() => {
+      script.remove();
+      reject(new Error('Tải Leaflet JS quá thời gian (Timeout 12s)'));
     }, timeoutMs);
 
-    const onComplete = (err) => {
-      if (isDone) return;
-      isDone = true;
-      clearTimeout(timeout);
-      if (timer) clearInterval(timer);
-      if (err) {
-        reject(err);
-      } else if (window.L) {
+    script.onload = () => {
+      clearTimeout(timer);
+      if (window.L) {
         resolve(window.L);
       } else {
+        script.remove();
         reject(new Error('Không tìm thấy đối tượng Leaflet sau khi tải'));
       }
     };
 
-    // 1. Tải Leaflet CSS
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      link.onerror = () => onComplete(new Error('Không thể tải Leaflet CSS từ CDN'));
-      document.head.appendChild(link);
-    }
+    script.onerror = () => {
+      clearTimeout(timer);
+      script.remove();
+      reject(new Error('Không thể tải Leaflet JS từ CDN'));
+    };
 
-    // 2. Tải Leaflet JS
-    if (!document.getElementById('leaflet-js')) {
-      const script = document.createElement('script');
-      script.id = 'leaflet-js';
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => onComplete(null);
-      script.onerror = () => onComplete(new Error('Không thể tải Leaflet JS từ CDN'));
-      document.body.appendChild(script);
-    } else {
-      timer = setInterval(() => {
-        if (window.L) {
-          onComplete(null);
-        }
-      }, 50);
-    }
+    document.body.appendChild(script);
   });
+}
+
+async function loadLeafletAssets(timeoutMs = 12000) {
+  if (window.L) return window.L;
+  const [, L] = await Promise.all([
+    loadLeafletStylesheet(timeoutMs),
+    loadLeafletScript(timeoutMs)
+  ]);
+  return L;
 }
 
 export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation }) {
@@ -314,21 +341,23 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
         />
 
         {/* Floating Hint Overlay */}
-        <div style={{
-          position: 'absolute', bottom: '10px', left: '10px', right: '10px',
-          background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)',
-          color: '#ffffff', padding: '8px 12px', borderRadius: '10px',
-          fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          zIndex: 10, border: '1px solid rgba(255, 255, 255, 0.15)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <MapPin size={14} color="#ef4444" />
-            <span>Chạm/Kéo ghim trên bản đồ để chọn tọa độ VP</span>
+        {!mapLoading && !mapError && (
+          <div style={{
+            position: 'absolute', bottom: '10px', left: '10px', right: '10px',
+            background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(4px)',
+            color: '#ffffff', padding: '8px 12px', borderRadius: '10px',
+            fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            zIndex: 10, border: '1px solid rgba(255, 255, 255, 0.15)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MapPin size={14} color="#ef4444" />
+              <span>Chạm/Kéo ghim trên bản đồ để chọn tọa độ VP</span>
+            </div>
+            <div style={{ fontWeight: 700, color: 'var(--green)' }}>
+              {currentLat.toFixed(5)}, {currentLng.toFixed(5)}
+            </div>
           </div>
-          <div style={{ fontWeight: 700, color: 'var(--green)' }}>
-            {currentLat.toFixed(5)}, {currentLng.toFixed(5)}
-          </div>
-        </div>
+        )}
       </div>
 
       {addressDisplay && (
