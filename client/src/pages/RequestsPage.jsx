@@ -139,6 +139,19 @@ export default function RequestsPage() {
     }
   }, [tab]);
 
+  useEffect(() => {
+    const queryType = searchParams.get('type');
+    const queryCreate = searchParams.get('create');
+    if (queryType) {
+      if (TYPE_CONFIG[queryType]) {
+        setType(queryType);
+      }
+      setShowForm(true);
+    } else if (queryCreate === 'true') {
+      setShowForm(true);
+    }
+  }, [searchParams]);
+
   const loadData = async () => {
     try {
       setLoading(true);
