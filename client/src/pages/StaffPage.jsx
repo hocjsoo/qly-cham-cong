@@ -185,25 +185,93 @@ export default function StaffPage() {
 
   const [sortBy, setSortBy] = useState('name_asc'); // 'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'code_asc'
 
-  const filtered = staff.filter(s => {
-    const q = search.trim().toLowerCase();
-    const matchSearch = !q ||
-                        s.full_name?.toLowerCase().includes(q) ||
-                        s.email?.toLowerCase().includes(q) ||
-                        s.employee_code?.toLowerCase().includes(q) ||
-                        s.phone?.includes(q) ||
-                        s.position?.toLowerCase().includes(q) ||
-                        s.hometown?.toLowerCase().includes(q) ||
-                        s.parking_location?.toLowerCase().includes(q) ||
-                        s.vehicle_info?.toLowerCase().includes(q) ||
-                        s.license_plate?.toLowerCase().includes(q) ||
-                        s.cccd?.includes(q);
+  const normalizeStr = (str) => {
+    if (!str) return '';
+    return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  };
 
-    const userDeptIds = s.department_ids?.map(d => d._id || d) || [s.department_id?._id || s.department_id];
-    const matchDept = !filterDept || userDeptIds.includes(filterDept);
-    const matchRole = !filterRole || s.role === filterRole || (filterRole === 'leader' && s.role === 'manager') || (filterRole === 'employee' && s.role === 'staff');
-    const matchStatus = !filterStatus || s.employment_status === filterStatus;
-    const matchEmpType = !filterEmpType || s.employee_type === filterEmpType;
+  const normalizeStatus = (st) => {
+    if (!st) return 'dang_lam_viec';
+    const norm = normalizeStr(st);
+    if (norm.includes('da nghi') || norm.includes('nghi viec') || norm.includes('resigned') || norm.includes('inactive')) return 'da_nghi_viec';
+    if (norm.includes('nghi om')) return 'nghi_om';
+    if (norm.includes('thai san')) return 'nghi_thai_san';
+    if (norm.includes('khac')) return 'khac';
+    return 'dang_lam_viec';
+  };
+
+  const filtered = staff.filter(s => {
+    // 1. Tìm kiếm (có dấu hoặc không dấu)
+    const qRaw = search.trim().toLowerCase();
+    const qNorm = normalizeStr(qRaw);
+
+    let matchSearch = true;
+    if (qRaw) {
+      const searchPool = [
+        s.full_name,
+        s.email,
+        s.employee_code,
+        s.phone,
+        s.position,
+        s.department_name,
+        s.hometown,
+        s.parking_location,
+        s.vehicle_info,
+        s.license_plate,
+        s.cccd
+      ].filter(Boolean);
+
+      matchSearch = searchPool.some(field => {
+        const fieldStr = String(field).toLowerCase();
+        const fieldNorm = normalizeStr(fieldStr);
+        return fieldStr.includes(qRaw) || fieldNorm.includes(qNorm);
+      });
+    }
+
+    // 2. Lọc theo Phòng Ban (Hỗ trợ cả multi-dept và single dept, ép kiểu String)
+    let matchDept = true;
+    if (filterDept) {
+      const targetDeptId = String(filterDept);
+      const userDeptIds = (s.department_ids && s.department_ids.length > 0)
+        ? s.department_ids.map(d => String(d?._id || d))
+        : (s.department_id ? [String(s.department_id?._id || s.department_id)] : []);
+
+      matchDept = userDeptIds.includes(targetDeptId);
+    }
+
+    // 3. Lọc theo Vai Trò (Admin / Leader / Nhân viên + legacy mapping)
+    let matchRole = true;
+    if (filterRole) {
+      if (filterRole === 'admin') {
+        matchRole = s.role === 'admin';
+      } else if (filterRole === 'leader' || filterRole === 'manager') {
+        matchRole = s.role === 'leader' || s.role === 'manager';
+      } else if (filterRole === 'employee' || filterRole === 'staff') {
+        matchRole = s.role === 'employee' || s.role === 'staff' || !s.role;
+      } else {
+        matchRole = s.role === filterRole;
+      }
+    }
+
+    // 4. Lọc theo Trạng Thái (Chuẩn hóa không dấu: Đang làm việc / Đã nghỉ việc / Nghỉ ốm / Nghỉ thai sản)
+    let matchStatus = true;
+    if (filterStatus) {
+      const userNormStatus = normalizeStatus(s.employment_status);
+      if (filterStatus === 'Dang lam viec') {
+        matchStatus = userNormStatus === 'dang_lam_viec' && s.is_active !== false;
+      } else if (filterStatus === 'Da nghi viec') {
+        matchStatus = userNormStatus === 'da_nghi_viec' || s.is_active === false;
+      } else if (filterStatus === 'Nghi om') {
+        matchStatus = userNormStatus === 'nghi_om';
+      } else if (filterStatus === 'Nghi thai san') {
+        matchStatus = userNormStatus === 'nghi_thai_san';
+      } else {
+        matchStatus = normalizeStr(s.employment_status) === normalizeStr(filterStatus);
+      }
+    }
+
+    // 5. Lọc theo Loại Nhân Sự (NS / TV / TTS)
+    const matchEmpType = !filterEmpType || (s.employee_type || 'NS') === filterEmpType;
 
     return matchSearch && matchDept && matchRole && matchStatus && matchEmpType;
   }).sort((a, b) => {
