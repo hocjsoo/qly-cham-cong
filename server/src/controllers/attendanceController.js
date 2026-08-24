@@ -201,20 +201,48 @@ const checkIn = async (req, res) => {
           session.last_used_at = now;
           session.check_in_count += 1;
           await session.save();
+
+          if (!session.is_trusted) {
+            deviceWarning = `⚠️ Thiết bị chưa duyệt (${session.device_name || 'Thiết bị lạ'}).`;
+            isFlagged = true;
+            if (!flagReasons.includes('DEVICE_UNTRUSTED')) {
+              flagReasons.push('DEVICE_UNTRUSTED');
+            }
+          }
         } else {
           const totalDevices = await DeviceSession.countDocuments({ user_id: userId });
+          const isFirstDevice = totalDevices === 0;
           session = await DeviceSession.create({
             user_id: userId,
             device_fingerprint,
             device_name: device_name || 'Unknown',
             user_agent: userAgentStr,
             screen_info: screen_info || null,
-            is_trusted: totalDevices < 2,
+            is_trusted: isFirstDevice,
             check_in_count: 1,
           });
-          if (totalDevices >= 2) {
+
+          if (!isFirstDevice) {
             deviceWarning = `⚠️ Phát hiện thiết bị mới (${device_name || 'Unknown'}).`;
+            isFlagged = true;
+            if (!flagReasons.includes('DEVICE_UNTRUSTED')) {
+              flagReasons.push('DEVICE_UNTRUSTED');
+            }
           }
+        }
+
+        // Kiểm tra xem thiết bị này có bị nhiều tài khoản khác dùng cùng ngày không (chấm công hộ)
+        const duplicateDeviceAtt = await Attendance.findOne({
+          user_id: { $ne: userId },
+          date: dateStr,
+          hardware_uuid: effectiveHardwareUuid || device_fingerprint
+        });
+        if (duplicateDeviceAtt) {
+          isFlagged = true;
+          if (!flagReasons.includes('MULTI_ACCOUNT_SAME_DEVICE')) {
+            flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
+          }
+          deviceWarning = '⚠️ Cảnh báo: Thiết bị này đã được nhân viên khác chấm công hôm nay!';
         }
       }
     } catch (sessionErr) {
@@ -794,6 +822,11 @@ const getFlaggedAttendance = async (req, res) => {
       filter.verification_status = 'rejected';
     } else if (status === 'photo') {
       filter.selfie_url = { $ne: null, $nin: ['', 'null', 'undefined'] };
+    } else if (status === 'device') {
+      filter.$or = [
+        { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } },
+        { flag_reason: { $regex: /thiết bị|device/i } }
+      ];
     } else {
       // 'all': lấy toàn bộ các ca có gắn cờ cảnh báo, có ảnh selfie hoặc có trạng thái xác thực
       filter.$and = filter.$and || [];
@@ -802,7 +835,8 @@ const getFlaggedAttendance = async (req, res) => {
           { is_flagged: true },
           { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
           { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } },
-          { check_in_mode: 'photo' }
+          { check_in_mode: 'photo' },
+          { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }
         ]
       });
     }
@@ -818,11 +852,12 @@ const getFlaggedAttendance = async (req, res) => {
 
     // Tính thống kê nhanh các nhóm trạng thái
     const baseCountFilter = filter.user_id ? { user_id: filter.user_id } : {};
-    const [pendingCount, approvedCount, rejectedCount, photoCount] = await Promise.all([
+    const [pendingCount, approvedCount, rejectedCount, photoCount, deviceCount] = await Promise.all([
       Attendance.countDocuments({ ...baseCountFilter, $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] }),
       Attendance.countDocuments({ ...baseCountFilter, verification_status: 'approved' }),
       Attendance.countDocuments({ ...baseCountFilter, verification_status: 'rejected' }),
       Attendance.countDocuments({ ...baseCountFilter, selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } }),
+      Attendance.countDocuments({ ...baseCountFilter, $or: [{ flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }, { flag_reason: { $regex: /thiết bị|device/i } }] }),
     ]);
 
     res.json({
@@ -833,6 +868,7 @@ const getFlaggedAttendance = async (req, res) => {
         approved: approvedCount,
         rejected: rejectedCount,
         with_photo: photoCount,
+        with_device: deviceCount,
       }
     });
   } catch (error) {

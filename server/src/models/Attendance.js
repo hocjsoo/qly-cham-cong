@@ -121,9 +121,17 @@ const attendanceSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    flag_reason: {
+      type: String,
+      default: null,
+    },
     flag_reasons: [{
-      type: String, // 'MULTI_ACCOUNT_SAME_DEVICE', 'SUSPICIOUS_LOCATION', 'GPS_OUTSIDE_PHOTO_FALLBACK'
+      type: String, // 'MULTI_ACCOUNT_SAME_DEVICE', 'SUSPICIOUS_LOCATION', 'GPS_OUTSIDE_PHOTO_FALLBACK', 'DEVICE_UNTRUSTED'
     }],
+    device_name: {
+      type: String,
+      default: null,
+    },
     selfie_url: {
       type: String,
       default: null,

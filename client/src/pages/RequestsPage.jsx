@@ -99,7 +99,7 @@ export default function RequestsPage() {
 
   // Flagged Attendance & Photo Verification State
   const [flaggedList, setFlaggedList] = useState([]);
-  const [flaggedCounts, setFlaggedCounts] = useState({ pending: 0, approved: 0, rejected: 0, with_photo: 0, total: 0 });
+  const [flaggedCounts, setFlaggedCounts] = useState({ pending: 0, approved: 0, rejected: 0, with_photo: 0, with_device: 0, total: 0 });
   const [flaggedTab, setFlaggedTab] = useState('pending');
   const [flaggedLoading, setFlaggedLoading] = useState(false);
   const [flaggedSearch, setFlaggedSearch] = useState('');
@@ -530,6 +530,7 @@ export default function RequestsPage() {
             <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '2px' }}>
               {[
                 { key: 'pending', label: `⏳ Chờ duyệt (${flaggedCounts.pending})` },
+                { key: 'device', label: `📱 Thiết bị lạ (${flaggedCounts.with_device || 0})` },
                 { key: 'photo', label: `📸 Kèm ảnh Selfie (${flaggedCounts.with_photo})` },
                 { key: 'approved', label: `✅ Đã duyệt (${flaggedCounts.approved})` },
                 { key: 'rejected', label: `❌ Đã từ chối (${flaggedCounts.rejected})` },
@@ -668,6 +669,11 @@ export default function RequestsPage() {
                           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             <span>📍 Phương thức: <strong>{item.check_in_mode === 'photo' ? 'Selfie + GPS' : item.check_in_type || 'Văn phòng'}</strong></span>
                             {item.total_hours ? <span>⏱️ {item.total_hours}h</span> : null}
+                            {item.hardware_uuid && (
+                              <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                                📱 ID Thiết bị: <code>{item.hardware_uuid.slice(0, 14)}...</code>
+                              </span>
+                            )}
                           </div>
 
                           {/* Flag Reason Banner */}
@@ -706,7 +712,7 @@ export default function RequestsPage() {
                                 className="btn btn--primary"
                                 style={{ flex: 1, fontSize: '12px', padding: '7px 12px', fontWeight: 700 }}
                               >
-                                {verifyingId === item._id ? <span className="spinner" /> : <><Check size={14} /> Duyệt ca hợp lệ</>}
+                                {verifyingId === item._id ? <span className="spinner" /> : <><Check size={14} /> Duyệt ca & Tin cậy thiết bị</>}
                               </button>
                               <button
                                 onClick={() => {
