@@ -9,10 +9,12 @@ const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
-router.use(requireRole('admin', 'manager'));
 
-// GET /api/users
+// GET /api/users — Danh bạ nhân viên / Danh sách phương tiện (Mọi nhân viên đã đăng nhập)
 router.get('/', getAllUsers);
+
+// --- CÁC ROUTE QUẢN TRỊ (ADMIN / LEADER) ---
+router.use(requireRole('admin', 'manager'));
 
 // GET /api/users/:id/devices — CHỈ ADMIN xem danh sách thiết bị
 router.get('/:id/devices', requireRole('admin'), getUserDevices);
