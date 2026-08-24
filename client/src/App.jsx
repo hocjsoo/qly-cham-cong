@@ -8,6 +8,7 @@ import useAuthStore from './stores/authStore';
 
 import Layout from './components/Layout';
 import MagicCursor from './components/MagicCursor';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Route-level code splitting (Chỉ tải bundle khi user mở trang tương ứng)
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -84,49 +85,51 @@ export default function App() {
         }}
       />
 
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/login" element={user ? <Navigate to={(user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={user ? <Navigate to={(user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
-          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route path="/checkin" element={<CheckInPage />} />
-            <Route path="/requests" element={<RequestsPage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
+            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route path="/checkin" element={<CheckInPage />} />
+              <Route path="/requests" element={<RequestsPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
 
-            <Route path="/dashboard" element={
-              <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-                <DashboardPage />
-              </ProtectedRoute>
-            } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute roles={['admin', 'leader', 'manager']}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/staff" element={
-              <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-                <StaffPage />
-              </ProtectedRoute>
-            } />
+              <Route path="/staff" element={
+                <ProtectedRoute roles={['admin', 'leader', 'manager']}>
+                  <StaffPage />
+                </ProtectedRoute>
+              } />
 
-            <Route path="/reports" element={
-              <ProtectedRoute roles={['admin']}>
-                <ReportPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/vehicles" element={<VehiclesPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/expenses" element={<ExpensesPage />} />
+              <Route path="/reports" element={
+                <ProtectedRoute roles={['admin']}>
+                  <ReportPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/vehicles" element={<VehiclesPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/expenses" element={<ExpensesPage />} />
 
-            <Route path="/settings" element={
-              <ProtectedRoute roles={['admin']}>
-                <SettingsPage />
-              </ProtectedRoute>
-            } />
-          </Route>
+              <Route path="/settings" element={
+                <ProtectedRoute roles={['admin']}>
+                  <SettingsPage />
+                </ProtectedRoute>
+              } />
+            </Route>
 
-          <Route path="*" element={<Navigate to={user ? ((user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard') : '/login'} replace />} />
-        </Routes>
-      </Suspense>
+            <Route path="*" element={<Navigate to={user ? ((user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard') : '/login'} replace />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

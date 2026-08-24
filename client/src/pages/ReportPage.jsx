@@ -43,22 +43,6 @@ export default function ReportPage() {
   const isAdmin = user?.role === 'admin';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
-  if (!isAdmin) {
-    return (
-      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-        <div className="card" style={{ padding: '32px', maxWidth: '480px', margin: '0 auto' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px' }}>
-            Quyền Hạn Bị Giới Hạn
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Bảng công tổng hợp và Bảng chi tiết chấm công chỉ dành riêng cho Ban Quản Trị (Admin).
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -161,8 +145,10 @@ export default function ReportPage() {
   }, [matrixData, searchQuery, deptFilter]);
 
   useEffect(() => {
-    loadTab();
-  }, [month, year, tab, selectedDetailUserId]);
+    if (isAdmin) {
+      loadTab();
+    }
+  }, [isAdmin, month, year, tab, selectedDetailUserId]);
 
   const loadTab = async () => {
     setLoading(true);
@@ -388,6 +374,22 @@ export default function ReportPage() {
   const indSum = individualDetail?.summary || {};
   const indLogs = individualDetail?.daily_logs || [];
   const lc = indSum.leave_counts || {};
+
+  if (!isAdmin) {
+    return (
+      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '32px', maxWidth: '480px', margin: '0 auto' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
+          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px' }}>
+            Quyền Hạn Bị Giới Hạn
+          </div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Bảng công tổng hợp và Bảng chi tiết chấm công chỉ dành riêng cho Ban Quản Trị (Admin).
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">

@@ -471,7 +471,7 @@ export default function VehiclesPage() {
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.department_name || 'Phòng ban'}</div>
                       </div>
                     </div>
-                    {isAdminOrManager && (
+                    {isAdmin && (
                       <button
                         onClick={() => openQuickEdit(s)}
                         className="btn btn--ghost"
