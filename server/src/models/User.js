@@ -94,8 +94,9 @@ const userSchema = new mongoose.Schema(
     hometown: { type: String, default: null },        // Quê quán
     cccd: { type: String, default: null },            // CCCD
     bank_name: { type: String, default: null },       // Ngân hàng
-    bank_account: { type: String, default: null },    // STK Ngân hàng
-    license_plate: { type: String, default: null },   // Biển số xe
+    license_plate: { type: String, default: null },   // Biển số xe (Legacy)
+    parking_location: { type: String, default: 'Tòa 17T10 Nguyễn Thị Định' }, // Địa điểm gửi xe
+    vehicle_info: { type: String, default: null },     // Mô tả xe - Biển số xe (VD: Honda Lead Đỏ - 29E1-456.78)
     driver_code: { type: String, default: null },     // Mã tài xế
     branch: { type: String, default: null },          // Chi nhánh
 

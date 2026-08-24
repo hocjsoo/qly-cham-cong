@@ -232,9 +232,9 @@ const changePassword = async (req, res) => {
   }
 };
 
-// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân (bao gồm avatar)
+// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân (bao gồm avatar, thông tin gửi xe)
 const updateProfile = async (req, res) => {
-  const { full_name, phone, avatar_url } = req.body;
+  const { full_name, phone, avatar_url, parking_location, vehicle_info } = req.body;
   if (full_name !== undefined && !full_name.trim()) {
     return res.status(400).json({ error: 'Họ tên không được để trống.' });
   }
@@ -244,6 +244,8 @@ const updateProfile = async (req, res) => {
     if (full_name !== undefined) updateData.full_name = full_name.trim();
     if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
     if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+    if (parking_location !== undefined) updateData.parking_location = parking_location ? parking_location.trim() : 'Tòa 17T10 Nguyễn Thị Định';
+    if (vehicle_info !== undefined) updateData.vehicle_info = vehicle_info ? vehicle_info.trim() : null;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
@@ -255,7 +257,7 @@ const updateProfile = async (req, res) => {
     userObj.id = userObj._id;
     userObj.department_name = userObj.department_id?.name || null;
 
-    res.json({ message: 'Cập nhật thông tin thành công!', user: userObj });
+    res.json({ message: 'Cập nhật thông tin thành công! ✅', user: userObj });
 
   } catch (error) {
     console.error('UpdateProfile error:', error);

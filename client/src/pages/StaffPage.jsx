@@ -2,7 +2,7 @@
 // Quản lý nhân viên — Safe ConfirmDialog, modal chống bấm ngoài đóng, CRUD đầy đủ
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Search, Edit2, Trash2, Shield, UserCheck, Building2, Phone, AlertTriangle, UserX } from 'lucide-react';
+import { Plus, X, Search, Edit2, Trash2, Shield, UserCheck, Building2, Phone, AlertTriangle, UserX, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -55,6 +55,7 @@ export default function StaffPage() {
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
     position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -121,26 +122,25 @@ export default function StaffPage() {
   }, [viewingStaffDetail]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [s, d] = await Promise.all([api.get('/users'), api.get('/departments')]);
-      setStaff(Array.isArray(s.data) ? s.data : (s.data?.users || []));
-      setDepts(Array.isArray(d.data) ? d.data : (d.data?.departments || []));
-    } catch { toast.error('Lỗi tải dữ liệu'); }
-    finally { setLoading(false); }
+      const [resUsers, resDepts] = await Promise.all([
+        api.get('/users'),
+        api.get('/departments'),
+      ]);
+      setStaff(resUsers.data || []);
+      setDepts(resDepts.data || []);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi tải danh sách nhân viên');
+    } finally { setLoading(false); }
   };
 
   const handleGenerateResetCode = async (user) => {
-    if (user.role === 'admin' && currentUser?.role !== 'admin') {
-      toast.error('Leader không có quyền reset mật khẩu tài khoản Admin.');
-      return;
-    }
     try {
       const { data } = await api.post('/auth/forgot-password', { email: user.email });
       setResetCodeModal({ user, code: data.reset_code });
-      toast.success(`Đã tạo mã reset cho ${user.full_name}`);
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi tạo mã reset');
+      toast.error(err?.response?.data?.error || 'Lỗi tạo mã reset mật khẩu');
     }
   };
 
@@ -194,6 +194,9 @@ export default function StaffPage() {
                         s.phone?.includes(q) ||
                         s.position?.toLowerCase().includes(q) ||
                         s.hometown?.toLowerCase().includes(q) ||
+                        s.parking_location?.toLowerCase().includes(q) ||
+                        s.vehicle_info?.toLowerCase().includes(q) ||
+                        s.license_plate?.toLowerCase().includes(q) ||
                         s.cccd?.includes(q);
 
     const userDeptIds = s.department_ids?.map(d => d._id || d) || [s.department_id?._id || s.department_id];
@@ -224,7 +227,11 @@ export default function StaffPage() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '', position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '' });
+    setForm({
+      full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
+      position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
+      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '',
+    });
     setShowForm(true);
   };
 
@@ -250,6 +257,8 @@ export default function StaffPage() {
       employee_code: user.employee_code || '',
       employment_status: user.employment_status || 'Dang lam viec',
       avatar_url: user.avatar_url || '',
+      parking_location: user.parking_location || 'Tòa 17T10 Nguyễn Thị Định',
+      vehicle_info: user.vehicle_info || user.license_plate || '',
     });
     setShowForm(true);
   };
@@ -331,6 +340,37 @@ export default function StaffPage() {
     });
   };
 
+  const handleExportVehicleList = () => {
+    if (staff.length === 0) {
+      toast.error('Không có dữ liệu nhân viên để xuất');
+      return;
+    }
+
+    const headers = ['STT', 'Mã Nhân Sự', 'Họ Và Tên', 'Email', 'Số Điện Thoại', 'Phòng Ban', 'Chức Danh', 'Địa Điểm Gửi Xe', 'Mô Tả Xe - Biển Số', 'Ngày Vào Cty'];
+    const rows = staff.map((s, idx) => [
+      idx + 1,
+      s.employee_code || `NS-${idx + 1}`,
+      `"${(s.full_name || '').replace(/"/g, '""')}"`,
+      s.email || '',
+      `"${s.phone || ''}"`,
+      `"${(s.department_name || '').replace(/"/g, '""')}"`,
+      `"${(s.position || '').replace(/"/g, '""')}"`,
+      `"${(s.parking_location || 'Tòa 17T10 Nguyễn Thị Định').replace(/"/g, '""')}"`,
+      `"${(s.vehicle_info || s.license_plate || 'Chưa cập nhật').replace(/"/g, '""')}"`,
+      s.join_date || (s.start_year ? `Năm ${s.start_year}` : '')
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Danh_Sach_Xe_Gui_Toa_Nha_17T10_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('Đã tải xuống danh sách gửi xe tòa 17T10 thành công! 📄');
+  };
+
   const activeCount = staff.filter(s => s.is_active !== false).length;
   const adminCount  = staff.filter(s => s.role === 'admin').length;
   const mgCount     = staff.filter(s => s.role === 'manager' || s.role === 'leader').length;
@@ -344,6 +384,14 @@ export default function StaffPage() {
             <div className="header__subtitle">{staff.length} người · {depts.length} phòng ban</div>
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button
+              onClick={handleExportVehicleList}
+              className="btn btn--ghost"
+              style={{ padding: '6px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)' }}
+              title="Xuất danh sách gửi xe tòa 17T10 (CSV / Excel)"
+            >
+              <Download size={14} /> DS Gửi Xe (17T10)
+            </button>
             {isAdmin && (
               <button onClick={openCreate} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
                 <Plus size={14} /> Thêm mới
@@ -377,7 +425,7 @@ export default function StaffPage() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-              placeholder="🔍 Tìm kiếm theo Tên, Mã NS, Email, SĐT, Chức vụ..."
+              placeholder="🔍 Tìm kiếm theo Tên, Mã NS, Email, SĐT, Biển số xe, Nơi gửi..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -487,6 +535,11 @@ export default function StaffPage() {
                         <span>🏢 {deptName}</span>
                         {u.position && <span>💼 {u.position}</span>}
                         {u.join_date && <span>📅 Vào: {u.join_date}</span>}
+                        {(u.vehicle_info || u.license_plate) && (
+                          <span style={{ color: 'var(--primary)', fontWeight: 500 }}>
+                            🛵 {u.vehicle_info || u.license_plate}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -718,6 +771,55 @@ export default function StaffPage() {
               </div>
             </div>
 
+            {/* Phương Tiện & Gửi Xe */}
+            <div style={{ background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '14px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🛵 Phương Tiện & Địa Điểm Gửi Xe</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">🏢 Địa điểm gửi xe</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={form.parking_location}
+                    onChange={e => setForm({ ...form, parking_location: e.target.value })}
+                    placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
+                  />
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    {['Tòa 17T10 Nguyễn Thị Định', 'Gửi ngoài', 'Không gửi xe'].map(loc => (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => setForm({ ...form, parking_location: loc })}
+                        className="btn btn--ghost"
+                        style={{
+                          fontSize: '10px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: form.parking_location === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'transparent',
+                          color: form.parking_location === loc ? 'var(--primary)' : 'var(--text-muted)',
+                          borderColor: form.parking_location === loc ? 'var(--primary)' : 'var(--border)'
+                        }}
+                      >
+                        {loc.split(' ')[0]} {loc.split(' ')[1] || ''}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">🛵 Mô tả xe & Biển số</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={form.vehicle_info}
+                    onChange={e => setForm({ ...form, vehicle_info: e.target.value })}
+                    placeholder="VD: Honda Lead Đỏ - 29E1-456.78"
+                  />
+                </div>
+              </div>
+            </div>
+
             <button onClick={handleSubmit} disabled={submitting} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>
               {submitting ? <span className="spinner" /> : editing ? 'Lưu thay đổi' : 'Tạo tài khoản'}
             </button>
@@ -904,6 +1006,14 @@ export default function StaffPage() {
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Trạng thái làm việc: </span>
                 <strong style={{ color: 'var(--green)' }}>{viewingStaffDetail.employment_status || 'Đang làm việc'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>🏢 Địa điểm gửi xe: </span>
+                <strong style={{ color: 'var(--primary)' }}>{viewingStaffDetail.parking_location || 'Tòa 17T10 Nguyễn Thị Định'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>🛵 Mô tả xe & Biển số: </span>
+                <strong style={{ color: 'var(--text)' }}>{viewingStaffDetail.vehicle_info || viewingStaffDetail.license_plate || 'Chưa cập nhật'}</strong>
               </div>
             </div>
 

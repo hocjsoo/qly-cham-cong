@@ -23,6 +23,8 @@ export default function ProfilePage() {
   // Edit info state
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [parkingLocation, setParkingLocation] = useState(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
+  const [vehicleInfo, setVehicleInfo] = useState(user?.vehicle_info || user?.license_plate || '');
   const [updatingInfo, setUpdatingInfo] = useState(false);
 
   // Change password state
@@ -92,7 +94,12 @@ export default function ProfilePage() {
     }
     setUpdatingInfo(true);
     try {
-      const { data } = await api.patch('/auth/profile', { full_name: fullName.trim(), phone: phone.trim() });
+      const { data } = await api.patch('/auth/profile', {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+        parking_location: parkingLocation.trim(),
+        vehicle_info: vehicleInfo.trim()
+      });
       toast.success(data.message);
       setUser(data.user);
       setShowEditInfo(false);
@@ -131,6 +138,8 @@ export default function ProfilePage() {
     { icon: <Building2 size={16} />, label: 'Phòng ban', value: user?.department_name || 'Chưa phân' },
     { icon: <User size={16} />, label: 'Chức vụ', value: user?.position || 'Nhân viên' },
     { icon: <span style={{ fontSize: '14px' }}>📅</span>, label: 'Ngày vào công ty', value: user?.join_date || (user?.start_year ? `Năm ${user.start_year}` : 'Chưa cập nhật') },
+    { icon: <span style={{ fontSize: '14px' }}>🏢</span>, label: 'Địa điểm gửi xe', value: user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định' },
+    { icon: <span style={{ fontSize: '14px' }}>🛵</span>, label: 'Mô tả xe & Biển số', value: user?.vehicle_info || user?.license_plate || 'Chưa cập nhật' },
     { icon: <Shield size={16} />, label: 'Vai trò', value: ROLE_VI[user?.role] || user?.role },
   ];
 
@@ -275,6 +284,59 @@ export default function ProfilePage() {
             <div className="form-group">
               <label className="form-label">Số điện thoại</label>
               <input type="text" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="0912345678" />
+            </div>
+
+            {/* Thông tin gửi xe */}
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>🏢 Địa điểm gửi xe</span>
+              </label>
+              <input
+                type="text"
+                className="form-input"
+                value={parkingLocation}
+                onChange={e => setParkingLocation(e.target.value)}
+                placeholder="VD: Tòa 17T10 Nguyễn Thị Định"
+              />
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                {[
+                  'Tòa 17T10 Nguyễn Thị Định',
+                  'Gửi ngoài',
+                  'Không gửi xe'
+                ].map(loc => (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => setParkingLocation(loc)}
+                    className="btn btn--ghost"
+                    style={{
+                      fontSize: '11px',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      background: parkingLocation === loc ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-input)',
+                      color: parkingLocation === loc ? 'var(--primary)' : 'var(--text-secondary)',
+                      borderColor: parkingLocation === loc ? 'var(--primary)' : 'var(--border)',
+                      fontWeight: parkingLocation === loc ? 700 : 500
+                    }}
+                  >
+                    {loc === 'Tòa 17T10 Nguyễn Thị Định' ? '🏢 ' : loc === 'Gửi ngoài' ? '🅿️ ' : '🚫 '}{loc}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">🛵 Mô tả xe & Biển số xe</label>
+              <input
+                type="text"
+                className="form-input"
+                value={vehicleInfo}
+                onChange={e => setVehicleInfo(e.target.value)}
+                placeholder="VD: Honda Lead Vàng - 29E1-456.78"
+              />
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                💡 Dùng để đăng ký vé tháng tòa nhà 17T10 và hỗ trợ liên hệ khi có sự cố bãi xe.
+              </div>
             </div>
 
             <button onClick={handleUpdateProfile} disabled={updatingInfo} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>

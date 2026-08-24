@@ -58,6 +58,7 @@ const createUser = async (req, res) => {
     employee_type, employee_code, position, employment_status,
     dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
+    parking_location, vehicle_info, license_plate,
   } = req.body;
 
   if (!email || !full_name || !password) {
@@ -123,6 +124,8 @@ const createUser = async (req, res) => {
       branch: branch || null,
       start_year: derivedStartYear,
       education: education || null,
+      parking_location: parking_location || 'Tòa 17T10 Nguyễn Thị Định',
+      vehicle_info: vehicle_info || license_plate || null,
     });
 
     const userObj = user.toObject();
@@ -203,6 +206,9 @@ const updateUser = async (req, res) => {
     if (branch !== undefined) updateData.branch = branch;
     if (start_year !== undefined) updateData.start_year = start_year;
     if (education !== undefined) updateData.education = education;
+    if (parking_location !== undefined) updateData.parking_location = parking_location;
+    if (vehicle_info !== undefined) updateData.vehicle_info = vehicle_info;
+    if (license_plate !== undefined && vehicle_info === undefined) updateData.vehicle_info = license_plate;
     if (password && password.length >= 6) {
       updateData.password_hash = await bcrypt.hash(password, 10);
     }
