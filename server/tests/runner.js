@@ -21,6 +21,7 @@ const runPasswordAuthTests = require('./unit/passwordAuthLifecycle.test');
 const runMultiOfficeTests = require('./unit/multiOfficeLocation.test');
 const runSystemSettingsTests = require('./unit/systemSettings.test');
 const runVehicleParkingTests = require('./unit/vehicleParkingManagement.test');
+const { runExpenseManagementTests } = require('./unit/expenseManagement.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 
@@ -96,6 +97,7 @@ async function runAllTests() {
     runMultiOfficeTests(assert);
     runSystemSettingsTests(assert);
     runVehicleParkingTests(assert);
+    runExpenseManagementTests();
 
     // === PHẦN 2: FRONTEND UI & CLIENT STATE ===
     runClientAuthStoreTests(assert);

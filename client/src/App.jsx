@@ -17,6 +17,7 @@ import ReportPage from './pages/ReportPage';
 import SettingsPage from './pages/SettingsPage';
 import ProjectsPage from './pages/ProjectsPage';
 import VehiclesPage from './pages/VehiclesPage';
+import ExpensesPage from './pages/ExpensesPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MagicCursor from './components/MagicCursor';
 
@@ -85,6 +86,7 @@ export default function App() {
           } />
 
           <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/expenses" element={<ExpensesPage />} />
 
           <Route path="/settings" element={
             <ProtectedRoute roles={['admin']}>

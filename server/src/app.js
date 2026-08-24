@@ -76,6 +76,7 @@ const notificationRoutes  = require('./routes/notification.routes');
 const holidayRoutes       = require('./routes/holiday.routes');
 const timesheetLockRoutes = require('./routes/timesheetLock.routes');
 const announcementRoutes  = require('./routes/announcement.routes');
+const expenseRoutes       = require('./routes/expenseRoutes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
@@ -94,6 +95,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/holidays',      holidayRoutes);
 app.use('/api/timesheet-lock',timesheetLockRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/expenses',      expenseRoutes);
 
 // HEALTH CHECK API
 app.get('/api/health', (req, res) => {
