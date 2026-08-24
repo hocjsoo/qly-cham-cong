@@ -2,7 +2,7 @@
 // Quản Lý Dự Án / Công Trình — Khớp 100% Mẫu Bảng Excel THÔNG TIN NS+DA
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X, Phone, Mail, Calendar, MapPin, Bike } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -65,6 +65,8 @@ export default function ProjectsPage() {
   const [sortBy, setSortBy] = useState('date_desc'); // 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
   const [viewMode, setViewMode] = useState('table'); // 'table' (Bảng Excel) | 'grid' (Thẻ Card)
   const [selectedProjectDetail, setSelectedProjectDetail] = useState(null);
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -644,7 +646,12 @@ export default function ProjectsPage() {
                             {members.slice(0, 3).map((m, mIdx) => (
                               <div
                                 key={m._id || mIdx}
-                                title={m.full_name || 'Thành viên'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const foundStaff = staffList.find(s => String(s._id) === String(m._id || m.id || m)) || m;
+                                  setViewingStaffDetail(foundStaff);
+                                }}
+                                title={`Click để xem hồ sơ: ${m.full_name || 'Thành viên'}`}
                                 style={{
                                   width: '26px', height: '26px', borderRadius: '50%',
                                   background: 'var(--primary)', color: '#fff',
@@ -652,7 +659,8 @@ export default function ProjectsPage() {
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   marginLeft: mIdx > 0 ? '-8px' : '0',
                                   border: '2px solid var(--bg-card)',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                  cursor: 'pointer'
                                 }}
                               >
                                 {m.avatar_url ? (
@@ -1085,9 +1093,22 @@ export default function ProjectsPage() {
                   🎨 {selectedProjectDetail.category || 'Kiến trúc'}
                 </div>
               </div>
-              <div style={{ background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+              <div
+                onClick={() => {
+                  if (selectedProjectDetail.pm_name) {
+                    const foundPm = staffList.find(s => s.full_name === selectedProjectDetail.pm_name);
+                    if (foundPm) setViewingStaffDetail(foundPm);
+                  }
+                }}
+                style={{
+                  background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px',
+                  border: '1px solid var(--border)',
+                  cursor: staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'pointer' : 'default'
+                }}
+                title={staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'Click để xem hồ sơ PM' : ''}
+              >
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Trưởng dự án (PM)</div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textDecoration: staffList.some(s => s.full_name === selectedProjectDetail.pm_name) ? 'underline' : 'none' }}>
                   👷 {selectedProjectDetail.pm_name || 'Chưa phân công'}
                 </div>
               </div>
@@ -1135,28 +1156,33 @@ export default function ProjectsPage() {
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
                 {Array.isArray(selectedProjectDetail.members) && selectedProjectDetail.members.length > 0 ? (
-                  selectedProjectDetail.members.map((m, idx) => (
-                    <div
-                      key={m._id || idx}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '6px',
-                        background: 'var(--bg-raised)', padding: '4px 10px', borderRadius: '20px',
-                        border: '1px solid var(--border)', fontSize: '12px'
-                      }}
-                    >
-                      <div style={{
-                        width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)',
-                        color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {m.avatar_url ? (
-                          <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          (m.full_name || 'U').charAt(0).toUpperCase()
-                        )}
+                  selectedProjectDetail.members.map((m, idx) => {
+                    const foundStaff = staffList.find(s => String(s._id) === String(m._id || m.id || m)) || m;
+                    return (
+                      <div
+                        key={m._id || idx}
+                        onClick={() => setViewingStaffDetail(foundStaff)}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '6px',
+                          background: 'var(--bg-raised)', padding: '4px 10px', borderRadius: '20px',
+                          border: '1px solid var(--border)', fontSize: '12px', cursor: 'pointer'
+                        }}
+                        title="Click để xem hồ sơ nhân sự"
+                      >
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)',
+                          color: '#fff', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {foundStaff.avatar_url ? (
+                            <img src={foundStaff.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            (foundStaff.full_name || 'U').charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{foundStaff.full_name || 'Thành viên'}</span>
                       </div>
-                      <span style={{ fontWeight: 600 }}>{m.full_name || 'Thành viên'}</span>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chưa có thành viên cụ thể.</div>
                 )}

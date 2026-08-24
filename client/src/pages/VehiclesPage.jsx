@@ -2,11 +2,20 @@
 // Trang Quản Lý Phương Tiện & Gửi Xe (Tòa 17T10) — Chuyên Biệt Cho Admin & Leader
 
 import { useState, useEffect } from 'react';
-import { Search, Edit2, Download, Bike, Car, Building2, Phone, X, LayoutList, LayoutGrid, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, Edit2, Download, Bike, Car, Building2, Phone, X, LayoutList, LayoutGrid, CheckCircle2, AlertCircle, Mail, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+
+const isCurrentlyWorking = (s) => {
+  if (s.is_active === false) return false;
+  const status = (s.employment_status || '').toLowerCase().trim();
+  if (status.includes('nghỉ việc') || status.includes('resigned') || status.includes('inactive') || status.includes('đã nghỉ')) {
+    return false;
+  }
+  return true;
+};
 
 export default function VehiclesPage() {
   const { user: currentUser } = useAuthStore();
@@ -19,6 +28,10 @@ export default function VehiclesPage() {
   const [filterLocation, setFilterLocation] = useState('all');
   const [filterDept, setFilterDept] = useState('all');
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
+
+  // Staff Profile Modal & Lightbox State
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
+  const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   // Quick Edit Modal State
   const [editingStaff, setEditingStaff] = useState(null);
@@ -36,8 +49,11 @@ export default function VehiclesPage() {
         api.get('/users'),
         api.get('/departments'),
       ]);
-      setStaff(resUsers.data || []);
-      setDepts(resDepts.data || []);
+      const allUsers = Array.isArray(resUsers.data) ? resUsers.data : [];
+      // Chỉ lấy nhân sự đang làm việc (loại bỏ nhân sự đã nghỉ việc)
+      const activeStaff = allUsers.filter(isCurrentlyWorking);
+      setStaff(activeStaff);
+      setDepts(Array.isArray(resDepts.data) ? resDepts.data : []);
     } catch {
       toast.error('Lỗi tải danh sách phương tiện');
     } finally {
@@ -337,7 +353,11 @@ export default function VehiclesPage() {
                         {idx + 1}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div
+                          onClick={() => setViewingStaffDetail(s)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                          title="Click để xem hồ sơ nhân sự"
+                        >
                           {s.avatar_url ? (
                             <img src={s.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
                           ) : (
@@ -346,7 +366,7 @@ export default function VehiclesPage() {
                             </div>
                           )}
                           <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', whiteSpace: 'nowrap' }}>{s.full_name}</div>
+                            <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '13px', whiteSpace: 'nowrap', textDecoration: 'underline' }}>{s.full_name}</div>
                             <div style={{ fontSize: '10px', color: 'var(--primary)' }}>#{s.employee_code || 'NS'}</div>
                           </div>
                         </div>
@@ -425,7 +445,11 @@ export default function VehiclesPage() {
               return (
                 <div key={s._id || s.id} className="card card--interactive animate-fade-in" style={{ padding: '14px', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div
+                      onClick={() => setViewingStaffDetail(s)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                      title="Click để xem hồ sơ nhân sự"
+                    >
                       {s.avatar_url ? (
                         <img src={s.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
                       ) : (
@@ -434,7 +458,7 @@ export default function VehiclesPage() {
                         </div>
                       )}
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                        <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)', textDecoration: 'underline' }}>
                           {s.full_name} {isMine && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{s.department_name || 'Phòng ban'}</div>
@@ -556,6 +580,175 @@ export default function VehiclesPage() {
               style={{ marginTop: '10px' }}
             >
               {submittingEdit ? <span className="spinner" /> : 'Lưu Thay Đổi'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullsize Avatar Lightbox Modal */}
+      {fullAvatarImage && (
+        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.9)', zIndex: 999999, alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
+            <button
+              onClick={() => setFullAvatarImage(null)}
+              style={{
+                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
+                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url}
+              alt={fullAvatarImage.title}
+              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
+            />
+            {fullAvatarImage.title && (
+              <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+                📸 {fullAvatarImage.title}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Staff Profile Detail Modal */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" style={{ zIndex: 1100, padding: '16px' }} onClick={() => setViewingStaffDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>👤</span>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                  Hồ Sơ Nhân Sự
+                </h3>
+              </div>
+              <button
+                onClick={() => setViewingStaffDetail(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Profile Highlight Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 100%)',
+              padding: '18px', borderRadius: '16px',
+              border: '1px solid var(--primary-soft)', marginBottom: '16px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              <div
+                onClick={() => {
+                  if (viewingStaffDetail.avatar_url) {
+                    setFullAvatarImage({ url: viewingStaffDetail.avatar_url, title: viewingStaffDetail.full_name });
+                  }
+                }}
+                style={{ cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default', position: 'relative' }}
+                title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
+              >
+                {viewingStaffDetail.avatar_url ? (
+                  <img
+                    src={viewingStaffDetail.avatar_url}
+                    alt=""
+                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  />
+                ) : (
+                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                    {(viewingStaffDetail.full_name || 'U').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>
+                  {viewingStaffDetail.full_name}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                  #{viewingStaffDetail.employee_code || 'NS'} · {viewingStaffDetail.position || 'Nhân sự'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  🏢 {viewingStaffDetail.department_name || 'Văn Phòng'}
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Info List */}
+            <div style={{
+              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', fontSize: '13px',
+              display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={14} /> Email:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.email || 'Chưa cập nhật'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={14} /> Điện thoại:
+                </span>
+                {viewingStaffDetail.phone ? (
+                  <a href={`tel:${viewingStaffDetail.phone}`} style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+                    {viewingStaffDetail.phone}
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>Chưa cập nhật</span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={14} /> Ngày gia nhập:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.join_date || (viewingStaffDetail.start_year ? `Năm ${viewingStaffDetail.start_year}` : 'Chưa cập nhật')}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={14} /> Điểm gửi xe:
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  {viewingStaffDetail.parking_location || 'Tòa 17T10 Nguyễn Thị Định'}
+                </span>
+              </div>
+
+              {viewingStaffDetail.vehicle_info && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bike size={14} /> Mô tả & Biển số:
+                  </span>
+                  <span style={{ fontWeight: 700, color: 'var(--text)' }}>
+                    {viewingStaffDetail.vehicle_info}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingStaffDetail(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đóng hồ sơ ✓
             </button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search, Camera, AlertTriangle } from 'lucide-react';
+import { Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2, Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight, Search, Camera, AlertTriangle, Phone, Mail, MapPin, Bike } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -72,6 +72,7 @@ export default function RequestsPage() {
   const [rejectNote, setRejectNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
 
   // Form State
   const [type, setType] = useState('annual_leave');
@@ -447,8 +448,14 @@ export default function RequestsPage() {
                         {/* Details */}
                         <div style={{ flex: 1, minWidth: '220px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                            <div
+                              onClick={() => {
+                                if (item.user_id) setViewingStaffDetail(item.user_id);
+                              }}
+                              style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', cursor: 'pointer' }}
+                              title="Click để xem hồ sơ nhân sự"
+                            >
+                              <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)', textDecoration: 'underline' }}>
                                 👤 {item.user_id?.full_name || 'Nhân viên'}
                               </span>
                               <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>
@@ -602,16 +609,15 @@ export default function RequestsPage() {
                             className="avatar"
                             style={{
                               width: '32px', height: '32px', fontSize: '11px', flexShrink: 0,
-                              borderRadius: '50%', overflow: 'hidden', cursor: avatarUrl ? 'zoom-in' : 'default',
+                              borderRadius: '50%', overflow: 'hidden', cursor: 'pointer',
                               border: '1.5px solid var(--border)', background: 'var(--bg-raised)', display: 'flex',
                               alignItems: 'center', justifyContent: 'center'
                             }}
                             onClick={() => {
-                              if (avatarUrl) {
-                                setFullAvatarImage({ url: avatarUrl, title: displayName });
-                              }
+                              if (r.user_id) setViewingStaffDetail(r.user_id);
+                              else if (avatarUrl) setFullAvatarImage({ url: avatarUrl, title: displayName });
                             }}
-                            title={avatarUrl ? 'Click để xem ảnh lớn' : ''}
+                            title="Click để xem hồ sơ nhân sự"
                           >
                             {avatarUrl ? (
                               <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -627,7 +633,18 @@ export default function RequestsPage() {
                               }}>
                                 {typeCfg.label}
                               </span>
-                              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>
+                              <span
+                                onClick={() => {
+                                  if (r.user_id) setViewingStaffDetail(r.user_id);
+                                }}
+                                style={{
+                                  fontSize: '12px', fontWeight: 700,
+                                  color: r.user_id ? 'var(--primary)' : 'var(--text)',
+                                  cursor: r.user_id ? 'pointer' : 'default',
+                                  textDecoration: r.user_id ? 'underline' : 'none'
+                                }}
+                                title={r.user_id ? 'Click để xem hồ sơ nhân sự' : ''}
+                              >
                                 {displayName} {r.user_code ? `(#${r.user_code})` : ''}
                               </span>
                             </div>
@@ -999,9 +1016,153 @@ export default function RequestsPage() {
               alt={fullAvatarImage.title}
               style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
             />
-            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
-              📸 {fullAvatarImage.title}
+            {fullAvatarImage.title && (
+              <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
+                📸 {fullAvatarImage.title}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Staff Profile Detail Modal */}
+      {viewingStaffDetail && (
+        <div className="modal-overlay" style={{ zIndex: 1100, padding: '16px' }} onClick={() => setViewingStaffDetail(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>👤</span>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0 }}>
+                  Hồ Sơ Nhân Sự
+                </h3>
+              </div>
+              <button
+                onClick={() => setViewingStaffDetail(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
             </div>
+
+            {/* Profile Highlight Card */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.05) 100%)',
+              padding: '18px', borderRadius: '16px',
+              border: '1px solid var(--primary-soft)', marginBottom: '16px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              <div
+                onClick={() => {
+                  const av = viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar;
+                  if (av) {
+                    setFullAvatarImage({ url: av, title: viewingStaffDetail.full_name || viewingStaffDetail.user_name });
+                  }
+                }}
+                style={{ cursor: (viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? 'zoom-in' : 'default', position: 'relative' }}
+                title={(viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? 'Click để xem ảnh lớn' : ''}
+              >
+                {(viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? (
+                  <img
+                    src={viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar}
+                    alt=""
+                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  />
+                ) : (
+                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
+                    {(viewingStaffDetail.full_name || viewingStaffDetail.user_name || 'U').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>
+                  {viewingStaffDetail.full_name || viewingStaffDetail.user_name || 'Nhân viên'}
+                </div>
+                <div style={{ fontSize: '12.5px', color: 'var(--primary)', fontWeight: 700, marginTop: '2px' }}>
+                  #{viewingStaffDetail.employee_code || viewingStaffDetail.user_code || 'NS'} · {viewingStaffDetail.position || 'Nhân sự'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  🏢 {viewingStaffDetail.department_name || viewingStaffDetail.department_id?.name || 'Văn Phòng'}
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Info List */}
+            <div style={{
+              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+              border: '1px solid var(--border)', fontSize: '13px',
+              display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Mail size={14} /> Email:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.email || 'Chưa cập nhật'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Phone size={14} /> Điện thoại:
+                </span>
+                {viewingStaffDetail.phone ? (
+                  <a href={`tel:${viewingStaffDetail.phone}`} style={{ fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+                    {viewingStaffDetail.phone}
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>Chưa cập nhật</span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={14} /> Ngày gia nhập:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.join_date || (viewingStaffDetail.start_year ? `Năm ${viewingStaffDetail.start_year}` : 'Chưa cập nhật')}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MapPin size={14} /> Điểm gửi xe:
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {viewingStaffDetail.parking_location || 'Tòa 17T10 Nguyễn Thị Định'}
+                </span>
+              </div>
+
+              {viewingStaffDetail.vehicle_info && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bike size={14} /> Phương tiện:
+                  </span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                    {viewingStaffDetail.vehicle_info}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setViewingStaffDetail(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đóng hồ sơ ✓
+            </button>
           </div>
         </div>
       )}

@@ -32,7 +32,11 @@ const getMyRequests = async (req, res) => {
     if (type) filter.type = type;
 
     const requests = await Request.find(filter)
-      .populate('user_id', 'full_name email department_id avatar_url employee_code')
+      .populate({
+        path: 'user_id',
+        select: 'full_name email phone department_id department_ids avatar_url employee_code position role join_date start_year parking_location vehicle_info employment_status',
+        populate: { path: 'department_id', select: 'name' }
+      })
       .populate('approved_by', 'full_name')
       .sort({ created_at: -1 });
 
@@ -45,6 +49,12 @@ const getMyRequests = async (req, res) => {
         user_avatar: obj.user_id?.avatar_url || req.user.avatar_url,
         user_code: obj.user_id?.employee_code || req.user.employee_code,
         email: obj.user_id?.email || req.user.email,
+        phone: obj.user_id?.phone || req.user.phone,
+        position: obj.user_id?.position || req.user.position,
+        department_name: obj.user_id?.department_id?.name || 'Văn Phòng',
+        join_date: obj.user_id?.join_date || (obj.user_id?.start_year ? `Năm ${obj.user_id?.start_year}` : ''),
+        parking_location: obj.user_id?.parking_location,
+        vehicle_info: obj.user_id?.vehicle_info,
       };
     });
 
@@ -150,9 +160,15 @@ const createRequest = async (req, res) => {
 const getPendingRequests = async (req, res) => {
   try {
     let requests;
+    const userPopulateConfig = {
+      path: 'user_id',
+      select: 'full_name email phone department_id department_ids avatar_url employee_code position role join_date start_year parking_location vehicle_info employment_status',
+      populate: { path: 'department_id', select: 'name' }
+    };
+
     if (req.user.role === 'admin') {
       requests = await Request.find({ status: 'pending' })
-        .populate('user_id', 'full_name email department_id department_ids avatar_url employee_code')
+        .populate(userPopulateConfig)
         .sort({ created_at: -1 });
     } else {
       const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
@@ -168,7 +184,7 @@ const getPendingRequests = async (req, res) => {
       }).distinct('_id');
 
       requests = await Request.find({ status: 'pending', user_id: { $in: teamUserIds } })
-        .populate('user_id', 'full_name email department_id department_ids avatar_url employee_code')
+        .populate(userPopulateConfig)
         .sort({ created_at: -1 });
     }
 
@@ -181,6 +197,12 @@ const getPendingRequests = async (req, res) => {
         user_avatar: obj.user_id?.avatar_url,
         user_code: obj.user_id?.employee_code,
         email: obj.user_id?.email,
+        phone: obj.user_id?.phone,
+        position: obj.user_id?.position,
+        department_name: obj.user_id?.department_id?.name || 'Văn Phòng',
+        join_date: obj.user_id?.join_date || (obj.user_id?.start_year ? `Năm ${obj.user_id?.start_year}` : ''),
+        parking_location: obj.user_id?.parking_location,
+        vehicle_info: obj.user_id?.vehicle_info,
       };
     });
 
