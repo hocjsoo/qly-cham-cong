@@ -142,7 +142,7 @@ export default function VehiclesPage() {
     <div className="page">
       {/* Header */}
       <div className="header">
-        <div className="header__inner">
+        <div className="header__inner header__inner--wide">
           <div>
             <div className="header__title">Quản Lý Gửi Xe & Phương Tiện</div>
             <div className="header__subtitle">Tòa 17T10 Nguyễn Thị Định · {staff.length} nhân sự</div>
@@ -161,7 +161,7 @@ export default function VehiclesPage() {
         </div>
       </div>
 
-      <div className="container" style={{ paddingTop: '16px' }}>
+      <div className="container container--wide" style={{ paddingTop: '16px' }}>
         {/* Top KPI Summary Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '14px' }}>
           <div
@@ -305,17 +305,17 @@ export default function VehiclesPage() {
           </div>
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
-          <div className="card animate-fade-in" style={{ padding: 0, overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+          <div className="card animate-fade-in" style={{ padding: 0, overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: '100%' }}>
+            <table style={{ width: '100%', minWidth: '940px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
-                  <th style={{ padding: '11px 14px', width: '50px' }}>STT</th>
-                  <th style={{ padding: '11px 14px', minWidth: '160px' }}>CHỦ XE / NHÂN VIÊN</th>
-                  <th style={{ padding: '11px 14px', width: '110px' }}>SĐT</th>
-                  <th style={{ padding: '11px 14px', width: '130px' }}>PHÒNG BAN</th>
-                  <th style={{ padding: '11px 14px', width: '150px' }}>ĐỊA ĐIỂM GỬI XE</th>
-                  <th style={{ padding: '11px 14px', minWidth: '180px' }}>MÔ TẢ XE & BIỂN SỐ</th>
-                  <th style={{ padding: '11px 14px', width: '90px', textAlign: 'center' }}>THAO TÁC</th>
+                  <th style={{ padding: '12px 14px', width: '50px', textAlign: 'center', whiteSpace: 'nowrap' }}>STT</th>
+                  <th style={{ padding: '12px 14px', minWidth: '180px', whiteSpace: 'nowrap' }}>CHỦ XE / NHÂN VIÊN</th>
+                  <th style={{ padding: '12px 14px', width: '120px', whiteSpace: 'nowrap' }}>SĐT</th>
+                  <th style={{ padding: '12px 14px', maxWidth: '220px', whiteSpace: 'nowrap' }}>PHÒNG BAN</th>
+                  <th style={{ padding: '12px 14px', minWidth: '170px', whiteSpace: 'nowrap' }}>ĐỊA ĐIỂM GỬI XE</th>
+                  <th style={{ padding: '12px 14px', minWidth: '200px', whiteSpace: 'nowrap' }}>MÔ TẢ XE & BIỂN SỐ</th>
+                  <th style={{ padding: '12px 14px', width: '85px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,25 +332,25 @@ export default function VehiclesPage() {
                         background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
                       }}
                     >
-                      <td style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      <td style={{ padding: '10px 14px', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'center' }}>
                         {idx + 1}
                       </td>
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {s.avatar_url ? (
-                            <img src={s.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={s.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
                           ) : (
-                            <div className="avatar" style={{ width: 28, height: 28, fontSize: '11px' }}>
+                            <div className="avatar" style={{ width: 30, height: 30, fontSize: '11px' }}>
                               {s.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                             </div>
                           )}
                           <div>
-                            <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px' }}>{s.full_name}</div>
+                            <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', whiteSpace: 'nowrap' }}>{s.full_name}</div>
                             <div style={{ fontSize: '10px', color: 'var(--primary)' }}>#{s.employee_code || 'NS'}</div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ padding: '10px 14px' }}>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         {s.phone ? (
                           <a href={`tel:${s.phone}`} style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>
                             📱 {s.phone}
@@ -359,39 +359,45 @@ export default function VehiclesPage() {
                           <span style={{ color: 'var(--text-muted)' }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                      <td
+                        style={{
+                          padding: '10px 14px', color: 'var(--text-secondary)',
+                          maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+                        }}
+                        title={s.department_name}
+                      >
                         {s.department_name || '—'}
                       </td>
-                      <td style={{ padding: '10px 14px' }}>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         <span
                           className={`badge ${is17T10 ? 'badge--info' : isNoVehicle ? 'badge--neutral' : 'badge--warning'}`}
-                          style={{ fontSize: '11px', padding: '3px 8px' }}
+                          style={{ fontSize: '11.5px', padding: '4px 10px' }}
                         >
                           {s.parking_location || 'Tòa 17T10 Nguyễn Thị Định'}
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px' }}>
                         {hasVehicle ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                             <span style={{ fontSize: '15px' }}>🛵</span>
                             <strong style={{ color: 'var(--text)', fontSize: '13px' }}>
                               {s.vehicle_info || s.license_plate}
                             </strong>
                           </div>
                         ) : isNoVehicle ? (
-                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Không sử dụng xe</span>
+                          <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', whiteSpace: 'nowrap' }}>Không sử dụng xe</span>
                         ) : (
-                          <span className="badge badge--danger" style={{ fontSize: '10px' }}>⚠️ Chưa điền biển số</span>
+                          <span className="badge badge--danger" style={{ fontSize: '11px', padding: '3px 8px', whiteSpace: 'nowrap' }}>⚠️ Chưa điền biển số</span>
                         )}
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <button
                           onClick={() => openQuickEdit(s)}
                           className="btn btn--ghost"
-                          style={{ padding: '5px 8px', fontSize: '11px', color: 'var(--primary)' }}
+                          style={{ padding: '5px 10px', fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}
                           title="Sửa thông tin xe"
                         >
-                          <Edit2 size={13} style={{ marginRight: '3px' }} /> Sửa
+                          <Edit2 size={13} style={{ marginRight: '4px' }} /> Sửa
                         </button>
                       </td>
                     </tr>

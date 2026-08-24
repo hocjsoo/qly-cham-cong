@@ -126,6 +126,10 @@ body {
   padding: 0 16px;
 }
 
+.container--wide {
+  max-width: 100%;
+}
+
 .page {
   min-height: 100vh;
   padding-bottom: 80px;
@@ -1050,10 +1054,18 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
     padding: 0 24px;
   }
 
+  .container--wide {
+    max-width: 1380px;
+  }
+
   .header__inner {
     max-width: 1040px;
     margin: 0 auto;
     padding: 0 24px;
+  }
+
+  .header__inner--wide {
+    max-width: 1380px;
   }
 
   .bottom-nav {
