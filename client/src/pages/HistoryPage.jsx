@@ -242,10 +242,40 @@ export default function HistoryPage() {
     });
   };
 
+  const adjustTimeString = (timeStr, deltaMinutes) => {
+    if (!timeStr) timeStr = '08:30';
+    const parts = timeStr.split(':').map(Number);
+    let totalMins = (parts[0] || 0) * 60 + (parts[1] || 0) + deltaMinutes;
+    if (totalMins < 0) totalMins = 0;
+    if (totalMins > 23 * 60 + 59) totalMins = 23 * 60 + 59;
+    const hh = String(Math.floor(totalMins / 60)).padStart(2, '0');
+    const mm = String(totalMins % 60).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
+
+  const computeLiveSummary = (inTime, outTime, workEndTime = '18:30') => {
+    if (!inTime || !outTime) return null;
+    const [inH, inM] = inTime.split(':').map(Number);
+    const [outH, outM] = outTime.split(':').map(Number);
+    const inMins = inH * 60 + inM;
+    const outMins = outH * 60 + outM;
+    if (outMins <= inMins) return { totalHours: 0, otHours: 0 };
+    const diffMins = outMins - inMins;
+    const totalHours = parseFloat((diffMins / 60).toFixed(1));
+
+    const [endH, endM] = (workEndTime || '18:30').split(':').map(Number);
+    const endMins = endH * 60 + endM;
+    let otHours = 0;
+    if (outMins > endMins) {
+      otHours = parseFloat(((outMins - endMins) / 60).toFixed(1));
+    }
+    return { totalHours, otHours };
+  };
+
   const handleOpenOverride = (rec) => {
     setOverrideRecord(rec);
-    const inTime = extractVNTime(rec.check_in_time);
-    const outTime = extractVNTime(rec.check_out_time);
+    const inTime = extractVNTime(rec.check_in_time) || '08:30';
+    const outTime = extractVNTime(rec.check_out_time) || '17:30';
     setOverrideForm({
       date: rec.date || (rec.check_in_time ? new Date(rec.check_in_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''),
       check_in_time: inTime,
@@ -936,162 +966,390 @@ export default function HistoryPage() {
       )}
 
       {/* Admin Override Sheet */}
-      {overrideRecord && (
-        <div className="modal-overlay" onClick={() => setOverrideRecord(null)}>
-          <div
-            className="modal-sheet animate-slide-up"
-            onClick={e => e.stopPropagation()}
-            style={{
-              maxWidth: '540px',
-              width: '95vw',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              margin: '0 auto',
-              borderRadius: '16px',
-              padding: '22px 26px',
-              boxShadow: '0 16px 40px rgba(0,0,0,0.3)'
-            }}
-          >
-            <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Clock size={22} color="var(--primary)" />
+      {overrideRecord && (() => {
+        const liveStats = computeLiveSummary(overrideForm.check_in_time, overrideForm.check_out_time, settings?.work_end_time || '18:30');
+
+        const shiftFormDate = (offsetDays) => {
+          const base = overrideForm.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+          const [y, m, d] = base.split('-').map(Number);
+          const dt = new Date(y, m - 1, d);
+          dt.setDate(dt.getDate() + offsetDays);
+          const newDateStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+          setOverrideForm({ ...overrideForm, date: newDateStr });
+        };
+
+        const applyPreset = (inT, outT, isLateVal = false) => {
+          setOverrideForm({
+            ...overrideForm,
+            check_in_time: inT,
+            check_out_time: outT,
+            is_late: isLateVal
+          });
+        };
+
+        return (
+          <div className="modal-overlay" onClick={() => setOverrideRecord(null)}>
+            <div
+              className="modal-sheet animate-slide-up"
+              onClick={e => e.stopPropagation()}
+              style={{
+                maxWidth: '600px',
+                width: '95vw',
+                maxHeight: '92vh',
+                overflowY: 'auto',
+                margin: '0 auto',
+                borderRadius: '16px',
+                padding: '22px 26px',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.35)'
+              }}
+            >
+              <div className="modal-sheet__handle" />
+              
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Clock size={22} color="var(--primary)" />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                      Sửa Giờ Chấm Công
+                    </h3>
+                    <div style={{ fontSize: '12px', color: 'var(--primary)', marginTop: '2px', fontWeight: 700 }}>
+                      {overrideRecord.user_id?.full_name ? `${overrideRecord.user_id.full_name} (${overrideRecord.user_id.employee_code || 'NS'})` : 'Nhân sự'}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                    Sửa Giờ Chấm Công
-                  </h3>
-                  <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                    Ngày: <strong style={{ color: 'var(--primary)' }}>{overrideRecord.date}</strong> {overrideRecord.user_id?.full_name ? `— ${overrideRecord.user_id.full_name}` : ''}
+                <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* 📅 Date Selector with Quick Switchers */}
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>📅 Chọn Ngày Chấm Công</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500 }}>Bấm để đổi ngày cần sửa</span>
+                </label>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => shiftFormDate(-1)}
+                    className="btn btn--ghost"
+                    style={{ padding: '6px 10px', fontSize: '12px', height: '36px' }}
+                    title="Ngày hôm trước"
+                  >
+                    ◀ Hôm trước
+                  </button>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ flex: 1, fontSize: '13px', fontWeight: 800, padding: '7px 10px', height: '36px' }}
+                    value={overrideForm.date}
+                    onChange={e => setOverrideForm({ ...overrideForm, date: e.target.value })}
+                    onClick={e => e.target.showPicker && e.target.showPicker()}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => shiftFormDate(1)}
+                    className="btn btn--ghost"
+                    style={{ padding: '6px 10px', fontSize: '12px', height: '36px' }}
+                    title="Ngày hôm sau"
+                  >
+                    Hôm sau ▶
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOverrideForm({ ...overrideForm, date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) })}
+                    className="btn btn--ghost"
+                    style={{ padding: '6px 10px', fontSize: '11.5px', height: '36px', color: 'var(--primary)', fontWeight: 700 }}
+                  >
+                    Hôm nay
+                  </button>
+                </div>
+              </div>
+
+              {/* ⚡ Quick Shift Presets (1-Click Fill) */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  ⚡ Chọn nhanh mẫu ca làm việc phổ biến:
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '🏢 Chuẩn 08:30 - 17:30 (8h)', in: '08:30', out: '17:30', late: false },
+                    { label: '🏢 Chuẩn 09:00 - 18:30 (ET)', in: '09:00', out: '18:30', late: false },
+                    { label: '🔥 Tăng ca 08:30 - 20:00', in: '08:30', out: '20:00', late: false },
+                    { label: '🌓 Sáng 08:30 - 12:00', in: '08:30', out: '12:00', late: false },
+                    { label: '🌔 Chiều 13:30 - 17:30', in: '13:30', out: '17:30', late: false },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => applyPreset(p.in, p.out, p.late)}
+                      className="btn btn--ghost"
+                      style={{
+                        fontSize: '11.5px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: (overrideForm.check_in_time === p.in && overrideForm.check_out_time === p.out) ? 'var(--primary-soft)' : 'var(--bg-input)',
+                        color: (overrideForm.check_in_time === p.in && overrideForm.check_out_time === p.out) ? 'var(--primary)' : 'var(--text-secondary)',
+                        borderColor: (overrideForm.check_in_time === p.in && overrideForm.check_out_time === p.out) ? 'var(--primary)' : 'var(--border)',
+                        fontWeight: 600
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Pickers (In & Out) with Steppers & Quick Chips */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                {/* 🟢 Giờ vào (Check-in) */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🟢 Giờ vào (Check-in)</span>
+                    <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 700 }}>{overrideForm.check_in_time || '—'}</span>
+                  </label>
+                  
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideForm({ ...overrideForm, check_in_time: adjustTimeString(overrideForm.check_in_time, -15) })}
+                      className="btn btn--ghost"
+                      style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
+                      title="Giảm 15 phút"
+                    >
+                      -15p
+                    </button>
+                    <input
+                      type="time"
+                      className="form-input"
+                      style={{ fontSize: '15px', fontWeight: 800, padding: '6px 8px', height: '38px', textAlign: 'center', flex: 1 }}
+                      value={overrideForm.check_in_time}
+                      onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })}
+                      onClick={e => e.target.showPicker && e.target.showPicker()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setOverrideForm({ ...overrideForm, check_in_time: adjustTimeString(overrideForm.check_in_time, 15) })}
+                      className="btn btn--ghost"
+                      style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
+                      title="Tăng 15 phút"
+                    >
+                      +15p
+                    </button>
+                  </div>
+
+                  {/* Check-in Quick Chips */}
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    {['08:00', '08:30', '08:45', '09:00', '09:15'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setOverrideForm({ ...overrideForm, check_in_time: t })}
+                        className="btn btn--ghost"
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: overrideForm.check_in_time === t ? 'var(--primary-soft)' : 'transparent',
+                          color: overrideForm.check_in_time === t ? 'var(--primary)' : 'var(--text-muted)',
+                          borderColor: overrideForm.check_in_time === t ? 'var(--primary)' : 'var(--border)',
+                          fontWeight: overrideForm.check_in_time === t ? 700 : 500
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 🔴 Giờ ra (Check-out) */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🔴 Giờ ra (Check-out)</span>
+                    <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 700 }}>{overrideForm.check_out_time || '—'}</span>
+                  </label>
+
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideForm({ ...overrideForm, check_out_time: adjustTimeString(overrideForm.check_out_time, -15) })}
+                      className="btn btn--ghost"
+                      style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
+                      title="Giảm 15 phút"
+                    >
+                      -15p
+                    </button>
+                    <input
+                      type="time"
+                      className="form-input"
+                      style={{ fontSize: '15px', fontWeight: 800, padding: '6px 8px', height: '38px', textAlign: 'center', flex: 1 }}
+                      value={overrideForm.check_out_time}
+                      onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
+                      onClick={e => e.target.showPicker && e.target.showPicker()}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setOverrideForm({ ...overrideForm, check_out_time: adjustTimeString(overrideForm.check_out_time, 15) })}
+                      className="btn btn--ghost"
+                      style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
+                      title="Tăng 15 phút"
+                    >
+                      +15p
+                    </button>
+                  </div>
+
+                  {/* Check-out Quick Chips */}
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    {['12:00', '17:30', '18:00', '18:30', '19:00', '20:00'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setOverrideForm({ ...overrideForm, check_out_time: t })}
+                        className="btn btn--ghost"
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: overrideForm.check_out_time === t ? 'var(--primary-soft)' : 'transparent',
+                          color: overrideForm.check_out_time === t ? 'var(--primary)' : 'var(--text-muted)',
+                          borderColor: overrideForm.check_out_time === t ? 'var(--primary)' : 'var(--border)',
+                          fontWeight: overrideForm.check_out_time === t ? 700 : 500
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
-              <button onClick={() => setOverrideRecord(null)} className="btn btn--ghost" style={{ padding: '6px 10px', borderRadius: '8px' }}>
-                <X size={20} />
-              </button>
-            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-              {/* Giờ vào (Check-in) */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>🟢 Giờ vào (Check-in)</label>
+              {/* 📊 Live Calculated Summary Badge */}
+              {liveStats && (
+                <div style={{
+                  display: 'flex', justifyContent: 'space-around', alignItems: 'center',
+                  background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                  borderRadius: '10px', padding: '10px 14px', marginBottom: '14px'
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>⏱️ Tổng Giờ Làm</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>
+                      {liveStats.totalHours} giờ
+                    </div>
+                  </div>
+                  <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🔥 Giờ Tăng Ca OT</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: liveStats.otHours > 0 ? '#ef4444' : 'var(--text-secondary)', marginTop: '2px' }}>
+                      {liveStats.otHours}h OT
+                    </div>
+                  </div>
+                  <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>🌟 Kỷ Luật</div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: overrideForm.is_late ? 'var(--red)' : 'var(--green)', marginTop: '2px' }}>
+                      {overrideForm.is_late ? '🔴 Đi muộn' : '🟢 Đúng giờ'}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Hình thức & Toggle Đi muộn */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                {/* Hình thức chấm công */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>🏢 Hình thức làm việc</label>
+                  <select
+                    className="form-select"
+                    value={overrideForm.check_in_type}
+                    onChange={e => setOverrideForm({ ...overrideForm, check_in_type: e.target.value })}
+                    style={{ padding: '8px 12px', fontSize: '13px' }}
+                  >
+                    <option value="office">🏢 Văn phòng</option>
+                    <option value="site">🏗️ Công trình (CT1)</option>
+                    <option value="client">👔 Khách hàng (CT2)</option>
+                    <option value="wfh">🏠 Làm từ xa (WFH)</option>
+                  </select>
+                </div>
+
+                {/* Toggle Đi muộn */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>⚠️ Ghi nhận đi muộn</label>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      background: overrideForm.is_late ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-input)',
+                      border: overrideForm.is_late ? '1px solid var(--red)' : '1px solid var(--border)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      height: '38px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={overrideForm.is_late}
+                      onChange={e => setOverrideForm({ ...overrideForm, is_late: e.target.checked })}
+                      style={{ width: '16px', height: '16px', accentColor: 'var(--red)' }}
+                    />
+                    <span style={{ fontSize: '12.5px', fontWeight: overrideForm.is_late ? 700 : 500, color: overrideForm.is_late ? 'var(--red)' : 'var(--text)' }}>
+                      {overrideForm.is_late ? '🔴 Đánh dấu Đi muộn' : '🟢 Đi đúng giờ'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Lý do điều chỉnh */}
+              <div className="form-group" style={{ marginBottom: '18px' }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>📝 Lý do điều chỉnh (Audit Note)</label>
                 <input
-                  type="time"
+                  type="text"
                   className="form-input"
-                  style={{ fontSize: '15px', fontWeight: 800, padding: '9px 12px' }}
-                  value={overrideForm.check_in_time}
-                  onChange={e => setOverrideForm({ ...overrideForm, check_in_time: e.target.value })}
-                  onClick={e => e.target.showPicker && e.target.showPicker()}
+                  value={overrideForm.notes}
+                  onChange={e => setOverrideForm({ ...overrideForm, notes: e.target.value })}
+                  placeholder="VD: Sửa theo giải trình duyệt đơn, lỗi mạng, công tác..."
+                  style={{ padding: '8px 12px', fontSize: '13px' }}
                 />
               </div>
 
-              {/* Giờ ra (Check-out) */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>🔴 Giờ ra (Check-out)</label>
-                <input
-                  type="time"
-                  className="form-input"
-                  style={{ fontSize: '15px', fontWeight: 800, padding: '9px 12px' }}
-                  value={overrideForm.check_out_time}
-                  onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
-                  onClick={e => e.target.showPicker && e.target.showPicker()}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-              {/* Hình thức chấm công */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>🏢 Hình thức</label>
-                <select
-                  className="form-select"
-                  value={overrideForm.check_in_type}
-                  onChange={e => setOverrideForm({ ...overrideForm, check_in_type: e.target.value })}
-                  style={{ padding: '9px 12px', fontSize: '13px' }}
-                >
-                  <option value="office">🏢 Văn phòng</option>
-                  <option value="site">🏗️ Công trình (CT1)</option>
-                  <option value="client">👔 Khách hàng (CT2)</option>
-                  <option value="wfh">🏠 Làm từ xa (WFH)</option>
-                </select>
-              </div>
-
-              {/* Toggle Đi muộn */}
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 700 }}>⚠️ Trạng thái kỷ luật</label>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    cursor: 'pointer',
-                    background: overrideForm.is_late ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-input)',
-                    border: overrideForm.is_late ? '1px solid var(--red)' : '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    height: '42px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={overrideForm.is_late}
-                    onChange={e => setOverrideForm({ ...overrideForm, is_late: e.target.checked })}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--red)' }}
-                  />
-                  <span style={{ fontSize: '13px', fontWeight: overrideForm.is_late ? 700 : 500, color: overrideForm.is_late ? 'var(--red)' : 'var(--text)' }}>
-                    {overrideForm.is_late ? '🔴 Đánh dấu Đi muộn' : '🟢 Đúng giờ (Không muộn)'}
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {/* Lý do điều chỉnh */}
-            <div className="form-group" style={{ marginBottom: '18px' }}>
-              <label className="form-label" style={{ fontWeight: 700 }}>📝 Lý do điều chỉnh (Audit Note)</label>
-              <input
-                type="text"
-                className="form-input"
-                value={overrideForm.notes}
-                onChange={e => setOverrideForm({ ...overrideForm, notes: e.target.value })}
-                placeholder="VD: Sửa theo giải trình duyệt đơn, sự cố mạng..."
-                style={{ padding: '9px 12px', fontSize: '13px' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setOverrideRecord(null)}
+                    className="btn btn--ghost"
+                    style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveOverride}
+                    disabled={submittingOverride}
+                    className="btn btn--primary"
+                    style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
+                  >
+                    {submittingOverride ? <span className="spinner" /> : '💾 Lưu điều chỉnh'}
+                  </button>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setOverrideRecord(null)}
-                  className="btn btn--ghost"
-                  style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 700 }}
+                  onClick={() => handleDeleteAttendance(overrideRecord._id, overrideRecord.date)}
+                  className="btn btn--ghost btn--full"
+                  style={{ color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '12px', padding: '8px', background: 'rgba(239, 68, 68, 0.05)' }}
                 >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveOverride}
-                  disabled={submittingOverride}
-                  className="btn btn--primary"
-                  style={{ flex: 2, padding: '10px', fontSize: '13px', fontWeight: 800 }}
-                >
-                  {submittingOverride ? <span className="spinner" /> : '💾 Lưu điều chỉnh'}
+                  <Trash2 size={15} /> Xóa hẳn ca làm này (Cho phép nhân viên chấm lại)
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteAttendance(overrideRecord._id, overrideRecord.date)}
-                className="btn btn--ghost btn--full"
-                style={{ color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '12px', padding: '8px', background: 'rgba(239, 68, 68, 0.05)' }}
-              >
-                <Trash2 size={15} /> Xóa hẳn ca làm này (Cho phép nhân viên chấm lại)
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Admin Holiday Edit/Create Modal Sheet */}
       {showHolidayModal && (
