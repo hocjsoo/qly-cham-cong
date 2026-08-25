@@ -66,7 +66,7 @@ export default function VehiclesPage() {
         api.get('/users?active_only=true'),
         api.get('/departments'),
       ]);
-      const allUsers = Array.isArray(resUsers.data) ? resUsers.data : [];
+      const allUsers = Array.isArray(resUsers.data) ? resUsers.data : (Array.isArray(resUsers.data?.users) ? resUsers.data.users : []);
       // Lọc đa tầng để đảm bảo 100% không còn nhân sự đã nghỉ việc
       const activeStaff = allUsers.filter(isCurrentlyWorking);
       setStaff(activeStaff);

@@ -10,6 +10,9 @@ const INITIAL_MOCK_USERS = [
     phone: '0901234567',
     role: 'admin',
     department_name: 'Hành chính',
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định',
+    vehicle_info: 'Honda SH 29E1-888.88',
+    license_plate: '29E1-888.88',
     is_active: true,
   },
   {
@@ -20,6 +23,9 @@ const INITIAL_MOCK_USERS = [
     phone: '0907654321',
     role: 'manager',
     department_name: 'Kiến trúc',
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định',
+    vehicle_info: 'Yamaha Grande 29B1-123.45',
+    license_plate: '29B1-123.45',
     is_active: true,
   },
   {
@@ -30,6 +36,9 @@ const INITIAL_MOCK_USERS = [
     phone: '0912345678',
     role: 'staff',
     department_name: 'Kiến trúc',
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định',
+    vehicle_info: 'Honda Lead 29X1-678.90',
+    license_plate: '29X1-678.90',
     is_active: true,
   },
 ];
@@ -274,7 +283,7 @@ export async function mockRequest(method, url, data = {}) {
 
   // === USERS MANAGEMENT ===
   if (url.includes('/users') && method === 'get') {
-    return { data: { users } };
+    return { data: users };
   }
 
   if (url.includes('/users') && method === 'post') {
