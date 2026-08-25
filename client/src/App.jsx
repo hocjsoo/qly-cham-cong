@@ -1,10 +1,11 @@
 // src/App.jsx
 // Router chính — Protected routes + role-based access + Route-level Lazy Loading
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './stores/authStore';
+import useSettingsStore from './stores/settingsStore';
 
 import Layout from './components/Layout';
 import MagicCursor from './components/MagicCursor';
@@ -65,6 +66,11 @@ function ProtectedRoute({ children, roles }) {
 
 export default function App() {
   const { user } = useAuthStore();
+  const { fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   return (
     <BrowserRouter>

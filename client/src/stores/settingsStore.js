@@ -3,6 +3,7 @@
 
 import { create } from 'zustand';
 import api from '../services/api';
+import { applyDynamicBranding } from '../utils/dynamicBranding';
 
 const useSettingsStore = create((set, get) => ({
   company_name: 'ET Architects',
@@ -15,53 +16,45 @@ const useSettingsStore = create((set, get) => ({
       set({ loading: true });
       const { data } = await api.get('/settings');
       if (data) {
+        const companyName = data.company_name || 'ET Architects';
+        const logoUrl = data.company_logo_url || '';
+
         set({
-          company_name: data.company_name || 'ET Architects',
-          company_logo_url: data.company_logo_url || '',
+          company_name: companyName,
+          company_logo_url: logoUrl,
           settings: data,
           loading: false,
         });
 
-        // Dynamic favicon update if company_logo_url exists
-        if (data.company_logo_url) {
-          const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-          link.rel = 'shortcut icon';
-          link.href = data.company_logo_url;
-          document.getElementsByTagName('head')[0].appendChild(link);
-        }
+        // Áp dụng favicon, Apple Touch Icon và Web App Manifest PWA theo logo đã cài đặt
+        applyDynamicBranding(companyName, logoUrl);
       }
-    } catch (err) {
+    } catch {
       set({ loading: false });
     }
   },
 
   setCompanyLogo: (logoUrl) => {
+    const currentName = get().company_name;
     set((state) => ({
       company_logo_url: logoUrl,
       settings: state.settings ? { ...state.settings, company_logo_url: logoUrl } : null,
     }));
 
-    if (logoUrl) {
-      const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-      link.rel = 'shortcut icon';
-      link.href = logoUrl;
-      document.getElementsByTagName('head')[0].appendChild(link);
-    }
+    applyDynamicBranding(currentName, logoUrl);
   },
 
   updateSettingsState: (newSettings) => {
+    const companyName = newSettings.company_name || 'ET Architects';
+    const logoUrl = newSettings.company_logo_url || '';
+
     set({
-      company_name: newSettings.company_name || 'ET Architects',
-      company_logo_url: newSettings.company_logo_url || '',
+      company_name: companyName,
+      company_logo_url: logoUrl,
       settings: newSettings,
     });
 
-    if (newSettings.company_logo_url) {
-      const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
-      link.rel = 'shortcut icon';
-      link.href = newSettings.company_logo_url;
-      document.getElementsByTagName('head')[0].appendChild(link);
-    }
+    applyDynamicBranding(companyName, logoUrl);
   },
 }));
 
