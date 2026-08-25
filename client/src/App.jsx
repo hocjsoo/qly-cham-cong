@@ -57,10 +57,19 @@ function PageLoader() {
   );
 }
 
+const getDefaultHome = (user) => {
+  if (!user) return '/login';
+  const isStaff = user.role === 'staff' || user.role === 'employee';
+  if (user.is_attendance_exempt) {
+    return isStaff ? '/projects' : '/dashboard';
+  }
+  return isStaff ? '/checkin' : '/dashboard';
+};
+
 function ProtectedRoute({ children, roles }) {
   const { user } = useAuthStore();
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/checkin" replace />;
+  if (roles && !roles.includes(user.role)) return <Navigate to={getDefaultHome(user)} replace />;
   return children;
 }
 
@@ -94,13 +103,13 @@ export default function App() {
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/login" element={user ? <Navigate to={(user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard'} replace /> : <LoginPage />} />
+            <Route path="/login" element={user ? <Navigate to={getDefaultHome(user)} replace /> : <LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/checkin" element={<CheckInPage />} />
+              <Route path="/checkin" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <CheckInPage />} />
               <Route path="/requests" element={<RequestsPage />} />
-              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/history" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <HistoryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
               <Route path="/dashboard" element={
@@ -117,7 +126,7 @@ export default function App() {
 
               <Route path="/reports" element={<ReportPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
-              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/leaderboard" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <LeaderboardPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/expenses" element={<ExpensesPage />} />
 
@@ -128,7 +137,7 @@ export default function App() {
               } />
             </Route>
 
-            <Route path="*" element={<Navigate to={user ? ((user.role === 'staff' || user.role === 'employee') ? '/checkin' : '/dashboard') : '/login'} replace />} />
+            <Route path="*" element={<Navigate to={getDefaultHome(user)} replace />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>
