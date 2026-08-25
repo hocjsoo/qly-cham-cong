@@ -5,6 +5,7 @@ const Attendance = require('../models/Attendance');
 const TimesheetLock = require('../models/TimesheetLock');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const SystemSetting = require('../models/SystemSetting');
+const Holiday = require('../models/Holiday');
 
 // Map symbol to status / check_in_type for override
 const SYMBOL_TO_STATUS_MAP = {
@@ -18,6 +19,7 @@ const SYMBOL_TO_STATUS_MAP = {
   'O': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'leave', notes: 'Nghỉ ốm (O)' },
   'KL': { total_hours: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Nghỉ không lương (KL)' },
   'K': { total_hours: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Khác (K)' },
+  'L': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
 };
 
 // GET /api/timesheet-lock/full-matrix?month=7&year=2026
@@ -40,17 +42,45 @@ const getFullMatrix = async (req, res) => {
       .populate('department_ids', 'name')
       .sort({ employee_code: 1, full_name: 1 });
 
-    // Lấy tất cả bản ghi điểm danh và lịch sử chỉnh sửa tháng này
-    const [attendances, auditLogsList] = await Promise.all([
+    // Lấy tất cả bản ghi điểm danh, lịch sử chỉnh sửa, chốt công, cấu hình và ngày nghỉ lễ
+    const [attendances, auditLogsList, lockRecords, settings, holidays] = await Promise.all([
       Attendance.find({ date: { $gte: startDateStr, $lte: endDateStr } }).lean(),
       AttendanceAuditLog.find({ date: { $gte: startDateStr, $lte: endDateStr } }).sort({ modified_at: -1 }).lean(),
-    ]);
-
-    // Lấy danh sách chốt công tháng này và cấu hình giờ làm việc
-    const [lockRecords, settings] = await Promise.all([
       TimesheetLock.find({ month, year }),
       SystemSetting.findOne({ key: 'global' }),
+      Holiday.find({
+        $or: [
+          { date: { $gte: startDateStr, $lte: endDateStr } },
+          { end_date: { $gte: startDateStr, $lte: endDateStr } },
+          { date: { $lte: startDateStr }, end_date: { $gte: endDateStr } }
+        ]
+      }).lean(),
     ]);
+
+    // Xây dựng bản đồ ngày nghỉ lễ trong tháng
+    const holidayMap = {};
+    holidays.forEach(h => {
+      const start = h.date;
+      const end = h.end_date || h.date;
+      if (!start) return;
+      const [sY, sM, sD] = start.split('-').map(Number);
+      const [eY, eM, eD] = (end || start).split('-').map(Number);
+      const startD = new Date(sY, sM - 1, sD);
+      const endD = new Date(eY, eM - 1, eD);
+
+      let curr = new Date(startD);
+      while (curr <= endD) {
+        const y = curr.getFullYear();
+        const m = String(curr.getMonth() + 1).padStart(2, '0');
+        const d = String(curr.getDate()).padStart(2, '0');
+        const dStr = `${y}-${m}-${d}`;
+        if (dStr >= startDateStr && dStr <= endDateStr) {
+          holidayMap[dStr] = h;
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+    });
+
     const workEndTime = settings?.work_end_time || '17:30';
     const [endH, endM] = workEndTime.split(':').map(Number);
     const endMinutesLimit = endH * 60 + endM;
@@ -69,6 +99,7 @@ const getFullMatrix = async (req, res) => {
       const dateObj = new Date(year, month - 1, d);
       const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const weekdayStr = weekdayVN[dateObj.getDay()];
+      const hol = holidayMap[dateStr];
 
       headerDays.push({
         day: d,
@@ -78,6 +109,9 @@ const getFullMatrix = async (req, res) => {
         isSunday: dateObj.getDay() === 0,
         isSaturday: dateObj.getDay() === 6,
         isWeekend: dateObj.getDay() === 0,
+        isHoliday: Boolean(hol),
+        holidayName: hol ? hol.name : null,
+        isPaidHoliday: hol ? Boolean(hol.is_paid) : false,
       });
     }
 
@@ -162,6 +196,8 @@ const getFullMatrix = async (req, res) => {
           } else if (notes.includes('(K)') || notes.includes('KHÁC')) {
             symbol = 'K';
             other_leave += 1;
+          } else if (att.status === 'holiday' || notes.includes('NGHỈ LỄ') || notes.includes('(L)')) {
+            symbol = 'L';
           } else if (att.work_units === 0.75) {
             symbol = '0,75x';
             nlv_office += 0.75;
@@ -181,6 +217,9 @@ const getFullMatrix = async (req, res) => {
             symbol = '0,5x';
             nlv_office += 0.5;
           }
+        } else if (hd.isHoliday) {
+          // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
+          symbol = 'L';
         }
 
         // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên

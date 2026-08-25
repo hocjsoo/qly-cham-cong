@@ -561,7 +561,9 @@ export default function ReportPage() {
                 } else if (symbol === 'O') {
                   bg = 'var(--red-soft)'; color = 'var(--red)';
                 } else if (symbol === 'KL') {
-                  bg = 'rgba(148, 163, 184, 0.15)'; color = 'var(--text-muted)';
+                  bg = 'rgba(100, 116, 139, 0.15)'; color = 'var(--text-muted)';
+                } else if (symbol === 'L') {
+                  bg = 'rgba(236, 72, 153, 0.15)'; color = '#db2777';
                 }
 
                 return (
@@ -754,7 +756,14 @@ export default function ReportPage() {
                                             bg = 'rgba(100, 116, 139, 0.08)';
                                             border = '1px solid rgba(100, 116, 139, 0.3)';
                                             symbolColor = '#64748b';
+                                          } else if (d.symbol === 'L') {
+                                            bg = 'rgba(236, 72, 153, 0.12)';
+                                            border = '1px solid rgba(236, 72, 153, 0.4)';
+                                            symbolColor = '#db2777';
                                           }
+                                        } else if (hdObj?.isHoliday) {
+                                          bg = 'rgba(236, 72, 153, 0.08)';
+                                          dayColor = '#db2777';
                                         } else if (isSun) {
                                           bg = 'rgba(239, 68, 68, 0.05)';
                                         }
@@ -910,16 +919,17 @@ export default function ReportPage() {
                             {/* Days Weekday Row */}
                             {matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
+                              const isHol = hd.isHoliday;
                               return (
                                 <th key={hd.day} style={{
                                   padding: '3px 1px',
-                                  background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
-                                  color: isSun ? '#ef4444' : 'var(--text-muted)',
+                                  background: isHol ? 'rgba(236, 72, 153, 0.18)' : isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
+                                  color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text-muted)',
                                   minWidth: '32px', width: '32px',
-                                  fontSize: '10px',
+                                  fontSize: '10px', fontWeight: isHol || isSun ? 800 : 600,
                                   borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
-                                }}>
-                                  {hd.weekday}
+                                }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : isSun ? 'Chủ Nhật' : hd.weekday}>
+                                  {isHol ? 'LỄ' : hd.weekday}
                                 </th>
                               );
                             })}
@@ -932,15 +942,16 @@ export default function ReportPage() {
 
                             {matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
+                              const isHol = hd.isHoliday;
                               return (
                                 <th key={hd.day} style={{
                                   padding: '3px 1px',
-                                  background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
-                                  color: isSun ? '#ef4444' : 'var(--text)',
+                                  background: isHol ? 'rgba(236, 72, 153, 0.22)' : isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                                  color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text)',
                                   minWidth: '32px', width: '32px',
-                                  fontSize: '10px',
+                                  fontSize: '10px', fontWeight: isHol || isSun ? 800 : 700,
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
-                                }}>
+                                }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : hd.dateStr}>
                                   {hd.dayStr}
                                 </th>
                               );
@@ -980,6 +991,7 @@ export default function ReportPage() {
                               {r.days.map(d => {
                                 const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
                                 const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
+                                const isHol = hdObj?.isHoliday;
                                 return (
                                   <td
                                     key={d.day}
@@ -1007,8 +1019,9 @@ export default function ReportPage() {
                                         check_in_type: d.check_in_type,
                                         is_modified: d.is_modified,
                                         audit_logs: d.audit_logs || [],
+                                        holiday_name: hdObj?.holidayName || null,
                                       });
-                                      setCellSymbol(d.symbol || 'x');
+                                      setCellSymbol(d.symbol || (isHol ? 'L' : 'x'));
                                       setCellCheckIn(d.check_in_time || '08:30');
                                       setCellCheckOut(d.check_out_time || '17:30');
                                       setCellReason('');
@@ -1017,10 +1030,10 @@ export default function ReportPage() {
                                       padding: '4px 1px',
                                       minWidth: '32px', width: '32px',
                                       cursor: isAdmin ? 'pointer' : 'default',
-                                      background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                                      background: isHol ? 'rgba(236, 72, 153, 0.05)' : isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
                                     }}
-                                    title={`${d.dateStr} (${r.full_name}): [${d.symbol || '—'}]${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ''}`}
+                                    title={`${d.dateStr} (${r.full_name}): [${d.symbol || '—'}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ''}`}
                                   >
                                     {renderDaySymbol(d.symbol, isSun)}
                                   </td>
@@ -1631,6 +1644,7 @@ export default function ReportPage() {
                     <option value="P">P : Nghỉ phép</option>
                     <option value="O">O : Nghỉ ốm</option>
                     <option value="KL">KL : Nghỉ không lương</option>
+                    <option value="L">L : Nghỉ Lễ công ty</option>
                     <option value="K">K : Khác</option>
                   </select>
                 </div>
