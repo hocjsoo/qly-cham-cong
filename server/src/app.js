@@ -141,4 +141,32 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Khởi chạy HTTP Server nếu được gọi trực tiếp (VD: Render.com chạy `node src/app.js`)
+if (require.main === module) {
+  require('dotenv').config();
+  const connectDB = require('./database/db');
+  const seedInitialData = require('./database/seed');
+  const PORT = process.env.PORT || 5000;
+
+  (async function bootstrap() {
+    try {
+      await connectDB();
+      await seedInitialData();
+
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`
+  ╔═══════════════════════════════════════════════════════╗
+  ║     ET OFFICE PORTAL — LIVE FULLSTACK SERVER         ║
+  ║     🚀 Đang chạy tại port ${PORT}                      ║
+  ║     🌐 Web Client & API sẵn sàng!                    ║
+  ╚═══════════════════════════════════════════════════════╝
+        `);
+      });
+    } catch (error) {
+      console.error('❌ Lỗi khởi động máy chủ:', error);
+      process.exit(1);
+    }
+  })();
+}
+
 module.exports = app;
