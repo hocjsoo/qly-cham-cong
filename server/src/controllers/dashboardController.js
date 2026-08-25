@@ -9,9 +9,10 @@ const getTodaySummary = async (req, res) => {
   try {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    // Filter users (Chỉ lấy nhân viên đang làm việc, bỏ qua người đã nghỉ việc / nghỉ thai sản / nghỉ ốm / khác)
+    // Filter users (Chỉ lấy nhân viên cần điểm danh đang làm việc, bỏ qua người miễn chấm công / đã nghỉ việc / nghỉ thai sản / nghỉ ốm / khác)
     let userFilter = {
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
     if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {

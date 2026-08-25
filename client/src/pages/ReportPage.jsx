@@ -65,7 +65,6 @@ export default function ReportPage() {
   // Search & Filter state for Matrix View
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
-  const [exemptFilter, setExemptFilter] = useState('all'); // 'all' | 'required_only' | 'exempt_only'
 
   // Lock Confirm State
   const [lockConfirm, setLockConfirm] = useState(null); // { userId, currentLocked, actionText, targetText }
@@ -145,16 +144,9 @@ export default function ReportPage() {
 
       const matchDept = !deptFilter || staffDepts.includes(deptFilter) || r.department_name === deptFilter;
 
-      let matchExempt = true;
-      if (exemptFilter === 'required_only') {
-        matchExempt = !r.is_attendance_exempt;
-      } else if (exemptFilter === 'exempt_only') {
-        matchExempt = Boolean(r.is_attendance_exempt);
-      }
-
-      return matchSearch && matchDept && matchExempt;
+      return matchSearch && matchDept;
     });
-  }, [matrixData, searchQuery, deptFilter, exemptFilter]);
+  }, [matrixData, searchQuery, deptFilter]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -491,21 +483,9 @@ export default function ReportPage() {
                     </select>
                   )}
 
-                  {/* Lọc người chấm công / Miễn chấm công */}
-                  <select
-                    className="form-input"
-                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '140px' }}
-                    value={exemptFilter}
-                    onChange={e => setExemptFilter(e.target.value)}
-                  >
-                    <option value="all">👥 Tất cả nhân sự</option>
-                    <option value="required_only">⏱️ Cần chấm công</option>
-                    <option value="exempt_only">🛡️ Miễn chấm công</option>
-                  </select>
-
-                  {(searchQuery || deptFilter || exemptFilter !== 'all') && (
+                  {(searchQuery || deptFilter) && (
                     <button
-                      onClick={() => { setSearchQuery(''); setDeptFilter(''); setExemptFilter('all'); }}
+                      onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
                       className="btn btn--ghost"
                       style={{ padding: '4px 8px', fontSize: '11px' }}
                     >

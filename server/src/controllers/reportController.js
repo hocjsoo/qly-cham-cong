@@ -14,6 +14,7 @@ const getMonthlyReport = async (req, res) => {
 
     let userFilter = {
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
     if (['manager', 'leader'].includes(req.user.role)) {

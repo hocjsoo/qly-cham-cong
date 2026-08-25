@@ -29,9 +29,10 @@ const getFullMatrix = async (req, res) => {
     const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    // Lấy danh sách nhân viên đang làm việc (bỏ qua đã nghỉ việc, nghỉ thai sản, nghỉ ốm, khác)
+    // Lấy danh sách nhân viên đang làm việc (bỏ qua người miễn chấm công, đã nghỉ việc, nghỉ thai sản, nghỉ ốm, khác)
     const users = await User.find({
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true }, // Miễn chấm công -> Ẩn hoàn toàn khỏi Bảng Chấm Công
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     })
       .populate('department_id', 'name')
