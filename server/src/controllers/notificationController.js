@@ -123,16 +123,24 @@ const markAllAsRead = async (req, res) => {
 
 // POST /api/notifications/broadcast — Admin phát thông báo cho toàn công ty
 const broadcastAnnouncement = async (req, res) => {
-  const { title, message } = req.body;
+  const { title, message, duration_days, expires_at } = req.body;
   if (!title || !message) {
     return res.status(400).json({ error: 'Tiêu đề và nội dung là bắt buộc.' });
   }
   try {
+    let computedExpiresAt = null;
+    if (expires_at) {
+      computedExpiresAt = new Date(expires_at);
+    } else if (duration_days && Number(duration_days) > 0) {
+      computedExpiresAt = new Date(Date.now() + Number(duration_days) * 24 * 60 * 60 * 1000);
+    }
+
     const notification = await Notification.create({
       user_id: null,
       title: `📢 ${title}`,
       message,
       type: 'announcement',
+      expires_at: computedExpiresAt,
     });
 
     // Đồng bộ sang Announcement để hiển thị nổi bật trên Trang chủ
@@ -140,6 +148,7 @@ const broadcastAnnouncement = async (req, res) => {
       title: title.replace(/^📢\s*/, ''),
       content: message,
       is_pinned: true,
+      expires_at: computedExpiresAt,
       created_by: req.user._id,
       is_active: true,
     }).catch(() => {});

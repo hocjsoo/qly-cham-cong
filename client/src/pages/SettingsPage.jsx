@@ -85,6 +85,9 @@ export default function SettingsPage() {
           working_days: data.working_days || ['Mon','Tue','Wed','Thu','Fri','Sat'],
           company_name: data.company_name || 'ET Architects',
           company_logo_url: data.company_logo_url || '',
+          announcement_display_days: data.announcement_display_days ?? 7,
+          anniversary_display_mode: data.anniversary_display_mode || 'month',
+          anniversary_display_days: data.anniversary_display_days ?? 7,
         });
       } else if (tab === 'holidays') {
         const year = new Date().getFullYear();
@@ -481,9 +484,66 @@ export default function SettingsPage() {
               ) : <div className="skeleton-card" style={{ height: '200px' }} />}
             </div>
 
+            {/* Display Duration & Expiry Settings Card */}
+            <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={16} color="var(--primary)" /> 📢 Cài đặt Thời gian hiển thị (Thông báo & Kỷ niệm)
+              </div>
+              {shiftForm ? (
+                <>
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label className="form-label">Thời gian hiển thị Thông báo mặc định</label>
+                    <select
+                      className="form-input"
+                      value={shiftForm.announcement_display_days}
+                      onChange={e => setShiftForm(p => ({ ...p, announcement_display_days: Number(e.target.value) }))}
+                    >
+                      <option value="3">3 ngày (Tự động gỡ sau 3 ngày)</option>
+                      <option value="7">7 ngày (Tự động gỡ sau 1 tuần - Mặc định)</option>
+                      <option value="14">14 ngày (Tự động gỡ sau 2 tuần)</option>
+                      <option value="30">30 ngày (Tự động gỡ sau 1 tháng)</option>
+                      <option value="0">Vô thời hạn (Chỉ gỡ khi Admin xóa thủ công)</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '14px' }}>
+                    <label className="form-label">Chu kỳ hiển thị Kỷ niệm gắn bó & Sinh nhật</label>
+                    <select
+                      className="form-input"
+                      value={shiftForm.anniversary_display_mode}
+                      onChange={e => setShiftForm(p => ({ ...p, anniversary_display_mode: e.target.value }))}
+                    >
+                      <option value="month">🗓️ Trọn vẹn trong tháng (Toàn bộ nhân sự có sự kiện trong tháng)</option>
+                      <option value="week">📅 Trong tuần diễn ra sự kiện (±3 ngày quanh ngày kỷ niệm)</option>
+                      <option value="days_around">⏳ Theo khoảng số ngày (Trước & sau ngày kỷ niệm)</option>
+                      <option value="exact_day">🎯 Đúng ngày diễn ra (Chỉ hiện trong ngày sinh nhật / kỷ niệm)</option>
+                    </select>
+                  </div>
+
+                  {shiftForm.anniversary_display_mode === 'days_around' && (
+                    <div className="form-group" style={{ marginBottom: '14px' }}>
+                      <label className="form-label">Số ngày hiển thị quanh ngày sự kiện (ngày)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        min="1"
+                        max="30"
+                        value={shiftForm.anniversary_display_days}
+                        onChange={e => setShiftForm(p => ({ ...p, anniversary_display_days: Number(e.target.value) }))}
+                      />
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.6, background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '8px' }}>
+                    💡 <em>Khi hết thời gian cấu hình, bài đăng thông báo hoặc thẻ vinh danh kỷ niệm sẽ tự động ẩn khỏi Trang chủ mà Admin không cần thao tác gỡ thủ công.</em>
+                  </div>
+                </>
+              ) : <div className="skeleton-card" style={{ height: '140px' }} />}
+            </div>
+
             {isAdmin && (
               <button onClick={handleSaveShiftSettings} disabled={submitting || !shiftForm} className="btn btn--primary btn--full" style={{ marginBottom: '12px' }}>
-                {submitting ? <span className="spinner" /> : 'Luu cai dat ca lam'}
+                {submitting ? <span className="spinner" /> : 'Lưu cài đặt hệ thống'}
               </button>
             )}
           </div>

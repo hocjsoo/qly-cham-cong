@@ -47,6 +47,7 @@ export default function NotificationCenter() {
     is_holiday: false,
     holiday_date: '',
     holiday_end_date: '',
+    duration_days: '7',
   });
   const [submittingBroadcast, setSubmittingBroadcast] = useState(false);
 
@@ -154,12 +155,13 @@ export default function NotificationCenter() {
         await api.post('/notifications/broadcast', {
           title: broadcastForm.title,
           message: broadcastForm.message,
+          duration_days: Number(broadcastForm.duration_days || 7),
         });
         toast.success('Đã phát thông báo toàn công ty! 📢');
       }
 
       setShowBroadcastModal(false);
-      setBroadcastForm({ title: '', message: '', is_holiday: false, holiday_date: '', holiday_end_date: '' });
+      setBroadcastForm({ title: '', message: '', is_holiday: false, holiday_date: '', holiday_end_date: '', duration_days: '7' });
       fetchNotifications();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi phát thông báo');
@@ -460,6 +462,23 @@ export default function NotificationCenter() {
                 placeholder="Nhập nội dung gửi đến toàn bộ cán bộ nhân viên..."
               />
             </div>
+
+            {!broadcastForm.is_holiday && (
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label">⏳ Thời gian gỡ thông báo tự động</label>
+                <select
+                  className="form-select"
+                  value={broadcastForm.duration_days}
+                  onChange={e => setBroadcastForm({ ...broadcastForm, duration_days: e.target.value })}
+                >
+                  <option value="3">3 ngày (Tự động gỡ sau 3 ngày)</option>
+                  <option value="7">7 ngày (Tự động gỡ sau 1 tuần - Mặc định)</option>
+                  <option value="14">14 ngày (Tự động gỡ sau 2 tuần)</option>
+                  <option value="30">30 ngày (Tự động gỡ sau 1 tháng)</option>
+                  <option value="0">Vô thời hạn (Hiển thị đến khi Admin gỡ thủ công)</option>
+                </select>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button onClick={() => setShowBroadcastModal(false)} className="btn btn--ghost btn--full">Hủy</button>

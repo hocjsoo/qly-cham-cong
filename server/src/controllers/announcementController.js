@@ -2,6 +2,7 @@
 // Quan ly thong bao noi bo (ghim) & sinh nhat nhan su
 const Announcement = require('../models/Announcement');
 const Notification = require('../models/Notification');
+const SystemSetting = require('../models/SystemSetting');
 const User = require('../models/User');
 
 // GET /api/announcements/birthdays?month=7
@@ -10,9 +11,14 @@ const getBirthdays = async (req, res) => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     const month = req.query.month ? parseInt(req.query.month) : (now.getMonth() + 1);
     const monthStr = String(month).padStart(2, '0');
+    const todayDay = now.getDate();
+
+    const setting = await SystemSetting.findOne({ key: 'global' }).lean() || {};
+    const displayMode = setting.anniversary_display_mode || 'month';
+    const displayDays = setting.anniversary_display_days || 7;
 
     // dob format: YYYY-MM-DD hoac DD/MM/YYYY
-    // Tim tat ca users co sinh nhat thang nay
+    // Tim tat ca users co sinh nhat
     const users = await User.find({
       dob: { $ne: null, $exists: true },
       employment_status: { $ne: 'Da nghi viec' },
@@ -25,15 +31,31 @@ const getBirthdays = async (req, res) => {
     const birthdays = users.filter(u => {
       if (!u.dob) return false;
       const d = u.dob;
-      // Ho tro format YYYY-MM-DD va DD/MM/YYYY
+      let userMonth = null;
+      let userDay = null;
+
       if (d.includes('-')) {
         const parts = d.split('-');
-        return parts[1] === monthStr;
+        userMonth = parseInt(parts[1]);
+        userDay = parseInt(parts[2]);
       } else if (d.includes('/')) {
         const parts = d.split('/');
-        return parts[1] === monthStr;
+        userMonth = parseInt(parts[1]);
+        userDay = parseInt(parts[0]);
       }
-      return false;
+
+      if (!userMonth || userMonth !== month) return false;
+
+      // Filter based on Display Mode
+      if (displayMode === 'exact_day') {
+        return userDay === todayDay;
+      } else if (displayMode === 'week' || displayMode === 'days_around') {
+        const delta = Math.abs((userDay || 0) - todayDay);
+        const maxDelta = displayMode === 'week' ? 3 : Math.ceil(displayDays / 2);
+        return delta <= maxDelta;
+      }
+
+      return true; // 'month': trong suốt cả tháng
     }).map(u => {
       const d = u.dob;
       let day = '';
@@ -84,10 +106,14 @@ const getPinned = async (req, res) => {
       .sort({ created_at: -1 })
       .limit(10);
 
-    // Lấy thêm các broadcast notifications từ Admin
+    // Lấy thêm các broadcast notifications từ Admin còn hạn
     const broadcastNotifs = await Notification.find({
       type: 'announcement',
       user_id: null,
+      $or: [
+        { expires_at: null },
+        { expires_at: { $gt: now } }
+      ]
     }).sort({ created_at: -1 }).limit(10);
 
     const existingTitles = new Set(announcements.map(a => a.title.trim().toLowerCase()));
@@ -100,6 +126,7 @@ const getPinned = async (req, res) => {
         content: n.message,
         is_pinned: true,
         created_at: n.created_at,
+        expires_at: n.expires_at,
         created_by: { full_name: 'Ban Giám Đốc / Admin' },
       }));
 
@@ -175,7 +202,11 @@ const getAnniversaries = async (req, res) => {
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
-    const currentMonthStr = String(currentMonth).padStart(2, '0');
+    const todayDay = now.getDate();
+
+    const setting = await SystemSetting.findOne({ key: 'global' }).lean() || {};
+    const displayMode = setting.anniversary_display_mode || 'month';
+    const displayDays = setting.anniversary_display_days || 7;
 
     const users = await User.find({
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] },
@@ -191,15 +222,18 @@ const getAnniversaries = async (req, res) => {
     for (const u of users) {
       let joinYear = null;
       let joinMonth = null;
+      let joinDay = null;
 
       if (u.join_date && typeof u.join_date === 'string' && u.join_date.includes('-')) {
         const parts = u.join_date.split('-');
         joinYear = parseInt(parts[0]);
         joinMonth = parseInt(parts[1]);
+        joinDay = parseInt(parts[2]);
       } else if (u.created_at) {
         const joinDate = new Date(u.created_at);
         joinYear = joinDate.getFullYear();
         joinMonth = joinDate.getMonth() + 1;
+        joinDay = joinDate.getDate();
       } else if (u.start_year && !isNaN(parseInt(u.start_year))) {
         joinYear = parseInt(u.start_year);
       }
@@ -208,6 +242,17 @@ const getAnniversaries = async (req, res) => {
       const isSameMonth = joinMonth ? joinMonth === targetMonth : true;
 
       if (joinYear && currentYear > joinYear && isSameMonth) {
+        // Filter based on Display Mode if target month is current month
+        if (targetMonth === currentMonth && joinDay) {
+          if (displayMode === 'exact_day' && joinDay !== todayDay) {
+            continue;
+          } else if ((displayMode === 'week' || displayMode === 'days_around')) {
+            const delta = Math.abs(joinDay - todayDay);
+            const maxDelta = displayMode === 'week' ? 3 : Math.ceil(displayDays / 2);
+            if (delta > maxDelta) continue;
+          }
+        }
+
         const yearsCount = currentYear - joinYear;
         if (yearsCount >= 1) {
           const deptNames = (u.department_ids && u.department_ids.length > 0)

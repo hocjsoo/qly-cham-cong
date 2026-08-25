@@ -22,6 +22,14 @@ const systemSettingSchema = new mongoose.Schema(
       type: [String],
       default: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     },
+    // Cài đặt thời gian hiển thị Thông báo & Kỷ niệm
+    announcement_display_days: { type: Number, default: 7 }, // Mặc định 7 ngày
+    anniversary_display_mode: {
+      type: String,
+      enum: ['month', 'week', 'days_around', 'exact_day'],
+      default: 'month', // 'month': trong tháng, 'week': trong tuần, 'days_around': ±X ngày, 'exact_day': đúng ngày
+    },
+    anniversary_display_days: { type: Number, default: 7 }, // Số ngày hiển thị xung quanh ngày kỷ niệm
     holidays: [{ date: String, name: String }],               // Ngày lễ nghỉ
     makeup_days: [{ date: String, name: String }],            // Ngày làm bù
   },

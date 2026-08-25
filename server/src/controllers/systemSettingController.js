@@ -1,4 +1,4 @@
-﻿// controllers/systemSettingController.js - He thong cai dat
+// controllers/systemSettingController.js - He thong cai dat
 const SystemSetting = require('../models/SystemSetting');
 
 // GET /api/settings
@@ -26,11 +26,12 @@ const updateSettings = async (req, res) => {
       'minor_late_mins', 'medium_late_mins', 'ot_start_time', 'ot_mode',
       'working_days', 'holidays', 'makeup_days',
       'company_name', 'company_logo_url',
+      'announcement_display_days', 'anniversary_display_mode', 'anniversary_display_days',
     ];
 
     for (const field of fields) {
       if (req.body[field] !== undefined) {
-        if (field === 'minor_late_mins' || field === 'medium_late_mins') {
+        if (field === 'minor_late_mins' || field === 'medium_late_mins' || field === 'announcement_display_days' || field === 'anniversary_display_days') {
           settings[field] = Number(req.body[field]);
         } else {
           settings[field] = req.body[field];

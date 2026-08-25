@@ -30,6 +30,10 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    expires_at: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },

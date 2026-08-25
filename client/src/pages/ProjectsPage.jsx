@@ -48,7 +48,6 @@ const SELECT_STATUSES = [
 export default function ProjectsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
-  const isLeader = user?.role === 'leader' || user?.role === 'manager';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
   const isStaff = !isAdminOrManager;
 
@@ -61,7 +60,6 @@ export default function ProjectsPage() {
     if (p?.pm_name && user?.full_name && p.pm_name.trim().toLowerCase() === user.full_name.trim().toLowerCase()) return true;
     return false;
   };
-  const canDeleteProject = () => isAdmin;
 
   const [projects, setProjects] = useState([]);
   const [staffList, setStaffList] = useState([]);
@@ -113,7 +111,7 @@ export default function ProjectsPage() {
       setLoading(true);
       const { data } = await api.get('/projects');
       setProjects(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       toast.error('Lỗi lấy danh sách dự án');
     } finally {
       setLoading(false);
