@@ -180,9 +180,6 @@ export default function ReportPage() {
         ]);
         setReport(rRes.data);
         setTrend(tRes.data);
-      } else if (tab === 'ranking' && isAdmin) {
-        const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
-        setRanking(data);
       }
     } catch { toast.error('Lỗi tải dữ liệu'); }
     finally { setLoading(false); }
@@ -430,9 +427,6 @@ export default function ReportPage() {
               </button>
               <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
                 <BarChart3 size={13} /> Tổng quan
-              </button>
-              <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
-                <Trophy size={13} /> Xếp hạng
               </button>
             </div>
           )}
@@ -1213,58 +1207,6 @@ export default function ReportPage() {
                 </div>
               );
             })()}
-          </div>
-        )}
-
-        {/* TAB 4: RANKING LEADERBOARD */}
-        {tab === 'ranking' && (ranking?.ranking || ranking?.rankings) && (
-          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Top Header Card */}
-            <div className="card" style={{ padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Trophy size={20} color="var(--yellow)" /> Bảng Xếp Hạng Kỷ Luật Chấm Công (Đang Làm Việc) — Tháng {month}/{year}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Cập nhật tự động theo tỷ lệ đúng giờ
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
-              {(ranking.ranking || ranking.rankings).map((r) => {
-                const medal = RANK_MEDALS[r.rank];
-                const pRate = r.punctuality_rate ?? r.on_time_rate ?? 0;
-                const scoreColor = pRate >= 90 ? 'var(--green)' : pRate >= 75 ? 'var(--yellow)' : 'var(--red)';
-
-                return (
-                  <div
-                    key={r.user_id}
-                    className="card"
-                    style={{
-                      padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      background: r.rank === 1 ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-card)',
-                      border: r.rank === 1 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 900, width: '32px', textAlign: 'center' }}>
-                        {medal || <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>#{r.rank}</span>}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)' }}>{r.full_name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{r.department_name || 'KTS'}</div>
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)' }}>{r.score} điểm</div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: scoreColor, marginTop: '2px' }}>
-                        Đúng giờ: {pRate}%
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         )}
       </div>
