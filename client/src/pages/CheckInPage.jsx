@@ -2,7 +2,7 @@
 // GPS bắt buộc — Auto-acquire GPS khi mở trang, Hiển thị khoảng cách văn phòng, Block check-in nếu thiếu GPS
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2, X, Megaphone, Calendar, HeartPulse, Send, FileText, Sparkles, Briefcase } from 'lucide-react';
+import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2, X, Megaphone, Calendar, HeartPulse, Send, FileText, Sparkles, Briefcase, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -501,6 +501,27 @@ export default function CheckInPage() {
                   <Crosshair size={13} /> {gpsLoading ? 'Đang lấy...' : 'Làm mới'}
                 </button>
               </div>
+
+              {/* Banner Thông Báo Miễn Chấm Công */}
+              {user?.is_attendance_exempt && (
+                <div className="card animate-fade-in" style={{
+                  marginBottom: '16px', padding: '14px 16px',
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.3)',
+                  borderRadius: '12px',
+                  display: 'flex', alignItems: 'center', gap: '12px'
+                }}>
+                  <Shield size={24} color="var(--primary)" style={{ flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
+                      🛡️ Bạn thuộc diện Miễn Chấm Công hàng ngày
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Tài khoản của bạn không cần thực hiện điểm danh GPS / Selfie và không bị theo dõi chấm công trên hệ thống.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Clock Hero Card */}
               <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
