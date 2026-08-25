@@ -566,8 +566,10 @@ export default function ReportPage() {
 
                 return (
                   <span style={{
-                    display: 'inline-block', padding: '1px 5px', borderRadius: '4px',
-                    background: bg, color: color, fontWeight: 800, fontSize: '10px'
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '1px 3px', borderRadius: '4px',
+                    background: bg, color: color, fontWeight: 800, fontSize: '9.5px',
+                    letterSpacing: '-0.3px', whiteSpace: 'nowrap', maxWidth: '100%', boxSizing: 'border-box'
                   }}>
                     {symbol}
                   </span>
@@ -933,7 +935,7 @@ export default function ReportPage() {
                                   padding: '3px 1px',
                                   background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
                                   color: isSun ? '#ef4444' : 'var(--text-muted)',
-                                  minWidth: '24px', maxWidth: '26px', width: '24px',
+                                  minWidth: '32px', width: '32px',
                                   fontSize: '10px',
                                   borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
                                 }}>
@@ -955,6 +957,7 @@ export default function ReportPage() {
                                   padding: '3px 1px',
                                   background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
                                   color: isSun ? '#ef4444' : 'var(--text)',
+                                  minWidth: '32px', width: '32px',
                                   fontSize: '10px',
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
                                 }}>
@@ -1039,7 +1042,7 @@ export default function ReportPage() {
                                     }}
                                     style={{
                                       padding: '4px 1px',
-                                      minWidth: '24px', maxWidth: '26px', width: '24px',
+                                      minWidth: '32px', width: '32px',
                                       cursor: isAdmin ? 'pointer' : 'default',
                                       background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
@@ -1089,7 +1092,7 @@ export default function ReportPage() {
                               {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), '#d97706')}
                             </td>
                             {matrixData.header_days.map(hd => (
-                              <td key={hd.day} style={{ padding: '4px 1px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                              <td key={hd.day} style={{ padding: '4px 1px', minWidth: '32px', width: '32px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             ))}
                           </tr>
                         </tfoot>
