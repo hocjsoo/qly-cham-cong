@@ -60,9 +60,6 @@ function PageLoader() {
 const getDefaultHome = (user) => {
   if (!user) return '/login';
   const isStaff = user.role === 'staff' || user.role === 'employee';
-  if (user.is_attendance_exempt) {
-    return isStaff ? '/projects' : '/dashboard';
-  }
   return isStaff ? '/checkin' : '/dashboard';
 };
 
@@ -107,9 +104,9 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/checkin" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <CheckInPage />} />
+              <Route path="/checkin" element={<CheckInPage />} />
               <Route path="/requests" element={<RequestsPage />} />
-              <Route path="/history" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <HistoryPage />} />
+              <Route path="/history" element={<HistoryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
               <Route path="/dashboard" element={
@@ -126,7 +123,7 @@ export default function App() {
 
               <Route path="/reports" element={<ReportPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
-              <Route path="/leaderboard" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <LeaderboardPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/expenses" element={<ExpensesPage />} />
 

@@ -40,11 +40,11 @@ export default function Layout() {
 
   const tabs = [
     ...(!isStaff ? [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }] : []),
-    ...(!isExempt ? [{ to: '/checkin', icon: Clock, label: 'Chấm công' }] : []),
-    ...(!isExempt ? [{ to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' }] : []),
-    ...(isAdmin || !isExempt ? [{ to: '/reports', icon: BarChart2, label: 'Bảng công' }] : []),
-    ...(!isExempt || !isStaff ? [{ to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null }] : []),
-    ...(!isExempt ? [{ to: '/history', icon: History, label: 'Lịch sử' }] : []),
+    { to: '/checkin', icon: Clock, label: 'Chấm công' },
+    { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
+    { to: '/reports', icon: BarChart2, label: 'Bảng công' },
+    { to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null },
+    { to: '/history', icon: History, label: 'Lịch sử' },
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
     { to: '/vehicles', icon: Bike, label: 'Gửi xe' },
     { to: '/projects', icon: FolderKanban, label: 'Dự án' },
