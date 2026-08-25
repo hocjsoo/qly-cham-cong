@@ -36,16 +36,16 @@ export default function Layout() {
     } catch {}
   };
 
-  const isExempt = Boolean(user?.is_attendance_exempt);
+  const isStaffExempt = isStaff && Boolean(user?.is_attendance_exempt);
 
   const tabs = [
-    ...(!isStaff || isExempt ? [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }] : []),
-    ...(!isExempt ? [{ to: '/checkin', icon: Clock, label: 'Chấm công' }] : []),
-    ...((!isExempt || !isStaff) ? [{ to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null }] : []),
+    ...(!isStaff || isStaffExempt ? [{ to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' }] : []),
+    ...(!isStaffExempt ? [{ to: '/checkin', icon: Clock, label: 'Chấm công' }] : []),
+    ...(!isStaffExempt ? [{ to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null }] : []),
     { to: '/projects', icon: FolderKanban, label: 'Dự án' },
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
-    ...(isAdmin ? [{ to: '/reports', icon: BarChart2, label: 'Bảng công' }] : []),
-    ...(!isExempt ? [{ to: '/history', icon: History, label: 'Lịch sử' }] : []),
+    { to: '/reports', icon: BarChart2, label: 'Bảng công' },
+    { to: '/history', icon: History, label: 'Lịch sử' },
     { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
     { to: '/vehicles', icon: Bike, label: 'Gửi xe' },
     ...(!isStaff ? [{ to: '/staff', icon: Users, label: 'Nhân viên' }] : []),

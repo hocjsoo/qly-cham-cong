@@ -110,9 +110,9 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/checkin" element={isExempt ? <Navigate to="/dashboard" replace /> : <CheckInPage />} />
-              <Route path="/requests" element={(isExempt && isStaff) ? <Navigate to="/dashboard" replace /> : <RequestsPage />} />
-              <Route path="/history" element={isExempt ? <Navigate to="/dashboard" replace /> : <HistoryPage />} />
+              <Route path="/checkin" element={(isStaff && isExempt) ? <Navigate to="/dashboard" replace /> : <CheckInPage />} />
+              <Route path="/requests" element={(isStaff && isExempt) ? <Navigate to="/dashboard" replace /> : <RequestsPage />} />
+              <Route path="/history" element={<HistoryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
               <Route path="/dashboard" element={<DashboardPage />} />
