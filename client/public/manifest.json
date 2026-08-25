@@ -4,21 +4,15 @@
   "description": "Hệ thống quản lý chấm công và nhân sự thông minh ET Architects",
   "icons": [
     {
-      "src": "/pwa-192x192.png",
+      "src": "/logo.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any"
     },
     {
-      "src": "/pwa-512x512.png",
+      "src": "/logo.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
-      "src": "/favicon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
       "purpose": "any maskable"
     }
   ],
