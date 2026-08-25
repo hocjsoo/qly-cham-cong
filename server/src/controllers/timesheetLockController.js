@@ -179,6 +179,7 @@ const getFullMatrix = async (req, res) => {
         other_leave: parseFloat(other_leave.toFixed(2)),
         days: daysData,
         is_locked: isLocked,
+        is_attendance_exempt: Boolean(u.is_attendance_exempt),
         locked_info: isLocked ? (globalLock || userLockObj) : null,
       };
     });

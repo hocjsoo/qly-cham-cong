@@ -65,6 +65,7 @@ export default function ReportPage() {
   // Search & Filter state for Matrix View
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
+  const [exemptFilter, setExemptFilter] = useState('all'); // 'all' | 'required_only' | 'exempt_only'
 
   // Lock Confirm State
   const [lockConfirm, setLockConfirm] = useState(null); // { userId, currentLocked, actionText, targetText }
@@ -144,9 +145,16 @@ export default function ReportPage() {
 
       const matchDept = !deptFilter || staffDepts.includes(deptFilter) || r.department_name === deptFilter;
 
-      return matchSearch && matchDept;
+      let matchExempt = true;
+      if (exemptFilter === 'required_only') {
+        matchExempt = !r.is_attendance_exempt;
+      } else if (exemptFilter === 'exempt_only') {
+        matchExempt = Boolean(r.is_attendance_exempt);
+      }
+
+      return matchSearch && matchDept && matchExempt;
     });
-  }, [matrixData, searchQuery, deptFilter]);
+  }, [matrixData, searchQuery, deptFilter, exemptFilter]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -501,9 +509,22 @@ export default function ReportPage() {
                       ))}
                     </select>
                   )}
-                  {(searchQuery || deptFilter) && (
+
+                  {/* Lọc người chấm công / Miễn chấm công */}
+                  <select
+                    className="form-input"
+                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '140px' }}
+                    value={exemptFilter}
+                    onChange={e => setExemptFilter(e.target.value)}
+                  >
+                    <option value="all">👥 Tất cả nhân sự</option>
+                    <option value="required_only">⏱️ Cần chấm công</option>
+                    <option value="exempt_only">🛡️ Miễn chấm công</option>
+                  </select>
+
+                  {(searchQuery || deptFilter || exemptFilter !== 'all') && (
                     <button
-                      onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
+                      onClick={() => { setSearchQuery(''); setDeptFilter(''); setExemptFilter('all'); }}
                       className="btn btn--ghost"
                       style={{ padding: '4px 8px', fontSize: '11px' }}
                     >
@@ -631,6 +652,11 @@ export default function ReportPage() {
                                       <span style={{ fontSize: '10px', fontWeight: 800, padding: '1px 6px', borderRadius: '4px', background: 'var(--primary-soft)', color: 'var(--primary)' }}>
                                         {r.code}
                                       </span>
+                                      {r.is_attendance_exempt && (
+                                        <span style={{ fontSize: '10px', fontWeight: 800, padding: '1px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)' }}>
+                                          🛡️ Miễn chấm
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                       {r.department_name || r.role_label}
@@ -832,7 +858,14 @@ export default function ReportPage() {
                           {displayedStaffRows.map((r, idx) => (
                             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                               <td className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
-                              <td className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
+                              <td className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>
+                                <span>{r.full_name}</span>
+                                {r.is_attendance_exempt && (
+                                  <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', marginLeft: '4px' }} title="Miễn chấm công">
+                                    🛡️ Miễn
+                                  </span>
+                                )}
+                              </td>
                               <td className="table-sticky-col-3" style={{ padding: '8px 6px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
 
                               {/* Summary Column Values */}

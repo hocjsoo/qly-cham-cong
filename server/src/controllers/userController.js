@@ -91,6 +91,7 @@ const getAllUsers = async (req, res) => {
           employee_type: obj.employee_type,
           employment_status: obj.employment_status,
           is_active: obj.is_active,
+          is_attendance_exempt: obj.is_attendance_exempt || false,
           parking_location: obj.parking_location,
           vehicle_info: obj.vehicle_info,
           license_plate: obj.license_plate,
@@ -113,6 +114,7 @@ const getAllUsers = async (req, res) => {
         department_names: deptNames,
         avatar_url: obj.avatar_url,
         is_active: obj.is_active,
+        is_attendance_exempt: obj.is_attendance_exempt || false,
         employment_status: obj.employment_status,
         role: obj.role,
         parking_location: obj.parking_location,
@@ -133,7 +135,7 @@ const createUser = async (req, res) => {
   const {
     email, full_name, password, role, phone,
     department_id, department_ids, manager_id,
-    employee_type, employee_code, position, employment_status,
+    employee_type, employee_code, position, employment_status, is_attendance_exempt,
     dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
     parking_location, vehicle_info, license_plate, avatar_url,
@@ -202,6 +204,7 @@ const createUser = async (req, res) => {
       branch: branch || null,
       start_year: derivedStartYear,
       education: education || null,
+      is_attendance_exempt: is_attendance_exempt === true || is_attendance_exempt === 'true',
       parking_location: parking_location || 'Tòa 17T10 Nguyễn Thị Định',
       vehicle_info: vehicle_info || license_plate || null,
       avatar_url: avatar_url || null,
@@ -224,7 +227,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   const { id } = req.params;
   const {
-    full_name, email, phone, role, department_id, department_ids, manager_id, is_active, password,
+    full_name, email, phone, role, department_id, department_ids, manager_id, is_active, is_attendance_exempt, password,
     employee_type, employee_code, position, employment_status,
     dob, join_date, bhxh_code, emergency_phone, address_current, hometown, cccd,
     bank_name, bank_account, branch, start_year, education,
@@ -257,6 +260,7 @@ const updateUser = async (req, res) => {
     if (role !== undefined) updateData.role = role;
     if (position !== undefined) updateData.position = position;
     if (employment_status !== undefined) updateData.employment_status = employment_status;
+    if (is_attendance_exempt !== undefined) updateData.is_attendance_exempt = is_attendance_exempt;
     if (employee_type !== undefined) updateData.employee_type = employee_type;
     if (employee_code !== undefined && employee_code.trim()) {
       const codeExist = await User.findOne({ employee_code: employee_code.trim(), _id: { $ne: id } });

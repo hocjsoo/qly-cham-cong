@@ -358,7 +358,7 @@ export default function StaffPage() {
     setForm({
       full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
       position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
-      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '',
+      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', is_attendance_exempt: false,
     });
     setShowForm(true);
   };
@@ -387,6 +387,7 @@ export default function StaffPage() {
       avatar_url: user.avatar_url || '',
       parking_location: user.parking_location || 'Tòa 17T10 Nguyễn Thị Định',
       vehicle_info: user.vehicle_info || user.license_plate || '',
+      is_attendance_exempt: Boolean(user.is_attendance_exempt),
     });
     setShowForm(true);
   };
@@ -739,6 +740,11 @@ export default function StaffPage() {
                           {u.full_name}
                         </span>
                         <span className={`badge ${roleCfg.cls}`} style={{ fontSize: '10px' }}>{roleCfg.label}</span>
+                        {u.is_attendance_exempt && (
+                          <span className="badge" style={{ fontSize: '10px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', fontWeight: 800 }}>
+                            🛡️ Miễn chấm công
+                          </span>
+                        )}
                         {u.employee_type && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>{u.employee_type}</span>}
                         {u.employment_status && u.employment_status !== 'Dang lam viec' && <span className={`badge ${empStatusColor}`} style={{ fontSize: '10px' }}>{u.employment_status}</span>}
                         {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Đã khóa</span>}
@@ -933,6 +939,37 @@ export default function StaffPage() {
                   {currentUser?.role === 'admin' && <option value="admin">Admin (Quản trị viên)</option>}
                 </select>
               </div>
+            </div>
+
+            {/* Row 5b: Cài đặt miễn chấm công */}
+            <div style={{ marginBottom: '14px', padding: '12px 14px', background: form.is_attendance_exempt ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-raised)', borderRadius: '10px', border: form.is_attendance_exempt ? '1px solid var(--primary)' : '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🛡️ Miễn chấm công hàng ngày</span>
+                  {form.is_attendance_exempt && <span className="badge badge--primary" style={{ fontSize: '10px' }}>ĐANG BẬT</span>}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Dành cho Ban giám đốc, Admin, nhân sự quản lý đặc thù (không bắt buộc điểm danh GPS / Selfie)
+                </div>
+              </div>
+              <label style={{ position: 'relative', display: 'inline-block', width: '42px', height: '24px', flexShrink: 0, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.is_attendance_exempt || false}
+                  onChange={e => setForm(f => ({ ...f, is_attendance_exempt: e.target.checked }))}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                  background: form.is_attendance_exempt ? 'var(--primary)' : 'var(--border)',
+                  borderRadius: '24px', transition: '0.2s'
+                }}>
+                  <span style={{
+                    position: 'absolute', content: '""', height: '18px', width: '18px', left: form.is_attendance_exempt ? '21px' : '3px', bottom: '3px',
+                    background: '#ffffff', borderRadius: '50%', transition: '0.2s'
+                  }} />
+                </span>
+              </label>
             </div>
 
             {/* Row 6: Avatar upload */}
@@ -1581,6 +1618,12 @@ export default function StaffPage() {
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Trạng thái làm việc: </span>
                 <strong style={{ color: 'var(--green)' }}>{viewingStaffDetail.employment_status || 'Đang làm việc'}</strong>
+              </div>
+              <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>⏱️ Chế độ chấm công: </span>
+                <strong style={{ color: viewingStaffDetail.is_attendance_exempt ? '#8b5cf6' : 'var(--primary)' }}>
+                  {viewingStaffDetail.is_attendance_exempt ? '🛡️ Miễn chấm công (Không bắt buộc điểm danh)' : 'Bắt buộc chấm công GPS / Selfie'}
+                </strong>
               </div>
               <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>🏢 Địa điểm gửi xe: </span>
