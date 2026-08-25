@@ -61,7 +61,7 @@ const getDefaultHome = (user) => {
   if (!user) return '/login';
   const isStaff = user.role === 'staff' || user.role === 'employee';
   if (user.is_attendance_exempt) {
-    return isStaff ? '/leaderboard' : '/dashboard';
+    return '/dashboard';
   }
   return isStaff ? '/checkin' : '/dashboard';
 };
@@ -80,6 +80,9 @@ export default function App() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  const isStaff = user?.role === 'staff' || user?.role === 'employee';
+  const isExempt = Boolean(user?.is_attendance_exempt);
 
   return (
     <BrowserRouter>
@@ -107,16 +110,12 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-              <Route path="/checkin" element={user?.is_attendance_exempt ? <Navigate to={getDefaultHome(user)} replace /> : <CheckInPage />} />
-              <Route path="/requests" element={<RequestsPage />} />
-              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/checkin" element={isExempt ? <Navigate to="/dashboard" replace /> : <CheckInPage />} />
+              <Route path="/requests" element={(isExempt && isStaff) ? <Navigate to="/dashboard" replace /> : <RequestsPage />} />
+              <Route path="/history" element={isExempt ? <Navigate to="/dashboard" replace /> : <HistoryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
 
-              <Route path="/dashboard" element={
-                <ProtectedRoute roles={['admin', 'leader', 'manager']}>
-                  <DashboardPage />
-                </ProtectedRoute>
-              } />
+              <Route path="/dashboard" element={<DashboardPage />} />
 
               <Route path="/staff" element={
                 <ProtectedRoute roles={['admin', 'leader', 'manager']}>

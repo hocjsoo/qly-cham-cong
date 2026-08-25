@@ -409,55 +409,40 @@ export default function CheckInPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Pinned Company Announcement Banner (Nổi bật & Xem chi tiết) */}
+        {/* Pinned Announcements */}
         {announcements.length > 0 && (
-          <div className="card animate-fade-in" style={{
-            marginBottom: '14px', padding: '14px 16px',
-            background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(99,102,241,0.12))',
-            border: '1.5px solid rgba(59,130,246,0.35)',
-            borderRadius: '14px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <Megaphone size={14} /> THÔNG BÁO TỪ BAN GIÁM ĐỐC / ADMIN {announcements.length > 1 ? `(${announcements.length})` : ''}
-              </div>
-              {announcements.length > 1 && (
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {announcements.length} bài đăng
-                </span>
-              )}
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '14px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Megaphone size={16} /> Thông báo & Sự kiện nổi bật ({announcements.length})
             </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {announcements.map((ann, idx) => (
+              {announcements.map(ann => (
                 <div
-                  key={ann._id || idx}
+                  key={ann._id}
                   onClick={() => setSelectedAnnouncement(ann)}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
-                    padding: '10px 12px', background: 'var(--bg-card)', borderRadius: '10px',
-                    border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.15s'
+                    fontSize: '12px', color: 'var(--text)', cursor: 'pointer',
+                    padding: '8px 10px', borderRadius: '8px', background: 'var(--bg-card)',
+                    border: '1px solid var(--border)', transition: 'all 0.15s'
                   }}
                   className="card--interactive"
                 >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      📌 {ann.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                      {ann.content}
+                  <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📌 {ann.title}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {ann.expires_at && (
+                        <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          ⏳ Hiện đến: {new Date(ann.expires_at).toLocaleDateString('vi-VN')}
+                        </span>
+                      )}
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        Xem chi tiết →
+                      </span>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedAnnouncement(ann);
-                    }}
-                    className="btn btn--primary"
-                    style={{ padding: '5px 10px', fontSize: '11px', flexShrink: 0 }}
-                  >
-                    Xem chi tiết
-                  </button>
+                  <div style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {ann.content}
+                  </div>
                 </div>
               ))}
             </div>
@@ -938,21 +923,24 @@ export default function CheckInPage() {
           </div>
         )}
 
-        {/* WIDGET: SỰ KIỆN, SINH NHẬT & KỶ NIỆM GẮN BÓ TRONG THÁNG (Collapsible Accordion) */}
+        {/* WIDGET: SỰ KIỆN, SINH NHẬT & KỶ NIỆM GẮN BÓ TRONG THÁNG (Collapsible Accordion Slider) */}
         {(birthdays.length > 0 || anniversaries.length > 0 || holidays.length > 0) && (
           <div className="card animate-fade-in" style={{
-            marginBottom: '14px', padding: '12px 14px',
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%)',
-            border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '12px'
+            marginBottom: '14px', padding: '14px 16px',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%)',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            boxShadow: '0 4px 20px rgba(245, 158, 11, 0.08)',
+            borderRadius: '14px'
           }}>
             <div
               onClick={() => setShowEvents(!showEvents)}
               style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
             >
-              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🎉 SỰ KIỆN & CHÚC MỪNG TRONG THÁNG</span>
-                <span className="badge badge--warning" style={{ fontSize: '10px' }}>
-                  {birthdays.length + anniversaries.length + holidays.length}
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
+                <span>Kỷ Niệm Gắn Bó, Sinh Nhật & Sự Kiện</span>
+                <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>
+                  • {birthdays.length + anniversaries.length + holidays.length} sự kiện
                 </span>
               </div>
               <button
@@ -965,86 +953,110 @@ export default function CheckInPage() {
             </div>
 
             {showEvents && (
-              <div className="animate-fade-in" style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-                {/* Sinh nhật */}
-                {birthdays.slice(0, 3).map(b => (
+              <div className="animate-fade-in" style={{ marginTop: '12px', display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {/* Kỷ niệm cống hiến gắn bó */}
+                {anniversaries.map((a, aIdx) => (
                   <div
-                    key={b.user_id || b.id || b._id}
-                    onClick={() => setSelectedBirthday(b)}
-                    className="card--interactive"
-                    style={{
-                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                      cursor: 'pointer'
-                    }}
-                    title="Click để xem chi tiết sinh nhật"
-                  >
-                    <span style={{ fontSize: '18px' }}>🎂</span>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {b.full_name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        Sinh nhật {b.day ? `ngày ${b.day}` : b.dob ? `ngày ${b.dob.split('-')[2] || b.dob}` : 'tháng này'}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Kỷ niệm gắn bó */}
-                {anniversaries.slice(0, 3).map(a => (
-                  <div
-                    key={a.user_id || a.id || a._id}
+                    key={`anniv-${a._id || a.user_id || aIdx}`}
                     onClick={() => setSelectedAnniversary(a)}
                     className="card--interactive"
                     style={{
-                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                      cursor: 'pointer'
+                      background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                      border: '1px solid var(--primary)', fontSize: '12px', display: 'flex',
+                      alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                      boxShadow: 'var(--shadow-xs)'
                     }}
                     title="Click để xem chi tiết vinh danh cống hiến"
                   >
                     <img
                       src={a.avatar_url || '/logo.png'}
                       alt={a.full_name}
-                      style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
+                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', flexShrink: 0 }}
                       onError={e => { e.target.src = '/logo.png'; }}
                     />
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {a.full_name}
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{a.full_name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{a.employee_code || 'NS'}</span>
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>
-                        {a.badge || `Tròn ${a.years_count || a.years || 1} năm gắn bó`}
+                      <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, marginTop: '1px' }}>
+                        🎉 {a.badge || `Tròn ${a.years_count || a.years || 1} năm cống hiến`} ({a.anniversary_date || (a.start_year ? `Năm ${a.start_year}` : '')})
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Sinh nhật */}
+                {birthdays.map(b => (
+                  <div
+                    key={`b-${b._id || b.user_id || b.id}`}
+                    onClick={() => setSelectedBirthday(b)}
+                    className="card--interactive"
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                      border: '1px solid var(--border)', fontSize: '12px', display: 'flex',
+                      alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                    title="Click để xem chi tiết sinh nhật"
+                  >
+                    <img
+                      src={b.avatar_url || '/logo.png'}
+                      alt={b.full_name}
+                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)', flexShrink: 0 }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{b.full_name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>#{b.employee_code || 'NS'}</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--yellow)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '1px' }}>
+                        <span>🎂 Ngày {b.day || (b.dob ? b.dob.split('-')[2] : '')}</span>
+                        {b.department_name && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>· {b.department_name}</span>}
                       </div>
                     </div>
                   </div>
                 ))}
 
                 {/* Ngày lễ */}
-                {holidays.slice(0, 2).map((h, idx) => (
-                  <div
-                    key={h._id || idx}
-                    onClick={() => setSelectedHoliday(h)}
-                    className="card--interactive"
-                    style={{
-                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                      cursor: 'pointer'
-                    }}
-                    title="Click để xem chi tiết ngày lễ / sự kiện"
-                  >
-                    <span style={{ fontSize: '18px' }}>🏖️</span>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {h.name}
+                {holidays.map((h, idx) => {
+                  const isSingleDay = !h.end_date || h.end_date === h.date;
+                  const startDay = h.date?.split('-')[2];
+                  const endDay = h.end_date?.split('-')[2];
+                  const dateLabel = isSingleDay ? `Ngày ${startDay}` : `Từ ${startDay} → ${endDay}`;
+
+                  return (
+                    <div
+                      key={`h-${h._id || idx}`}
+                      onClick={() => setSelectedHoliday(h)}
+                      className="card--interactive"
+                      style={{
+                        background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '10px',
+                        border: '1px solid #8b5cf6', fontSize: '12px', display: 'flex',
+                        alignItems: 'center', gap: '10px', flexShrink: 0, cursor: 'pointer',
+                        boxShadow: 'var(--shadow-xs)'
+                      }}
+                      title="Click để xem chi tiết ngày lễ / sự kiện"
+                    >
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%', background: 'rgba(139, 92, 246, 0.15)',
+                        color: '#8b5cf6', fontSize: '18px', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', border: '1px solid #8b5cf6', flexShrink: 0
+                      }}>
+                        🏖️
                       </div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {h.date} {h.end_date && h.end_date !== h.date ? `➔ ${h.end_date}` : ''}
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px' }}>
+                          {h.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#8b5cf6', fontWeight: 600, marginTop: '1px' }}>
+                          📅 {dateLabel} ({h.date})
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
