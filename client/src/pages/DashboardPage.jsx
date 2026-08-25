@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,
   MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone,
-  Calendar, Edit3, Save, Trash2
+  Calendar, Edit3, Save, Trash2, Settings
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
@@ -69,6 +69,10 @@ export default function DashboardPage() {
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [editExpiryDate, setEditExpiryDate] = useState('');
   const [savingExpiry, setSavingExpiry] = useState(false);
+  const [showAnnivSettingsModal, setShowAnnivSettingsModal] = useState(false);
+  const [annivDisplayMode, setAnnivDisplayMode] = useState('month');
+  const [annivDisplayDays, setAnnivDisplayDays] = useState(7);
+  const [savingAnnivSettings, setSavingAnnivSettings] = useState(false);
   const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
@@ -190,7 +194,33 @@ export default function DashboardPage() {
       setHolidays(monthHols);
     }).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    api.get('/settings').then(r => {
+      const s = r.data?.settings || r.data || {};
+      if (s.anniversary_display_mode) setAnnivDisplayMode(s.anniversary_display_mode);
+      if (s.anniversary_display_days) setAnnivDisplayDays(s.anniversary_display_days);
+    }).catch(() => {});
   }, []);
+
+  const handleSaveAnnivSettings = async () => {
+    setSavingAnnivSettings(true);
+    try {
+      await api.put('/settings', {
+        anniversary_display_mode: annivDisplayMode,
+        anniversary_display_days: annivDisplayDays,
+      });
+      toast.success('Đã cập nhật chu kỳ hiển thị Kỷ niệm & Sinh nhật thành công! 🎉');
+      setShowAnnivSettingsModal(false);
+      // Reload birthdays & anniversaries
+      const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const [, monthVal] = todayVN.split('-').map(Number);
+      api.get(`/announcements/birthdays?month=${monthVal}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+      api.get(`/announcements/anniversaries?month=${monthVal}`).then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi lưu cấu hình chu kỳ hiển thị');
+    } finally {
+      setSavingAnnivSettings(false);
+    }
+  };
 
   // Sync editExpiryDate whenever selectedAnnouncement changes
   useEffect(() => {
@@ -545,12 +575,26 @@ export default function DashboardPage() {
                 boxShadow: '0 4px 20px rgba(245, 158, 11, 0.08)'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '6px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ background: 'rgba(245, 158, 11, 0.2)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🎁</span>
                   <span>Kỷ Niệm Gắn Bó, Sinh Nhật & Sự Kiện</span>
                   <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>• {totalMonthEvents} sự kiện</span>
                 </div>
+                {user?.role === 'admin' && (
+                  <button
+                    onClick={() => setShowAnnivSettingsModal(true)}
+                    className="btn btn--ghost"
+                    style={{
+                      fontSize: '11px', padding: '3px 8px', color: 'var(--yellow)',
+                      background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)',
+                      borderRadius: '6px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer'
+                    }}
+                    title="Cài đặt chu kỳ hiển thị sự kiện kỷ niệm & sinh nhật"
+                  >
+                    <Settings size={12} /> Sửa thời gian hiện
+                  </button>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -1299,6 +1343,26 @@ export default function DashboardPage() {
               ✨ <strong>ET Architects kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
             </div>
 
+            {user?.role === 'admin' && (
+              <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setSelectedBirthday(null);
+                    setShowAnnivSettingsModal(true);
+                  }}
+                  className="btn btn--ghost"
+                  style={{
+                    fontSize: '11.5px', color: 'var(--yellow)',
+                    background: 'rgba(245, 158, 11, 0.10)', border: '1px dashed rgba(245, 158, 11, 0.4)',
+                    borderRadius: '8px', padding: '6px 12px', fontWeight: 700,
+                    display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Settings size={13} /> Sửa chu kỳ hiển thị sự kiện & sinh nhật
+                </button>
+              </div>
+            )}
+
             <button
               onClick={() => setSelectedBirthday(null)}
               className="btn btn--primary btn--full btn--lg"
@@ -1408,6 +1472,26 @@ export default function DashboardPage() {
                 lineHeight: 1.6, marginBottom: '20px'
               }}>
                 🌟 {selectedAnniversary.custom_message || selectedAnniversary.message}
+              </div>
+            )}
+
+            {user?.role === 'admin' && (
+              <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setSelectedAnniversary(null);
+                    setShowAnnivSettingsModal(true);
+                  }}
+                  className="btn btn--ghost"
+                  style={{
+                    fontSize: '11.5px', color: 'var(--primary)',
+                    background: 'var(--primary-soft)', border: '1px dashed var(--primary)',
+                    borderRadius: '8px', padding: '6px 12px', fontWeight: 700,
+                    display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
+                  }}
+                >
+                  <Settings size={13} /> Sửa chu kỳ hiển thị sự kiện & kỷ niệm
+                </button>
               </div>
             )}
 
@@ -1683,6 +1767,126 @@ export default function DashboardPage() {
             >
               Đóng cửa sổ
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Anniversary & Birthday Display Duration Modal (Admin) */}
+      {showAnnivSettingsModal && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setShowAnnivSettingsModal(false)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '520px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1.5px solid var(--yellow)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '42px', height: '42px', borderRadius: '12px',
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1.5px solid var(--yellow)', fontSize: '20px', flexShrink: 0
+                }}>
+                  ⚙️
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Quản Trị Hệ Thống
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
+                    Cài Đặt Thời Gian Hiện Kỷ Niệm & Sinh Nhật
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAnnivSettingsModal(false)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{
+              background: 'var(--bg-raised)', padding: '16px', borderRadius: '14px',
+              border: '1px solid var(--border)', marginBottom: '20px'
+            }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '8px' }}>
+                Chu kỳ hiển thị Kỷ niệm gắn bó & Sinh nhật:
+              </label>
+              <select
+                value={annivDisplayMode}
+                onChange={e => setAnnivDisplayMode(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: '8px',
+                  border: '1px solid var(--border)', background: 'var(--bg-card)',
+                  color: 'var(--text)', fontSize: '13px', fontWeight: 600,
+                  outline: 'none', marginBottom: '12px'
+                }}
+              >
+                <option value="month">📅 Trọn vẹn trong tháng (Toàn bộ nhân sự có sự kiện trong tháng)</option>
+                <option value="exact_day">🎯 Đúng ngày diễn ra (Chỉ hiển thị đúng ngày sinh nhật / kỷ niệm)</option>
+                <option value="week">🗓️ Trong tuần diễn ra (Trước/sau 3 ngày quanh ngày kỷ niệm)</option>
+                <option value="days_around">⏳ Tùy chỉnh số ngày (Trước/sau X ngày)</option>
+              </select>
+
+              {annivDisplayMode === 'days_around' && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                    Số ngày hiển thị trước & sau ngày sự kiện:
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      value={annivDisplayDays}
+                      onChange={e => setAnnivDisplayDays(Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
+                      style={{
+                        width: '90px', padding: '8px 10px', borderRadius: '8px',
+                        border: '1px solid var(--border)', background: 'var(--bg-card)',
+                        color: 'var(--text)', fontSize: '13px', fontWeight: 700, textAlign: 'center'
+                      }}
+                    />
+                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ngày (từ 1 đến 30 ngày)</span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', lineHeight: 1.5, background: 'var(--bg-card)', padding: '8px 12px', borderRadius: '8px' }}>
+                💡 <em>Sau khi lưu, widget Trang chủ sẽ lọc và hiển thị danh sách Kỷ niệm, Sinh nhật theo đúng chu kỳ cài đặt mà không cần thao tác thủ công.</em>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowAnnivSettingsModal(false)}
+                className="btn btn--secondary"
+                style={{ fontSize: '13px', padding: '8px 16px', borderRadius: '10px' }}
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAnnivSettings}
+                disabled={savingAnnivSettings}
+                className="btn btn--primary"
+                style={{
+                  fontSize: '13px', padding: '8px 20px', borderRadius: '10px',
+                  fontWeight: 800, gap: '6px', background: 'var(--yellow)', borderColor: 'var(--yellow)', color: '#000'
+                }}
+              >
+                <Save size={15} /> {savingAnnivSettings ? 'Đang lưu...' : 'Lưu chu kỳ hiển thị'}
+              </button>
+            </div>
           </div>
         </div>
       )}

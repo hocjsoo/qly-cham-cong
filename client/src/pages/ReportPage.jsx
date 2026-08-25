@@ -589,45 +589,24 @@ export default function ReportPage() {
                   {/* CHẾ ĐỘ 1: DẠNG THẺ GỌN TỐI ƯU CHO MOBILE (CARDS VIEW) */}
                   {viewMode === 'cards' && (
                     <div className="animate-fade-in">
-                      {/* Mobile Top Summary Bar with Expand/Collapse All Buttons */}
-                      <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            Sĩ số: <strong style={{ color: 'var(--primary)' }}>{displayedStaffRows.length} NV</strong>
-                          </div>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            Tổng công VP: <strong style={{ color: 'var(--green)' }}>{displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}</strong>
-                          </div>
-                          {(() => {
-                            const sunCount = matrixData.header_days ? matrixData.header_days.filter(h => h.isSunday || h.weekday === 'CN').length : 0;
-                            const stdDays = matrixData.standard_working_days || ((matrixData.days_in_month || 31) - sunCount);
-                            return (
-                              <div style={{ fontSize: '12px', fontWeight: 800, color: '#d97706', background: 'rgba(245, 158, 11, 0.12)', padding: '1px 6px', borderRadius: '4px' }}>
-                                Công chuẩn: {stdDays}
-                              </div>
-                            );
-                          })()}
-                        </div>
-
-                        {/* Multi-card expand / collapse buttons */}
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button
-                            onClick={() => setExpandedStaffIds(new Set(displayedStaffRows.map(r => r.id)))}
-                            className="btn btn--ghost"
-                            style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--primary)', fontWeight: 600 }}
-                            title="Mở rộng tất cả lịch chấm công của nhân sự"
-                          >
-                            📂 Mở tất cả
-                          </button>
-                          <button
-                            onClick={() => setExpandedStaffIds(new Set())}
-                            className="btn btn--ghost"
-                            style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--text-muted)' }}
-                            title="Thu gọn toàn bộ lịch chấm công"
-                          >
-                            📁 Thu gọn
-                          </button>
-                        </div>
+                      {/* Multi-card expand / collapse buttons */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '10px' }}>
+                        <button
+                          onClick={() => setExpandedStaffIds(new Set(displayedStaffRows.map(r => r.id)))}
+                          className="btn btn--ghost"
+                          style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--primary)', fontWeight: 600 }}
+                          title="Mở rộng tất cả lịch chấm công của nhân sự"
+                        >
+                          📂 Mở tất cả
+                        </button>
+                        <button
+                          onClick={() => setExpandedStaffIds(new Set())}
+                          className="btn btn--ghost"
+                          style={{ fontSize: '11px', padding: '3px 8px', color: 'var(--text-muted)' }}
+                          title="Thu gọn toàn bộ lịch chấm công"
+                        >
+                          📁 Thu gọn
+                        </button>
                       </div>
 
                       {/* Staff Cards List */}
