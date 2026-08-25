@@ -73,7 +73,7 @@ export default function ProjectsPage() {
   const [selectedCodePrefix, setSelectedCodePrefix] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [sortBy, setSortBy] = useState('date_desc'); // 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
+  const [sortBy, setSortBy] = useState('code_asc'); // 'code_asc' | 'code_desc' | 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc' | 'progress_desc'
   const [viewMode, setViewMode] = useState('table'); // 'table' (Bảng Excel) | 'grid' (Thẻ Card)
   const [selectedProjectDetail, setSelectedProjectDetail] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
@@ -245,18 +245,26 @@ export default function ProjectsPage() {
     return isMember || isPm;
   });
 
-  // Extract Project Year — STRICTLY PRIORITIZING CODE (e.g. 23.006 -> 2023, 24.00L -> 2024, 25.002.2 -> 2025, 26.001 -> 2026)
+  const normalizeStr = (str) => {
+    if (!str) return '';
+    return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  };
+
+  // Extract Project Year (Prioritizing start_date -> Code -> Deadline -> CreatedAt)
   const getProjectYear = (p) => {
+    // 1. Prioritize start_date (YYYY-MM-DD)
+    if (p.start_date && String(p.start_date).length >= 4) {
+      const y = String(p.start_date).slice(0, 4);
+      if (/^20[123]\d$/.test(y)) return y;
+    }
+
+    // 2. Code format: 23.006 -> 2023, 24.001 -> 2024, 25.002.2 -> 2025, 26.001 -> 2026
     if (p.code) {
       const codeStr = String(p.code).trim();
-
-      // 1. Standard ET Code Format: 23.006, 24.00E, 24.001, 24.00K, 24.00L, 25.002.2, 25.011, 25.037, 26.001...
       const dotMatch = codeStr.match(/^(\d{2})\./);
       if (dotMatch) {
         return `20${dotMatch[1]}`;
       }
-
-      // 2. Format with letter/dash/underscore right after 2-digit year: 24KT01, 25NT, 24-001, 25_02
       const prefixMatch = codeStr.match(/^(\d{2})([A-Za-z\-_]|$)/);
       if (prefixMatch) {
         const num = Number(prefixMatch[1]);
@@ -264,38 +272,55 @@ export default function ProjectsPage() {
           return `20${prefixMatch[1]}`;
         }
       }
-
-      // 3. Format with prefix: DA-24.01, DA24, PRJ-25.001
       const alphaPrefixMatch = codeStr.match(/^[A-Za-z]+[-_]?(\d{2})\./);
       if (alphaPrefixMatch) {
         return `20${alphaPrefixMatch[1]}`;
       }
-
-      // 4. 4-digit year in code: 2024.001, DA-2025
       const match4 = codeStr.match(/\b(20[123]\d)\b/);
       if (match4) {
         return match4[1];
       }
     }
 
-    // Fallback 1: start_date (YYYY-MM-DD)
-    if (p.start_date && String(p.start_date).length >= 4) {
-      const y = String(p.start_date).slice(0, 4);
-      if (/^20[123]\d$/.test(y)) return y;
-    }
-
-    // Fallback 2: deadline (YYYY-MM-DD)
+    // 3. Fallback: deadline (YYYY-MM-DD)
     if (p.deadline && String(p.deadline).length >= 4) {
       const y = String(p.deadline).slice(0, 4);
       if (/^20[123]\d$/.test(y)) return y;
     }
 
-    // Fallback 3: created_at
+    // 4. Fallback: created_at
     if (p.created_at) {
       const y = new Date(p.created_at).getFullYear().toString();
       if (/^20[123]\d$/.test(y)) return y;
     }
 
+    return null;
+  };
+
+  // Get project start date object for reliable chronological sorting
+  const getProjectStartDate = (p) => {
+    if (p.start_date) {
+      const d = new Date(p.start_date);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const yr = getProjectYear(p);
+    if (yr) {
+      return new Date(`${yr}-01-01`);
+    }
+    if (p.created_at) {
+      const d = new Date(p.created_at);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return new Date(0);
+  };
+
+  const getProjectCodePrefix = (p) => {
+    if (!p.code) return null;
+    const codeStr = String(p.code).trim();
+    const dotMatch = codeStr.match(/^(\d{2})\./);
+    if (dotMatch) return `${dotMatch[1]}.xxx`;
+    const prefixMatch = codeStr.match(/^([A-Za-z]+[-_]?\d{2})/);
+    if (prefixMatch) return `${prefixMatch[1]}...`;
     return null;
   };
 
@@ -307,9 +332,9 @@ export default function ProjectsPage() {
     projects.map(p => p.pm_name && p.pm_name.trim()).filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'vi'));
 
-  const availableCodes = Array.from(new Set(
-    projects.map(p => p.code && p.code.trim()).filter(Boolean)
-  )).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  const availableCodePrefixes = Array.from(new Set(
+    projects.map(p => getProjectCodePrefix(p)).filter(Boolean)
+  )).sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
 
   const hasActiveFilters = Boolean(
     searchTerm.trim() ||
@@ -335,32 +360,63 @@ export default function ProjectsPage() {
     const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
     const matchScope = scope === 'all' ? true : (isMember || isPm);
 
-    const q = searchTerm.trim().toLowerCase();
-    const matchSearch = !q ||
-                        (p.name || '').toLowerCase().includes(q) ||
-                        (p.code || '').toLowerCase().includes(q) ||
-                        (p.pm_name || '').toLowerCase().includes(q) ||
-                        (p.client_name || '').toLowerCase().includes(q) ||
-                        (p.address || '').toLowerCase().includes(q) ||
-                        (p.note || '').toLowerCase().includes(q);
+    let matchSearch = true;
+    if (searchTerm.trim()) {
+      const qRaw = searchTerm.toLowerCase().trim();
+      const qNorm = normalizeStr(searchTerm);
+
+      const memberNames = Array.isArray(p.members)
+        ? p.members.map(m => (m?.full_name || m?.employee_code || '')).join(' ')
+        : '';
+
+      const searchPool = [
+        p.code,
+        p.name,
+        p.sub_project,
+        p.pm_name,
+        p.client_name,
+        p.address,
+        p.category,
+        p.status,
+        p.start_date,
+        p.deadline,
+        p.note,
+        memberNames,
+      ].filter(Boolean);
+
+      matchSearch = searchPool.some(field => {
+        const fieldStr = String(field).toLowerCase();
+        const fieldNorm = normalizeStr(fieldStr);
+        return fieldStr.includes(qRaw) || fieldNorm.includes(qNorm);
+      });
+    }
 
     const projYear = getProjectYear(p);
     const matchYear = selectedYear === 'all' || projYear === selectedYear;
     const matchPm = selectedPm === 'all' || (p.pm_name && p.pm_name.trim().toLowerCase() === selectedPm.toLowerCase());
-    const matchCode = selectedCodePrefix === 'all' || (p.code && p.code.trim().toLowerCase() === selectedCodePrefix.toLowerCase());
+    
+    const projPrefix = getProjectCodePrefix(p);
+    const matchCode = selectedCodePrefix === 'all' ||
+                      projPrefix === selectedCodePrefix ||
+                      (p.code && p.code.trim().toLowerCase().startsWith(selectedCodePrefix.replace(/\.xxx|\.\.\./g, '').toLowerCase()));
+
     const matchCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchStat = selectedStatus === 'all' || p.status === selectedStatus;
 
     return matchScope && matchSearch && matchYear && matchPm && matchCode && matchCat && matchStat;
   }).sort((a, b) => {
-    if (sortBy === 'name_asc') {
+    if (sortBy === 'code_asc') {
+      return (a.code || '').localeCompare(b.code || '', 'vi', { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'code_desc') {
+      return (b.code || '').localeCompare(a.code || '', 'vi', { numeric: true, sensitivity: 'base' });
+    } else if (sortBy === 'date_desc') {
+      return getProjectStartDate(b) - getProjectStartDate(a);
+    } else if (sortBy === 'date_asc') {
+      return getProjectStartDate(a) - getProjectStartDate(b);
+    } else if (sortBy === 'name_asc') {
       return (a.name || '').localeCompare(b.name || '', 'vi');
     } else if (sortBy === 'name_desc') {
       return (b.name || '').localeCompare(a.name || '', 'vi');
-    } else if (sortBy === 'date_desc') {
-      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-    } else if (sortBy === 'date_asc') {
-      return new Date(a.created_at || 0) - new Date(b.created_at || 0);
     } else if (sortBy === 'progress_desc') {
       return (b.progress || 0) - (a.progress || 0);
     }
@@ -461,14 +517,16 @@ export default function ProjectsPage() {
             {/* Sort Dropdown */}
             <select
               className="form-select"
-              style={{ width: 'auto', minWidth: '130px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
+              style={{ width: 'auto', minWidth: '150px', fontSize: '13px', padding: '7px 10px', fontWeight: 600, color: 'var(--primary)' }}
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
             >
-              <option value="date_desc">📅 Mới nhất</option>
-              <option value="date_asc">📅 Cũ nhất</option>
-              <option value="name_asc">🔤 Tên A → Z</option>
-              <option value="name_desc">🔤 Tên Z → A</option>
+              <option value="code_asc">🏷️ Mã DA: Tăng dần (A → Z)</option>
+              <option value="code_desc">🏷️ Mã DA: Giảm dần (Z → A)</option>
+              <option value="date_desc">📅 Bắt đầu: Mới nhất</option>
+              <option value="date_asc">📅 Bắt đầu: Cũ nhất</option>
+              <option value="name_asc">🔤 Tên DA: A → Z</option>
+              <option value="name_desc">🔤 Tên DA: Z → A</option>
               <option value="progress_desc">📊 Tiến độ cao</option>
             </select>
 
@@ -553,8 +611,15 @@ export default function ProjectsPage() {
               value={selectedCodePrefix}
               onChange={e => setSelectedCodePrefix(e.target.value)}
             >
-              <option value="all">🏷️ Mã DA: Tất cả</option>
-              {availableCodes.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="all">🏷️ Đầu mã DA: Tất cả</option>
+              {availableCodePrefixes.map(prefix => {
+                const count = projects.filter(p => getProjectCodePrefix(p) === prefix || (p.code && p.code.trim().toLowerCase().startsWith(prefix.replace(/\.xxx|\.\.\./g, '').toLowerCase()))).length;
+                return (
+                  <option key={prefix} value={prefix}>
+                    Mã {prefix} ({count})
+                  </option>
+                );
+              })}
             </select>
 
             {/* Category Filter */}

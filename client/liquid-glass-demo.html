@@ -544,6 +544,12 @@
     const header = (title, desc, action = '') => `<div class="feature-header"><div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`;
     const person = (initials, name, meta, status, tone = '#078f57', soft = '#dff5e9') => `<div class="mini-row"><div class="avatar-name"><span class="avatar-sm">${initials}</span><span><strong>${name}</strong><small class="muted" style="display:block">${meta}</small></span></div><span class="status" style="--tone:${tone};--tone-soft:${soft}">${status}</span></div>`;
     const miniMetric = (label, value, note, color) => `<article class="demo-card glass-card span-3"><div class="muted" style="font-size:12px">${label}</div><div class="metric" style="color:${color}">${value}</div><small class="muted">${note}</small></article>`;
+    const tableStatus = (text, tone = '#078f57', soft = '#dff5e9') => `<span class="status" style="--tone:${tone};--tone-soft:${soft}">${text}</span>`;
+    const dataTable = (title, headers, bodyRows, options = {}) => `<article class="panel glass-card table-panel span-12" style="margin-top:${options.flush ? '0' : '16px'}">
+      <div class="table-toolbar"><h2 class="panel-title">${title}</h2><div class="search-wrap"><svg class="icon"><use href="#i-search"/></svg><input class="search demo-table-search" type="search" placeholder="${options.placeholder || 'Tìm kiếm...'}" aria-label="Tìm kiếm trong bảng"></div>${options.filters || '<select class="select"><option>Tất cả trạng thái</option><option>Đang hoạt động</option><option>Chờ duyệt</option></select>'}</div>
+      <div class="table-scroll"><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${bodyRows.map((row, index) => `<tr data-search="${row.join(' ').replace(/<[^>]+>/g,'').toLocaleLowerCase('vi')}">${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="table-footer"><span>Hiển thị 1–${bodyRows.length} trong ${options.total || bodyRows.length} bản ghi</span><div class="pages"><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button></div></div>
+    </article>`;
 
     const pages = {
       checkin: () => `${header('Chấm công','GPS và thiết bị được kiểm tra trước khi ghi nhận ca làm việc.')}
