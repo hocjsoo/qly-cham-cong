@@ -792,9 +792,9 @@ export default function ReportPage() {
                         <thead>
                           {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                           <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', minWidth: '45px', borderBottom: '1px solid var(--border)' }}>ID</th>
-                            <th className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', minWidth: '110px', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
-                            <th className="table-sticky-col-3" style={{ padding: '8px 8px', minWidth: '60px', borderBottom: '1px solid var(--border)' }}>NV</th>
+                            <th className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>ID</th>
+                            <th className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                            <th style={{ padding: '8px 8px', minWidth: '60px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>NV</th>
 
                             {/* Summary Columns Header */}
                             <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>NLV tại VP</th>
@@ -826,8 +826,8 @@ export default function ReportPage() {
 
                           {/* Row 2 Header: Days 01..31 */}
                           <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG</th>
-                            <th colSpan="10" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG & CHUYÊN CẦN</th>
+                            <th colSpan="2" className="table-sticky-col-1" style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG</th>
+                            <th colSpan="11" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG & CHUYÊN CẦN</th>
 
                             {matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
@@ -857,7 +857,7 @@ export default function ReportPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="table-sticky-col-3" style={{ padding: '8px 6px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
+                              <td style={{ padding: '8px 6px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
 
                               {/* Summary Column Values */}
                               <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
@@ -952,9 +952,10 @@ export default function ReportPage() {
                         {/* System Total Footer Row */}
                         <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
                           <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
-                            <td colSpan="3" className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
+                            <td colSpan="2" className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
                               TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
                             </td>
+                            <td style={{ padding: '6px 4px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
                             <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
                             <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
@@ -963,10 +964,15 @@ export default function ReportPage() {
                             <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
                             <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
                             <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
+                            <td style={{ padding: '6px 4px', color: '#8b5cf6', fontWeight: 800 }}>
+                              {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), '#8b5cf6')}
+                            </td>
+                            <td style={{ padding: '6px 4px', color: '#d97706', fontWeight: 800 }}>
+                              {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), '#d97706')}
+                            </td>
                             {matrixData.header_days.map(hd => (
                               <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             ))}
-                            {isAdmin && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
                           </tr>
                         </tfoot>
                       </table>
