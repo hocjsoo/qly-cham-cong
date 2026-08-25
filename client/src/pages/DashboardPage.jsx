@@ -54,7 +54,37 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const isAdminOrLeader = user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager';
   const [data, setData] = useState(null);
+  const [allProjects, setAllProjects] = useState([]);
+
+  const checkIsMyProject = (p, currentUser) => {
+    if (!p || !currentUser) return false;
+    const uid = String(currentUser._id || currentUser.id || '');
+    const uname = (currentUser.full_name || '').toLowerCase().trim();
+    
+    // 1. Check members (ID or full name)
+    const isMember = Array.isArray(p.members) && p.members.some(m => {
+      const mId = String(m?._id || m?.id || m || '');
+      if (mId && mId === uid) return true;
+      const mName = String(m?.full_name || '').toLowerCase().trim();
+      if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
+      return false;
+    });
+    if (isMember) return true;
+
+    // 2. Check pm_id
+    const pmId = String(p.pm_id?._id || p.pm_id?.id || p.pm_id || '');
+    if (pmId && pmId === uid) return true;
+
+    // 3. Check pm_name
+    if (p.pm_name && uname) {
+      const pmNameLower = p.pm_name.toLowerCase().trim();
+      if (pmNameLower.includes(uname) || uname.includes(pmNameLower)) return true;
+    }
+
+    return false;
+  };
   const [pendingCount, setPendingCount] = useState(0);
   const [trend, setTrend] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -142,9 +172,10 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [d, p] = await Promise.all([
+      const [d, p, projRes] = await Promise.all([
         api.get('/dashboard/today'),
         api.get('/dashboard/pending-count'),
+        api.get('/projects?active_only=true').catch(() => ({ data: [] })),
       ]);
       const resData = d?.data;
       if (resData && typeof resData === 'object' && resData.summary) {
@@ -158,10 +189,13 @@ export default function DashboardPage() {
         });
       }
       setPendingCount(typeof p?.data?.pending_count === 'number' ? p.data.pending_count : 0);
+      setAllProjects(Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []));
       setLastRefresh(new Date());
       fetchFlagged();
 
-      api.get('/reports/trend?months=6').then(r => setTrend(r.data)).catch(() => {});
+      if (isAdminOrLeader) {
+        api.get('/reports/trend?months=6').then(r => setTrend(r.data)).catch(() => {});
+      }
     } catch (err) {
       console.error('FetchData error:', err);
       toast.error('Lỗi tải dashboard');
@@ -338,6 +372,9 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const myProjsFromAll = allProjects.filter(p => checkIsMyProject(p, user));
+  const combinedProjects = myProjsFromAll.length > 0 ? myProjsFromAll : (data?.my_projects || allProjects.slice(0, 6));
 
   return (
     <div className="page">
