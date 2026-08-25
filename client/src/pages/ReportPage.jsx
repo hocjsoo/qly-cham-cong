@@ -426,20 +426,20 @@ export default function ReportPage() {
           <div>
             {/* Action Bar & Lock Status */}
             <div className="card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className={`badge ${matrixData?.global_locked ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: '13px', padding: '6px 14px', fontWeight: 800, borderRadius: '8px' }}>
-                    {matrixData?.global_locked ? '🔒 ĐÃ CHỐT CÔNG THÁNG' : '🔓 BẢNG CÔNG CHƯA CHỐT'}
-                  </span>
-                  {matrixData?.global_lock_info && (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      Chốt bởi <strong>{matrixData.global_lock_info.locked_by_name}</strong> lúc {new Date(matrixData.global_lock_info.locked_at).toLocaleString('vi-VN')}
-                    </div>
-                  )}
-                </div>
+              {/* Nút chốt/mở chốt, trạng thái & lịch sử sửa — chỉ Admin mới thấy */}
+              {isAdmin && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid var(--border-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className={`badge ${matrixData?.global_locked ? 'badge--danger' : 'badge--success'}`} style={{ fontSize: '13px', padding: '6px 14px', fontWeight: 800, borderRadius: '8px' }}>
+                      {matrixData?.global_locked ? '🔒 ĐÃ CHỐT CÔNG THÁNG' : '🔓 BẢNG CÔNG CHƯA CHỐT'}
+                    </span>
+                    {matrixData?.global_lock_info && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                        Chốt bởi <strong>{matrixData.global_lock_info.locked_by_name}</strong> lúc {new Date(matrixData.global_lock_info.locked_at).toLocaleString('vi-VN')}
+                      </div>
+                    )}
+                  </div>
 
-                {/* Nút chốt/mở chốt & lịch sử sửa — chỉ Admin */}
-                {isAdmin && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
                       onClick={() => triggerToggleLock(null, matrixData?.global_locked)}
@@ -456,11 +456,11 @@ export default function ReportPage() {
                       <History size={14} /> Lịch sử sửa công
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Quick Matrix Filter Bar & View Mode Toggle */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
                     <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
