@@ -255,10 +255,15 @@ const getFullMatrix = async (req, res) => {
       };
     });
 
+    const sundayCount = headerDays.filter(h => h.isSunday).length;
+    const standardWorkingDays = daysInMonth - sundayCount;
+
     res.json({
       month,
       year,
       days_in_month: daysInMonth,
+      sunday_count: sundayCount,
+      standard_working_days: standardWorkingDays,
       header_days: headerDays,
       staff_rows: staffRows,
       global_locked: Boolean(globalLock),
