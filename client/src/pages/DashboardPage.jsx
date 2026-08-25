@@ -352,9 +352,11 @@ export default function DashboardPage() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <button onClick={() => exportAttendanceToCSV(staff, data?.date)} className="btn btn--ghost" style={{ padding: '7px 10px', fontSize: '12px', gap: '4px' }}>
-              <Download size={14} /> CSV
-            </button>
+            {isAdminOrLeader && (
+              <button onClick={() => exportAttendanceToCSV(staff, data?.date)} className="btn btn--ghost" style={{ padding: '7px 10px', fontSize: '12px', gap: '4px' }}>
+                <Download size={14} /> CSV
+              </button>
+            )}
             <button onClick={fetchData} disabled={loading} className="theme-toggle-btn" title="Làm mới dữ liệu">
               <RefreshCw size={16} style={{ animation: loading ? 'spin 0.6s linear infinite' : 'none' }} />
             </button>
@@ -370,8 +372,35 @@ export default function DashboardPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* Bento Grid Stat Cards */}
-        {data && (
+        {!isAdminOrLeader && (
+          <div className="card animate-fade-in" style={{
+            marginBottom: '14px', padding: '16px 18px',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(59, 130, 246, 0.06) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.35)',
+            borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <img
+                src={user?.avatar_url || '/logo.png'}
+                alt={user?.full_name}
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', flexShrink: 0 }}
+                onError={e => { e.target.src = '/logo.png'; }}
+              />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>{user?.full_name}</span>
+                  <span className="badge badge--info" style={{ fontSize: '11px', fontWeight: 700 }}>#{user?.employee_code || 'NS'}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  🏢 {user?.department_name || 'ET Architects'} · {user?.position || 'Nhân viên'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bento Grid Stat Cards (Admin/Leader only) */}
+        {isAdminOrLeader && data && (
           <div className="grid-desktop-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '14px' }}>
             {[
               { icon: <Users size={22} />, label: 'TỔNG NHÂN SỰ', value: s.total, color: 'var(--primary)', bg: 'var(--primary-soft)', border: '1px solid var(--primary-glow)' },
@@ -392,8 +421,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Visual attendance ratio bar */}
-        {s.total > 0 && (
+        {/* Visual attendance ratio bar (Admin/Leader only) */}
+        {isAdminOrLeader && s.total > 0 && (
           <div className="card animate-fade-in" style={{ marginBottom: '14px', padding: '14px', borderRadius: '14px', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
               <span style={{ color: 'var(--text)' }}>Tỷ lệ đi làm toàn công ty</span>
@@ -423,7 +452,7 @@ export default function DashboardPage() {
         )}
 
         {/* Flagged Attendance Alert Banner (Admin & Leader) */}
-        {(user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager') && flaggedCounts.pending > 0 && (
+        {isAdminOrLeader && flaggedCounts.pending > 0 && (
           <div className="card animate-fade-in" style={{
             marginBottom: '14px', padding: '12px 14px',
             background: 'var(--yellow-soft)',
@@ -499,9 +528,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Birthdays & Events this month — Redesigned SaaS Festive Theme */}
-        {/* Widget: Dự Án Của Tôi */}
-        {data?.my_projects?.length > 0 && (
+        {/* Widget: Dự Án Đang Tham Gia */}
+        {combinedProjects.length > 0 && (
           <div
             className="card animate-fade-in"
             style={{
@@ -514,19 +542,20 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ background: 'var(--primary-soft)', padding: '4px 8px', borderRadius: '6px', fontSize: '14px' }}>🏗️</span>
-                <span>Dự Án Của Tôi</span>
-                <span className="badge badge--info" style={{ fontSize: '11px', fontWeight: 800 }}>• {data.my_projects.length} dự án</span>
+                <span>Dự Án Đang Tham Gia</span>
+                <span className="badge badge--info" style={{ fontSize: '11px', fontWeight: 800 }}>• {combinedProjects.length} dự án</span>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
-              {data.my_projects.map(proj => (
+              {combinedProjects.map(proj => (
                 <div
-                  key={proj._id}
+                  key={proj._id || proj.id}
+                  onClick={() => navigate('/projects')}
                   style={{
                     background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '10px',
                     border: '1px solid var(--border)', fontSize: '12px', minWidth: '220px', flexShrink: 0,
-                    boxShadow: 'var(--shadow-xs)'
+                    boxShadow: 'var(--shadow-xs)', cursor: 'pointer'
                   }}
                 >
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
@@ -591,7 +620,7 @@ export default function DashboardPage() {
                   <span>Kỷ Niệm Gắn Bó, Sinh Nhật & Sự Kiện</span>
                   <span className="badge badge--warning" style={{ fontSize: '11px', fontWeight: 800 }}>• {totalMonthEvents} sự kiện</span>
                 </div>
-                {user?.role === 'admin' && (
+                {isAdminOrLeader && (
                   <button
                     onClick={() => setShowAnnivSettingsModal(true)}
                     className="btn btn--ghost"
@@ -717,8 +746,44 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* 6-Month Trend Mini Chart */}
-        {trend?.months?.length > 0 && (
+        {/* NON-ADMIN/LEADER: Quick Portal Utilities Grid */}
+        {!isAdminOrLeader && (
+          <div className="card animate-fade-in" style={{
+            marginBottom: '14px', padding: '14px 16px',
+            background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px'
+          }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>⚡ Tiện Ích & Chức Năng Nhanh</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
+              {[
+                { to: '/projects', icon: '🚀', label: 'Dự Án', desc: `${combinedProjects.length} dự án` },
+                { to: '/leaderboard', icon: '🏆', label: 'Xếp Hạng', desc: 'Thi đua chuyên cần' },
+                { to: '/vehicles', icon: '🚲', label: 'Gửi Xe', desc: 'Phương tiện' },
+                { to: '/expenses', icon: '🧾', label: 'Chi Tiêu', desc: 'Bảng hoàn ứng' },
+                { to: '/profile', icon: '👤', label: 'Cá Nhân', desc: 'Tài khoản & xe' },
+              ].map(item => (
+                <div
+                  key={item.to}
+                  onClick={() => navigate(item.to)}
+                  className="card--interactive"
+                  style={{
+                    padding: '12px 10px', borderRadius: '10px', background: 'var(--bg-raised)',
+                    border: '1px solid var(--border)', textAlign: 'center', cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px'
+                  }}
+                >
+                  <span style={{ fontSize: '22px' }}>{item.icon}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)' }}>{item.label}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{item.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ADMIN & LEADER: 6-Month Trend Mini Chart */}
+        {isAdminOrLeader && trend?.months?.length > 0 && (
           <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
               <TrendingUp size={14} color="var(--primary)" />
@@ -739,8 +804,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Pending banner */}
-        {pendingCount > 0 && (
+        {/* ADMIN & LEADER: Pending banner */}
+        {isAdminOrLeader && pendingCount > 0 && (
           <div className="card animate-fade-in" style={{
             marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px',
             background: 'var(--yellow-soft)', borderColor: 'var(--yellow)',
@@ -752,93 +817,98 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Search */}
-        <div style={{ position: 'relative', marginBottom: '8px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Tìm theo tên nhân viên..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft: '32px', fontSize: '13px', padding: '6px 12px 6px 32px' }}
-          />
-        </div>
+        {/* ADMIN & LEADER: Search & Staff Attendance List */}
+        {isAdminOrLeader && (
+          <>
+            {/* Search */}
+            <div style={{ position: 'relative', marginBottom: '8px' }}>
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Tìm theo tên nhân viên..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ paddingLeft: '32px', fontSize: '13px', padding: '6px 12px 6px 32px' }}
+              />
+            </div>
 
-        {/* Filter chips */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto', paddingBottom: '2px' }}>
-          {[
-            { value: 'all', label: `Tất cả (${staff.length})` },
-            { value: 'checked_in', label: `Đang làm (${s.checked_in || 0})` },
-            { value: 'checked_out', label: `Đã về (${s.checked_out || 0})` },
-            { value: 'absent', label: `Vắng (${s.absent || 0})` },
-          ].map(c => (
-            <button key={c.value} onClick={() => setFilter(c.value)} className={`chip${filter === c.value ? ' active' : ''}`}>
-              {c.label}
-            </button>
-          ))}
-        </div>
+            {/* Filter chips */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { value: 'all', label: `Tất cả (${staff.length})` },
+                { value: 'checked_in', label: `Đang làm (${s.checked_in || 0})` },
+                { value: 'checked_out', label: `Đã về (${s.checked_out || 0})` },
+                { value: 'absent', label: `Vắng (${s.absent || 0})` },
+              ].map(c => (
+                <button key={c.value} onClick={() => setFilter(c.value)} className={`chip${filter === c.value ? ' active' : ''}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
 
-        {/* Staff list */}
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="skeleton-card" style={{ height: '60px', borderRadius: '12px' }} />
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {filtered.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state__icon">🔍</div>
-                <div className="empty-state__title">Không tìm thấy</div>
-                <div className="empty-state__desc">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</div>
+            {/* Staff list */}
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="skeleton-card" style={{ height: '60px', borderRadius: '12px' }} />
+                ))}
               </div>
-            ) : filtered.map((p) => {
-              const cfg = STATUS_MAP[p.today_status] || STATUS_MAP.absent;
-              return (
-                <div
-                  key={p.user_id}
-                  onClick={() => setViewingStaffDetail(p)}
-                  className="person-row animate-fade-in card--interactive"
-                  style={{ cursor: 'pointer' }}
-                >
-                  <img
-                    src={p.avatar_url || '/logo.png'}
-                    alt={p.full_name}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFullAvatarImage({ url: p.avatar_url || '/logo.png', title: p.full_name });
-                    }}
-                    title="Click để phóng to ảnh"
-                    style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
-                    onError={e => { e.target.src = '/logo.png'; }}
-                  />
-                  <div className="person-row__info">
-                    <div className="person-row__name">{p.full_name}</div>
-                    <div className="person-row__meta">
-                      {p.department_name || '—'}
-                      {p.total_hours > 0 && ` · ${p.total_hours}h`}
-                    </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {filtered.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-state__icon">🔍</div>
+                    <div className="empty-state__title">Không tìm thấy</div>
+                    <div className="empty-state__desc">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-                    <span className={`badge ${cfg.cls}`}>{cfg.label}</span>
-                    {p.check_in_time && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        {fmt(p.check_in_time)} ·{' '}
-                        <button onClick={() => setGeo(p)} style={{
-                          background: 'none', border: 'none', color: 'var(--primary)',
-                          cursor: 'pointer', fontSize: '11px', fontFamily: 'inherit', padding: 0, textDecoration: 'underline',
-                        }}>
-                          {TYPE_MAP[p.check_in_type] || p.check_in_type}
-                        </button>
+                ) : filtered.map((p) => {
+                  const cfg = STATUS_MAP[p.today_status] || STATUS_MAP.absent;
+                  return (
+                    <div
+                      key={p.user_id}
+                      onClick={() => setViewingStaffDetail(p)}
+                      className="person-row animate-fade-in card--interactive"
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <img
+                        src={p.avatar_url || '/logo.png'}
+                        alt={p.full_name}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFullAvatarImage({ url: p.avatar_url || '/logo.png', title: p.full_name });
+                        }}
+                        title="Click để phóng to ảnh"
+                        style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                        onError={e => { e.target.src = '/logo.png'; }}
+                      />
+                      <div className="person-row__info">
+                        <div className="person-row__name">{p.full_name}</div>
+                        <div className="person-row__meta">
+                          {p.department_name || '—'}
+                          {p.total_hours > 0 && ` · ${p.total_hours}h`}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                        <span className={`badge ${cfg.cls}`}>{cfg.label}</span>
+                        {p.check_in_time && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            {fmt(p.check_in_time)} ·{' '}
+                            <button onClick={() => setGeo(p)} style={{
+                              background: 'none', border: 'none', color: 'var(--primary)',
+                              cursor: 'pointer', fontSize: '11px', fontFamily: 'inherit', padding: 0, textDecoration: 'underline',
+                            }}>
+                              {TYPE_MAP[p.check_in_type] || p.check_in_type}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
 
         <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px', marginTop: '14px', paddingBottom: '8px' }}>

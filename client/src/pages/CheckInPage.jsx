@@ -145,13 +145,26 @@ export default function CheckInPage() {
       setProjects(activeProjects);
 
       // Filter projects where current user is a member or PM
+      const uid = String(user?._id || user?.id || '');
+      const uname = (user?.full_name || '').toLowerCase().trim();
       const myProjs = rawProjects.filter(p => {
-        const uid = user?._id || user?.id;
-        const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
-        const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
-        return isMember || isPm;
+        const isMember = Array.isArray(p.members) && p.members.some(m => {
+          const mId = String(m?._id || m?.id || m || '');
+          if (mId && mId === uid) return true;
+          const mName = String(m?.full_name || '').toLowerCase().trim();
+          if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
+          return false;
+        });
+        if (isMember) return true;
+        const pmId = String(p.pm_id?._id || p.pm_id?.id || p.pm_id || '');
+        if (pmId && pmId === uid) return true;
+        if (p.pm_name && uname) {
+          const pmNameLower = p.pm_name.toLowerCase().trim();
+          if (pmNameLower.includes(uname) || uname.includes(pmNameLower)) return true;
+        }
+        return false;
       });
-      setMyProjects(myProjs.length > 0 ? myProjs : activeProjects.slice(0, 3));
+      setMyProjects(myProjs.length > 0 ? myProjs : activeProjects.slice(0, 4));
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
     } finally {

@@ -44,17 +44,37 @@ const getTodaySummary = async (req, res) => {
     attendances.forEach(a => attMap.set(a.user_id.toString(), a));
 
     // Lấy danh sách dự án của người dùng hiện tại (là PM hoặc là thành viên)
-    const myProjects = await Project.find({
+    const userFullName = (req.user.full_name || '').trim();
+    const escapedName = userFullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regexName = userFullName ? new RegExp(escapedName, 'i') : null;
+
+    let orConditions = [
+      { members: req.user._id },
+      { pm_id: req.user._id },
+    ];
+    if (regexName) {
+      orConditions.push({ pm_name: regexName });
+    }
+
+    let myProjects = await Project.find({
       is_active: { $ne: false },
-      $or: [
-        { members: req.user._id },
-        { pm_id: req.user._id },
-        { pm_name: req.user.full_name },
-      ]
+      ...(req.user.role === 'admin' ? {} : { $or: orConditions })
     })
       .populate('members', 'full_name email avatar_url employee_code position')
-      .sort({ progress: -1, updated_at: -1 })
-      .limit(6);
+      .populate('pm_id', 'full_name email avatar_url employee_code position')
+      .sort({ progress: -1, updated_at: -1 });
+
+    // Fallback nếu nhân viên chưa được gán dự án riêng: lấy các dự án đang hoạt động
+    if (myProjects.length === 0) {
+      myProjects = await Project.find({
+        is_active: { $ne: false },
+        status: { $nin: ['Đã hoàn thành', 'Đã lưu trữ', 'cancelled'] }
+      })
+        .populate('members', 'full_name email avatar_url employee_code position')
+        .populate('pm_id', 'full_name email avatar_url employee_code position')
+        .sort({ progress: -1, updated_at: -1 })
+        .limit(6);
+    }
 
     // Tổng hợp từng nhân viên
     const staff = users.map(u => {

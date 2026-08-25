@@ -239,12 +239,35 @@ export default function ProjectsPage() {
     }
   };
 
-  const myProjectsList = projects.filter(p => {
-    const uid = user?._id || user?.id;
-    const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
-    const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
-    return isMember || isPm;
-  });
+  const checkIsMyProject = (p, currentUser) => {
+    if (!p || !currentUser) return false;
+    const uid = String(currentUser._id || currentUser.id || '');
+    const uname = (currentUser.full_name || '').toLowerCase().trim();
+    
+    // 1. Check members (ID or full name)
+    const isMember = Array.isArray(p.members) && p.members.some(m => {
+      const mId = String(m?._id || m?.id || m || '');
+      if (mId && mId === uid) return true;
+      const mName = String(m?.full_name || '').toLowerCase().trim();
+      if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
+      return false;
+    });
+    if (isMember) return true;
+
+    // 2. Check pm_id
+    const pmId = String(p.pm_id?._id || p.pm_id?.id || p.pm_id || '');
+    if (pmId && pmId === uid) return true;
+
+    // 3. Check pm_name
+    if (p.pm_name && uname) {
+      const pmNameLower = p.pm_name.toLowerCase().trim();
+      if (pmNameLower.includes(uname) || uname.includes(pmNameLower)) return true;
+    }
+
+    return false;
+  };
+
+  const myProjectsList = projects.filter(p => checkIsMyProject(p, user));
 
   const normalizeStr = (str) => {
     if (!str) return '';
