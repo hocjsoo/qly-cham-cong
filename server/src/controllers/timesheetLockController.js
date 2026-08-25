@@ -89,12 +89,23 @@ const getFullMatrix = async (req, res) => {
       let sick_leave = 0;
       let unpaid_leave = 0;
       let other_leave = 0;
+      let total_ot_hours = 0;
+      let late_count = 0;
+      let total_late_minutes = 0;
 
       const daysData = headerDays.map(hd => {
         const att = attDateMap[hd.dateStr];
         let symbol = '';
 
         if (att) {
+          if (att.ot_hours > 0) {
+            total_ot_hours += Number(att.ot_hours) || 0;
+          }
+          if (att.is_late) {
+            late_count += 1;
+            total_late_minutes += Number(att.late_minutes) || 0;
+          }
+
           const notes = (att.notes || '').toUpperCase();
           if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI')) {
             symbol = 'CT2';
@@ -177,6 +188,9 @@ const getFullMatrix = async (req, res) => {
         sick_leave: parseFloat(sick_leave.toFixed(2)),
         unpaid_leave: parseFloat(unpaid_leave.toFixed(2)),
         other_leave: parseFloat(other_leave.toFixed(2)),
+        total_ot_hours: parseFloat(total_ot_hours.toFixed(1)),
+        late_count: late_count,
+        total_late_minutes: total_late_minutes,
         days: daysData,
         is_locked: isLocked,
         is_attendance_exempt: Boolean(u.is_attendance_exempt),
