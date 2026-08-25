@@ -11,10 +11,12 @@ const {
 } = require('../controllers/timesheetLockController');
 
 router.use(authMiddleware);
-router.use(requireRole('admin'));
 
-// Xem ma trận chốt công (Admin)
+// GET /full-matrix — Xem bảng công toàn công ty (Tất cả nhân viên đã đăng nhập)
 router.get('/full-matrix', getFullMatrix);
+
+// Các thao tác bên dưới chỉ dành riêng cho Admin
+router.use(requireRole('admin'));
 
 // Xem lịch sử chỉnh sửa ô công (Admin)
 router.get('/audit-logs', getAuditLogs);

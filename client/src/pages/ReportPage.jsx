@@ -145,10 +145,12 @@ export default function ReportPage() {
   }, [matrixData, searchQuery, deptFilter]);
 
   useEffect(() => {
-    if (isAdmin) {
+    // Employee chỉ xem được tab timesheet_lock (bảng công toàn cty, read-only)
+    // Admin/Leader xem được tất cả các tab
+    if (isAdminOrManager || tab === 'timesheet_lock') {
       loadTab();
     }
-  }, [isAdmin, month, year, tab, selectedDetailUserId]);
+  }, [isAdminOrManager, month, year, tab, selectedDetailUserId]);
 
   const loadTab = async () => {
     setLoading(true);
@@ -156,21 +158,21 @@ export default function ReportPage() {
       if (tab === 'timesheet_lock') {
         const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
         setMatrixData(data);
-      } else if (tab === 'individual_detail') {
+      } else if (tab === 'individual_detail' && isAdminOrManager) {
         const queryUser = selectedDetailUserId || user?._id || user?.id;
         const { data } = await api.get(`/reports/individual-detail?user_id=${queryUser}&month=${month}&year=${year}`);
         setIndividualDetail(data);
-      } else if (tab === 'overview') {
+      } else if (tab === 'overview' && isAdminOrManager) {
         const [rRes, tRes] = await Promise.all([
           api.get(`/reports/monthly?month=${month}&year=${year}`),
           api.get('/reports/trend?months=6'),
         ]);
         setReport(rRes.data);
         setTrend(tRes.data);
-      } else if (tab === 'payroll') {
+      } else if (tab === 'payroll' && isAdminOrManager) {
         const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`);
         setPayroll(data);
-      } else if (tab === 'ranking') {
+      } else if (tab === 'ranking' && isAdminOrManager) {
         const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
         setRanking(data);
       }
@@ -375,21 +377,7 @@ export default function ReportPage() {
   const indLogs = individualDetail?.daily_logs || [];
   const lc = indSum.leave_counts || {};
 
-  if (!isAdmin) {
-    return (
-      <div className="container" style={{ paddingTop: '40px', textAlign: 'center' }}>
-        <div className="card" style={{ padding: '32px', maxWidth: '480px', margin: '0 auto' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px' }}>
-            Quyền Hạn Bị Giới Hạn
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Bảng công tổng hợp và Bảng chi tiết chấm công chỉ dành riêng cho Ban Quản Trị (Admin).
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Không còn chặn nhân viên — employee xem bảng công toàn cty ở chế độ read-only
 
   return (
     <div className="page">
@@ -397,13 +385,15 @@ export default function ReportPage() {
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">Báo cáo & Chốt công</div>
+            <div className="header__title">{isAdminOrManager ? 'Báo cáo & Chốt công' : 'Bảng Chấm Công Tháng'}</div>
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => setShowExportModal(true)} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
-              {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công (PDF/Excel)</>}
-            </button>
+            {isAdminOrManager && (
+              <button onClick={() => setShowExportModal(true)} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
+                {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công (PDF/Excel)</>}
+              </button>
+            )}
             <HeaderActions />
           </div>
         </div>
@@ -421,23 +411,27 @@ export default function ReportPage() {
             <button onClick={nextMonth} className="theme-toggle-btn" style={{ width: '28px', height: '28px' }}><ChevronRight size={16} /></button>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Navigation Tabs — Employee chỉ thấy tab Chốt Công (read-only) */}
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
             <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
-              <Lock size={13} /> Chốt Công ET_Staff
+              <Lock size={13} /> Bảng Chấm Công
             </button>
-            <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
-              <FileText size={13} /> Bảng Chi Tiết Cá Nhân
-            </button>
-            <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
-              <BarChart3 size={13} /> Tổng quan
-            </button>
-            <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
-              <Calculator size={13} /> Bảng tính công
-            </button>
-            <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
-              <Trophy size={13} /> Xếp hạng
-            </button>
+            {isAdminOrManager && (
+              <>
+                <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
+                  <FileText size={13} /> Bảng Chi Tiết Cá Nhân
+                </button>
+                <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
+                  <BarChart3 size={13} /> Tổng quan
+                </button>
+                <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
+                  <Calculator size={13} /> Bảng tính công
+                </button>
+                <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
+                  <Trophy size={13} /> Xếp hạng
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -458,7 +452,8 @@ export default function ReportPage() {
                   )}
                 </div>
 
-                {isAdminOrManager && (
+                {/* Nút chốt/mở chốt & lịch sử sửa — chỉ Admin */}
+                {isAdmin && (
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <button
                       onClick={() => triggerToggleLock(null, matrixData?.global_locked)}
@@ -630,7 +625,7 @@ export default function ReportPage() {
                             );
                           })}
 
-                          {isAdminOrManager && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
+                          {isAdmin && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
                         </tr>
 
                         {/* Row 2 Header: Days 01..31 */}
@@ -652,7 +647,7 @@ export default function ReportPage() {
                             );
                           })}
 
-                          {isAdminOrManager && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
+                          {isAdmin && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
                         </tr>
                       </thead>
 
@@ -681,6 +676,7 @@ export default function ReportPage() {
                                 <td
                                   key={d.day}
                                   onClick={() => {
+                                    if (!isAdminOrManager) return;
                                     setSelectedCell({
                                       user_id: r.id,
                                       staff_name: r.full_name,
@@ -707,7 +703,7 @@ export default function ReportPage() {
                                   }}
                                   style={{
                                     padding: '6px 2px',
-                                    cursor: 'pointer',
+                                    cursor: isAdminOrManager ? 'pointer' : 'default',
                                     background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                     borderLeft: '1px solid var(--border-muted)',
                                   }}
@@ -718,8 +714,8 @@ export default function ReportPage() {
                               );
                             })}
 
-                            {/* Lock Action Button per Staff */}
-                            {isAdminOrManager && (
+                            {/* Lock Action Button per Staff — chỉ Admin */}
+                            {isAdmin && (
                               <td style={{ padding: '6px' }}>
                                 <button
                                   onClick={() => triggerToggleLock(r.id, r.is_locked)}
@@ -751,7 +747,7 @@ export default function ReportPage() {
                           {matrixData.header_days.map(hd => (
                             <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                           ))}
-                          {isAdminOrManager && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
+                          {isAdmin && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
                         </tr>
                       </tfoot>
                     </table>
