@@ -1703,16 +1703,18 @@ export default function StaffPage() {
 
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost btn--full">Đóng</button>
-              <button
-                onClick={() => {
-                  const target = viewingStaffDetail;
-                  setViewingStaffDetail(null);
-                  openEdit(target);
-                }}
-                className="btn btn--primary btn--full"
-              >
-                ✏️ Chỉnh sửa tài khoản
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    const target = viewingStaffDetail;
+                    setViewingStaffDetail(null);
+                    openEdit(target);
+                  }}
+                  className="btn btn--primary btn--full"
+                >
+                  ✏️ Chỉnh sửa tài khoản
+                </button>
+              )}
             </div>
           </div>
         </div>

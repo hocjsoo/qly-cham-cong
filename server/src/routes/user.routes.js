@@ -13,31 +13,31 @@ router.use(authMiddleware);
 // GET /api/users — Danh bạ nhân viên / Danh sách phương tiện (Mọi nhân viên đã đăng nhập)
 router.get('/', getAllUsers);
 
-// --- CÁC ROUTE QUẢN TRỊ (ADMIN / LEADER) ---
-router.use(requireRole('admin', 'manager'));
+// --- CÁC ROUTE QUẢN TRỊ (CHỈ ADMIN MỚI CÓ QUYỀN TẠO, SỬA, XÓA, ĐỔI TRẠNG THÁI VÀ QUẢN LÝ THIẾT BỊ NHÂN VIÊN) ---
+router.use(requireRole('admin'));
 
 // GET /api/users/:id/devices — CHỈ ADMIN xem danh sách thiết bị
-router.get('/:id/devices', requireRole('admin'), getUserDevices);
+router.get('/:id/devices', getUserDevices);
 
 // PUT /api/users/:id/devices/:sessionId/trust — CHỈ ADMIN đặt thiết bị chính
-router.put('/:id/devices/:sessionId/trust', requireRole('admin'), trustUserDevice);
+router.put('/:id/devices/:sessionId/trust', trustUserDevice);
 
 // DELETE /api/users/:id/devices/:sessionId — CHỈ ADMIN xóa thiết bị
-router.delete('/:id/devices/:sessionId', requireRole('admin'), deleteUserDevice);
+router.delete('/:id/devices/:sessionId', deleteUserDevice);
 
-// POST /api/users
+// POST /api/users — CHỈ ADMIN tạo nhân viên
 router.post('/', createUser);
 
-// PUT /api/users/:id
+// PUT /api/users/:id — CHỈ ADMIN sửa thông tin nhân viên
 router.put('/:id', updateUser);
 
-// DELETE /api/users/:id
+// DELETE /api/users/:id — CHỈ ADMIN xóa nhân viên
 router.delete('/:id', deleteUser);
 
-// PATCH /api/users/:id/toggle-active
+// PATCH /api/users/:id/toggle-active — CHỈ ADMIN kích hoạt/khóa nhân viên
 router.patch('/:id/toggle-active', toggleActive);
 
-// PATCH /api/users/:id/avatar
+// PATCH /api/users/:id/avatar — CHỈ ADMIN cập nhật avatar
 router.patch('/:id/avatar', updateAvatar);
 
 module.exports = router;
