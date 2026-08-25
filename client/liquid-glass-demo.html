@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ddecff" />
+  <title>ET Office — Liquid Glass Demo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+
+    :root {
+      --ink: #071c49;
+      --ink-soft: #496186;
+      --blue: #0867f2;
+      --blue-dark: #0647b4;
+      --green: #0aa461;
+      --orange: #ff8605;
+      --red: #ef443b;
+      --violet: #7657ed;
+      --line: rgba(255, 255, 255, 0.82);
+      --hairline: rgba(73, 112, 175, 0.17);
+      --glass: rgba(249, 252, 255, 0.68);
+      --glass-strong: rgba(252, 253, 255, 0.84);
+      --shadow: 0 14px 40px rgba(43, 94, 167, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+      --radius: 16px;
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { color-scheme: light; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      overflow-x: hidden;
+      font-family: "Be Vietnam Pro", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 84%, rgba(74, 155, 255, .42), transparent 23%),
+        radial-gradient(circle at 92% 90%, rgba(147, 120, 255, .28), transparent 27%),
+        radial-gradient(circle at 70% 4%, rgba(255,255,255,.92), transparent 32%),
+        linear-gradient(135deg, #e6f3ff 0%, #cfe6ff 47%, #e9e8ff 100%);
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      z-index: -1;
+      width: 34vw;
+      height: 34vw;
+      border: 8vw solid rgba(255,255,255,.32);
+      border-radius: 50%;
+      filter: blur(22px);
+      pointer-events: none;
+      animation: drift 16s var(--ease) infinite alternate;
+    }
+    body::before { left: -19vw; bottom: -21vw; }
+    body::after { right: -23vw; top: -23vw; animation-delay: -8s; }
+
+    button, input, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid rgba(8,103,242,.28);
+      outline-offset: 2px;
+    }
+    svg { display: block; }
+    .icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+    .app {
+      width: calc(100% - 24px);
+      max-width: 1580px;
+      min-height: calc(100vh - 24px);
+      margin: 12px auto;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      grid-template-rows: 72px minmax(0, 1fr);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,.25);
+      box-shadow: 0 24px 70px rgba(41,82,153,.18), inset 0 1px 0 #fff;
+      backdrop-filter: blur(24px) saturate(135%);
+      -webkit-backdrop-filter: blur(24px) saturate(135%);
+      transition: grid-template-columns .45s var(--ease);
+    }
+    .app.is-collapsed { grid-template-columns: 84px minmax(0, 1fr); }
+
+    .sidebar {
+      grid-row: 1 / -1;
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      border-right: 1px solid rgba(255,255,255,.72);
+      background: linear-gradient(180deg, rgba(242,249,255,.47), rgba(212,231,255,.38));
+      backdrop-filter: blur(30px);
+    }
+    .brand {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      padding: 0 26px;
+      font-size: 25px;
+      font-weight: 700;
+      letter-spacing: -.8px;
+      white-space: nowrap;
+      transition: padding .45s var(--ease);
+    }
+    .brand-mark { color: var(--blue-dark); }
+    .nav { display: grid; gap: 5px; padding: 12px 16px; overflow-y: auto; scrollbar-width: none; }
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-group { padding: 8px 14px 2px; color: #6d83a6; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+    .nav-spacer { height: 8px; }
+    .nav-item, .collapse-btn {
+      width: 100%;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 0 14px;
+      color: var(--ink);
+      background: transparent;
+      text-align: left;
+      white-space: nowrap;
+      transition: transform .22s var(--ease), background .22s, border-color .22s, color .22s;
+    }
+    .nav-item:hover { transform: translateX(3px); background: rgba(255,255,255,.38); }
+    .nav-item.active {
+      position: relative;
+      color: #0058df;
+      background: rgba(255,255,255,.69);
+      border-color: rgba(255,255,255,.92);
+      box-shadow: 0 8px 22px rgba(42,104,192,.1), inset 0 1px 0 #fff;
+    }
+    .nav-item.active::after {
+      content: "";
+      position: absolute;
+      right: -17px;
+      width: 3px;
+      height: 30px;
+      border-radius: 99px;
+      background: var(--blue);
+      box-shadow: 0 0 14px rgba(8,103,242,.5);
+    }
+    .nav-item .label, .brand-text, .collapse-btn .label { transition: opacity .2s, width .3s; }
+    .badge { margin-left: auto; min-width: 20px; padding: 3px 6px; border-radius: 99px; color: #d8322c; background: #ffd0cb; font-size: 11px; text-align: center; }
+    .sidebar-footer { margin-top: auto; padding: 16px; }
+    .collapse-btn { border-color: rgba(255,255,255,.65); background: rgba(255,255,255,.25); }
+    .collapse-btn:hover { background: rgba(255,255,255,.55); }
+    .app.is-collapsed .brand { justify-content: center; padding: 0; }
+    .app.is-collapsed .brand-text,
+    .app.is-collapsed .nav-item .label,
+    .app.is-collapsed .collapse-btn .label,
+    .app.is-collapsed .badge { width: 0; opacity: 0; overflow: hidden; }
+    .app.is-collapsed .nav-item, .app.is-collapsed .collapse-btn { justify-content: center; padding-inline: 0; }
+    .app.is-collapsed .nav-item.active::after { right: -17px; }
+
+    .topbar {
+      grid-column: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+      border-bottom: 1px solid rgba(255,255,255,.74);
+      background: rgba(255,255,255,.2);
+      backdrop-filter: blur(28px);
+    }
+    .page-name { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; }
+    .page-mark { color: var(--blue); }
+    .top-actions { display: flex; align-items: center; gap: 10px; }
+    .top-button, .profile {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 13px;
+      border: 1px solid rgba(255,255,255,.74);
+      border-radius: 12px;
+      color: var(--ink);
+      background: rgba(255,255,255,.35);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+      transition: background .2s, transform .2s var(--ease);
+    }
+    .top-button:hover, .profile:hover { transform: translateY(-2px); background: rgba(255,255,255,.7); }
+    .notification { position: relative; width: 42px; justify-content: center; padding: 0; }
+    .notification::after { content: "3"; position: absolute; right: 3px; top: 2px; width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--red); font-size: 10px; border: 2px solid #dcecff; }
+    .avatar { width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; color: #0754c9; background: linear-gradient(145deg, #c3d4ff, #e7efff); }
+    .profile-copy { line-height: 1.25; text-align: left; }
+    .profile-copy small { display: block; color: var(--ink-soft); }
+
+    .main {
+      grid-column: 2;
+      min-width: 0;
+      padding: 24px;
+      overflow: auto;
+    }
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+    .glass-card {
+      border: 1px solid rgba(255,255,255,.84);
+      background: var(--glass-strong);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px) saturate(125%);
+      -webkit-backdrop-filter: blur(20px) saturate(125%);
+    }
+    .stat-card {
+      min-height: 142px;
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 64px;
+      gap: 12px;
+      padding: 22px;
+      border-radius: var(--radius);
+      animation: enter .65s var(--ease) both;
+      animation-delay: calc(var(--i) * 70ms);
+      transition: transform .28s var(--ease), box-shadow .28s;
+    }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 20px 44px rgba(43,94,167,.16), inset 0 1px 0 #fff; }
+    .stat-label { font-weight: 600; color: var(--tone); }
+    .stat-value { margin-top: 12px; font-size: clamp(28px, 2.2vw, 38px); line-height: 1; color: var(--tone); }
+    .stat-value small { font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+    .stat-desc { grid-column: 1 / -1; align-self: end; color: var(--ink-soft); font-size: 12px; }
+    .stat-icon { width: 60px; height: 60px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.9); border-radius: 18px; color: var(--tone); background: var(--tone-soft); box-shadow: 0 8px 20px var(--tone-shadow), inset 0 1px 0 white; }
+    .stat-icon .icon { width: 30px; height: 30px; stroke-width: 1.9; }
+
+    .middle { display: grid; grid-template-columns: 1.28fr 1fr; gap: 16px; margin-top: 16px; }
+    .panel { min-width: 0; border-radius: var(--radius); padding: 16px; animation: enter .65s .3s var(--ease) both; }
+    .panel-head { min-height: 38px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .panel-title { margin: 0; font-size: 16px; }
+    .select { height: 38px; border: 1px solid var(--hairline); border-radius: 10px; padding: 0 34px 0 12px; color: var(--ink); background: rgba(255,255,255,.55); }
+    .chart { width: 100%; height: 230px; margin-top: 8px; overflow: visible; }
+    .grid-line { stroke: #c8d9ed; stroke-dasharray: 3 4; stroke-width: 1; }
+    .axis-label { fill: #64799a; font-size: 11px; }
+    .chart-area { fill: url(#area); }
+    .chart-line { fill: none; stroke: var(--blue); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    .chart-dot { fill: white; stroke: var(--blue); stroke-width: 2; }
+    .tooltip-box { filter: drop-shadow(0 8px 12px rgba(22,67,128,.13)); }
+
+    .requests { padding: 0; overflow: hidden; }
+    .requests .panel-head { padding: 18px 18px 10px; }
+    .view-all { border: 0; color: var(--blue); background: transparent; font-size: 12px; }
+    .request-row { display: grid; grid-template-columns: 42px minmax(0,1fr) auto auto; align-items: center; gap: 12px; min-height: 62px; padding: 10px 16px; border-top: 1px solid var(--hairline); transition: background .2s, padding .25s var(--ease); }
+    .request-row:hover { padding-left: 20px; background: rgba(224,238,255,.48); }
+    .request-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: var(--tone); background: var(--tone-soft); }
+    .request-copy { min-width: 0; font-size: 12px; }
+    .request-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .request-date { color: var(--ink-soft); font-size: 11px; }
+    .status { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 99px; color: var(--tone); background: var(--tone-soft); font-size: 11px; white-space: nowrap; }
+
+    .table-panel { margin-top: 16px; padding: 0; overflow: hidden; animation-delay: .4s; }
+    .table-toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
+    .table-toolbar .panel-title { margin-right: auto; }
+    .search-wrap { position: relative; width: min(260px, 24vw); }
+    .search-wrap .icon { position: absolute; left: 11px; top: 10px; color: #6d83a6; }
+    .search { width: 100%; height: 38px; padding: 0 12px 0 38px; border: 1px solid var(--hairline); border-radius: 10px; color: var(--ink); background: rgba(255,255,255,.6); }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: 12px; }
+    th { padding: 12px 14px; color: white; background: #08285b; text-align: left; font-weight: 600; }
+    th:first-child { border-radius: 8px 0 0 0; }
+    th:last-child { border-radius: 0 8px 0 0; }
+    td { padding: 11px 14px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+    tbody tr { transition: background .2s; }
+    tbody tr:hover { background: rgba(221,236,255,.5); }
+    .time-ok { color: var(--green); font-weight: 600; }
+    .time-late { color: var(--orange); font-weight: 600; }
+    .time-bad { color: var(--red); font-weight: 600; }
+    .table-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 16px; color: var(--ink-soft); font-size: 11px; }
+    .pages { display: flex; gap: 5px; }
+    .page-btn { width: 32px; height: 32px; border: 0; border-radius: 8px; color: var(--ink); background: transparent; }
+    .page-btn.active { color: white; background: var(--blue); box-shadow: 0 6px 14px rgba(8,103,242,.28); }
+    .mobile-nav { display: none; }
+
+    .feature-page { display: none; animation: enter .5s var(--ease) both; }
+    .feature-page.active { display: block; }
+    .dashboard-page.is-hidden { display: none; }
+    .feature-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+    .feature-header h1 { margin: 0 0 5px; font-size: clamp(22px, 2.5vw, 32px); letter-spacing: -.04em; }
+    .feature-header p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+    .primary-btn, .secondary-btn, .danger-btn {
+      min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 0 16px; font-weight: 600; transition: transform .2s var(--ease), box-shadow .2s, background .2s;
+    }
+    .primary-btn { border: 1px solid rgba(255,255,255,.8); color: white; background: linear-gradient(135deg,#0878f9,#4d62ea); box-shadow: 0 8px 18px rgba(8,103,242,.22), inset 0 1px 0 rgba(255,255,255,.35); }
+    .secondary-btn { border: 1px solid var(--hairline); color: var(--ink); background: rgba(255,255,255,.58); }
+    .danger-btn { border: 1px solid rgba(239,68,59,.2); color: var(--red); background: rgba(255,235,233,.8); }
+    .primary-btn:hover, .secondary-btn:hover, .danger-btn:hover { transform: translateY(-2px); }
+    .feature-grid { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 16px; }
+    .span-3 { grid-column: span 3; } .span-4 { grid-column: span 4; } .span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } .span-8 { grid-column: span 8; } .span-12 { grid-column: 1 / -1; }
+    .demo-card { border-radius: var(--radius); padding: 18px; }
+    .demo-card h2, .demo-card h3 { margin: 0 0 12px; }
+    .muted { color: var(--ink-soft); }
+    .metric { font-size: 30px; font-weight: 700; letter-spacing: -.04em; }
+    .segmented { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid rgba(255,255,255,.75); border-radius: 11px; background: rgba(255,255,255,.35); }
+    .segmented button { min-height: 32px; border: 0; border-radius: 8px; padding: 0 12px; color: var(--ink-soft); background: transparent; }
+    .segmented button.active { color: var(--blue); background: white; box-shadow: 0 4px 12px rgba(34,76,140,.1); }
+    .checkin-hero { min-height: 390px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: linear-gradient(145deg,rgba(255,255,255,.8),rgba(230,242,255,.66)); }
+    .live-clock { margin: 8px 0 0; color: var(--blue-dark); font-size: clamp(42px,7vw,76px); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.06em; }
+    .gps-pill { display: inline-flex; align-items: center; gap: 8px; margin: 18px 0; padding: 10px 14px; border-radius: 99px; color: #087e4e; background: rgba(216,246,231,.82); }
+    .checkin-main-btn { width: min(360px,100%); min-height: 60px; border-radius: 16px; font-size: 16px; }
+    .timeline { display: grid; gap: 0; }
+    .timeline-row { display: grid; grid-template-columns: 18px 70px 1fr; gap: 10px; min-height: 52px; align-items: start; }
+    .timeline-dot { width: 10px; height: 10px; margin-top: 4px; border: 2px solid white; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 2px rgba(8,103,242,.2); }
+    .timeline-row:not(:last-child) .timeline-dot::after { content:""; display:block; width:1px; height:42px; margin:8px 0 0 3px; background:#b9cce5; }
+    .mini-list { display: grid; gap: 8px; }
+    .mini-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--hairline); border-radius: 11px; background: rgba(255,255,255,.42); }
+    .avatar-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .avatar-sm { width: 36px; height: 36px; display: grid; place-items:center; flex:0 0 auto; border-radius:50%; color:#0754c9; background:#dfeaff; font-weight:600; }
+    .progress-track { height: 8px; overflow:hidden; border-radius:99px; background:#dce7f5; }
+    .progress-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,#1680f7,#7657ed); }
+    .project-card { position:relative; overflow:hidden; }
+    .project-card::before { content:""; position:absolute; inset:0 auto 0 0; width:4px; background:var(--project); }
+    .project-meta { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; color:var(--ink-soft); font-size:11px; }
+    .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+    .calendar-grid span { min-height:42px; display:grid; place-items:center; border-radius:10px; font-size:12px; }
+    .calendar-grid .head { min-height:28px; color:var(--ink-soft); font-size:10px; }
+    .calendar-grid .today { color:white; background:var(--blue); box-shadow:0 7px 15px rgba(8,103,242,.24); }
+    .calendar-grid .worked { color:#078f57; background:#e2f7ed; }
+    .calendar-grid .late { color:#d96d00; background:#fff0dc; }
+    .form-row { display:grid; gap:6px; }
+    .form-row label { color:var(--ink-soft); font-size:11px; font-weight:600; }
+    .field { width:100%; min-height:42px; border:1px solid var(--hairline); border-radius:10px; padding:0 12px; color:var(--ink); background:rgba(255,255,255,.65); }
+    textarea.field { min-height:90px; padding-top:11px; resize:vertical; }
+    .switch-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 0; border-bottom:1px solid var(--hairline); }
+    .switch { width:44px; height:25px; position:relative; flex:0 0 auto; border:0; border-radius:99px; background:#bac8da; transition:background .2s; }
+    .switch::after { content:""; position:absolute; top:3px; left:3px; width:19px; height:19px; border-radius:50%; background:white; box-shadow:0 2px 5px rgba(0,0,0,.16); transition:transform .25s var(--ease); }
+    .switch.on { background:var(--blue); } .switch.on::after { transform:translateX(19px); }
+    .toast-demo { position:fixed; z-index:100; top:24px; left:50%; display:flex; align-items:center; gap:9px; padding:12px 16px; border:1px solid white; border-radius:12px; color:#087e4e; background:rgba(240,255,248,.9); box-shadow:0 14px 35px rgba(22,67,128,.18); backdrop-filter:blur(18px); transform:translate(-50%,-140%); transition:transform .45s var(--ease); }
+    .toast-demo.show { transform:translate(-50%,0); }
+
+    @keyframes enter { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+    @keyframes drift { to { transform: translate3d(4vw, -3vw, 0) scale(1.06); } }
+
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 84px minmax(0, 1fr); }
+      .brand { justify-content: center; padding: 0; }
+      .brand-text, .nav-item .label, .collapse-btn .label, .badge { width: 0; opacity: 0; overflow: hidden; }
+      .nav-item, .collapse-btn { justify-content: center; padding-inline: 0; }
+      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .middle { grid-template-columns: 1fr; }
+      .table-toolbar { flex-wrap: wrap; }
+      .table-toolbar .panel-title { width: 100%; }
+      .search-wrap { width: min(100%, 320px); }
+      .span-3, .span-4 { grid-column:span 6; }
+      .span-5, .span-7, .span-8 { grid-column:span 12; }
+    }
+
+    @media (max-width: 700px) {
+      body { background-attachment: fixed; }
+      .app { width: 100%; min-height: 100vh; margin: 0; display: block; border: 0; border-radius: 0; overflow: visible; background: rgba(255,255,255,.12); }
+      .sidebar { display: none; }
+      .topbar { position: sticky; top: 0; z-index: 20; height: 68px; padding: 0 16px; }
+      .page-name { font-size: 18px; }
+      .date-button, .profile-copy { display: none; }
+      .profile { width: 42px; justify-content: center; padding: 0; }
+      .main { padding: 16px 12px 92px; overflow: visible; }
+      .stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .stat-card { min-height: 128px; grid-template-columns: 1fr 44px; padding: 16px; }
+      .stat-icon { width: 44px; height: 44px; border-radius: 14px; }
+      .stat-icon .icon { width: 24px; height: 24px; }
+      .stat-value { font-size: 28px; }
+      .stat-desc { display: none; }
+      .middle { gap: 12px; margin-top: 12px; }
+      .chart { height: 190px; }
+      .request-row { grid-template-columns: 38px minmax(0,1fr) auto; }
+      .request-date { display: none; }
+      .table-panel { margin-top: 12px; }
+      .table-toolbar .select { display: none; }
+      .search-wrap { width: 100%; }
+      .table-footer { align-items: flex-start; flex-direction: column; }
+      .feature-header { align-items:flex-start; flex-direction:column; }
+      .feature-grid { gap:12px; }
+      .span-3, .span-4, .span-5, .span-6, .span-7, .span-8, .span-12 { grid-column:1 / -1; }
+      .mobile-nav {
+        position: fixed;
+        z-index: 30;
+        left: 12px;
+        right: 12px;
+        bottom: 10px;
+        min-height: 66px;
+        display: grid;
+        grid-template-columns: repeat(5,1fr);
+        padding: 7px;
+        border: 1px solid rgba(255,255,255,.86);
+        border-radius: 20px;
+        background: rgba(244,249,255,.76);
+        box-shadow: 0 16px 38px rgba(36,78,146,.2), inset 0 1px 0 white;
+        backdrop-filter: blur(24px) saturate(150%);
+      }
+      .mobile-nav button { display: grid; place-items: center; gap: 2px; border: 0; border-radius: 14px; color: #506789; background: transparent; font-size: 9px; }
+      .mobile-nav button.active { color: var(--blue); background: rgba(255,255,255,.68); }
+    }
+
+    @media (max-width: 390px) {
+      .stats { grid-template-columns: 1fr; }
+      .stat-card { min-height: 112px; }
+      .panel { padding: 13px; }
+      .top-actions { gap: 6px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v10h-6v-6H9v6H3z"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19V2M2 19h21"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1V21H9.6v-.08A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1-.4H2.5V9.6h.08A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1V2.5h4v.08a1.7 1.7 0 0 0 1 1.62 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1 .4h.08v4H21a1.7 1.7 0 0 0-1.6 1z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.7c-1 .8-1.8 1.2-1.8 2.8M12 17h.01"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-user-x" viewBox="0 0 24 24"><path d="M15 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8 11a4 4 0 1 0 0-8M18 8l5 5M23 8l-5 5"/></symbol>
+  </svg>
+
+  <div class="app" id="app">
+    <aside class="sidebar" aria-label="Điều hướng chính">
+      <div class="brand"><span class="brand-mark">ET</span><span class="brand-text">&nbsp;OFFICE</span></div>
+      <nav class="nav">
+        <div class="nav-group">Tổng quan</div>
+        <button class="nav-item active" data-page="dashboard" data-title="Tổng quan"><svg class="icon"><use href="#i-home"/></svg><span class="label">Tổng quan</span></button>
+        <button class="nav-item" data-page="checkin" data-title="Chấm công"><svg class="icon"><use href="#i-clock"/></svg><span class="label">Chấm công</span></button>
+        <button class="nav-item" data-page="leaderboard" data-title="Xếp hạng"><svg class="icon"><use href="#i-chart"/></svg><span class="label">Xếp hạng</span></button>
+        <div class="nav-group">Công việc</div>
+        <button class="nav-item" data-page="history" data-title="Lịch sử"><svg class="icon"><use href="#i-calendar"/></svg><span class="label">Lịch sử</span></button>
+        <button class="nav-item" data-page="requests" data-title="Đơn từ"><svg class="icon"><use href="#i-file"/></svg><span class="label">Đơn từ</span><span class="badge">5</span></button>
+        <button class="nav-item" data-page="reports" data-title="Bảng công"><svg class="icon"><use href="#i-chart"/></svg><span class="label">Bảng công</span></button>
+        <button class="nav-item" data-page="projects" data-title="Dự án"><svg class="icon"><use href="#i-grid"/></svg><span class="label">Dự án</span></button>
+        <button class="nav-item" data-page="expenses" data-title="Chi tiêu"><svg class="icon"><use href="#i-file"/></svg><span class="label">Chi tiêu</span></button>
+        <button class="nav-item" data-page="vehicles" data-title="Gửi xe"><svg class="icon"><use href="#i-grid"/></svg><span class="label">Gửi xe</span></button>
+        <div class="nav-group">Quản trị</div>
+        <button class="nav-item" data-page="staff" data-title="Nhân viên"><svg class="icon"><use href="#i-users"/></svg><span class="label">Nhân viên</span></button>
+        <button class="nav-item" data-page="notifications" data-title="Thông báo"><svg class="icon"><use href="#i-bell"/></svg><span class="label">Thông báo</span><span class="badge">3</span></button>
+        <button class="nav-item" data-page="settings" data-title="Cài đặt"><svg class="icon"><use href="#i-settings"/></svg><span class="label">Cài đặt</span></button>
+        <button class="nav-item" data-page="profile" data-title="Cá nhân"><svg class="icon"><use href="#i-users"/></svg><span class="label">Cá nhân</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="collapse-btn" id="collapseBtn" aria-label="Thu gọn thanh điều hướng" aria-expanded="true"><svg class="icon" style="transform:rotate(180deg)"><use href="#i-chevron"/></svg><span class="label">Thu gọn</span></button>
+      </div>
+    </aside>
+
+    <header class="topbar">
+      <div class="page-name"><svg class="icon page-mark"><use href="#i-grid"/></svg><span id="pageTitle">Tổng quan</span></div>
+      <div class="top-actions">
+        <button class="top-button date-button"><svg class="icon"><use href="#i-calendar"/></svg>Thứ Ba, 25/08/2026⌄</button>
+        <button class="top-button notification" aria-label="3 thông báo mới"><svg class="icon"><use href="#i-bell"/></svg></button>
+        <button class="profile"><span class="avatar">AD</span><span class="profile-copy">Admin<small>Quản trị viên</small></span>⌄</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="dashboard-page" id="dashboardPage">
+      <section class="stats" aria-label="Thống kê hôm nay">
+        <article class="stat-card glass-card" style="--i:0;--tone:#0867f2;--tone-soft:rgba(8,103,242,.12);--tone-shadow:rgba(8,103,242,.13)"><div><div class="stat-label">Tổng nhân viên</div><div class="stat-value">48 <small>người</small></div></div><div class="stat-icon"><svg class="icon"><use href="#i-users"/></svg></div><div class="stat-desc">Tất cả nhân viên trong công ty</div></article>
+        <article class="stat-card glass-card" style="--i:1;--tone:#0aa461;--tone-soft:rgba(10,164,97,.12);--tone-shadow:rgba(10,164,97,.13)"><div><div class="stat-label">Có mặt</div><div class="stat-value">36 <small>người (75%)</small></div></div><div class="stat-icon"><svg class="icon"><use href="#i-check"/></svg></div><div class="stat-desc">Đã chấm công trong ngày</div></article>
+        <article class="stat-card glass-card" style="--i:2;--tone:#ff8605;--tone-soft:rgba(255,134,5,.13);--tone-shadow:rgba(255,134,5,.13)"><div><div class="stat-label">Đi muộn</div><div class="stat-value">4 <small>người (8.3%)</small></div></div><div class="stat-icon"><svg class="icon"><use href="#i-clock"/></svg></div><div class="stat-desc">Chấm công sau giờ quy định</div></article>
+        <article class="stat-card glass-card" style="--i:3;--tone:#ef443b;--tone-soft:rgba(239,68,59,.12);--tone-shadow:rgba(239,68,59,.13)"><div><div class="stat-label">Vắng mặt</div><div class="stat-value">8 <small>người (16.7%)</small></div></div><div class="stat-icon"><svg class="icon"><use href="#i-user-x"/></svg></div><div class="stat-desc">Chưa chấm công trong ngày</div></article>
+      </section>
+
+      <section class="middle">
+        <article class="panel glass-card">
+          <div class="panel-head"><h2 class="panel-title">Chấm công hôm nay</h2><select class="select" aria-label="Khoảng thời gian"><option>Theo giờ</option><option>Theo ca</option></select></div>
+          <svg class="chart" viewBox="0 0 650 230" role="img" aria-label="Biểu đồ số nhân viên có mặt trong ngày">
+            <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4b98ff" stop-opacity=".28"/><stop offset="1" stop-color="#4b98ff" stop-opacity=".02"/></linearGradient></defs>
+            <g><line class="grid-line" x1="42" y1="28" x2="628" y2="28"/><line class="grid-line" x1="42" y1="70" x2="628" y2="70"/><line class="grid-line" x1="42" y1="112" x2="628" y2="112"/><line class="grid-line" x1="42" y1="154" x2="628" y2="154"/><line class="grid-line" x1="42" y1="196" x2="628" y2="196"/></g>
+            <g class="axis-label"><text x="11" y="32">40</text><text x="11" y="74">30</text><text x="11" y="116">20</text><text x="11" y="158">10</text><text x="19" y="200">0</text><text x="42" y="220">00:00</text><text x="173" y="220">06:00</text><text x="315" y="220">12:00</text><text x="455" y="220">18:00</text><text x="594" y="220">24:00</text></g>
+            <path class="chart-area" d="M42 196 C82 196 94 193 115 181 S151 138 178 116 S212 76 242 63 S285 45 320 39 S384 34 429 34 S495 43 535 61 S585 78 628 91 L628 196 L42 196Z"/>
+            <path class="chart-line" d="M42 196 C82 196 94 193 115 181 S151 138 178 116 S212 76 242 63 S285 45 320 39 S384 34 429 34 S495 43 535 61 S585 78 628 91"/>
+            <g><circle class="chart-dot" cx="42" cy="196" r="3"/><circle class="chart-dot" cx="178" cy="116" r="4"/><circle class="chart-dot" cx="242" cy="63" r="4"/><circle class="chart-dot" cx="320" cy="39" r="5"/><circle class="chart-dot" cx="429" cy="34" r="4"/><circle class="chart-dot" cx="535" cy="61" r="4"/><circle class="chart-dot" cx="628" cy="91" r="4"/></g>
+            <g class="tooltip-box"><rect x="291" y="53" width="96" height="55" rx="9" fill="white"/><text x="304" y="74" fill="#071c49" font-size="11" font-weight="600">10:00</text><text x="304" y="95" fill="#496186" font-size="11">Có mặt: </text><text x="354" y="95" fill="#0867f2" font-size="13" font-weight="700">32</text></g>
+          </svg>
+        </article>
+
+        <article class="panel glass-card requests">
+          <div class="panel-head"><h2 class="panel-title">Đơn chờ duyệt</h2><button class="view-all">Xem tất cả →</button></div>
+          <div class="request-row"><span class="request-icon" style="--tone:#0867f2;--tone-soft:#e5efff"><svg class="icon"><use href="#i-file"/></svg></span><span class="request-copy"><strong>Nguyễn Văn An</strong>Xin nghỉ phép</span><span class="request-date">25/08/2026</span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Chờ duyệt</span></div>
+          <div class="request-row"><span class="request-icon" style="--tone:#7657ed;--tone-soft:#eee9ff"><svg class="icon"><use href="#i-clock"/></svg></span><span class="request-copy"><strong>Trần Thị Bích Ngọc</strong>Xin đi muộn</span><span class="request-date">25/08/2026</span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Chờ duyệt</span></div>
+          <div class="request-row"><span class="request-icon" style="--tone:#0aa461;--tone-soft:#e2f7ed"><svg class="icon"><use href="#i-calendar"/></svg></span><span class="request-copy"><strong>Lê Minh Hoàng</strong>Xin nghỉ phép</span><span class="request-date">24/08/2026</span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Chờ duyệt</span></div>
+          <div class="request-row"><span class="request-icon" style="--tone:#ff8605;--tone-soft:#fff0dc"><svg class="icon"><use href="#i-clock"/></svg></span><span class="request-copy"><strong>Phạm Thu Hà</strong>Xin về sớm</span><span class="request-date">24/08/2026</span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Chờ duyệt</span></div>
+        </article>
+      </section>
+
+      <section class="panel glass-card table-panel">
+        <div class="table-toolbar"><h2 class="panel-title">Bảng chấm công hôm nay</h2><div class="search-wrap"><svg class="icon"><use href="#i-search"/></svg><input id="employeeSearch" class="search" type="search" placeholder="Tìm kiếm nhân viên..." aria-label="Tìm nhân viên"/></div><select class="select" aria-label="Phòng ban"><option>Tất cả phòng ban</option><option>Kinh doanh</option><option>Nhân sự</option><option>IT</option></select><select id="statusFilter" class="select" aria-label="Trạng thái"><option value="all">Tất cả trạng thái</option><option value="present">Có mặt</option><option value="late">Đi muộn</option><option value="absent">Vắng mặt</option></select></div>
+        <div class="table-scroll"><table><thead><tr><th>STT</th><th>Mã nhân viên</th><th>Họ và tên</th><th>Phòng ban</th><th>Ca làm việc</th><th>Giờ vào</th><th>Giờ ra</th><th>Tổng giờ</th><th>Trạng thái</th></tr></thead><tbody id="employeeRows">
+          <tr data-name="nguyễn văn an" data-status="present"><td>1</td><td>NV0001</td><td>Nguyễn Văn An</td><td>Phòng Kinh doanh</td><td>Ca sáng (08:00 - 17:00)</td><td class="time-ok">07:58</td><td class="time-ok">17:02</td><td>9h 04m</td><td><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">◉ Có mặt</span></td></tr>
+          <tr data-name="trần thị bích ngọc" data-status="late"><td>2</td><td>NV0002</td><td>Trần Thị Bích Ngọc</td><td>Phòng Nhân sự</td><td>Ca sáng (08:00 - 17:00)</td><td class="time-late">08:15</td><td class="time-ok">17:03</td><td>8h 48m</td><td><span class="status" style="--tone:#e87500;--tone-soft:#fff0dc">◷ Đi muộn</span></td></tr>
+          <tr data-name="lê minh hoàng" data-status="present"><td>3</td><td>NV0003</td><td>Lê Minh Hoàng</td><td>Phòng IT</td><td>Ca sáng (08:00 - 17:00)</td><td class="time-ok">07:45</td><td class="time-ok">16:47</td><td>9h 02m</td><td><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">◉ Có mặt</span></td></tr>
+          <tr data-name="phạm thu hà" data-status="late"><td>4</td><td>NV0004</td><td>Phạm Thu Hà</td><td>Phòng Kế toán</td><td>Ca sáng (08:00 - 17:00)</td><td class="time-ok">08:05</td><td class="time-bad">16:30</td><td>8h 25m</td><td><span class="status" style="--tone:#e87500;--tone-soft:#fff0dc">◷ Về sớm</span></td></tr>
+          <tr data-name="hoàng quốc dũng" data-status="absent"><td>5</td><td>NV0005</td><td>Hoàng Quốc Dũng</td><td>Phòng Kinh doanh</td><td>Ca sáng (08:00 - 17:00)</td><td>—</td><td>—</td><td>—</td><td><span class="status" style="--tone:#df3931;--tone-soft:#ffe4e2">⊗ Vắng mặt</span></td></tr>
+        </tbody></table></div>
+        <div class="table-footer"><span id="resultCount">Hiển thị 5 nhân viên</span><div class="pages"><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">4</button><button class="page-btn">5</button></div></div>
+      </section>
+      </div>
+      <section class="feature-page" id="featurePage" aria-live="polite"></section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Điều hướng di động"><button class="active" data-page="dashboard" data-title="Tổng quan"><svg class="icon"><use href="#i-home"/></svg>Tổng quan</button><button data-page="checkin" data-title="Chấm công"><svg class="icon"><use href="#i-clock"/></svg>Chấm công</button><button data-page="requests" data-title="Đơn từ"><svg class="icon"><use href="#i-file"/></svg>Đơn từ</button><button data-page="reports" data-title="Bảng công"><svg class="icon"><use href="#i-chart"/></svg>Bảng công</button><button data-page="profile" data-title="Cá nhân"><svg class="icon"><use href="#i-users"/></svg>Cá nhân</button></nav>
+  <div class="toast-demo" id="demoToast">✓ <span>Đã cập nhật thao tác demo</span></div>
+
+  <script>
+    const app = document.getElementById('app');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const search = document.getElementById('employeeSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const rows = [...document.querySelectorAll('#employeeRows tr')];
+    const resultCount = document.getElementById('resultCount');
+    const dashboardPage = document.getElementById('dashboardPage');
+    const featurePage = document.getElementById('featurePage');
+    const pageTitle = document.getElementById('pageTitle');
+    const demoToast = document.getElementById('demoToast');
+    let checkinState = false;
+
+    collapseBtn.addEventListener('click', () => {
+      const collapsed = app.classList.toggle('is-collapsed');
+      collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+      collapseBtn.querySelector('svg').style.transform = collapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+    });
+
+    function filterRows() {
+      const term = search.value.trim().toLocaleLowerCase('vi');
+      const status = statusFilter.value;
+      let visible = 0;
+      rows.forEach((row) => {
+        const matchesName = row.dataset.name.includes(term);
+        const matchesStatus = status === 'all' || row.dataset.status === status;
+        row.hidden = !(matchesName && matchesStatus);
+        if (!row.hidden) visible += 1;
+      });
+      resultCount.textContent = `Hiển thị ${visible} nhân viên`;
+    }
+    search.addEventListener('input', filterRows);
+    statusFilter.addEventListener('change', filterRows);
+
+    const icon = (id) => `<svg class="icon"><use href="#${id}"/></svg>`;
+    const header = (title, desc, action = '') => `<div class="feature-header"><div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`;
+    const person = (initials, name, meta, status, tone = '#078f57', soft = '#dff5e9') => `<div class="mini-row"><div class="avatar-name"><span class="avatar-sm">${initials}</span><span><strong>${name}</strong><small class="muted" style="display:block">${meta}</small></span></div><span class="status" style="--tone:${tone};--tone-soft:${soft}">${status}</span></div>`;
+    const miniMetric = (label, value, note, color) => `<article class="demo-card glass-card span-3"><div class="muted" style="font-size:12px">${label}</div><div class="metric" style="color:${color}">${value}</div><small class="muted">${note}</small></article>`;
+
+    const pages = {
+      checkin: () => `${header('Chấm công','GPS và thiết bị được kiểm tra trước khi ghi nhận ca làm việc.')}
+        <div class="feature-grid">
+          <article class="demo-card glass-card span-8 checkin-hero">
+            <small class="muted">Thứ Ba, 25 tháng 8 năm 2026</small><div class="live-clock" id="liveClock">08:27:42</div>
+            <div class="gps-pill">${icon('i-check')} GPS đã sẵn sàng · Văn phòng ET cách 32 m</div>
+            <button class="primary-btn checkin-main-btn" data-action="checkin">${checkinState ? 'CHẤM CÔNG RA' : 'CHẤM CÔNG VÀO'}</button>
+            <small class="muted" style="margin-top:12px">Thiết bị chính đã được xác thực · Độ chính xác GPS 12 m</small>
+          </article>
+          <article class="demo-card glass-card span-4"><h3>Ca làm việc hôm nay</h3><div class="timeline"><div class="timeline-row"><span class="timeline-dot"></span><strong>08:00</strong><span>Bắt đầu ca sáng</span></div><div class="timeline-row"><span class="timeline-dot" style="background:#b8c5d7"></span><strong>12:00</strong><span>Kết thúc ca sáng</span></div><div class="timeline-row"><span class="timeline-dot" style="background:#b8c5d7"></span><strong>13:30</strong><span>Bắt đầu ca chiều</span></div><div class="timeline-row"><span class="timeline-dot" style="background:#b8c5d7"></span><strong>17:30</strong><span>Kết thúc ngày làm việc</span></div></div></article>
+          <article class="demo-card glass-card span-4"><h3>Địa điểm làm việc</h3><div class="segmented" style="width:100%"><button class="active">Văn phòng</button><button>Công trình</button><button>WFH</button></div><p class="muted" style="font-size:12px">Chọn loại địa điểm trước khi chấm công. GPS luôn được ghi nhận.</p></article>
+          <article class="demo-card glass-card span-4"><h3>Dự án hôm nay</h3><div class="mini-row"><span><strong>ET Riverside</strong><small class="muted" style="display:block">Phụ trách hiện trường</small></span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Đang chạy</span></div></article>
+          <article class="demo-card glass-card span-4"><h3>Thiết bị</h3><div class="mini-row"><span><strong>Chrome · Windows</strong><small class="muted" style="display:block">Thiết bị chính chủ</small></span><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Tin cậy</span></div></article>
+        </div>`,
+
+      history: () => `${header('Lịch sử chấm công','Theo dõi ca làm việc, vị trí và các lần điều chỉnh trong tháng.','<button class="secondary-btn" data-action="export">↓ Xuất lịch sử</button>')}
+        <div class="feature-grid">
+          <article class="demo-card glass-card span-5"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Tháng 08/2026</h3><div class="segmented"><button>‹</button><button>›</button></div></div><div class="calendar-grid"><span class="head">T2</span><span class="head">T3</span><span class="head">T4</span><span class="head">T5</span><span class="head">T6</span><span class="head">T7</span><span class="head">CN</span>${Array.from({length:31},(_,i)=>`<span class="${i+1===25?'today':i%7===1?'late':i%7<5?'worked':''}">${i+1}</span>`).join('')}</div></article>
+          <article class="demo-card glass-card span-7"><h3>Chi tiết ngày 25/08</h3><div class="timeline"><div class="timeline-row"><span class="timeline-dot"></span><strong>07:58</strong><span><b>Chấm công vào</b><small class="muted" style="display:block">Văn phòng ET · GPS 18 m</small></span></div><div class="timeline-row"><span class="timeline-dot"></span><strong>12:02</strong><span><b>Kết thúc ca sáng</b><small class="muted" style="display:block">Tổng thời gian 4h 04m</small></span></div><div class="timeline-row"><span class="timeline-dot"></span><strong>13:27</strong><span><b>Chấm công vào</b><small class="muted" style="display:block">Văn phòng ET · GPS 22 m</small></span></div></div><button class="secondary-btn" data-action="correction">Yêu cầu điều chỉnh giờ</button></article>
+          ${miniMetric('Ngày công','18.5','Trong tháng này','#0867f2')}${miniMetric('Đi muộn','2','Giảm 1 lần so tháng trước','#ff8605')}${miniMetric('Tổng giờ','151h','Trung bình 8h 10m/ngày','#0aa461')}${miniMetric('OT','6.5h','Đã được duyệt','#7657ed')}
+        </div>`,
+
+      requests: () => `${header('Đơn từ','Tạo, theo dõi và duyệt các yêu cầu nghỉ phép, đi muộn, OT.','<button class="primary-btn" data-action="new-request">＋ Tạo đơn mới</button>')}
+        <div class="segmented" style="margin-bottom:16px"><button class="active">Chờ duyệt 5</button><button>Đã duyệt</button><button>Từ chối</button><button>Tất cả</button></div>
+        <div class="feature-grid"><article class="demo-card glass-card span-8"><h3>Đơn đang chờ xử lý</h3><div class="mini-list" id="approvalList">
+          ${person('NA','Nguyễn Văn An','Nghỉ phép · 27–28/08','Chờ duyệt','#0867f2','#e4eeff')}
+          ${person('BN','Trần Thị Bích Ngọc','Đi muộn · 26/08','Chờ duyệt','#0867f2','#e4eeff')}
+          ${person('MH','Lê Minh Hoàng','Làm thêm giờ · 25/08','Chờ duyệt','#0867f2','#e4eeff')}
+        </div></article><article class="demo-card glass-card span-4"><h3>Chi tiết yêu cầu</h3><p><strong>Nguyễn Văn An</strong></p><p class="muted">Xin nghỉ phép 2 ngày vì lý do gia đình. Số dư phép sau duyệt: 7 ngày.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px"><button class="danger-btn" data-action="reject">Từ chối</button><button class="primary-btn" data-action="approve">Duyệt đơn</button></div></article></div>`,
+
+      reports: () => `${header('Bảng công & Báo cáo','Tổng hợp ngày công, giờ làm và xuất dữ liệu phục vụ tính lương.','<button class="primary-btn" data-action="export">↓ Xuất Excel</button>')}
+        <div class="feature-grid">${miniMetric('Tổng ngày công','874','Toàn công ty','#0867f2')}${miniMetric('Giờ làm','7.126h','Trong tháng 08','#0aa461')}${miniMetric('Đi muộn','42','Giảm 8%','#ff8605')}${miniMetric('OT đã duyệt','116h','32 nhân viên','#7657ed')}
+          <article class="demo-card glass-card span-8"><h3>Xu hướng chuyên cần 6 tháng</h3><svg class="chart" viewBox="0 0 650 220" role="img" aria-label="Biểu đồ xu hướng"><g><line class="grid-line" x1="40" y1="30" x2="630" y2="30"/><line class="grid-line" x1="40" y1="90" x2="630" y2="90"/><line class="grid-line" x1="40" y1="150" x2="630" y2="150"/></g><path class="chart-area" d="M50 150L150 125L250 132L350 88L450 72L550 48L620 56V190H50Z"/><path class="chart-line" d="M50 150L150 125L250 132L350 88L450 72L550 48L620 56"/><g class="axis-label"><text x="40" y="210">T3</text><text x="145" y="210">T4</text><text x="245" y="210">T5</text><text x="345" y="210">T6</text><text x="445" y="210">T7</text><text x="545" y="210">T8</text></g></svg></article>
+          <article class="demo-card glass-card span-4"><h3>Phân bổ ngày công</h3><div class="mini-list"><div><div style="display:flex;justify-content:space-between"><span>Đủ công</span><b>78%</b></div><div class="progress-track"><div class="progress-fill" style="width:78%"></div></div></div><div><div style="display:flex;justify-content:space-between"><span>Nghỉ phép</span><b>12%</b></div><div class="progress-track"><div class="progress-fill" style="width:12%;background:#0aa461"></div></div></div><div><div style="display:flex;justify-content:space-between"><span>Thiếu công</span><b>10%</b></div><div class="progress-track"><div class="progress-fill" style="width:10%;background:#ff8605"></div></div></div></div></article>
+        </div>`,
+
+      projects: () => `${header('Dự án & Công trình','Theo dõi tiến độ và đội ngũ phụ trách tại từng công trình.','<button class="primary-btn" data-action="new-project">＋ Thêm dự án</button>')}<div class="feature-grid">
+        ${[['ET Riverside','68%','15 thành viên','#0867f2'],['Văn phòng Quận 7','42%','8 thành viên','#7657ed'],['Kho vận Long An','86%','12 thành viên','#0aa461']].map(p=>`<article class="demo-card glass-card span-4 project-card" style="--project:${p[3]}"><div style="display:flex;justify-content:space-between"><h3>${p[0]}</h3><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Đang chạy</span></div><p class="muted">PM: Nguyễn Văn Học</p><div class="project-meta"><span>${p[2]}</span><span>·</span><span>Deadline 30/09/2026</span></div><div class="progress-track"><div class="progress-fill" style="width:${p[1]};background:${p[3]}"></div></div><div style="margin-top:8px;text-align:right"><b>${p[1]}</b></div></article>`).join('')}
+        <article class="demo-card glass-card span-12"><h3>Công việc sắp đến hạn</h3><div class="mini-list">${person('HA','Hoàn thiện tầng 5','ET Riverside · Hạn 28/08','3 ngày','#ff8605','#fff0dc')}${person('NT','Nghiệm thu điện','Văn phòng Quận 7 · Hạn 30/08','5 ngày','#0867f2','#e4eeff')}</div></article></div>`,
+
+      expenses: () => `${header('Chi tiêu & Hoàn ứng','Tổng hợp chi phí công tác và trạng thái hoàn ứng.','<button class="primary-btn" data-action="new-expense">＋ Thêm khoản chi</button>')}<div class="feature-grid">${miniMetric('Tổng chi tháng','84,6tr','+12% so tháng trước','#0867f2')}${miniMetric('Chờ duyệt','12,8tr','6 khoản chi','#ff8605')}${miniMetric('Đã hoàn ứng','61,2tr','24 hồ sơ','#0aa461')}${miniMetric('Tạm ứng','10,6tr','3 nhân viên','#7657ed')}<article class="demo-card glass-card span-8"><h3>Khoản chi gần đây</h3><div class="mini-list">${person('NA','Tiếp khách dự án Riverside','2.450.000đ · 24/08','Đã duyệt')}${person('MH','Vật tư công trình','6.820.000đ · 23/08','Chờ duyệt','#ff8605','#fff0dc')}${person('TH','Công tác phí Long An','1.200.000đ · 22/08','Đã hoàn ứng')}</div></article><article class="demo-card glass-card span-4"><h3>Chi theo nhóm</h3><div class="mini-list"><div>Vật tư <b style="float:right">46%</b></div><div>Đi lại <b style="float:right">24%</b></div><div>Tiếp khách <b style="float:right">18%</b></div><div>Khác <b style="float:right">12%</b></div></div></article></div>`,
+
+      vehicles: () => `${header('Phương tiện gửi xe','Danh sách phương tiện đăng ký của nhân viên.','<button class="primary-btn" data-action="new-vehicle">＋ Đăng ký xe</button>')}<div class="feature-grid">${miniMetric('Tổng phương tiện','38','Đang hoạt động','#0867f2')}${miniMetric('Xe máy','31','81.6%','#0aa461')}${miniMetric('Ô tô','7','18.4%','#7657ed')}<article class="demo-card glass-card span-12"><h3>Danh sách phương tiện</h3><div class="mini-list">${person('NA','Nguyễn Văn An','Honda SH · 59A3-123.45','Đã xác nhận')}${person('BN','Trần Thị Bích Ngọc','VinFast VF5 · 51K-888.26','Đã xác nhận')}${person('MH','Lê Minh Hoàng','Yamaha NVX · 59X2-456.78','Chờ duyệt','#ff8605','#fff0dc')}</div></article></div>`,
+
+      leaderboard: () => `${header('Bảng xếp hạng chuyên cần','Ghi nhận những thành viên duy trì giờ giấc và ngày công tốt.')}<div class="segmented" style="margin-bottom:16px"><button>Hôm nay</button><button>Tuần</button><button class="active">Tháng</button></div><div class="feature-grid"><article class="demo-card glass-card span-8"><h3>Top chuyên cần tháng 8</h3><div class="mini-list">${person('1','Lê Minh Hoàng','22 ngày đúng giờ · 176h','1.280 điểm','#7657ed','#eee9ff')}${person('2','Nguyễn Văn An','21 ngày đúng giờ · 172h','1.190 điểm','#0867f2','#e4eeff')}${person('3','Trần Thị Mai','20 ngày đúng giờ · 168h','1.080 điểm','#ff8605','#fff0dc')}${person('4','Hoàng Văn Dũng','19 ngày đúng giờ · 164h','980 điểm')}</div></article><article class="demo-card glass-card span-4"><h3>Thành tích của bạn</h3><div style="text-align:center;padding:20px"><div class="avatar-sm" style="width:76px;height:76px;margin:auto;font-size:22px">NH</div><div class="metric" style="margin-top:12px">#2</div><p class="muted">Tăng 3 hạng so với tháng trước</p><div class="progress-track"><div class="progress-fill" style="width:82%"></div></div></div></article></div>`,
+
+      staff: () => `${header('Quản lý nhân viên','Thông tin nhân sự, phòng ban và thiết bị chấm công chính.','<button class="primary-btn" data-action="new-staff">＋ Thêm nhân viên</button>')}<div class="feature-grid">${miniMetric('Đang làm việc','48','3 phòng ban','#0867f2')}${miniMetric('Thiết bị tin cậy','43','89.6%','#0aa461')}${miniMetric('Cần xác minh','5','Thiết bị hoặc selfie','#ff8605')}<article class="demo-card glass-card span-12"><div style="display:flex;gap:10px;margin-bottom:14px"><div class="search-wrap" style="width:300px;max-width:100%"><svg class="icon"><use href="#i-search"/></svg><input class="search" placeholder="Tìm nhân viên..."></div></div><div class="mini-list">${person('NA','Nguyễn Văn An','Kinh doanh · NV0001','Đang làm')}${person('BN','Trần Thị Bích Ngọc','Nhân sự · NV0002','Đang làm')}${person('MH','Lê Minh Hoàng','IT · NV0003','Thiết bị lạ','#ff8605','#fff0dc')}${person('TH','Phạm Thu Hà','Kế toán · NV0004','Nghỉ phép','#7657ed','#eee9ff')}</div></article></div>`,
+
+      notifications: () => `${header('Trung tâm thông báo','Thông báo hệ thống, đơn từ và cảnh báo chấm công theo thời gian thực.','<button class="secondary-btn" data-action="read-all">Đánh dấu đã đọc</button>')}<div class="feature-grid"><article class="demo-card glass-card span-8"><div class="mini-list">${person('!','Thiết bị lạ cần xác minh','Lê Minh Hoàng vừa chấm công · 5 phút trước','Mới','#ef443b','#ffe4e2')}${person('Đ','Đơn nghỉ phép mới','Nguyễn Văn An · 18 phút trước','Mới','#0867f2','#e4eeff')}${person('✓','Đã chốt công tháng 07','Thực hiện bởi Admin · Hôm qua','Hệ thống','#0aa461','#dff5e9')}${person('📢','Thông báo lịch nghỉ lễ','Áp dụng toàn công ty · 2 ngày trước','Nội bộ','#7657ed','#eee9ff')}</div></article><article class="demo-card glass-card span-4"><h3>Tùy chọn nhận tin</h3><div class="switch-row"><span>Cảnh báo thiết bị</span><button class="switch on"></button></div><div class="switch-row"><span>Đơn từ mới</span><button class="switch on"></button></div><div class="switch-row"><span>Sinh nhật</span><button class="switch"></button></div></article></div>`,
+
+      settings: () => `${header('Cài đặt hệ thống','Cấu hình công ty, ca làm việc, GPS và quy tắc chấm công.','<button class="primary-btn" data-action="save">Lưu thay đổi</button>')}<div class="feature-grid"><article class="demo-card glass-card span-7"><h3>Thông tin công ty</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div class="form-row"><label>Tên công ty</label><input class="field" value="ET Office"></div><div class="form-row"><label>Múi giờ</label><select class="field"><option>Asia/Ho_Chi_Minh</option></select></div><div class="form-row"><label>Giờ bắt đầu</label><input class="field" type="time" value="08:00"></div><div class="form-row"><label>Giờ kết thúc</label><input class="field" type="time" value="17:30"></div></div></article><article class="demo-card glass-card span-5"><h3>Quy tắc chấm công</h3><div class="switch-row"><span>Bắt buộc GPS</span><button class="switch on"></button></div><div class="switch-row"><span>Xác thực thiết bị</span><button class="switch on"></button></div><div class="switch-row"><span>Selfie khi nghi vấn</span><button class="switch on"></button></div><div class="switch-row"><span>Cho phép WFH</span><button class="switch"></button></div></article><article class="demo-card glass-card span-12"><h3>Vị trí văn phòng</h3><div class="mini-row"><span><strong>Văn phòng ET — Quận 7</strong><small class="muted" style="display:block">Bán kính cho phép: 150 m</small></span><button class="secondary-btn" data-action="edit-location">Chỉnh sửa</button></div></article></div>`,
+
+      profile: () => `${header('Thông tin cá nhân','Quản lý hồ sơ, mật khẩu, phương tiện và thiết bị của bạn.')}<div class="feature-grid"><article class="demo-card glass-card span-4" style="text-align:center"><div class="avatar-sm" style="width:90px;height:90px;margin:auto;font-size:25px">NH</div><h2 style="margin:14px 0 4px">Nguyễn Văn Học</h2><p class="muted">Quản trị viên · Phòng IT</p><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Đang hoạt động</span></article><article class="demo-card glass-card span-8"><h3>Thông tin liên hệ</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div class="form-row"><label>Họ và tên</label><input class="field" value="Nguyễn Văn Học"></div><div class="form-row"><label>Mã nhân viên</label><input class="field" value="NV0001" disabled></div><div class="form-row"><label>Email</label><input class="field" value="hoc@etoffice.vn"></div><div class="form-row"><label>Số điện thoại</label><input class="field" value="090 123 4567"></div></div><button class="primary-btn" data-action="save" style="margin-top:16px">Lưu hồ sơ</button></article><article class="demo-card glass-card span-6"><h3>Thiết bị chính</h3><div class="mini-row"><span><strong>Chrome · Windows 11</strong><small class="muted" style="display:block">Hoạt động 5 phút trước</small></span><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Tin cậy</span></div></article><article class="demo-card glass-card span-6"><h3>Phương tiện</h3><div class="mini-row"><span><strong>Honda SH · 59A3-123.45</strong><small class="muted" style="display:block">Xe máy</small></span><button class="secondary-btn" data-action="edit-vehicle">Chỉnh sửa</button></div></article></div>`
+    };
+
+    function showToast(message) {
+      demoToast.querySelector('span').textContent = message;
+      demoToast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => demoToast.classList.remove('show'), 2200);
+    }
+
+    function renderPage(page, title) {
+      pageTitle.textContent = title || 'Tổng quan';
+      const dashboard = page === 'dashboard';
+      dashboardPage.classList.toggle('is-hidden', !dashboard);
+      featurePage.classList.toggle('active', !dashboard);
+      if (!dashboard) featurePage.innerHTML = pages[page] ? pages[page]() : header(title, 'Màn hình đang được hoàn thiện.');
+      window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    }
+
+    document.querySelectorAll('[data-page]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const page = button.dataset.page;
+        document.querySelectorAll(`[data-page="${page}"]`).forEach(item => item.classList.add('active'));
+        document.querySelectorAll('[data-page]').forEach(item => { if (item.dataset.page !== page) item.classList.remove('active'); });
+        renderPage(page, button.dataset.title);
+      });
+    });
+
+    featurePage.addEventListener('click', (event) => {
+      const switchButton = event.target.closest('.switch');
+      if (switchButton) { switchButton.classList.toggle('on'); showToast('Đã cập nhật tùy chọn'); return; }
+      const segment = event.target.closest('.segmented button');
+      if (segment) { segment.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active')); segment.classList.add('active'); return; }
+      const action = event.target.closest('[data-action]');
+      if (!action) return;
+      if (action.dataset.action === 'checkin') {
+        checkinState = !checkinState;
+        action.textContent = checkinState ? 'CHẤM CÔNG RA' : 'CHẤM CÔNG VÀO';
+        showToast(checkinState ? 'Chấm công vào thành công lúc 08:27' : 'Chấm công ra thành công lúc 17:32');
+      } else if (action.dataset.action === 'approve') {
+        showToast('Đã duyệt đơn của Nguyễn Văn An');
+        action.textContent = 'Đã duyệt'; action.disabled = true;
+      } else if (action.dataset.action === 'reject') {
+        showToast('Đã chuyển đơn sang trạng thái từ chối');
+      } else if (action.dataset.action === 'export') {
+        showToast('Đã tạo file xuất dữ liệu demo');
+      } else if (action.dataset.action === 'read-all') {
+        showToast('Đã đánh dấu tất cả là đã đọc');
+      } else if (action.dataset.action === 'save') {
+        showToast('Đã lưu thay đổi demo');
+      } else {
+        showToast('Đã mở biểu mẫu thao tác demo');
+      }
+    });
+
+    setInterval(() => {
+      const clock = document.getElementById('liveClock');
+      if (clock) clock.textContent = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+    }, 1000);
+  </script>
+</body>
+</html>

@@ -1332,14 +1332,16 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Appreciation Note */}
-            <div style={{
-              background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
-              border: '1px dashed var(--primary)', fontSize: '13px', color: 'var(--text)',
-              lineHeight: 1.6, marginBottom: '20px'
-            }}>
-              🌟 <strong>Ban Giám Đốc và Đại Gia Đình ET Architects</strong> xin gửi lời tri ân chân thành nhất tới những đóng góp bền bỉ, tâm huyết và tinh thần trách nhiệm của <strong>{selectedAnniversary.full_name}</strong> trong suốt chặng đường phát triển của công ty!
-            </div>
+            {/* Appreciation Note (Only display if custom message is provided) */}
+            {(selectedAnniversary.custom_message || selectedAnniversary.message) && (
+              <div style={{
+                background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '12px',
+                border: '1px dashed var(--primary)', fontSize: '13px', color: 'var(--text)',
+                lineHeight: 1.6, marginBottom: '20px'
+              }}>
+                🌟 {selectedAnniversary.custom_message || selectedAnniversary.message}
+              </div>
+            )}
 
             <button
               onClick={() => setSelectedAnniversary(null)}
