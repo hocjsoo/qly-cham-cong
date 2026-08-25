@@ -600,30 +600,6 @@ export default function CheckInPage() {
                 </div>
               )}
 
-              {/* Distance warning khi chọn office nhưng ngoài range */}
-              {!isCheckedIn && !isOutsideOffice && isInOfficeRange === false && (
-                <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--yellow-soft)', border: '1px solid var(--yellow)' }}>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                    <AlertTriangle size={20} color="var(--yellow)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, color: 'var(--yellow)', marginBottom: '4px' }}>
-                        Ngoài bán kính văn phòng ({distanceFromOffice}m/{targetOffice?.radius_m || 250}m)
-                      </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: 1.5 }}>
-                        Bạn đang cách {targetOffice?.name || 'văn phòng'} {distanceFromOffice}m. Vui lòng chuyển sang tích chọn <strong>Chấm công ngoài văn phòng</strong> để ghi nhận vị trí thực tế và nộp đơn giải trình.
-                      </div>
-                      <button
-                        onClick={() => setIsOutsideOffice(true)}
-                        className="btn btn--primary"
-                        style={{ fontSize: '11px', padding: '6px 12px' }}
-                      >
-                        💼 Chuyển chấm công ngoài văn phòng
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Check-In Form */}
               {!isCheckedIn ? (
                 <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
