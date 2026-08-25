@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,
-  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone
+  MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone,
+  Calendar, Edit3, Save, Trash2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
@@ -66,6 +67,8 @@ export default function DashboardPage() {
   const [holidays, setHolidays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [editExpiryDate, setEditExpiryDate] = useState('');
+  const [savingExpiry, setSavingExpiry] = useState(false);
   const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
@@ -188,6 +191,82 @@ export default function DashboardPage() {
     }).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
+
+  // Sync editExpiryDate whenever selectedAnnouncement changes
+  useEffect(() => {
+    if (selectedAnnouncement) {
+      if (selectedAnnouncement.expires_at) {
+        const d = new Date(selectedAnnouncement.expires_at);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const hours = String(d.getHours()).padStart(2, '0');
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        setEditExpiryDate(`${year}-${month}-${day}T${hours}:${mins}`);
+      } else {
+        setEditExpiryDate('');
+      }
+    }
+  }, [selectedAnnouncement]);
+
+  const handleSetExpiryPreset = (days) => {
+    if (days === null) {
+      setEditExpiryDate('');
+      return;
+    }
+    const target = new Date();
+    if (days === 'end_of_month') {
+      const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0);
+      target.setFullYear(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate());
+      target.setHours(23, 59, 0, 0);
+    } else {
+      target.setDate(target.getDate() + Number(days));
+      target.setHours(23, 59, 0, 0);
+    }
+    const year = target.getFullYear();
+    const month = String(target.getMonth() + 1).padStart(2, '0');
+    const day = String(target.getDate()).padStart(2, '0');
+    const hours = String(target.getHours()).padStart(2, '0');
+    const mins = String(target.getMinutes()).padStart(2, '0');
+    setEditExpiryDate(`${year}-${month}-${day}T${hours}:${mins}`);
+  };
+
+  const handleSaveAnnouncementExpiry = async () => {
+    if (!selectedAnnouncement) return;
+    setSavingExpiry(true);
+    try {
+      const payload = {
+        expires_at: editExpiryDate ? new Date(editExpiryDate).toISOString() : null,
+      };
+      await api.put(`/announcements/${selectedAnnouncement._id}`, payload);
+      toast.success('Đã cập nhật thời gian hiển thị thông báo thành công! ✅');
+      
+      setAnnouncements(prev => prev.map(a => a._id === selectedAnnouncement._id ? { ...a, expires_at: payload.expires_at } : a));
+      setSelectedAnnouncement(prev => prev ? { ...prev, expires_at: payload.expires_at } : null);
+    } catch (err) {
+      console.error('Update expiry error:', err);
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật thời gian hiển thị');
+    } finally {
+      setSavingExpiry(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async () => {
+    if (!selectedAnnouncement) return;
+    if (!window.confirm('Bạn có chắc chắn muốn gỡ thông báo này khỏi Bảng tin không?')) return;
+    setSavingExpiry(true);
+    try {
+      await api.delete(`/announcements/${selectedAnnouncement._id}`);
+      toast.success('Đã gỡ thông báo thành công! ✅');
+      setAnnouncements(prev => prev.filter(a => a._id !== selectedAnnouncement._id));
+      setSelectedAnnouncement(null);
+    } catch (err) {
+      console.error('Delete announcement error:', err);
+      toast.error('Lỗi gỡ thông báo');
+    } finally {
+      setSavingExpiry(false);
+    }
+  };
 
   const s = data?.summary || {};
   const staff = data?.staff || [];
@@ -363,11 +442,23 @@ export default function DashboardPage() {
                   }}
                   className="card--interactive"
                 >
-                  <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>📌 {ann.title}</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                      Xem chi tiết →
-                    </span>
+                  <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📌 {ann.title}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {ann.expires_at && (
+                        <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          ⏳ Hiện đến: {new Date(ann.expires_at).toLocaleDateString('vi-VN')}
+                        </span>
+                      )}
+                      {user?.role === 'admin' && (
+                        <span style={{ fontSize: '10.5px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                          ✏️ Sửa thời hạn
+                        </span>
+                      )}
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        Xem chi tiết →
+                      </span>
+                    </div>
                   </div>
                   <div style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {ann.content}
@@ -1466,18 +1557,131 @@ export default function DashboardPage() {
             <div style={{
               background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
               border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
-              lineHeight: 1.7, whiteSpace: 'pre-line', marginBottom: '22px',
-              maxHeight: '380px', overflowY: 'auto'
+              lineHeight: 1.7, whiteSpace: 'pre-line', marginBottom: '16px',
+              maxHeight: '340px', overflowY: 'auto'
             }}>
               {selectedAnnouncement.content}
             </div>
 
+            {/* Current Display Validity Info */}
+            <div style={{
+              background: selectedAnnouncement.expires_at ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-raised)',
+              border: '1px solid var(--border)',
+              padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', fontSize: '12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={15} color="var(--primary)" />
+                <span style={{ color: 'var(--text-muted)' }}>Thời hạn hiển thị:</span>
+                <strong style={{ color: 'var(--text)' }}>
+                  {selectedAnnouncement.expires_at
+                    ? `Đến ${new Date(selectedAnnouncement.expires_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} ngày ${new Date(selectedAnnouncement.expires_at).toLocaleDateString('vi-VN')}`
+                    : '♾️ Ghim liên tục (Không giới hạn)'}
+                </strong>
+              </div>
+            </div>
+
+            {/* Admin Interactive Expiry Editor Section */}
+            {user?.role === 'admin' && (
+              <div style={{
+                background: 'var(--bg-card)', padding: '14px 16px', borderRadius: '14px',
+                border: '1.5px solid var(--primary)', marginBottom: '18px',
+                boxShadow: 'var(--shadow-xs)'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                  <Edit3 size={15} /> CHỈNH SỬA THỜI GIAN HIỆN THÔNG BÁO (ADMIN)
+                </div>
+
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    Chọn ngày & giờ kết thúc hiển thị:
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="input"
+                    value={editExpiryDate}
+                    onChange={e => setEditExpiryDate(e.target.value)}
+                    style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '8px' }}
+                  />
+                </div>
+
+                {/* Quick Presets Buttons */}
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '5px' }}>⚡ Mốc chọn nhanh:</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSetExpiryPreset(3)}
+                      className="btn btn--secondary"
+                      style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px' }}
+                    >
+                      +3 Ngày
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetExpiryPreset(7)}
+                      className="btn btn--secondary"
+                      style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px' }}
+                    >
+                      +7 Ngày
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetExpiryPreset(14)}
+                      className="btn btn--secondary"
+                      style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px' }}
+                    >
+                      +14 Ngày
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetExpiryPreset('end_of_month')}
+                      className="btn btn--secondary"
+                      style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px' }}
+                    >
+                      Cuối tháng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetExpiryPreset(null)}
+                      className="btn btn--secondary"
+                      style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', color: 'var(--text-muted)' }}
+                    >
+                      Vô thời hạn
+                    </button>
+                  </div>
+                </div>
+
+                {/* Save and Delete Actions */}
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', paddingTop: '8px', borderTop: '1px solid var(--border)' }}>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAnnouncement}
+                    disabled={savingExpiry}
+                    className="btn btn--danger"
+                    style={{ fontSize: '12px', padding: '6px 12px', gap: '5px' }}
+                  >
+                    <Trash2 size={14} /> Gỡ thông báo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAnnouncementExpiry}
+                    disabled={savingExpiry}
+                    className="btn btn--primary"
+                    style={{ fontSize: '12px', padding: '6px 14px', gap: '5px', fontWeight: 700 }}
+                  >
+                    <Save size={14} /> {savingExpiry ? 'Đang lưu...' : 'Lưu thời hạn'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => setSelectedAnnouncement(null)}
-              className="btn btn--primary btn--full btn--lg"
-              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+              className="btn btn--secondary btn--full btn--lg"
+              style={{ padding: '10px', fontSize: '13px', fontWeight: 700, borderRadius: '10px' }}
             >
-              Đã hiểu & Đóng ✓
+              Đóng cửa sổ
             </button>
           </div>
         </div>

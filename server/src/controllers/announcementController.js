@@ -180,18 +180,39 @@ const updateAnnouncement = async (req, res) => {
     const { title, content, is_pinned, expires_at, is_active } = req.body;
     const updateData = {};
     if (title !== undefined) updateData.title = title;
-    if (content !== undefined) updateData.content = content;
+    if (content !== undefined) {
+      updateData.content = content;
+      updateData.message = content;
+    }
     if (is_pinned !== undefined) updateData.is_pinned = is_pinned;
-    if (expires_at !== undefined) updateData.expires_at = expires_at;
+    if (expires_at !== undefined) updateData.expires_at = expires_at ? new Date(expires_at) : null;
     if (is_active !== undefined) updateData.is_active = is_active;
 
-    const ann = await Announcement.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    if (!ann) return res.status(404).json({ error: 'Khong tim thay thong bao.' });
+    let ann = await Announcement.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!ann) {
+      // Thử cập nhật trong bảng Notification nếu là Broadcast notification
+      const notif = await Notification.findByIdAndUpdate(req.params.id, {
+        ...(title !== undefined && { title }),
+        ...(content !== undefined && { message: content }),
+        ...(expires_at !== undefined && { expires_at: expires_at ? new Date(expires_at) : null }),
+        ...(is_active === false && { is_read: true }),
+      }, { new: true });
+      if (notif) {
+        ann = {
+          _id: notif._id,
+          title: notif.title,
+          content: notif.message,
+          expires_at: notif.expires_at,
+          created_at: notif.created_at,
+        };
+      }
+    }
+    if (!ann) return res.status(404).json({ error: 'Không tìm thấy thông báo cần sửa.' });
 
-    res.json({ message: 'Da cap nhat thong bao!', announcement: ann });
+    res.json({ message: 'Đã cập nhật thời gian hiển thị thông báo thành công! ✅', announcement: ann });
   } catch (error) {
     console.error('UpdateAnnouncement error:', error);
-    res.status(500).json({ error: 'Loi cap nhat thong bao.' });
+    res.status(500).json({ error: 'Lỗi cập nhật thông báo.' });
   }
 };
 
@@ -298,9 +319,11 @@ const getAnniversaries = async (req, res) => {
 // DELETE /api/announcements/:id
 const deleteAnnouncement = async (req, res) => {
   try {
-    const ann = await Announcement.findByIdAndDelete(req.params.id);
-    if (!ann) return res.status(404).json({ error: 'Không tìm thấy thông báo.' });
-    res.json({ message: 'Đã xóa thông báo.' });
+    let ann = await Announcement.findByIdAndDelete(req.params.id);
+    if (!ann) {
+      await Notification.findByIdAndDelete(req.params.id);
+    }
+    res.json({ message: 'Đã xóa / gỡ thông báo thành công! ✅' });
   } catch (error) {
     console.error('DeleteAnnouncement error:', error);
     res.status(500).json({ error: 'Lỗi xóa thông báo.' });
