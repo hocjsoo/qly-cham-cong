@@ -67,15 +67,16 @@ export default function LoginPage() {
             />
           ) : (
             <div style={{
-              width: '56px', height: '56px',
-              background: 'var(--primary)',
-              color: '#fff',
+              width: '58px', height: '58px',
+              background: 'var(--primary-gradient, linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%))',
+              color: '#ffffff',
               borderRadius: '16px',
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '26px', marginBottom: '16px',
-              boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
+              fontSize: '22px', fontWeight: 900, letterSpacing: '-0.5px', marginBottom: '16px',
+              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
             }}>
-              🏗️
+              ET
             </div>
           )}
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text)', marginBottom: '6px', letterSpacing: '-0.02em' }}>

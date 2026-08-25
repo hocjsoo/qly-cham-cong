@@ -1,11 +1,25 @@
 {
   "short_name": "ET Portal",
-  "name": "ET Office Portal — Chấm Công",
+  "name": "ET Office Portal — Chấm Công Thông Minh",
+  "description": "Hệ thống quản lý chấm công và nhân sự thông minh ET Architects",
   "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
     {
       "src": "/favicon.svg",
       "type": "image/svg+xml",
-      "sizes": "192x192 512x512"
+      "sizes": "any",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/checkin",
