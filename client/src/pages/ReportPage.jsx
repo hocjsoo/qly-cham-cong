@@ -689,13 +689,13 @@ export default function ReportPage() {
                                 <div>
                                   <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>⚠️ Đi muộn</div>
                                   <div style={{ fontWeight: 800, color: (r.late_count > 0 ? '#d97706' : 'var(--text-muted)'), fontSize: '12px', marginTop: '2px' }}>
-                                    {r.late_count > 0 ? `${r.late_count} lần` : '0'}
+                                    {r.late_count > 0 ? `${r.late_count} lần (${r.total_late_minutes || 0}p)` : '0'}
                                   </div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Phút muộn</div>
-                                  <div style={{ fontWeight: 800, color: (r.total_late_minutes > 0 ? '#ef4444' : 'var(--text-muted)'), fontSize: '12px', marginTop: '2px' }}>
-                                    {r.total_late_minutes > 0 ? `${r.total_late_minutes}p` : '0p'}
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>🚪 Về sớm</div>
+                                  <div style={{ fontWeight: 800, color: (r.early_count > 0 ? '#ef4444' : 'var(--text-muted)'), fontSize: '12px', marginTop: '2px' }}>
+                                    {r.early_count > 0 ? `${r.early_count} lần (${r.total_early_minutes || 0}p)` : '0'}
                                   </div>
                                 </div>
                               </div>
@@ -829,7 +829,7 @@ export default function ReportPage() {
                                               cursor: isAdmin ? 'pointer' : 'default',
                                               transition: 'all 0.15s ease'
                                             }}
-                                            title={`${d.dateStr}: ${d.symbol || 'Không công'}${isLate ? ' (Đi muộn)' : ''}${hasOt ? ` (OT: ${d.ot_hours}h)` : ''}`}
+                                            title={`${d.dateStr}: [${d.symbol || 'Không công'}]${d.is_late ? ` (⚠️ Muộn ${d.late_minutes}p)` : ''}${d.is_early_leave ? ` (🚪 Sớm ${d.early_minutes}p)` : ''}${hasOt ? ` (🔥 OT: ${d.ot_hours}h)` : ''}`}
                                           >
                                             <div style={{ fontSize: '9px', fontWeight: 600, color: dayColor }}>{d.day}</div>
                                             <div style={{ fontSize: '11px', fontWeight: 800, color: symbolColor, marginTop: '1px' }}>
@@ -919,8 +919,7 @@ export default function ReportPage() {
                             <th style={{ padding: '5px 6px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }} title="Nghỉ ốm (O)">🏥 Ốm</th>
                             <th style={{ padding: '5px 6px', background: 'rgba(100, 116, 139, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }} title="Nghỉ không lương (KL)">⏸️ Không lương</th>
                             <th style={{ padding: '5px 6px', background: 'rgba(148, 163, 184, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }} title="Khác (K)">Khác</th>
-                            <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng giờ tăng ca OT (Không cộng vào công, phục vụ đánh giá)">🔥 Giờ OT</th>
-                            <th style={{ padding: '5px 6px', background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Số lần đi muộn trong tháng">⚠️ Đi muộn</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng số lần đi muộn & về sớm trong tháng">⚠️ Đi muộn / Về sớm</th>
 
                             {/* Days Weekday Row */}
                             {matrixData.header_days.map(hd => {
@@ -991,12 +990,21 @@ export default function ReportPage() {
                                 ) : <span style={{ opacity: 0.18 }}>—</span>}
                               </td>
 
-                              {/* LƯỢT ĐI MUỘN */}
-                              <td style={{ padding: '4px 3px', fontWeight: (r.late_count > 0 ? 800 : 500), color: (r.late_count > 0 ? '#d97706' : 'var(--text-muted)') }}>
-                                {r.late_count > 0 ? (
-                                  <span style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '2px 5px', borderRadius: '4px', fontSize: '10.5px' }}>
-                                    {r.late_count} lần {r.total_late_minutes > 0 ? `(${r.total_late_minutes}p)` : ''}
-                                  </span>
+                              {/* LƯỢT ĐI MUỘN & VỀ SỚM */}
+                              <td style={{ padding: '4px 3px' }}>
+                                {(r.late_count > 0 || r.early_count > 0) ? (
+                                  <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+                                    {r.late_count > 0 && (
+                                      <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', padding: '1.5px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                        ⚠️ {r.late_count} muộn {r.total_late_minutes > 0 ? `(${r.total_late_minutes}p)` : ''}
+                                      </span>
+                                    )}
+                                    {r.early_count > 0 && (
+                                      <span style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444', padding: '1.5px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                        🚪 {r.early_count} sớm {r.total_early_minutes > 0 ? `(${r.total_early_minutes}p)` : ''}
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : <span style={{ opacity: 0.18 }}>—</span>}
                               </td>
 
@@ -1024,6 +1032,8 @@ export default function ReportPage() {
                                         ot_hours: d.ot_hours,
                                         is_late: d.is_late,
                                         late_minutes: d.late_minutes,
+                                        is_early_leave: d.is_early_leave,
+                                        early_minutes: d.early_minutes,
                                         status: d.status,
                                         notes: d.notes,
                                         check_in_type: d.check_in_type,
@@ -1042,7 +1052,7 @@ export default function ReportPage() {
                                       background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
                                     }}
-                                    title={isAdmin ? `Bấm xem chi tiết ngày ${d.dateStr}` : d.dateStr}
+                                    title={`${d.dateStr} (${r.full_name}): [${d.symbol || '—'}]${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ''}`}
                                   >
                                     {renderDaySymbol(d.symbol, isSun)}
                                   </td>
@@ -1083,8 +1093,22 @@ export default function ReportPage() {
                             <td style={{ padding: '4px 3px', color: '#8b5cf6', fontWeight: 800 }}>
                               {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), '#8b5cf6')}
                             </td>
-                            <td style={{ padding: '4px 3px', color: '#d97706', fontWeight: 800 }}>
-                              {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), '#d97706')}
+                            <td style={{ padding: '4px 3px' }}>
+                              <div style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+                                {displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0) > 0 && (
+                                  <span style={{ color: '#d97706', fontWeight: 800, fontSize: '10px' }}>
+                                    ⚠️ {displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0)} muộn
+                                  </span>
+                                )}
+                                {displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0) > 0 && (
+                                  <span style={{ color: '#ef4444', fontWeight: 800, fontSize: '10px' }}>
+                                    🚪 {displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0)} sớm
+                                  </span>
+                                )}
+                                {displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0) === 0 && displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0) === 0 && (
+                                  <span style={{ opacity: 0.2 }}>—</span>
+                                )}
+                              </div>
                             </td>
                             {matrixData.header_days.map(hd => (
                               <td key={hd.day} style={{ padding: '4px 1px', minWidth: '32px', width: '32px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
@@ -1545,8 +1569,13 @@ export default function ReportPage() {
                   </div>
                 )}
                 {selectedCell.is_late && (
-                  <div style={{ fontSize: '10.5px', color: 'var(--red)', fontWeight: 600, marginTop: '2px' }}>
+                  <div style={{ fontSize: '10.5px', color: 'var(--yellow)', fontWeight: 700, marginTop: '2px' }}>
                     ⚠️ Muộn {selectedCell.late_minutes} phút
+                  </div>
+                )}
+                {selectedCell.is_early_leave && (
+                  <div style={{ fontSize: '10.5px', color: 'var(--red)', fontWeight: 700, marginTop: '2px' }}>
+                    🚪 Về sớm {selectedCell.early_minutes} phút
                   </div>
                 )}
               </div>

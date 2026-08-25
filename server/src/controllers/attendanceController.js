@@ -505,12 +505,26 @@ const checkOut = async (req, res) => {
       `IP: ${clientIP}`,
     ].filter(Boolean).join(' | ');
 
+    // Tính toán về sớm (Early Leave) so với giờ kết thúc ca làm việc
+    const [endH, endM] = (workEndTime || '17:30').split(':').map(Number);
+    const coVN = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
+    const endMinutes = endH * 60 + endM;
+    let isEarlyLeave = false;
+    let earlyMinutes = 0;
+    if (coMinutes < endMinutes - 4) {
+      isEarlyLeave = true;
+      earlyMinutes = endMinutes - coMinutes;
+    }
+
     attendance.check_out_time = now;
     attendance.check_out_lat = parseFloat(lat);
     attendance.check_out_lng = parseFloat(lng);
     attendance.check_out_note = combinedNote;
     attendance.total_hours = Math.max(0, totalHours);
     attendance.ot_hours = Math.max(0, otHours);
+    attendance.is_early_leave = isEarlyLeave;
+    attendance.early_minutes = earlyMinutes;
     await attendance.save();
 
     res.json({
@@ -736,6 +750,18 @@ const overrideAttendance = async (req, res) => {
       const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
       attendance.total_hours = Math.max(0, totalHours);
       attendance.ot_hours = calculateOT(attendance.check_in_time, attendance.check_out_time, settings?.work_end_time || '18:30');
+
+      const [endH, endM] = (settings?.work_end_time || '18:30').split(':').map(Number);
+      const coVN = new Date(new Date(attendance.check_out_time).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+      const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
+      const endMinutes = endH * 60 + endM;
+      if (coMinutes < endMinutes - 4) {
+        attendance.is_early_leave = true;
+        attendance.early_minutes = endMinutes - coMinutes;
+      } else {
+        attendance.is_early_leave = false;
+        attendance.early_minutes = 0;
+      }
     }
 
     await attendance.save();

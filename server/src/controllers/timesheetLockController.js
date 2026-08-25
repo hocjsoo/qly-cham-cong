@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const TimesheetLock = require('../models/TimesheetLock');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
+const SystemSetting = require('../models/SystemSetting');
 
 // Map symbol to status / check_in_type for override
 const SYMBOL_TO_STATUS_MAP = {
@@ -45,8 +46,15 @@ const getFullMatrix = async (req, res) => {
       AttendanceAuditLog.find({ date: { $gte: startDateStr, $lte: endDateStr } }).sort({ modified_at: -1 }).lean(),
     ]);
 
-    // Lấy danh sách chốt công tháng này
-    const lockRecords = await TimesheetLock.find({ month, year });
+    // Lấy danh sách chốt công tháng này và cấu hình giờ làm việc
+    const [lockRecords, settings] = await Promise.all([
+      TimesheetLock.find({ month, year }),
+      SystemSetting.findOne({ key: 'global' }),
+    ]);
+    const workEndTime = settings?.work_end_time || '17:30';
+    const [endH, endM] = workEndTime.split(':').map(Number);
+    const endMinutesLimit = endH * 60 + endM;
+
     const globalLock = lockRecords.find(l => l.user_id === null && l.is_locked);
     const userLockMap = {};
     lockRecords.forEach(l => {
@@ -93,10 +101,14 @@ const getFullMatrix = async (req, res) => {
       let total_ot_hours = 0;
       let late_count = 0;
       let total_late_minutes = 0;
+      let early_count = 0;
+      let total_early_minutes = 0;
 
       const daysData = headerDays.map(hd => {
         const att = attDateMap[hd.dateStr];
         let symbol = '';
+        let is_early_leave = false;
+        let early_minutes = 0;
 
         if (att) {
           if (att.ot_hours > 0) {
@@ -105,6 +117,27 @@ const getFullMatrix = async (req, res) => {
           if (att.is_late) {
             late_count += 1;
             total_late_minutes += Number(att.late_minutes) || 0;
+          }
+
+          // Kiểm tra về sớm (is_early_leave)
+          if (att.is_early_leave) {
+            is_early_leave = true;
+            early_minutes = Number(att.early_minutes) || 0;
+          } else if (att.check_out_time) {
+            const coDate = new Date(att.check_out_time);
+            if (!isNaN(coDate.getTime())) {
+              const coVN = new Date(coDate.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+              const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
+              if (coMinutes < endMinutesLimit - 4) {
+                is_early_leave = true;
+                early_minutes = endMinutesLimit - coMinutes;
+              }
+            }
+          }
+
+          if (is_early_leave) {
+            early_count += 1;
+            total_early_minutes += early_minutes;
           }
 
           const notes = (att.notes || '').toUpperCase();
@@ -170,6 +203,8 @@ const getFullMatrix = async (req, res) => {
           ot_hours: att?.ot_hours || 0,
           is_late: Boolean(att?.is_late),
           late_minutes: att?.late_minutes || 0,
+          is_early_leave: Boolean(is_early_leave),
+          early_minutes: early_minutes,
           status: att?.status || (att ? 'present' : 'none'),
           notes: att?.notes || '',
           check_in_type: att?.check_in_type || 'office',
@@ -205,6 +240,8 @@ const getFullMatrix = async (req, res) => {
         total_ot_hours: parseFloat(total_ot_hours.toFixed(1)),
         late_count: late_count,
         total_late_minutes: total_late_minutes,
+        early_count: early_count,
+        total_early_minutes: total_early_minutes,
         days: daysData,
         is_locked: isLocked,
         is_attendance_exempt: Boolean(u.is_attendance_exempt),
