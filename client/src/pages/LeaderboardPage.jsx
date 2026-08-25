@@ -141,6 +141,7 @@ export default function LeaderboardPage() {
   };
 
   const filteredRankings = (data.rankings || []).filter(r => {
+    if (r.is_attendance_exempt) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
     return (

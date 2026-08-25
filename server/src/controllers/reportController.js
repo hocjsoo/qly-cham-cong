@@ -119,6 +119,7 @@ const getTrend = async (req, res) => {
   try {
     let userFilter = {
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
     if (req.user.role === 'manager') {
@@ -173,6 +174,7 @@ const getAttendanceStats = async (req, res) => {
 
     let userFilter = {
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
     if (req.user.role === 'manager') {
@@ -220,6 +222,7 @@ const getRanking = async (req, res) => {
 
     let userFilter = {
       is_active: { $ne: false },
+      is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
     if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
@@ -568,7 +571,7 @@ const getLeaderboard = async (req, res) => {
     }
 
     const users = await User.find(userFilter)
-      .select('full_name employee_code avatar_url department_id department_ids role position email phone join_date start_year parking_location vehicle_info employment_status')
+      .select('full_name employee_code avatar_url department_id department_ids role position email phone join_date start_year parking_location vehicle_info employment_status is_attendance_exempt')
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
       .lean();
@@ -746,6 +749,7 @@ const getLeaderboard = async (req, res) => {
         totalOtHours: parseFloat(totalOtHours.toFixed(1)),
         onTimeDays,
         lateDays,
+        is_attendance_exempt: Boolean(u.is_attendance_exempt),
         isCurrentUser: uid === currentUserIdStr,
       };
     });
