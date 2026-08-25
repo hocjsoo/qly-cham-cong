@@ -181,9 +181,8 @@ export default function LeaderboardPage() {
         <div className="header__inner header__inner--wide">
           <div>
             <div className="header__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Trophy size={22} color="#f59e0b" /> Bảng Vinh Danh & Đua Top
+              <Trophy size={22} color="#f59e0b" /> Bảng xếp hạng
             </div>
-            <div className="header__subtitle">Vinh danh thành tích chăm chỉ & cống hiến theo Ngày, Tuần, Tháng, Năm</div>
           </div>
           <HeaderActions />
         </div>
@@ -544,10 +543,8 @@ export default function LeaderboardPage() {
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800, fontSize: '12px' }}>
                   <th style={{ padding: '10px 14px', width: '60px', textAlign: 'center' }}>HẠNG</th>
-                  <th style={{ padding: '10px 14px', minWidth: '170px' }}>NHÂN SỰ</th>
-                  <th style={{ padding: '10px 14px', width: '130px' }}>PHÒNG BAN</th>
-                  <th style={{ padding: '10px 14px', width: '130px', textAlign: 'right' }}>THÀNH TÍCH</th>
-                  <th style={{ padding: '10px 14px', width: '120px', textAlign: 'center' }}>DANH HIỆU</th>
+                  <th style={{ padding: '10px 14px', minWidth: '180px' }}>NHÂN SỰ</th>
+                  <th style={{ padding: '10px 14px', width: '160px', textAlign: 'right' }}>THÀNH TÍCH</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,26 +599,16 @@ export default function LeaderboardPage() {
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {r.avatar_url ? (
-                            <img src={r.avatar_url} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={r.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
                           ) : (
-                            <div className="avatar" style={{ width: 28, height: 28, fontSize: '11px' }}>
+                            <div className="avatar" style={{ width: 30, height: 30, fontSize: '11px' }}>
                               {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
                             </div>
                           )}
-                          <div>
-                            <div style={{ fontWeight: isCurrent ? 800 : 700, color: isCurrent ? 'var(--primary)' : 'var(--text)', fontSize: '13px' }}>
-                              {r.full_name} {isCurrent && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
-                            </div>
-                            <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                              #{r.employee_code || 'NS'} · {r.position || 'Nhân sự'}
-                            </div>
+                          <div style={{ fontWeight: isCurrent ? 800 : 700, color: isCurrent ? 'var(--primary)' : 'var(--text)', fontSize: '13.5px' }}>
+                            {r.full_name} {isCurrent && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
                           </div>
                         </div>
-                      </td>
-
-                      {/* Department Column */}
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                        {r.department_name || 'Văn Phòng'}
                       </td>
 
                       {/* Score / Achievement Column */}
@@ -634,23 +621,6 @@ export default function LeaderboardPage() {
                             {r.subText}
                           </div>
                         )}
-                      </td>
-
-                      {/* Tier Badge Column */}
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <span
-                          className={`badge ${
-                            rankNumber === 1 ? 'badge--warning' :
-                            rankNumber <= 3 ? 'badge--info' :
-                            rankNumber <= 10 ? 'badge--success' : 'badge--neutral'
-                          }`}
-                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
-                        >
-                          {rankNumber === 1 ? '👑 Quán Quân' :
-                           rankNumber <= 3 ? '🏆 Top 3' :
-                           rankNumber <= 10 ? '💎 Tinh Anh' :
-                           rankNumber <= 20 ? '⚡ Chăm Chỉ' : '🌟 Bền Bỉ'}
-                        </span>
                       </td>
                     </tr>
                   );

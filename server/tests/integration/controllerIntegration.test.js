@@ -305,8 +305,8 @@ async function runControllerIntegrationTests(assert) {
 
     assert(itEmp.phone === '0902' && itEmp.position === 'Dev IT 1',
       'TC-HTTP-03.2: Leader xem được trường quản trị công việc của thành viên trong team');
-    assert(itEmp.cccd === undefined && itEmp.bank_account === undefined && itEmp.parking_location === undefined,
-      'TC-HTTP-03.3: DTO bảo vệ loại bỏ hoàn toàn CCCD, Ngân hàng, Xe của thành viên team trước Leader');
+    assert(itEmp.cccd === undefined && itEmp.bank_account === undefined && itEmp.parking_location === '17T10',
+      'TC-HTTP-03.3: DTO bảo vệ loại bỏ hoàn toàn CCCD, Ngân hàng trong khi vẫn duy trì thông tin xe tòa nhà');
     assert(saleEmp.full_name && saleEmp.email && saleEmp.dob === undefined && saleEmp.cccd === undefined,
       'TC-HTTP-03.4: Thành viên phòng ban khác (Sale) tự động chuyển sang Public Directory DTO');
 
@@ -315,8 +315,8 @@ async function runControllerIntegrationTests(assert) {
       .get('/api/users')
       .set('Authorization', `Bearer ${employeeToken}`);
     assert(resEmp.status === 200, 'TC-HTTP-04.1: Employee gọi GET /api/users trả về 200 OK');
-    assert(resEmp.body[0].full_name && resEmp.body[0].email && resEmp.body[0].dob === undefined && resEmp.body[0].cccd === undefined,
-      'TC-HTTP-04.2: Employee chỉ nhận thông tin danh bạ công khai tối thiểu, ẩn 100% dữ liệu nhạy cảm');
+    assert(resEmp.body[0].full_name && resEmp.body[0].email && resEmp.body[0].dob === undefined && resEmp.body[0].cccd === undefined && resEmp.body[0].parking_location !== undefined,
+      'TC-HTTP-04.2: Employee nhận thông tin danh bạ & phương tiện gửi xe, ẩn 100% dữ liệu nhạy cảm');
 
     // -------------------------------------------------------------
     // 2. Supertest: PATCH /api/auth/profile

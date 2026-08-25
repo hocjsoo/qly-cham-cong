@@ -722,13 +722,6 @@ export default function CheckInPage() {
                 </div>
               ) : !isCheckedOut ? (
                 <div className="card animate-fade-in" style={{ marginBottom: '16px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <LogOut size={18} color="var(--red)" /> KẾT THÚC CA LÀM (CHECK-OUT)
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ fontSize: '12px' }}>Kết quả công việc hôm nay</label>
-                    <input type="text" className="form-input" placeholder="VD: Hoàn thành thiết kế bản vẽ..." value={checkoutNote} onChange={e => setCheckoutNote(e.target.value)} />
-                  </div>
                   <button
                     onClick={handleCheckOut}
                     disabled={submitting || !gpsPosition}

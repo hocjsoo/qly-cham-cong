@@ -68,7 +68,7 @@ const getAllUsers = async (req, res) => {
       }
 
       // 2. Với Leader xem nhân viên trong phòng ban mình quản lý:
-      // Whitelist các trường phục vụ phân công & quản lý team, loại bỏ triệt để CCCD, Ngân hàng, BHXH, Địa chỉ, Quê quán, Xe
+      // Whitelist các trường phục vụ phân công & quản lý team, loại bỏ triệt để CCCD, Ngân hàng, BHXH, Địa chỉ, Quê quán
       if (isInLeaderTeam) {
         return {
           id: obj._id,
@@ -91,11 +91,14 @@ const getAllUsers = async (req, res) => {
           employee_type: obj.employee_type,
           employment_status: obj.employment_status,
           is_active: obj.is_active,
+          parking_location: obj.parking_location,
+          vehicle_info: obj.vehicle_info,
+          license_plate: obj.license_plate,
         };
       }
 
       // 3. Với Nhân viên thường HOẶC Leader xem nhân viên phòng ban khác:
-      // Whitelist danh bạ công khai tối thiểu
+      // Whitelist danh bạ công khai & thông tin phương tiện tòa nhà 17T10
       return {
         id: obj._id,
         _id: obj._id,
@@ -112,6 +115,9 @@ const getAllUsers = async (req, res) => {
         is_active: obj.is_active,
         employment_status: obj.employment_status,
         role: obj.role,
+        parking_location: obj.parking_location,
+        vehicle_info: obj.vehicle_info,
+        license_plate: obj.license_plate,
       };
     });
 
