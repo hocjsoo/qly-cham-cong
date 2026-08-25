@@ -22,9 +22,25 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught an unhandled error:', error, errorInfo);
     this.setState({ errorInfo });
+
+    // Tự động tải lại trang nếu phát hiện lỗi chunk file cũ sau khi Vercel deploy bản mới
+    const isChunkError = error?.message && (
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Loading chunk') ||
+      error.message.includes('dynamically imported module')
+    );
+
+    if (isChunkError) {
+      const hasRefreshed = window.sessionStorage.getItem('chunk-error-autoreloaded');
+      if (!hasRefreshed) {
+        window.sessionStorage.setItem('chunk-error-autoreloaded', 'true');
+        window.location.reload();
+      }
+    }
   }
 
   handleReset = () => {
+    window.sessionStorage.removeItem('chunk-error-autoreloaded');
     this.setState({ hasError: false, error: null, errorInfo: null, showDetails: false });
     if (this.props.onReset) {
       this.props.onReset();
@@ -34,6 +50,7 @@ export default class ErrorBoundary extends Component {
   };
 
   handleGoHome = () => {
+    window.sessionStorage.removeItem('chunk-error-autoreloaded');
     window.location.href = '/';
   };
 

@@ -11,21 +11,44 @@ import Layout from './components/Layout';
 import MagicCursor from './components/MagicCursor';
 import ErrorBoundary from './components/ErrorBoundary';
 
-// Route-level code splitting (Chỉ tải bundle khi user mở trang tương ứng)
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const CheckInPage = lazy(() => import('./pages/CheckInPage'));
-const DashboardPage = lazy(() => import('./pages/DashboardPage'));
-const RequestsPage = lazy(() => import('./pages/RequestsPage'));
-const HistoryPage = lazy(() => import('./pages/HistoryPage'));
-const StaffPage = lazy(() => import('./pages/StaffPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const ReportPage = lazy(() => import('./pages/ReportPage'));
-const SettingsPage = lazy(() => import('./pages/SettingsPage'));
-const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
-const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
-const ExpensesPage = lazy(() => import('./pages/ExpensesPage'));
-const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+// Tự động tải lại trang khi có phiên bản build mới trên production (tránh lỗi 404 chunk cũ)
+function lazyRetry(componentImport) {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      const isChunkError = error?.message && (
+        error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('Loading chunk') ||
+        error.message.includes('dynamically imported module')
+      );
+      const hasRefreshed = window.sessionStorage.getItem('retry-chunk-refreshed');
+      if (isChunkError && !hasRefreshed) {
+        window.sessionStorage.setItem('retry-chunk-refreshed', 'true');
+        window.location.reload();
+        return { default: () => null };
+      }
+      window.sessionStorage.removeItem('retry-chunk-refreshed');
+      throw error;
+    }
+  });
+}
+
+// Route-level code splitting
+const LoginPage = lazyRetry(() => import('./pages/LoginPage'));
+const ForgotPasswordPage = lazyRetry(() => import('./pages/ForgotPasswordPage'));
+const CheckInPage = lazyRetry(() => import('./pages/CheckInPage'));
+const DashboardPage = lazyRetry(() => import('./pages/DashboardPage'));
+const RequestsPage = lazyRetry(() => import('./pages/RequestsPage'));
+const HistoryPage = lazyRetry(() => import('./pages/HistoryPage'));
+const StaffPage = lazyRetry(() => import('./pages/StaffPage'));
+const ProfilePage = lazyRetry(() => import('./pages/ProfilePage'));
+const ReportPage = lazyRetry(() => import('./pages/ReportPage'));
+const SettingsPage = lazyRetry(() => import('./pages/SettingsPage'));
+const ProjectsPage = lazyRetry(() => import('./pages/ProjectsPage'));
+const VehiclesPage = lazyRetry(() => import('./pages/VehiclesPage'));
+const ExpensesPage = lazyRetry(() => import('./pages/ExpensesPage'));
+const LeaderboardPage = lazyRetry(() => import('./pages/LeaderboardPage'));
 
 // Fallback loader hiển thị nhẹ nhàng khi chuyển trang
 function PageLoader() {
