@@ -1433,6 +1433,78 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Announcement Detail Modal */}
+      {selectedAnnouncement && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedAnnouncement(null)}>
+          <div
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '560px', width: '100%', margin: '0 auto',
+              padding: '24px 26px', borderRadius: '20px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1.5px solid var(--primary)'
+            }}
+          >
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '42px', height: '42px', borderRadius: '12px',
+                  background: 'var(--primary-soft)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: '1.5px solid var(--primary)', fontSize: '20px', flexShrink: 0
+                }}>
+                  📢
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                    Thông Báo Từ Ban Giám Đốc / Admin
+                  </div>
+                  <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
+                    {selectedAnnouncement.title}
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedAnnouncement(null)}
+                className="btn btn--ghost"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', padding: 0 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Author & Timestamp */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '14px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+              <span>👤 Người đăng: <strong style={{ color: 'var(--text)' }}>{selectedAnnouncement.created_by?.full_name || 'Ban Giám Đốc'}</strong></span>
+              {selectedAnnouncement.created_at && (
+                <span>🕒 {new Date(selectedAnnouncement.created_at).toLocaleDateString('vi-VN')}</span>
+              )}
+            </div>
+
+            {/* Content Box */}
+            <div style={{
+              background: 'var(--bg-raised)', padding: '18px 20px', borderRadius: '14px',
+              border: '1px solid var(--border)', fontSize: '14px', color: 'var(--text)',
+              lineHeight: 1.7, whiteSpace: 'pre-line', marginBottom: '22px',
+              maxHeight: '380px', overflowY: 'auto'
+            }}>
+              {selectedAnnouncement.content}
+            </div>
+
+            <button
+              onClick={() => setSelectedAnnouncement(null)}
+              className="btn btn--primary btn--full btn--lg"
+              style={{ padding: '12px', fontSize: '14px', fontWeight: 800, borderRadius: '12px' }}
+            >
+              Đã hiểu & Đóng ✓
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

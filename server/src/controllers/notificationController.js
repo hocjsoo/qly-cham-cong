@@ -1,5 +1,6 @@
 // controllers/notificationController.js - Notification Engine
 const Notification = require('../models/Notification');
+const Announcement = require('../models/Announcement');
 const User = require('../models/User');
 const Request = require('../models/Request');
 const Holiday = require('../models/Holiday');
@@ -133,6 +134,15 @@ const broadcastAnnouncement = async (req, res) => {
       message,
       type: 'announcement',
     });
+
+    // Đồng bộ sang Announcement để hiển thị nổi bật trên Trang chủ
+    await Announcement.create({
+      title: title.replace(/^📢\s*/, ''),
+      content: message,
+      is_pinned: true,
+      created_by: req.user._id,
+      is_active: true,
+    }).catch(() => {});
 
     res.status(201).json({ message: 'Đã phát thông báo thành công!', notification });
   } catch (error) {

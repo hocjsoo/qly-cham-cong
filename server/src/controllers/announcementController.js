@@ -1,6 +1,7 @@
 // controllers/announcementController.js
 // Quan ly thong bao noi bo (ghim) & sinh nhat nhan su
 const Announcement = require('../models/Announcement');
+const Notification = require('../models/Notification');
 const User = require('../models/User');
 
 // GET /api/announcements/birthdays?month=7
@@ -83,7 +84,28 @@ const getPinned = async (req, res) => {
       .sort({ created_at: -1 })
       .limit(10);
 
-    res.json(announcements);
+    // Lấy thêm các broadcast notifications từ Admin
+    const broadcastNotifs = await Notification.find({
+      type: 'announcement',
+      user_id: null,
+    }).sort({ created_at: -1 }).limit(10);
+
+    const existingTitles = new Set(announcements.map(a => a.title.trim().toLowerCase()));
+
+    const extraAnnouncements = broadcastNotifs
+      .filter(n => !existingTitles.has(n.title.replace(/^📢\s*/, '').trim().toLowerCase()))
+      .map(n => ({
+        _id: n._id,
+        title: n.title.replace(/^📢\s*/, ''),
+        content: n.message,
+        is_pinned: true,
+        created_at: n.created_at,
+        created_by: { full_name: 'Ban Giám Đốc / Admin' },
+      }));
+
+    const combined = [...announcements, ...extraAnnouncements].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json(combined);
   } catch (error) {
     console.error('GetPinned error:', error);
     res.status(500).json({ error: 'Loi lay thong bao ghim.' });
