@@ -169,10 +169,6 @@ export default function ReportPage() {
       if (tab === 'timesheet_lock') {
         const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
         setMatrixData(data);
-      } else if (tab === 'individual_detail' && isAdmin) {
-        const queryUser = selectedDetailUserId || user?._id || user?.id;
-        const { data } = await api.get(`/reports/individual-detail?user_id=${queryUser}&month=${month}&year=${year}`);
-        setIndividualDetail(data);
       } else if (tab === 'overview' && isAdmin) {
         const [rRes, tRes] = await Promise.all([
           api.get(`/reports/monthly?month=${month}&year=${year}`),
@@ -421,9 +417,6 @@ export default function ReportPage() {
             <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
               <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
                 <Lock size={13} /> Bảng Chấm Công
-              </button>
-              <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
-                <FileText size={13} /> Bảng Chi Tiết Cá Nhân
               </button>
               <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
                 <BarChart3 size={13} /> Tổng quan
@@ -985,158 +978,7 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* TAB 2: 📄 BẢNG CHI TIẾT CHẤM CÔNG CÁ NHÂN (MẪU PHIẾU CÔNG) */}
-        {tab === 'individual_detail' && (
-          <div className="animate-fade-in">
-            {/* Staff Selector dropdown for Admin */}
-            {isAdminOrManager && matrixData?.staff_rows && (
-              <div className="card" style={{ padding: '12px 16px', marginBottom: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <UserCheck size={16} color="var(--primary)" /> Chọn nhân viên xem chi tiết:
-                  </span>
-                  <select
-                    className="form-select"
-                    style={{ width: '280px', fontSize: '13px', padding: '6px 12px', fontWeight: 600 }}
-                    value={selectedDetailUserId || user?._id || user?.id || ''}
-                    onChange={e => setSelectedDetailUserId(e.target.value)}
-                  >
-                    {matrixData.staff_rows.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.code} - {s.full_name} ({s.role_label})
-                      </option>
-                    ))}
-                  </select>
-                  <button onClick={handlePrintIndividual} className="btn btn--ghost" style={{ padding: '6px 14px', fontSize: '12px', marginLeft: 'auto', gap: '6px' }}>
-                    <Printer size={15} /> In phiếu công
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="skeleton-card" style={{ height: '400px', borderRadius: '16px' }} />
-            ) : !individualDetail ? (
-              <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu phiếu công</div></div>
-            ) : (
-              <div ref={individualRef} className="card animate-fade-in" style={{ padding: '24px', background: '#ffffff', color: '#0f172a', fontFamily: 'Arial, sans-serif', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
-                {/* Title Banner */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '3px solid #1e293b', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', color: '#1e293b', letterSpacing: '0.5px' }}>
-                      BẢNG CHI TIẾT CHẤM CÔNG CÁ NHÂN
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginTop: '2px' }}>
-                      THÁNG {month} NĂM {year} · ET ARCHITECTS
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', fontSize: '11px', color: '#64748b' }}>
-                    <div>Mã NV: <strong style={{ color: '#2563eb', fontSize: '13px' }}>{indUser.id}</strong></div>
-                    <div>Nhân sự: <strong style={{ color: '#0f172a', fontSize: '13px' }}>{indUser.full_name}</strong></div>
-                    <div>Phòng ban: <strong>{indUser.department_name}</strong></div>
-                  </div>
-                </div>
-
-                {/* Summary Cards Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>TỔNG GIỜ LÀM</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#059669', marginTop: '2px' }}>{indSum.total_work_hours}h</div>
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>NGÀY THƯỜNG</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#2563eb', marginTop: '2px' }}>{indSum.work_hours_normal}h</div>
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>TỔNG TĂNG CA</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#7c3aed', marginTop: '2px' }}>
-                      {((indSum.ot1_hours || 0) + (indSum.ot2_hours || 0) + (indSum.ot3_hours || 0)).toFixed(1)}h
-                    </div>
-                  </div>
-                  <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b' }}>ĐẦY ĐỦ CÔNG</div>
-                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#059669', marginTop: '2px' }}>
-                      {indLogs.filter(r => parseFloat(r.workCredit) >= 1 || r.workCredit === 'x').length} ngày
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Detailed Logs Table */}
-                <div style={{ fontSize: '12px', marginBottom: '8px', fontWeight: 800, color: '#1e293b' }}>
-                  📋 Nhật ký điểm danh chi tiết từng ngày
-                </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1', fontSize: '11px', textAlign: 'center' }}>
-                  <thead>
-                    <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Ngày</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Thứ</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#34d399' }}>Giờ vào</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#60a5fa' }}>Giờ ra</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Loại công</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Đủ công ngày</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Giờ làm ngày</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px', color: '#c084fc' }}>Giờ OT ngày</th>
-                      <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Nơi làm việc</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {indLogs.map((row) => {
-                      const isSun = row.weekday === 'CN' || row.weekday === 'Chủ Nhật';
-                      const inTime = row.shift1?.in || row.shift2?.in || row.shift3?.in || '—';
-                      const outTime = row.shift3?.out || row.shift2?.out || row.shift1?.out || '—';
-                      const otVal = (row.ot1 || 0) + (row.ot2 || 0) + (row.ot3 || 0);
-                      const otStr = otVal > 0 ? `${otVal.toFixed(1)}h` : '—';
-                      const numCredit = parseFloat(row.workCredit || 0);
-
-                      let creditBadge = <span style={{ color: '#94a3b8' }}>0 công (Vắng)</span>;
-                      if (numCredit >= 1 || row.workCredit === '1.0' || row.workCredit === 'x') {
-                        creditBadge = <span style={{ color: '#059669', fontWeight: 800 }}>1.0 công (Đủ công)</span>;
-                      } else if (numCredit > 0) {
-                        creditBadge = <span style={{ color: '#d97706', fontWeight: 800 }}>{numCredit} công (Nửa ngày)</span>;
-                      } else if (row.workCredit && row.workCredit !== '0' && row.workCredit !== '—') {
-                        creditBadge = <span style={{ color: '#7c3aed', fontWeight: 800 }}>{row.workCredit}</span>;
-                      }
-
-                      return (
-                        <tr key={row.day} style={{ background: isSun ? '#fef2f2' : row.isWeekend ? '#f8fafc' : '#ffffff', color: '#0f172a' }}>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700 }}>{row.dateFormatted}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700, color: isSun ? '#dc2626' : '#0f172a' }}>{row.weekday}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#059669', fontWeight: 700 }}>{inTime}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#2563eb', fontWeight: 700 }}>{outTime}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 700, color: '#475569' }}>{row.workCredit || '—'}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px' }}>{creditBadge}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 800 }}>{row.totalHours ? `${row.totalHours}h` : '—'}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', fontWeight: 800, color: otVal > 0 ? '#7c3aed' : '#cbd5e1' }}>{otStr}</td>
-                          <td style={{ border: '1px solid #cbd5e1', padding: '6px 4px', color: '#475569' }}>{row.locationName}</td>
-                        </tr>
-                      );
-                    })}
-                    {/* Bottom Summary Row */}
-                    <tr style={{ fontWeight: 'bold', background: '#e2e8f0', color: '#0f172a' }}>
-                      <td colSpan="6" style={{ border: '1px solid #1e293b', padding: '8px 10px', textAlign: 'left' }}>
-                        TỔNG CỘNG THÁNG {month}/{year}:
-                      </td>
-                      <td colSpan="3" style={{ border: '1px solid #1e293b', padding: '8px', textAlign: 'center', color: '#059669', fontSize: '12px' }}>
-                        {indSum.total_work_hours} giờ làm việc
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Signature Block */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', textAlign: 'center' }}>
-                  <div style={{ minWidth: '220px' }}>
-                    <div style={{ fontWeight: 'bold', color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>XÁC NHẬN CỦA NHÂN VIÊN</div>
-                    <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '45px' }}>(Ký và ghi rõ họ tên)</div>
-                    <div style={{ fontWeight: 'bold', textDecoration: 'underline', color: '#0f172a', fontSize: '13px' }}>{indUser.full_name}</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* TAB 3: OVERVIEW */}
+        {/* TAB 2: OVERVIEW */}
         {tab === 'overview' && report?.summary && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Top Stat Cards */}
