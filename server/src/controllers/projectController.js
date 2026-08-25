@@ -59,7 +59,7 @@ const getProjects = async (req, res) => {
 
 // POST /api/projects - Tạo dự án
 const createProject = async (req, res) => {
-  const { name, code, category, sub_project, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
+  const { name, code, category, sub_project, avatar_url, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Tên dự án là bắt buộc.' });
@@ -71,6 +71,7 @@ const createProject = async (req, res) => {
       code: code ? code.trim() : `DA-${Date.now().toString().slice(-4)}`,
       category: category || 'Kiến trúc',
       sub_project: sub_project ? sub_project.trim() : null,
+      avatar_url: avatar_url || null,
       address: address ? address.trim() : null,
       client_name: client_name ? client_name.trim() : null,
       pm_id: pm_id || null,
@@ -96,7 +97,7 @@ const createProject = async (req, res) => {
 // PUT /api/projects/:id - Cập nhật thông tin dự án
 const updateProject = async (req, res) => {
   const { id } = req.params;
-  const { name, code, category, sub_project, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
+  const { name, code, category, sub_project, avatar_url, address, client_name, pm_id, pm_name, note, status, members, deadline, start_date, progress } = req.body;
 
   try {
     const project = await Project.findById(id);
@@ -117,6 +118,7 @@ const updateProject = async (req, res) => {
     if (code !== undefined) project.code = code.trim();
     if (category !== undefined) project.category = category;
     if (sub_project !== undefined) project.sub_project = sub_project ? sub_project.trim() : null;
+    if (avatar_url !== undefined) project.avatar_url = avatar_url || null;
     if (address !== undefined) project.address = address ? address.trim() : null;
     if (client_name !== undefined) project.client_name = client_name ? client_name.trim() : null;
     if (pm_id !== undefined) project.pm_id = pm_id || null;

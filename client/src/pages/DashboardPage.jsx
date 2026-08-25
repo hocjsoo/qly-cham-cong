@@ -529,8 +529,18 @@ export default function DashboardPage() {
                     boxShadow: 'var(--shadow-xs)'
                   }}
                 >
-                  <div style={{ fontWeight: 800, color: 'var(--text)', fontSize: '13px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {proj.name}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                    {proj.avatar_url ? (
+                      <img
+                        src={proj.avatar_url}
+                        alt={proj.name}
+                        style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }}
+                        onError={e => { e.target.style.display = 'none'; }}
+                      />
+                    ) : null}
+                    <div style={{ fontWeight: 800, color: 'var(--text)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {proj.name}
+                    </div>
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span>🏷️ {proj.code || 'DA'}</span>

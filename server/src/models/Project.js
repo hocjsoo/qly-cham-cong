@@ -18,6 +18,10 @@ const projectSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    avatar_url: {
+      type: String, // Base64 dataURL hoặc Image URL ảnh đại diện dự án
+      default: null,
+    },
     category: {
       type: String, // Phân loại: Kiến trúc, Nội thất, Thiết kế&Thi công...
       enum: [

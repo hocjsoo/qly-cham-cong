@@ -898,11 +898,23 @@ export default function CheckInPage() {
                           {p.deadline ? `⏳ ${p.deadline}` : 'Không có deadline'}
                         </span>
                       </div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                        🎨 {p.category || 'Kiến trúc'} {p.pm_name ? `· 👷 PM: ${p.pm_name}` : ''}
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                        {p.avatar_url ? (
+                          <img
+                            src={p.avatar_url}
+                            alt={p.name}
+                            style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }}
+                            onError={e => { e.target.style.display = 'none'; }}
+                          />
+                        ) : null}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {p.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            🎨 {p.category || 'Kiến trúc'} {p.pm_name ? `· 👷 PM: ${p.pm_name}` : ''}
+                          </div>
+                        </div>
                       </div>
                     </div>
 

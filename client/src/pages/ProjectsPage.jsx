@@ -87,6 +87,7 @@ export default function ProjectsPage() {
     code: '',
     name: '',
     sub_project: '',
+    avatar_url: '',
     category: 'Kiến trúc',
     client_name: '',
     pm_id: null,
@@ -138,6 +139,7 @@ export default function ProjectsPage() {
       code: `DA-${Date.now().toString().slice(-4)}`,
       name: '',
       sub_project: '',
+      avatar_url: '',
       category: 'Kiến trúc',
       client_name: '',
       pm_id: user?._id || user?.id || null,
@@ -171,6 +173,7 @@ export default function ProjectsPage() {
       code: proj.code || '',
       name: proj.name || '',
       sub_project: proj.sub_project || '',
+      avatar_url: proj.avatar_url || '',
       category: proj.category || 'Kiến trúc',
       client_name: proj.client_name || '',
       pm_id: pmId,
@@ -730,30 +733,51 @@ export default function ProjectsPage() {
                         )}
                       </td>
 
-                      {/* DỰ ÁN & DA THÀNH PHẦN */}
+                      {/* DỰ ÁN & DA THÀNH PHẦN (Kèm Avatar / Phối cảnh dự án) */}
                       <td style={{ padding: '9px 12px', verticalAlign: 'middle' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.25 }}>
-                          {p.name}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {p.avatar_url ? (
+                            <img
+                              src={p.avatar_url}
+                              alt={p.name}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFullAvatarImage({ url: p.avatar_url, title: `${p.code} - ${p.name}` });
+                              }}
+                              style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1.5px solid var(--primary)', cursor: 'zoom-in', flexShrink: 0 }}
+                              title="Click phóng to ảnh dự án"
+                              onError={e => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: 'var(--primary-soft)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
+                              🏢
+                            </div>
+                          )}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', lineHeight: 1.25 }}>
+                              {p.name}
+                            </div>
+                            {p.sub_project && (
+                              <div style={{
+                                fontSize: '11px', color: 'var(--primary)', fontWeight: 700,
+                                marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'
+                              }}>
+                                <span style={{
+                                  background: 'var(--primary-soft)', padding: '1px 5px',
+                                  borderRadius: '4px', fontSize: '9.5px', fontWeight: 800
+                                }}>
+                                  🔖 DA thành phần:
+                                </span>
+                                <span>{p.sub_project}</span>
+                              </div>
+                            )}
+                            {p.deadline && (
+                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
+                                ⏱️ Hạn chót: <span style={{ color: 'var(--yellow)', fontWeight: 700 }}>{p.deadline}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        {p.sub_project && (
-                          <div style={{
-                            fontSize: '11px', color: 'var(--primary)', fontWeight: 700,
-                            marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap'
-                          }}>
-                            <span style={{
-                              background: 'var(--primary-soft)', padding: '1px 5px',
-                              borderRadius: '4px', fontSize: '9.5px', fontWeight: 800
-                            }}>
-                              🔖 DA thành phần:
-                            </span>
-                            <span>{p.sub_project}</span>
-                          </div>
-                        )}
-                        {p.deadline && (
-                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
-                            ⏱️ Hạn chót: <span style={{ color: 'var(--yellow)', fontWeight: 700 }}>{p.deadline}</span>
-                          </div>
-                        )}
                       </td>
 
                       {/* CHỦ ĐẦU TƯ / KHÁCH HÀNG */}
@@ -948,6 +972,23 @@ export default function ProjectsPage() {
                         {statObj.label}
                       </span>
                     </div>
+
+                    {p.avatar_url && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFullAvatarImage({ url: p.avatar_url, title: `${p.code} - ${p.name}` });
+                        }}
+                        style={{
+                          width: '100%', height: '120px', borderRadius: '8px', overflow: 'hidden',
+                          marginBottom: '10px', border: '1px solid var(--border)', cursor: 'zoom-in',
+                          background: 'var(--bg-raised)'
+                        }}
+                        title="Click để phóng to ảnh dự án"
+                      >
+                        <img src={p.avatar_url} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    )}
 
                     <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', marginBottom: '4px', lineHeight: 1.3 }}>
                       {p.name}
@@ -1171,6 +1212,68 @@ export default function ProjectsPage() {
                   onChange={e => setForm({ ...form, client_name: e.target.value })}
                   placeholder="VD: Tập đoàn Ecopark / Anh Minh"
                 />
+              </div>
+            </div>
+
+            {/* Form Fields: Project Avatar / Thumbnail Upload */}
+            <div className="form-group" style={{ marginBottom: '12px' }}>
+              <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🖼️ Ảnh đại diện / Phối cảnh dự án (Tùy chọn)
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', background: 'var(--bg-raised)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <label className="btn btn--outline" style={{ cursor: 'pointer', padding: '6px 12px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                  <span>📁 Tải ảnh phối cảnh lên</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const base64 = await new Promise((resolve, reject) => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const img = new Image();
+                            img.onload = () => {
+                              const canvas = document.createElement('canvas');
+                              const maxDim = 500;
+                              let w = img.width, h = img.height;
+                              if (w > h) { if (w > maxDim) { h = Math.round((h * maxDim) / w); w = maxDim; } }
+                              else { if (h > maxDim) { w = Math.round((w * maxDim) / h); h = maxDim; } }
+                              canvas.width = w; canvas.height = h;
+                              const ctx = canvas.getContext('2d');
+                              ctx.drawImage(img, 0, 0, w, h);
+                              resolve(canvas.toDataURL('image/jpeg', 0.82));
+                            };
+                            img.onerror = reject;
+                            img.src = ev.target.result;
+                          };
+                          reader.onerror = reject;
+                          reader.readAsDataURL(file);
+                        });
+                        setForm(p => ({ ...p, avatar_url: base64 }));
+                        toast.success('Đã tải ảnh dự án thành công!');
+                      } catch {
+                        toast.error('Lỗi xử lý file ảnh');
+                      }
+                    }}
+                  />
+                </label>
+                {form.avatar_url ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img
+                      src={form.avatar_url}
+                      alt="Project Avatar"
+                      onClick={() => setFullAvatarImage({ url: form.avatar_url, title: form.name || 'Ảnh dự án' })}
+                      title="Click để phóng to ảnh"
+                      style={{ width: 50, height: 50, borderRadius: '8px', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                    />
+                    <button type="button" onClick={() => setForm({ ...form, avatar_url: '' })} className="btn btn--ghost" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--red)' }}>Xóa ảnh</button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Chưa có ảnh (sẽ dùng icon phân loại mặc định)</span>
+                )}
               </div>
             </div>
 
@@ -1629,6 +1732,20 @@ export default function ProjectsPage() {
                 <X size={18} />
               </button>
             </div>
+
+            {selectedProjectDetail.avatar_url && (
+              <div
+                onClick={() => setFullAvatarImage({ url: selectedProjectDetail.avatar_url, title: `${selectedProjectDetail.code} - ${selectedProjectDetail.name}` })}
+                style={{
+                  width: '100%', maxHeight: '180px', borderRadius: '12px', overflow: 'hidden',
+                  marginBottom: '12px', border: '1px solid var(--border)', cursor: 'zoom-in',
+                  background: 'var(--bg-raised)'
+                }}
+                title="Click để xem ảnh dự án kích thước đầy đủ"
+              >
+                <img src={selectedProjectDetail.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
 
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)', marginBottom: '4px', lineHeight: 1.3 }}>
               {selectedProjectDetail.name}
