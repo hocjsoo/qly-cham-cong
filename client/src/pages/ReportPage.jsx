@@ -772,31 +772,33 @@ export default function ReportPage() {
                         <thead>
                           {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                           <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>ID</th>
-                            <th className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
-                            <th style={{ padding: '8px 8px', minWidth: '60px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>NV</th>
+                            <th className="table-sticky-col-1" style={{ padding: '6px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>ID</th>
+                            <th className="table-sticky-col-2" style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                            <th style={{ padding: '6px 8px', minWidth: '75px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>CHỨC VỤ</th>
 
                             {/* Summary Columns Header */}
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>NLV tại VP</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }}>CT Trong nước</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }}>CT Nước ngoài</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }}>Work from home</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }}>Nghỉ phép</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }}>Nghỉ ốm</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }}>Nghỉ không lương</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }}>Khác</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng giờ tăng ca OT (Không cộng vào công, phục vụ đánh giá)">GIỜ OT</th>
-                            <th style={{ padding: '6px 8px', background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Số lần đi muộn trong tháng">LƯỢT ĐI MUỘN</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }} title="Ngày làm việc tại Văn phòng">🏢 NLV VP</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(59, 130, 246, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }} title="Công tác trong nước (CT1)">🚗 CT Nội địa</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }} title="Công tác nước ngoài (CT2)">✈️ CT Quốc tế</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }} title="Làm việc tại nhà (WFH)">🏠 WFH</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }} title="Nghỉ phép năm có lương (P)">🏖️ Phép</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }} title="Nghỉ ốm (O)">🏥 Ốm</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(100, 116, 139, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }} title="Nghỉ không lương (KL)">⏸️ Không lương</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(148, 163, 184, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }} title="Khác (K)">Khác</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng giờ tăng ca OT (Không cộng vào công, phục vụ đánh giá)">🔥 Giờ OT</th>
+                            <th style={{ padding: '5px 6px', background: 'rgba(245, 158, 11, 0.12)', color: '#d97706', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Số lần đi muộn trong tháng">⚠️ Đi muộn</th>
 
                             {/* Days Weekday Row */}
                             {matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
                               return (
                                 <th key={hd.day} style={{
-                                  padding: '4px 6px',
+                                  padding: '3px 1px',
                                   background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
                                   color: isSun ? '#ef4444' : 'var(--text-muted)',
-                                  minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
+                                  minWidth: '24px', maxWidth: '26px', width: '24px',
+                                  fontSize: '10px',
+                                  borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
                                 }}>
                                   {hd.weekday}
                                 </th>
@@ -806,16 +808,17 @@ export default function ReportPage() {
 
                           {/* Row 2 Header: Days 01..31 */}
                           <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th colSpan="2" className="table-sticky-col-1" style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG</th>
-                            <th colSpan="11" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG & CHUYÊN CẦN</th>
+                            <th colSpan="2" className="table-sticky-col-1" style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '2px solid var(--primary)', fontSize: '10px' }}>BẢNG CHẤM CÔNG</th>
+                            <th colSpan="11" style={{ padding: '3px 6px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.10)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG & CHUYÊN CẦN</th>
 
                             {matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
                               return (
                                 <th key={hd.day} style={{
-                                  padding: '4px 6px',
+                                  padding: '3px 1px',
                                   background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
                                   color: isSun ? '#ef4444' : 'var(--text)',
+                                  fontSize: '10px',
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
                                 }}>
                                   {hd.dayStr}
@@ -828,43 +831,38 @@ export default function ReportPage() {
                         <tbody>
                           {displayedStaffRows.map((r, idx) => (
                             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                              <td className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
-                              <td className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>
+                              <td className="table-sticky-col-1" style={{ padding: '5px 6px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)', fontSize: '11px' }}>{r.code}</td>
+                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: 'var(--text)', fontSize: '11.5px' }}>
                                 <span>{r.full_name}</span>
-                                {r.is_attendance_exempt && (
-                                  <span style={{ fontSize: '9px', fontWeight: 800, padding: '1px 4px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)', marginLeft: '4px' }} title="Miễn chấm công">
-                                    🛡️ Miễn
-                                  </span>
-                                )}
                               </td>
-                              <td style={{ padding: '8px 6px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
+                              <td style={{ padding: '5px 6px', color: 'var(--text-secondary)', fontSize: '11px' }}>{r.role_label}</td>
 
                               {/* Summary Column Values */}
-                              <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_domestic, '#3b82f6')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_foreign, '#8b5cf6')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.wfh, '#06b6d4')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.annual_leave, '#8b5cf6')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
-                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
+                              <td style={{ padding: '4px 3px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.ct_domestic, '#3b82f6')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.ct_foreign, '#8b5cf6')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.wfh, '#06b6d4')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.annual_leave, '#8b5cf6')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
+                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
 
                               {/* GIỜ OT */}
-                              <td style={{ padding: '6px 4px', fontWeight: (r.total_ot_hours > 0 ? 800 : 500), color: (r.total_ot_hours > 0 ? '#8b5cf6' : 'var(--text-muted)') }}>
+                              <td style={{ padding: '4px 3px', fontWeight: (r.total_ot_hours > 0 ? 800 : 500), color: (r.total_ot_hours > 0 ? '#8b5cf6' : 'var(--text-muted)') }}>
                                 {r.total_ot_hours > 0 ? (
-                                  <span style={{ background: 'rgba(139, 92, 246, 0.12)', padding: '2px 6px', borderRadius: '4px' }}>
+                                  <span style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '2px 5px', borderRadius: '4px', fontSize: '10.5px' }}>
                                     {r.total_ot_hours}h
                                   </span>
-                                ) : <span style={{ opacity: 0.2 }}>—</span>}
+                                ) : <span style={{ opacity: 0.18 }}>—</span>}
                               </td>
 
                               {/* LƯỢT ĐI MUỘN */}
-                              <td style={{ padding: '6px 4px', fontWeight: (r.late_count > 0 ? 800 : 500), color: (r.late_count > 0 ? '#d97706' : 'var(--text-muted)') }}>
+                              <td style={{ padding: '4px 3px', fontWeight: (r.late_count > 0 ? 800 : 500), color: (r.late_count > 0 ? '#d97706' : 'var(--text-muted)') }}>
                                 {r.late_count > 0 ? (
-                                  <span style={{ background: 'rgba(245, 158, 11, 0.12)', padding: '2px 6px', borderRadius: '4px' }}>
+                                  <span style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '2px 5px', borderRadius: '4px', fontSize: '10.5px' }}>
                                     {r.late_count} lần {r.total_late_minutes > 0 ? `(${r.total_late_minutes}p)` : ''}
                                   </span>
-                                ) : <span style={{ opacity: 0.2 }}>—</span>}
+                                ) : <span style={{ opacity: 0.18 }}>—</span>}
                               </td>
 
                               {/* Day Cell Symbols */}
@@ -901,7 +899,8 @@ export default function ReportPage() {
                                       setCellReason('');
                                     }}
                                     style={{
-                                      padding: '6px 2px',
+                                      padding: '4px 1px',
+                                      minWidth: '24px', maxWidth: '26px', width: '24px',
                                       cursor: isAdmin ? 'pointer' : 'default',
                                       background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
@@ -932,26 +931,26 @@ export default function ReportPage() {
                         {/* System Total Footer Row */}
                         <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
                           <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
-                            <td colSpan="2" className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
+                            <td colSpan="2" className="table-sticky-col-1" style={{ padding: '6px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800, fontSize: '11px' }}>
                               TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
                             </td>
-                            <td style={{ padding: '6px 4px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
-                            <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.wfh, 0), '#06b6d4')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0), '#8b5cf6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
-                            <td style={{ padding: '6px 4px', color: '#8b5cf6', fontWeight: 800 }}>
+                            <td style={{ padding: '4px 4px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                            <td style={{ padding: '4px 3px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.wfh, 0), '#06b6d4')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0), '#8b5cf6')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
+                            <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
+                            <td style={{ padding: '4px 3px', color: '#8b5cf6', fontWeight: 800 }}>
                               {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), '#8b5cf6')}
                             </td>
-                            <td style={{ padding: '6px 4px', color: '#d97706', fontWeight: 800 }}>
+                            <td style={{ padding: '4px 3px', color: '#d97706', fontWeight: 800 }}>
                               {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), '#d97706')}
                             </td>
                             {matrixData.header_days.map(hd => (
-                              <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                              <td key={hd.day} style={{ padding: '4px 1px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             ))}
                           </tr>
                         </tfoot>
