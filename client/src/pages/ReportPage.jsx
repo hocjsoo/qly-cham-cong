@@ -734,6 +734,62 @@ export default function ReportPage() {
                                         const isLate = d.is_late;
                                         const hasOt = d.ot_hours > 0;
 
+                                        // Phân biệt màu sắc trực quan theo từng loại công
+                                        let bg = 'var(--bg-raised)';
+                                        let border = isSun ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid var(--border)';
+                                        let dayColor = isSun ? '#ef4444' : 'var(--text-muted)';
+                                        let symbolColor = 'var(--text-muted)';
+                                        let cellOpacity = 0.45;
+
+                                        if (d.symbol && d.symbol !== '—') {
+                                          cellOpacity = 1;
+                                          dayColor = isSun ? '#ef4444' : 'var(--text-secondary)';
+
+                                          if (d.symbol === 'x' || d.symbol === '1.0x') {
+                                            bg = 'rgba(16, 185, 129, 0.08)';
+                                            border = '1px solid rgba(16, 185, 129, 0.35)';
+                                            symbolColor = '#10b981';
+                                          } else if (d.symbol === '0,75x' || d.symbol === '0.75x') {
+                                            bg = 'rgba(16, 185, 129, 0.08)';
+                                            border = '1px solid rgba(16, 185, 129, 0.35)';
+                                            symbolColor = '#059669';
+                                          } else if (d.symbol === '0,5x' || d.symbol === '0.5x') {
+                                            bg = 'rgba(245, 158, 11, 0.08)';
+                                            border = '1px solid rgba(245, 158, 11, 0.35)';
+                                            symbolColor = '#d97706';
+                                          } else if (d.symbol === 'CT1') {
+                                            bg = 'rgba(59, 130, 246, 0.08)';
+                                            border = '1px solid rgba(59, 130, 246, 0.35)';
+                                            symbolColor = '#3b82f6';
+                                          } else if (d.symbol === 'CT2') {
+                                            bg = 'rgba(139, 92, 246, 0.08)';
+                                            border = '1px solid rgba(139, 92, 246, 0.35)';
+                                            symbolColor = '#8b5cf6';
+                                          } else if (d.symbol === 'WFH') {
+                                            bg = 'rgba(6, 182, 212, 0.08)';
+                                            border = '1px solid rgba(6, 182, 212, 0.35)';
+                                            symbolColor = '#06b6d4';
+                                          } else if (d.symbol === 'P') {
+                                            bg = 'rgba(139, 92, 246, 0.08)';
+                                            border = '1px solid rgba(139, 92, 246, 0.35)';
+                                            symbolColor = '#8b5cf6';
+                                          } else if (d.symbol === 'O') {
+                                            bg = 'rgba(239, 68, 68, 0.08)';
+                                            border = '1px solid rgba(239, 68, 68, 0.35)';
+                                            symbolColor = '#ef4444';
+                                          } else if (d.symbol === 'KL' || d.symbol === 'K') {
+                                            bg = 'rgba(100, 116, 139, 0.08)';
+                                            border = '1px solid rgba(100, 116, 139, 0.3)';
+                                            symbolColor = '#64748b';
+                                          }
+                                        } else if (isSun) {
+                                          bg = 'rgba(239, 68, 68, 0.05)';
+                                        }
+
+                                        if (isModified) {
+                                          border = '1.5px solid #f59e0b';
+                                        }
+
                                         return (
                                           <div
                                             key={d.day}
@@ -770,14 +826,16 @@ export default function ReportPage() {
                                               padding: '4px 2px',
                                               textAlign: 'center',
                                               borderRadius: '6px',
-                                              background: isSun ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-raised)',
-                                              border: isModified ? '1px solid #f59e0b' : (isSun ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border)'),
-                                              cursor: isAdmin ? 'pointer' : 'default'
+                                              background: bg,
+                                              border: border,
+                                              opacity: cellOpacity,
+                                              cursor: isAdmin ? 'pointer' : 'default',
+                                              transition: 'all 0.15s ease'
                                             }}
                                             title={`${d.dateStr}: ${d.symbol || 'Không công'}${isLate ? ' (Đi muộn)' : ''}${hasOt ? ` (OT: ${d.ot_hours}h)` : ''}`}
                                           >
-                                            <div style={{ fontSize: '9px', color: isSun ? '#ef4444' : 'var(--text-muted)' }}>{d.day}</div>
-                                            <div style={{ fontSize: '11px', fontWeight: 800, color: d.symbol ? 'var(--primary)' : 'var(--text-muted)', marginTop: '1px' }}>
+                                            <div style={{ fontSize: '9px', fontWeight: 600, color: dayColor }}>{d.day}</div>
+                                            <div style={{ fontSize: '11px', fontWeight: 800, color: symbolColor, marginTop: '1px' }}>
                                               {d.symbol || '—'}
                                             </div>
                                             {(isLate || hasOt) && (
@@ -789,6 +847,28 @@ export default function ReportPage() {
                                           </div>
                                         );
                                       })}
+                                    </div>
+
+                                    {/* Mini Legend Chú Thích Màu */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px', padding: '6px 8px', background: 'var(--bg-raised)', borderRadius: '6px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#10b981' }} /> x: Đủ công
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#06b6d4' }} /> WFH
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#3b82f6' }} /> CT1/CT2
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#8b5cf6' }} /> P: Nghỉ phép
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#ef4444' }} /> O: Nghỉ ốm
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#d97706' }} /> 0.5x
+                                      </span>
                                     </div>
                                   </div>
                                 )}

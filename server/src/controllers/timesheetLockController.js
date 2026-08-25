@@ -173,7 +173,7 @@ const getFullMatrix = async (req, res) => {
           status: att?.status || (att ? 'present' : 'none'),
           notes: att?.notes || '',
           check_in_type: att?.check_in_type || 'office',
-          is_modified: dayAudits.length > 0 || Boolean(att?.notes && att.notes.includes('Sửa:')),
+          is_modified: dayAudits.length > 0,
           audit_logs: dayAudits.map(a => ({
             old_symbol: a.old_symbol,
             new_symbol: a.new_symbol,
