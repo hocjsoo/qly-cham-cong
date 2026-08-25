@@ -50,7 +50,7 @@ export default function ReportPage() {
 
   // Responsive View Mode: 'cards' (Mặc định trên mobile) hoặc 'table' (Bảng ngang 31 ngày)
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'cards' : 'table'));
-  const [expandedStaffId, setExpandedStaffId] = useState(null);
+  const [expandedStaffIds, setExpandedStaffIds] = useState(new Set());
 
   // Data states
   const [report, setReport] = useState(null);
@@ -72,6 +72,8 @@ export default function ReportPage() {
   // Edit Cell Modal State
   const [selectedCell, setSelectedCell] = useState(null);
   const [cellSymbol, setCellSymbol] = useState('x');
+  const [cellCheckIn, setCellCheckIn] = useState('08:30');
+  const [cellCheckOut, setCellCheckOut] = useState('17:30');
   const [cellReason, setCellReason] = useState('');
   const [submittingCell, setSubmittingCell] = useState(false);
 
@@ -222,6 +224,8 @@ export default function ReportPage() {
         user_id: selectedCell.user_id,
         date: selectedCell.dateStr,
         new_symbol: cellSymbol,
+        check_in_time: cellCheckIn,
+        check_out_time: cellCheckOut,
         reason: cellReason.trim(),
       });
       toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}] & lưu lịch sử! ✅`);
@@ -583,13 +587,35 @@ export default function ReportPage() {
                   {/* CHẾ ĐỘ 1: DẠNG THẺ GỌN TỐI ƯU CHO MOBILE (CARDS VIEW) */}
                   {viewMode === 'cards' && (
                     <div className="animate-fade-in">
-                      {/* Mobile Top Summary Bar */}
+                      {/* Mobile Top Summary Bar with Expand/Collapse All Buttons */}
                       <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                          Sĩ số: <strong style={{ color: 'var(--primary)' }}>{displayedStaffRows.length} nhân sự</strong>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                            Sĩ số: <strong style={{ color: 'var(--primary)' }}>{displayedStaffRows.length} nhân sự</strong>
+                          </div>
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                            Tổng công VP: <strong style={{ color: 'var(--green)' }}>{displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}</strong>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                          Tổng công VP: <strong style={{ color: 'var(--green)' }}>{displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}</strong>
+
+                        {/* Multi-card expand / collapse buttons */}
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => setExpandedStaffIds(new Set(displayedStaffRows.map(r => r.id)))}
+                            className="btn btn--ghost"
+                            style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--primary)', fontWeight: 600 }}
+                            title="Mở rộng tất cả lịch chấm công của nhân sự"
+                          >
+                            📂 Mở tất cả
+                          </button>
+                          <button
+                            onClick={() => setExpandedStaffIds(new Set())}
+                            className="btn btn--ghost"
+                            style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--text-muted)' }}
+                            title="Thu gọn toàn bộ lịch chấm công"
+                          >
+                            📁 Thu gọn
+                          </button>
                         </div>
                       </div>
 
@@ -597,16 +623,24 @@ export default function ReportPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
                         {displayedStaffRows.map((r) => {
                           const totalMonthWork = (r.nlv_office || 0) + (r.ct_domestic || 0) + (r.ct_foreign || 0) + (r.wfh || 0);
-                          const isExpanded = expandedStaffId === r.id;
+                          const isExpanded = expandedStaffIds.has(r.id);
 
                           return (
                             <div key={r.id} className="card" style={{ padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.2s ease' }}>
                               {/* Staff Header Row */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                                  <div className="avatar" style={{ width: '38px', height: '38px', fontSize: '12px', fontWeight: 800, background: 'var(--primary-soft)', color: 'var(--primary)', flexShrink: 0 }}>
-                                    {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?'}
-                                  </div>
+                                  {r.avatar_url ? (
+                                    <img
+                                      src={r.avatar_url}
+                                      alt={r.full_name}
+                                      style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }}
+                                    />
+                                  ) : (
+                                    <div className="avatar" style={{ width: '38px', height: '38px', fontSize: '12px', fontWeight: 800, background: 'var(--primary-soft)', color: 'var(--primary)', flexShrink: 0 }}>
+                                      {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?'}
+                                    </div>
+                                  )}
                                   <div style={{ minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                       <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>{r.full_name}</span>
@@ -672,7 +706,14 @@ export default function ReportPage() {
                               {/* Expandable Daily Details Grid */}
                               <div>
                                 <button
-                                  onClick={() => setExpandedStaffId(isExpanded ? null : r.id)}
+                                  onClick={() => {
+                                    setExpandedStaffIds(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(r.id)) next.delete(r.id);
+                                      else next.add(r.id);
+                                      return next;
+                                    });
+                                  }}
                                   className="btn btn--ghost btn--full"
                                   style={{ padding: '6px 10px', fontSize: '11px', justifyContent: 'space-between', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
                                 >
@@ -701,12 +742,28 @@ export default function ReportPage() {
                                               setSelectedCell({
                                                 user_id: r.id,
                                                 staff_name: r.full_name,
+                                                staff_code: r.code,
+                                                department_name: r.department_name,
                                                 dateStr: d.dateStr,
                                                 day: d.day,
-                                                currentSymbol: d.symbol || '—',
+                                                weekday: hdObj?.weekday,
+                                                current_symbol: d.symbol,
+                                                check_in_time: d.check_in_time,
+                                                check_out_time: d.check_out_time,
+                                                total_hours: d.total_hours,
+                                                ot_hours: d.ot_hours,
+                                                is_late: d.is_late,
+                                                late_minutes: d.late_minutes,
+                                                status: d.status,
+                                                notes: d.notes,
+                                                check_in_type: d.check_in_type,
+                                                is_modified: d.is_modified,
+                                                audit_logs: d.audit_logs || [],
                                                 is_locked: r.is_locked
                                               });
                                               setCellSymbol(d.symbol || 'x');
+                                              setCellCheckIn(d.check_in_time || '08:30');
+                                              setCellCheckOut(d.check_out_time || '17:30');
                                               setCellReason('');
                                             }}
                                             style={{
@@ -896,6 +953,8 @@ export default function ReportPage() {
                                         audit_logs: d.audit_logs || [],
                                       });
                                       setCellSymbol(d.symbol || 'x');
+                                      setCellCheckIn(d.check_in_time || '08:30');
+                                      setCellCheckOut(d.check_out_time || '17:30');
                                       setCellReason('');
                                     }}
                                     style={{
@@ -1470,8 +1529,36 @@ export default function ReportPage() {
             {/* Admin / Leader Edit Section */}
             {isAdminOrManager ? (
               <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', marginTop: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Ô Công (Admin / Leader)
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu & Giờ Công (Admin / Leader)
+                </div>
+
+                {/* Sửa Giờ Check-in & Check-out */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} color="var(--primary)" /> Giờ Check-in
+                    </label>
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={cellCheckIn}
+                      onChange={e => setCellCheckIn(e.target.value)}
+                      style={{ fontSize: '12.5px', padding: '6px 8px' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={12} color="var(--primary)" /> Giờ Check-out
+                    </label>
+                    <input
+                      type="time"
+                      className="form-input"
+                      value={cellCheckOut}
+                      onChange={e => setCellCheckOut(e.target.value)}
+                      style={{ fontSize: '12.5px', padding: '6px 8px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -1497,7 +1584,7 @@ export default function ReportPage() {
                     rows={2}
                     value={cellReason}
                     onChange={e => setCellReason(e.target.value)}
-                    placeholder="Nhập lý do điều chỉnh ô công..."
+                    placeholder="Nhập lý do điều chỉnh ô công hoặc sửa giờ..."
                     style={{ fontSize: '12px' }}
                   />
                 </div>

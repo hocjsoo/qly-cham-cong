@@ -147,13 +147,25 @@ const getFullMatrix = async (req, res) => {
         // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên
         const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
 
+        const formatTimeHHMM = (val) => {
+          if (!val) return null;
+          if (typeof val === 'string' && val.length === 5 && val.includes(':')) return val;
+          try {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+              return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false });
+            }
+          } catch {}
+          return String(val);
+        };
+
         return {
           day: hd.day,
           dateStr: hd.dateStr,
           symbol,
           attendance_id: att?._id || null,
-          check_in_time: att?.check_in_time || null,
-          check_out_time: att?.check_out_time || null,
+          check_in_time: formatTimeHHMM(att?.check_in_time),
+          check_out_time: formatTimeHHMM(att?.check_out_time),
           total_hours: att?.total_hours || 0,
           ot_hours: att?.ot_hours || 0,
           is_late: Boolean(att?.is_late),
@@ -179,6 +191,7 @@ const getFullMatrix = async (req, res) => {
         id: u._id,
         code: u.employee_code || `NS ${String(idx + 1).padStart(2, '0')}`,
         full_name: u.full_name,
+        avatar_url: u.avatar_url || null,
         role_label: u.position || u.department_id?.name || (u.role === 'admin' ? 'Quản trị' : (u.role === 'leader' || u.role === 'manager') ? 'Trưởng nhóm' : 'Nhân sự'),
         department_name: u.department_id?.name || 'KTS',
         nlv_office: parseFloat(nlv_office.toFixed(2)),
@@ -204,39 +217,49 @@ const getFullMatrix = async (req, res) => {
       year,
       days_in_month: daysInMonth,
       header_days: headerDays,
+      staff_rows: staffRows,
       global_locked: Boolean(globalLock),
       global_lock_info: globalLock || null,
-      staff_rows: staffRows,
     });
 
   } catch (error) {
     console.error('GetFullMatrix error:', error);
-    res.status(500).json({ error: 'Lỗi tải bảng chốt công tổng hợp.' });
+    res.status(500).json({ error: 'Lỗi tải Bảng Chấm Công 31 ngày.' });
   }
 };
 
-// POST /api/timesheet-lock/toggle - Chốt công / Mở chốt công (Toàn bộ hoặc Theo từng NV)
+// POST /api/timesheet-lock/toggle - Chốt / Mở chốt công
 const toggleLock = async (req, res) => {
   const { month, year, user_id, is_locked, note } = req.body;
 
   if (!month || !year) {
-    return res.status(400).json({ error: 'Tháng và năm là bắt buộc.' });
+    return res.status(400).json({ error: 'Tháng và Năm là bắt buộc.' });
   }
 
   try {
-    const filter = { month: parseInt(month, 10), year: parseInt(year, 10), user_id: user_id || null };
-    const update = {
-      is_locked: is_locked !== undefined ? is_locked : true,
-      locked_by: req.user._id,
-      locked_by_name: req.user.full_name,
-      locked_at: new Date(),
-      note: note || (is_locked ? 'Chốt công bảng lương' : 'Mở chốt công'),
+    const filter = {
+      month: parseInt(month, 10),
+      year: parseInt(year, 10),
+      user_id: user_id || null,
     };
 
-    const record = await TimesheetLock.findOneAndUpdate(filter, update, { upsert: true, new: true });
+    const record = await TimesheetLock.findOneAndUpdate(
+      filter,
+      {
+        month: parseInt(month, 10),
+        year: parseInt(year, 10),
+        user_id: user_id || null,
+        is_locked: Boolean(is_locked),
+        locked_by: req.user._id,
+        locked_by_name: req.user.full_name,
+        locked_at: new Date(),
+        note: note || (is_locked ? 'Chốt công' : 'Mở chốt công'),
+      },
+      { upsert: true, new: true }
+    );
 
     res.json({
-      message: is_locked ? '🔒 Đã chốt công thành công!' : '🔓 Đã mở chốt công!',
+      message: is_locked ? 'Đã chốt bảng công thành công 🔒' : 'Đã mở chốt bảng công 🔓',
       lock_record: record,
     });
   } catch (error) {
@@ -245,9 +268,9 @@ const toggleLock = async (req, res) => {
   }
 };
 
-// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công có lưu lý do & thời gian
+// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công có lưu lý do, giờ vào/ra & thời gian
 const overrideCell = async (req, res) => {
-  const { user_id, date, new_symbol, reason } = req.body;
+  const { user_id, date, new_symbol, reason, check_in_time, check_out_time, custom_notes } = req.body;
 
   if (!user_id || !date || !new_symbol || !reason || !reason.trim()) {
     return res.status(400).json({ error: 'Tất cả thông tin và Lý do chỉnh sửa là bắt buộc.' });
@@ -258,13 +281,20 @@ const overrideCell = async (req, res) => {
     const oldSymbol = attendance ? (attendance.notes || '—') : '—';
     const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol] || SYMBOL_TO_STATUS_MAP['x'];
 
+    const checkInDate = check_in_time ? (check_in_time.includes('T') ? new Date(check_in_time) : new Date(`${date}T${check_in_time}:00+07:00`)) : (attendance?.check_in_time || null);
+    const checkOutDate = check_out_time ? (check_out_time.includes('T') ? new Date(check_out_time) : new Date(`${date}T${check_out_time}:00+07:00`)) : (attendance?.check_out_time || null);
+
+    const noteContent = custom_notes ? `${custom_notes} | Sửa: ${reason.trim()}` : `Ký hiệu: [${new_symbol}] | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
+
     if (attendance) {
       attendance.total_hours = targetConfig.total_hours;
       attendance.is_late = targetConfig.is_late;
       attendance.late_tier = targetConfig.late_tier;
       attendance.check_in_type = targetConfig.check_in_type;
       attendance.status = targetConfig.status;
-      attendance.notes = `Ký hiệu: [${new_symbol}] | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
+      if (check_in_time !== undefined) attendance.check_in_time = checkInDate;
+      if (check_out_time !== undefined) attendance.check_out_time = checkOutDate;
+      attendance.notes = noteContent;
       await attendance.save();
     } else {
       attendance = await Attendance.create({
@@ -275,7 +305,9 @@ const overrideCell = async (req, res) => {
         late_tier: targetConfig.late_tier,
         check_in_type: targetConfig.check_in_type,
         status: targetConfig.status,
-        notes: `Ký hiệu: [${new_symbol}] | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`,
+        check_in_time: checkInDate,
+        check_out_time: checkOutDate,
+        notes: noteContent,
       });
     }
 
