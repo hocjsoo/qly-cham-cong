@@ -180,9 +180,6 @@ export default function ReportPage() {
         ]);
         setReport(rRes.data);
         setTrend(tRes.data);
-      } else if (tab === 'payroll' && isAdmin) {
-        const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`);
-        setPayroll(data);
       } else if (tab === 'ranking' && isAdmin) {
         const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
         setRanking(data);
@@ -433,9 +430,6 @@ export default function ReportPage() {
               </button>
               <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
                 <BarChart3 size={13} /> Tổng quan
-              </button>
-              <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
-                <Calculator size={13} /> Bảng tính công
               </button>
               <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
                 <Trophy size={13} /> Xếp hạng
@@ -1194,61 +1188,7 @@ export default function ReportPage() {
           </div>
         )}
 
-        {/* TAB 4: PAYROLL */}
-        {tab === 'payroll' && payroll?.payroll && (
-          <div className="card animate-fade-in" style={{ padding: '16px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '10px' }}>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calculator size={18} /> Bảng Tổng Hợp Công Tính Lương (Nhân Sự Đang Làm Việc) — Tháng {month}/{year}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                Nhân sự đang làm việc: <strong>{payroll.payroll.length}</strong>
-              </div>
-            </div>
-
-            <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-raised)', color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '10px 12px' }}>HỌ VÀ TÊN</th>
-                  <th style={{ padding: '10px 12px' }}>PHÒNG BAN</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>NGÀY ĐI LÀM</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>GIỜ OT</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>LƯỢT ĐI MUỘN</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>TRỪ CÔNG MUỘN</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'right' }}>CÔNG THỰC NHẬN</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payroll.payroll.map((p, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border-muted)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
-                          {p.full_name?.charAt(0)}
-                        </div>
-                        {p.full_name}
-                      </div>
-                    </td>
-                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{p.department_name || 'KTS'}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 800, color: 'var(--green)' }}>{p.present_days ?? p.work_days_credit ?? 0} ngày</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: '#8b5cf6' }}>{p.ot_hours || 0}h</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: p.late_days > 0 ? 'var(--yellow)' : 'var(--text-muted)' }}>{p.late_days || 0} lần ({p.total_late_minutes || 0}p)</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center', color: (p.penalty_days > 0 || p.late_penalty_credit > 0) ? 'var(--red)' : 'var(--text-muted)', fontWeight: 700 }}>
-                      {(p.penalty_days > 0 || p.late_penalty_credit > 0) ? `-${p.penalty_days || p.late_penalty_credit}` : '0'}
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                      <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 900, fontSize: '13px' }}>
-                        {p.total_work_days ?? p.final_payroll_credit ?? 0} công
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* TAB 5: RANKING LEADERBOARD */}
+        {/* TAB 4: RANKING LEADERBOARD */}
         {tab === 'ranking' && (ranking?.ranking || ranking?.rankings) && (
           <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Top Header Card */}
