@@ -2,7 +2,7 @@
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar, LayoutGrid, Table as TableIcon, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -47,6 +47,10 @@ export default function ReportPage() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [tab, setTab] = useState('timesheet_lock'); // 'timesheet_lock' | 'individual_detail' | 'overview' | 'payroll' | 'ranking'
+
+  // Responsive View Mode: 'cards' (Mặc định trên mobile) hoặc 'table' (Bảng ngang 31 ngày)
+  const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'cards' : 'table'));
+  const [expandedStaffId, setExpandedStaffId] = useState(null);
 
   // Data states
   const [report, setReport] = useState(null);
@@ -145,12 +149,11 @@ export default function ReportPage() {
   }, [matrixData, searchQuery, deptFilter]);
 
   useEffect(() => {
-    // Employee chỉ xem được tab timesheet_lock (bảng công toàn cty, read-only)
-    // Admin/Leader xem được tất cả các tab
-    if (isAdminOrManager || tab === 'timesheet_lock') {
+    // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
+    if (isAdmin || tab === 'timesheet_lock') {
       loadTab();
     }
-  }, [isAdminOrManager, month, year, tab, selectedDetailUserId]);
+  }, [isAdmin, month, year, tab, selectedDetailUserId]);
 
   const loadTab = async () => {
     setLoading(true);
@@ -158,21 +161,21 @@ export default function ReportPage() {
       if (tab === 'timesheet_lock') {
         const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
         setMatrixData(data);
-      } else if (tab === 'individual_detail' && isAdminOrManager) {
+      } else if (tab === 'individual_detail' && isAdmin) {
         const queryUser = selectedDetailUserId || user?._id || user?.id;
         const { data } = await api.get(`/reports/individual-detail?user_id=${queryUser}&month=${month}&year=${year}`);
         setIndividualDetail(data);
-      } else if (tab === 'overview' && isAdminOrManager) {
+      } else if (tab === 'overview' && isAdmin) {
         const [rRes, tRes] = await Promise.all([
           api.get(`/reports/monthly?month=${month}&year=${year}`),
           api.get('/reports/trend?months=6'),
         ]);
         setReport(rRes.data);
         setTrend(tRes.data);
-      } else if (tab === 'payroll' && isAdminOrManager) {
+      } else if (tab === 'payroll' && isAdmin) {
         const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`);
         setPayroll(data);
-      } else if (tab === 'ranking' && isAdminOrManager) {
+      } else if (tab === 'ranking' && isAdmin) {
         const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
         setRanking(data);
       }
@@ -385,11 +388,11 @@ export default function ReportPage() {
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">{isAdminOrManager ? 'Báo cáo & Chốt công' : 'Bảng Chấm Công Tháng'}</div>
+            <div className="header__title">{isAdmin ? 'Báo cáo & Chốt công' : 'Bảng Chấm Công Tháng'}</div>
             <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {isAdminOrManager && (
+            {isAdmin && (
               <button onClick={() => setShowExportModal(true)} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
                 {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công (PDF/Excel)</>}
               </button>
@@ -411,28 +414,26 @@ export default function ReportPage() {
             <button onClick={nextMonth} className="theme-toggle-btn" style={{ width: '28px', height: '28px' }}><ChevronRight size={16} /></button>
           </div>
 
-          {/* Navigation Tabs — Employee chỉ thấy tab Chốt Công (read-only) */}
-          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
-            <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
-              <Lock size={13} /> Bảng Chấm Công
-            </button>
-            {isAdminOrManager && (
-              <>
-                <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
-                  <FileText size={13} /> Bảng Chi Tiết Cá Nhân
-                </button>
-                <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
-                  <BarChart3 size={13} /> Tổng quan
-                </button>
-                <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
-                  <Calculator size={13} /> Bảng tính công
-                </button>
-                <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
-                  <Trophy size={13} /> Xếp hạng
-                </button>
-              </>
-            )}
-          </div>
+          {/* Navigation Tabs — Chỉ Admin mới thấy các tab phân tích (Leader & Employee chỉ xem Bảng Chấm Công) */}
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
+              <button onClick={() => setTab('timesheet_lock')} className={`chip${tab === 'timesheet_lock' ? ' active' : ''}`}>
+                <Lock size={13} /> Bảng Chấm Công
+              </button>
+              <button onClick={() => setTab('individual_detail')} className={`chip${tab === 'individual_detail' ? ' active' : ''}`}>
+                <FileText size={13} /> Bảng Chi Tiết Cá Nhân
+              </button>
+              <button onClick={() => setTab('overview')} className={`chip${tab === 'overview' ? ' active' : ''}`}>
+                <BarChart3 size={13} /> Tổng quan
+              </button>
+              <button onClick={() => setTab('payroll')} className={`chip${tab === 'payroll' ? ' active' : ''}`}>
+                <Calculator size={13} /> Bảng tính công
+              </button>
+              <button onClick={() => setTab('ranking')} className={`chip${tab === 'ranking' ? ' active' : ''}`}>
+                <Trophy size={13} /> Xếp hạng
+              </button>
+            </div>
+          )}
         </div>
 
         {/* TAB 1: 🔒 CHỐT CÔNG MẪU THỦ CÔNG ET_STAFF 2026 */}
@@ -473,41 +474,63 @@ export default function ReportPage() {
                 )}
               </div>
 
-              {/* Quick Matrix Filter Bar */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '180px' }}>
-                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                  <input
-                    type="text"
-                    className="form-input"
-                    style={{ paddingLeft: '30px', padding: '6px 10px 6px 30px', fontSize: '12px' }}
-                    placeholder="Tìm tên, mã nhân sự..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
+              {/* Quick Matrix Filter Bar & View Mode Toggle */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
+                    <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ paddingLeft: '30px', padding: '6px 10px 6px 30px', fontSize: '12px' }}
+                      placeholder="Tìm tên, mã nhân sự..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  {departmentOptions.length > 0 && (
+                    <select
+                      className="form-input"
+                      style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '130px' }}
+                      value={deptFilter}
+                      onChange={e => setDeptFilter(e.target.value)}
+                    >
+                      <option value="">Tất cả phòng ban</option>
+                      {departmentOptions.map((dept, idx) => (
+                        <option key={idx} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  )}
+                  {(searchQuery || deptFilter) && (
+                    <button
+                      onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
+                      className="btn btn--ghost"
+                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                    >
+                      Xóa lọc
+                    </button>
+                  )}
                 </div>
-                {departmentOptions.length > 0 && (
-                  <select
-                    className="form-input"
-                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '130px' }}
-                    value={deptFilter}
-                    onChange={e => setDeptFilter(e.target.value)}
-                  >
-                    <option value="">Tất cả phòng ban</option>
-                    {departmentOptions.map((dept, idx) => (
-                      <option key={idx} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                )}
-                {(searchQuery || deptFilter) && (
+
+                {/* View Mode Toggle: Cards vs Table */}
+                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-raised)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   <button
-                    onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
-                    className="btn btn--ghost"
-                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                    onClick={() => setViewMode('cards')}
+                    className={`chip ${viewMode === 'cards' ? 'active' : ''}`}
+                    style={{ padding: '4px 10px', fontSize: '11px', margin: 0, gap: '4px' }}
+                    title="Chế độ thẻ gọn (tối ưu cho điện thoại)"
                   >
-                    Xóa lọc
+                    <LayoutGrid size={13} /> Thẻ
                   </button>
-                )}
+                  <button
+                    onClick={() => setViewMode('table')}
+                    className={`chip ${viewMode === 'table' ? 'active' : ''}`}
+                    style={{ padding: '4px 10px', fontSize: '11px', margin: 0, gap: '4px' }}
+                    title="Chế độ bảng ngang đầy đủ 31 ngày"
+                  >
+                    <TableIcon size={13} /> Bảng 31 ngày
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -565,194 +588,349 @@ export default function ReportPage() {
                 );
               };
 
+              if (loading) {
+                return <div className="skeleton-card" style={{ height: '300px', borderRadius: '16px' }} />;
+              }
+
+              if (!matrixData || !matrixData.staff_rows) {
+                return <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>;
+              }
+
               return (
-                /* BẢNG CHẤM CÔNG KHỚP 100% MẪU ET_STAFF 2026 */
-                loading ? (
-                  <div className="skeleton-card" style={{ height: '300px', borderRadius: '16px' }} />
-                ) : !matrixData || !matrixData.staff_rows ? (
-                  <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>
-                ) : (
-                  <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '12px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
-                    {/* Corporate Header Banner */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid var(--primary)', paddingBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Building2 size={24} color="var(--primary)" />
-                        <div>
-                          <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
-                            BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
-                          </div>
-                          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
-                          </div>
+                <div>
+                  {/* CHẾ ĐỘ 1: DẠNG THẺ GỌN TỐI ƯU CHO MOBILE (CARDS VIEW) */}
+                  {viewMode === 'cards' && (
+                    <div className="animate-fade-in">
+                      {/* Mobile Top Summary Bar */}
+                      <div className="card" style={{ padding: '10px 14px', marginBottom: '12px', background: 'var(--bg-raised)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          Sĩ số: <strong style={{ color: 'var(--primary)' }}>{displayedStaffRows.length} nhân sự</strong>
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          Tổng công VP: <strong style={{ color: 'var(--green)' }}>{displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}</strong>
                         </div>
                       </div>
-                      <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                        <div>Mẫu quản lý: <strong>ET_Staff {year}</strong></div>
-                        <div>Trạng thái: <strong style={{ color: matrixData.global_locked ? 'var(--red)' : 'var(--green)' }}>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
+
+                      {/* Staff Cards List */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+                        {displayedStaffRows.map((r) => {
+                          const totalMonthWork = (r.nlv_office || 0) + (r.ct_domestic || 0) + (r.ct_foreign || 0) + (r.wfh || 0);
+                          const isExpanded = expandedStaffId === r.id;
+
+                          return (
+                            <div key={r.id} className="card" style={{ padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.2s ease' }}>
+                              {/* Staff Header Row */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                  <div className="avatar" style={{ width: '38px', height: '38px', fontSize: '12px', fontWeight: 800, background: 'var(--primary-soft)', color: 'var(--primary)', flexShrink: 0 }}>
+                                    {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?'}
+                                  </div>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>{r.full_name}</span>
+                                      <span style={{ fontSize: '10px', fontWeight: 800, padding: '1px 6px', borderRadius: '4px', background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                                        {r.code}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                      {r.department_name || r.role_label}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Main Work Metric */}
+                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                  <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--green)' }}>
+                                    {totalMonthWork.toFixed(2)}
+                                    <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '3px' }}>công</span>
+                                  </div>
+                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tổng công làm</div>
+                                </div>
+                              </div>
+
+                              {/* Metric Pills Grid */}
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '10px', textAlign: 'center' }}>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Tại VP</div>
+                                  <div style={{ fontWeight: 800, color: '#10b981', fontSize: '12px', marginTop: '2px' }}>{r.nlv_office || 0}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Công tác</div>
+                                  <div style={{ fontWeight: 800, color: '#3b82f6', fontSize: '12px', marginTop: '2px' }}>{((r.ct_domestic || 0) + (r.ct_foreign || 0)).toFixed(2)}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>WFH</div>
+                                  <div style={{ fontWeight: 800, color: '#06b6d4', fontSize: '12px', marginTop: '2px' }}>{r.wfh || 0}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Phép/Khác</div>
+                                  <div style={{ fontWeight: 800, color: '#8b5cf6', fontSize: '12px', marginTop: '2px' }}>{((r.annual_leave || 0) + (r.sick_leave || 0) + (r.unpaid_leave || 0)).toFixed(2)}</div>
+                                </div>
+                              </div>
+
+                              {/* Expandable Daily Details Grid */}
+                              <div>
+                                <button
+                                  onClick={() => setExpandedStaffId(isExpanded ? null : r.id)}
+                                  className="btn btn--ghost btn--full"
+                                  style={{ padding: '6px 10px', fontSize: '11px', justifyContent: 'space-between', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+                                >
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Calendar size={13} color="var(--primary)" />
+                                    {isExpanded ? 'Thu gọn lịch chấm công' : `Xem chi tiết ${r.days?.length || 31} ngày`}
+                                  </span>
+                                  {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                </button>
+
+                                {isExpanded && (
+                                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '4px' }}>
+                                      {r.days.map(d => {
+                                        const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
+                                        const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
+                                        return (
+                                          <div
+                                            key={d.day}
+                                            onClick={() => {
+                                              if (!isAdmin) return;
+                                              setSelectedCell({
+                                                user_id: r.id,
+                                                staff_name: r.full_name,
+                                                staff_code: r.code,
+                                                department_name: r.department_name,
+                                                dateStr: d.dateStr,
+                                                day: d.day,
+                                                weekday: hdObj?.weekday,
+                                                current_symbol: d.symbol,
+                                                check_in_time: d.check_in_time,
+                                                check_out_time: d.check_out_time,
+                                                total_hours: d.total_hours,
+                                                ot_hours: d.ot_hours,
+                                                is_late: d.is_late,
+                                                late_minutes: d.late_minutes,
+                                                status: d.status,
+                                                notes: d.notes,
+                                                check_in_type: d.check_in_type,
+                                                is_modified: d.is_modified,
+                                                audit_logs: d.audit_logs || [],
+                                              });
+                                              setCellSymbol(d.symbol || 'x');
+                                              setCellReason('');
+                                            }}
+                                            style={{
+                                              padding: '4px 2px',
+                                              borderRadius: '6px',
+                                              textAlign: 'center',
+                                              background: isSun ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-raised)',
+                                              border: isSun ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid var(--border-muted)',
+                                              cursor: isAdmin ? 'pointer' : 'default',
+                                            }}
+                                            title={`${hdObj?.weekday} ${d.dateStr}: ${d.symbol || '—'}`}
+                                          >
+                                            <div style={{ fontSize: '9px', color: isSun ? '#ef4444' : 'var(--text-muted)', fontWeight: 600 }}>
+                                              {String(d.day).padStart(2, '0')}
+                                            </div>
+                                            <div style={{ marginTop: '2px' }}>
+                                              {renderDaySymbol(d.symbol, isSun)}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
+                  )}
 
-                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                      <thead>
-                        {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
-                        <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
-                          <th className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '55px', borderBottom: '1px solid var(--border)' }}>ID</th>
-                          <th className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', minWidth: '140px', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
-                          <th className="table-sticky-col-3" style={{ padding: '8px 10px', minWidth: '70px', borderBottom: '1px solid var(--border)' }}>NV</th>
+                  {/* CHẾ ĐỘ 2: BẢNG NGANG ĐẦY ĐỦ (TABLE VIEW) */}
+                  {viewMode === 'table' && (
+                    <div ref={timesheetRef} className="card animate-fade-in" style={{ padding: '12px', overflowX: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+                      {/* Corporate Header Banner */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid var(--primary)', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <Building2 size={22} color="var(--primary)" />
+                          <div>
+                            <div style={{ fontSize: '15px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '0.5px' }}>
+                              BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS
+                            </div>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                              THÁNG {month} NĂM {year} {filterStaffId && `(Nhân sự: ${matrixData.staff_rows.find(s=>s.id===filterStaffId)?.full_name})`}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '11px', textAlign: 'right', color: 'var(--text-muted)' }}>
+                          <div>Mẫu quản lý: <strong>ET_Staff {year}</strong></div>
+                          <div>Trạng thái: <strong style={{ color: matrixData.global_locked ? 'var(--red)' : 'var(--green)' }}>{matrixData.global_locked ? 'ĐÃ CHỐT CÔNG' : 'ĐANG CẬP NHẬT'}</strong></div>
+                        </div>
+                      </div>
 
-                          {/* Summary Columns Header */}
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>NLV tại VP</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }}>CT Trong nước</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }}>CT Nước ngoài</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }}>Work from home</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }}>Nghỉ phép</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }}>Nghỉ ốm</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }}>Nghỉ không lương</th>
-                          <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }}>Khác</th>
+                      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <thead>
+                          {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
+                          <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
+                            <th className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', minWidth: '45px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                            <th className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', minWidth: '110px', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                            <th className="table-sticky-col-3" style={{ padding: '8px 8px', minWidth: '60px', borderBottom: '1px solid var(--border)' }}>NV</th>
 
-                          {/* Days Weekday Row */}
-                          {matrixData.header_days.map(hd => {
-                            const isSun = hd.weekday === 'CN' || hd.isSunday;
-                            return (
-                              <th key={hd.day} style={{
-                                padding: '4px 6px',
-                                background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
-                                color: isSun ? '#ef4444' : 'var(--text-muted)',
-                                minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
-                              }}>
-                                {hd.weekday}
-                              </th>
-                            );
-                          })}
+                            {/* Summary Columns Header */}
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }}>NLV tại VP</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }}>CT Trong nước</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }}>CT Nước ngoài</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }}>Work from home</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }}>Nghỉ phép</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }}>Nghỉ ốm</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }}>Nghỉ không lương</th>
+                            <th style={{ padding: '6px 8px', background: 'rgba(99, 102, 241, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }}>Khác</th>
 
-                          {isAdmin && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
-                        </tr>
-
-                        {/* Row 2 Header: Days 01..31 */}
-                        <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
-                          <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 10px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG THÁNG</th>
-                          <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
-
-                          {matrixData.header_days.map(hd => {
-                            const isSun = hd.weekday === 'CN' || hd.isSunday;
-                            return (
-                              <th key={hd.day} style={{
-                                padding: '4px 6px',
-                                background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
-                                color: isSun ? '#ef4444' : 'var(--text)',
-                                borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
-                              }}>
-                                {hd.dayStr}
-                              </th>
-                            );
-                          })}
-
-                          {isAdmin && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {displayedStaffRows.map((r, idx) => (
-                          <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                            <td className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
-                            <td className="table-sticky-col-2" style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
-                            <td className="table-sticky-col-3" style={{ padding: '8px 10px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
-
-                            {/* Summary Column Values */}
-                            <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_domestic, '#3b82f6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_foreign, '#8b5cf6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.wfh, '#06b6d4')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.annual_leave, '#8b5cf6')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
-                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
-
-                            {/* Day Cell Symbols */}
-                            {r.days.map(d => {
-                              const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
-                              const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
+                            {/* Days Weekday Row */}
+                            {matrixData.header_days.map(hd => {
+                              const isSun = hd.weekday === 'CN' || hd.isSunday;
                               return (
-                                <td
-                                  key={d.day}
-                                  onClick={() => {
-                                    if (!isAdminOrManager) return;
-                                    setSelectedCell({
-                                      user_id: r.id,
-                                      staff_name: r.full_name,
-                                      staff_code: r.code,
-                                      department_name: r.department_name,
-                                      dateStr: d.dateStr,
-                                      day: d.day,
-                                      weekday: hdObj?.weekday,
-                                      current_symbol: d.symbol,
-                                      check_in_time: d.check_in_time,
-                                      check_out_time: d.check_out_time,
-                                      total_hours: d.total_hours,
-                                      ot_hours: d.ot_hours,
-                                      is_late: d.is_late,
-                                      late_minutes: d.late_minutes,
-                                      status: d.status,
-                                      notes: d.notes,
-                                      check_in_type: d.check_in_type,
-                                      is_modified: d.is_modified,
-                                      audit_logs: d.audit_logs || [],
-                                    });
-                                    setCellSymbol(d.symbol || 'x');
-                                    setCellReason('');
-                                  }}
-                                  style={{
-                                    padding: '6px 2px',
-                                    cursor: isAdminOrManager ? 'pointer' : 'default',
-                                    background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
-                                    borderLeft: '1px solid var(--border-muted)',
-                                  }}
-                                  title={`Bấm xem chi tiết ngày ${d.dateStr}`}
-                                >
-                                  {renderDaySymbol(d.symbol, isSun)}
-                                </td>
+                                <th key={hd.day} style={{
+                                  padding: '4px 6px',
+                                  background: isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
+                                  color: isSun ? '#ef4444' : 'var(--text-muted)',
+                                  minWidth: '28px', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
+                                }}>
+                                  {hd.weekday}
+                                </th>
                               );
                             })}
 
-                            {/* Lock Action Button per Staff — chỉ Admin */}
-                            {isAdmin && (
-                              <td style={{ padding: '6px' }}>
-                                <button
-                                  onClick={() => triggerToggleLock(r.id, r.is_locked)}
-                                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
-                                  title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
-                                >
-                                  {r.is_locked ? '🔒' : '🔓'}
-                                </button>
-                              </td>
-                            )}
+                            {isAdmin && <th style={{ padding: '8px 10px', minWidth: '50px', borderBottom: '1px solid var(--border)' }}>Chốt</th>}
                           </tr>
-                        ))}
-                      </tbody>
 
-                      {/* System Total Footer Row */}
-                      <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
-                        <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
-                          <td colSpan="3" className="table-sticky-col-1" style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
-                            TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
-                          </td>
-                          <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.wfh, 0), '#06b6d4')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0), '#8b5cf6')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
-                          <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
-                          {matrixData.header_days.map(hd => (
-                            <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                          {/* Row 2 Header: Days 01..31 */}
+                          <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
+                            <th colSpan="3" className="table-sticky-col-1" style={{ padding: '4px 8px', textAlign: 'left', borderBottom: '2px solid var(--primary)' }}>BẢNG CHẤM CÔNG</th>
+                            <th colSpan="8" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.12)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG</th>
+
+                            {matrixData.header_days.map(hd => {
+                              const isSun = hd.weekday === 'CN' || hd.isSunday;
+                              return (
+                                <th key={hd.day} style={{
+                                  padding: '4px 6px',
+                                  background: isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
+                                  color: isSun ? '#ef4444' : 'var(--text)',
+                                  borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
+                                }}>
+                                  {hd.dayStr}
+                                </th>
+                              );
+                            })}
+
+                            {isAdmin && <th style={{ padding: '4px', borderBottom: '2px solid var(--primary)' }}>—</th>}
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {displayedStaffRows.map((r, idx) => (
+                            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
+                              <td className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)' }}>{r.code}</td>
+                              <td className="table-sticky-col-2" style={{ padding: '8px 6px', textAlign: 'left', fontWeight: 700, color: 'var(--text)' }}>{r.full_name}</td>
+                              <td className="table-sticky-col-3" style={{ padding: '8px 6px', color: 'var(--text-secondary)' }}>{r.role_label}</td>
+
+                              {/* Summary Column Values */}
+                              <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(r.nlv_office, '#10b981')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_domestic, '#3b82f6')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.ct_foreign, '#8b5cf6')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.wfh, '#06b6d4')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.annual_leave, '#8b5cf6')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
+                              <td style={{ padding: '6px 4px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
+
+                              {/* Day Cell Symbols */}
+                              {r.days.map(d => {
+                                const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
+                                const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
+                                return (
+                                  <td
+                                    key={d.day}
+                                    onClick={() => {
+                                      if (!isAdmin) return;
+                                      setSelectedCell({
+                                        user_id: r.id,
+                                        staff_name: r.full_name,
+                                        staff_code: r.code,
+                                        department_name: r.department_name,
+                                        dateStr: d.dateStr,
+                                        day: d.day,
+                                        weekday: hdObj?.weekday,
+                                        current_symbol: d.symbol,
+                                        check_in_time: d.check_in_time,
+                                        check_out_time: d.check_out_time,
+                                        total_hours: d.total_hours,
+                                        ot_hours: d.ot_hours,
+                                        is_late: d.is_late,
+                                        late_minutes: d.late_minutes,
+                                        status: d.status,
+                                        notes: d.notes,
+                                        check_in_type: d.check_in_type,
+                                        is_modified: d.is_modified,
+                                        audit_logs: d.audit_logs || [],
+                                      });
+                                      setCellSymbol(d.symbol || 'x');
+                                      setCellReason('');
+                                    }}
+                                    style={{
+                                      padding: '6px 2px',
+                                      cursor: isAdmin ? 'pointer' : 'default',
+                                      background: isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                                      borderLeft: '1px solid var(--border-muted)',
+                                    }}
+                                    title={isAdmin ? `Bấm xem chi tiết ngày ${d.dateStr}` : d.dateStr}
+                                  >
+                                    {renderDaySymbol(d.symbol, isSun)}
+                                  </td>
+                                );
+                              })}
+
+                              {/* Lock Action Button per Staff — chỉ Admin */}
+                              {isAdmin && (
+                                <td style={{ padding: '6px' }}>
+                                  <button
+                                    onClick={() => triggerToggleLock(r.id, r.is_locked)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+                                    title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
+                                  >
+                                    {r.is_locked ? '🔒' : '🔓'}
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
                           ))}
-                          {isAdmin && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )
+                        </tbody>
+
+                        {/* System Total Footer Row */}
+                        <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
+                          <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
+                            <td colSpan="3" className="table-sticky-col-1" style={{ padding: '8px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800 }}>
+                              TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
+                            </td>
+                            <td style={{ padding: '6px 4px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0), '#3b82f6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0), '#8b5cf6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.wfh, 0), '#06b6d4')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0), '#8b5cf6')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
+                            <td style={{ padding: '6px 4px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
+                            {matrixData.header_days.map(hd => (
+                              <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
+                            ))}
+                            {isAdmin && <td style={{ padding: '6px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>}
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
               );
             })()}
           </div>

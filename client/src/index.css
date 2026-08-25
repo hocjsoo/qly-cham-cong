@@ -1423,6 +1423,28 @@ tr:hover .table-sticky-col-3 {
   background: var(--bg-card-hover) !important;
 }
 
+@media (max-width: 768px) {
+  .table-sticky-col-1 {
+    min-width: 40px !important;
+    max-width: 45px !important;
+    padding: 6px 4px !important;
+    font-size: 10px !important;
+  }
+  .table-sticky-col-2 {
+    left: 40px !important;
+    min-width: 95px !important;
+    max-width: 110px !important;
+    padding: 6px 4px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  .table-sticky-col-3 {
+    display: none !important;
+  }
+}
+
 /* =============================================
    RESPONSIVE OPTIMIZATIONS FOR ALL PAGES
    ============================================= */
