@@ -13,7 +13,9 @@ function getTimesheetSymbol(rec) {
   if (notes.includes('NGHỈ ỐM') || notes.includes('(O)')) return 'O';
   if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)')) return 'KL';
   if (notes.includes('(K)') || notes.includes('KHÁC')) return 'K';
-  if (rec.total_hours >= 7.5) return 'x';
+  if (rec.work_units === 0.75) return '0,75x';
+  if (rec.work_units === 0.5 || rec.status === 'half_day') return '0,5x';
+  if (rec.total_hours >= 7.5 || rec.work_units === 1.0) return 'x';
   if (rec.total_hours >= 5.5) return '0,75x';
   if (rec.total_hours >= 3.5) return '0,5x';
   if (rec.total_hours > 0) return '0,5x';

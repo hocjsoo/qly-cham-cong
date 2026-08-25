@@ -162,7 +162,13 @@ const getFullMatrix = async (req, res) => {
           } else if (notes.includes('(K)') || notes.includes('KHÁC')) {
             symbol = 'K';
             other_leave += 1;
-          } else if (att.total_hours >= 7.5) {
+          } else if (att.work_units === 0.75) {
+            symbol = '0,75x';
+            nlv_office += 0.75;
+          } else if (att.work_units === 0.5 || att.status === 'half_day') {
+            symbol = '0,5x';
+            nlv_office += 0.5;
+          } else if (att.total_hours >= 7.5 || att.work_units === 1.0) {
             symbol = 'x';
             nlv_office += 1;
           } else if (att.total_hours >= 5.5) {

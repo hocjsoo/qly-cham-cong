@@ -477,10 +477,9 @@ export default function HistoryPage() {
                   <div style={{ fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
                     ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
-                  <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ công <code>x</code>)</div>
-                  <div>• <strong>{addMinsToTime(startTime, 1)} – {minorLateTime}</strong>: Muộn nhẹ</div>
-                  <div>• <strong>{addMinsToTime(minorLateTime, 1)} – {mediumLateTime}</strong>: Muộn</div>
-                  <div>• <strong>&gt; {mediumLateTime}</strong>: Muộn nhiều</div>
+                  <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ 1.0 công <code>x</code>)</div>
+                  <div>• <strong>{addMinsToTime(startTime, 1)} – {minorLateTime}</strong>: Muộn nhẹ (Tính đủ công)</div>
+                  <div>• <strong>&gt; {minorLateTime}</strong>: Muộn quá 30p (Tính <strong>0.75 công</strong>, trừ 0.25c nếu không có giải trình)</div>
                 </div>
 
                 {/* Rule 3: Leave & Explanation */}
@@ -489,7 +488,7 @@ export default function HistoryPage() {
                     🏖️ Nghỉ Lễ & Đơn Từ Giải Trình
                   </div>
                   <div>• Ngày nghỉ lễ: Nghỉ theo quy định lịch nhà nước / công ty.</div>
-                  <div>• Đơn đi muộn / WFH / công tác được duyệt ➔ <strong>Tính đủ 1.0 công (<code>x</code>) & tự động xóa cờ muộn</strong>!</div>
+                  <div>• Đơn đi muộn / WFH / công tác được duyệt ➔ <strong>Tính đủ 1.0 công (<code>x</code>) & phục hồi 100% công lao động</strong>!</div>
                 </div>
               </div>
 

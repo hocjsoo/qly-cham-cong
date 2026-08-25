@@ -303,6 +303,8 @@ const approveRequest = async (req, res) => {
           att.is_late = false;
           att.late_minutes = 0;
           att.late_tier = 'on_time';
+          att.is_early_leave = false;
+          att.early_minutes = 0;
           att.work_units = 1.0;
           att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type] || request.type}: ${request.reason}) - Hoàn đủ 1.0 công`;
           await att.save();

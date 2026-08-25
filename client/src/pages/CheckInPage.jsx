@@ -477,7 +477,7 @@ export default function CheckInPage() {
                   <span><strong>Ca làm việc:</strong> {shiftStart} – {shiftEnd}</span>
                 </div>
                 <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                  Đi muộn quá 30p tính 0.75 công (trừ 0.25c)
+                  Đi muộn quá 30p tính trừ 0.25 công nếu không có giải trình được duyệt
                 </span>
               </div>
 
