@@ -2,7 +2,7 @@
 // GPS bắt buộc — Auto-acquire GPS khi mở trang, Hiển thị khoảng cách văn phòng, Block check-in nếu thiếu GPS
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2, X, Megaphone, Calendar, HeartPulse, Send, FileText, Sparkles, Briefcase, Shield } from 'lucide-react';
+import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2, X, Megaphone, Calendar, HeartPulse, Send, FileText, Sparkles, Briefcase, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -77,6 +77,11 @@ export default function CheckInPage() {
   const [selfieReason, setSelfieReason] = useState('');
   const [selfieImage, setSelfieImage] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Collapsible Widgets states for clean mobile view
+  const [showQuickRequests, setShowQuickRequests] = useState(false);
+  const [showMyProjects, setShowMyProjects] = useState(false);
+  const [showEvents, setShowEvents] = useState(false);
 
   // Explanation suggestion modal
   const [showExplanationModal, setShowExplanationModal] = useState(false);
@@ -757,235 +762,279 @@ export default function CheckInPage() {
           );
         })()}
 
-        {/* HUB TIỆN ÍCH: ĐƠN NGHỈ PHÉP & BÁO CÁO ADMIN */}
-        <div className="card animate-fade-in" style={{ marginBottom: '16px', padding: '16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+        {/* HUB TIỆN ÍCH: ĐƠN NGHỈ PHÉP & BÁO CÁO ADMIN (Collapsible Accordion) */}
+        <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+          <div
+            onClick={() => setShowQuickRequests(!showQuickRequests)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Sparkles size={18} color="var(--primary)" />
-              <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text)' }}>
+              <Sparkles size={16} color="var(--primary)" />
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>
                 NỘP ĐƠN NGHỈ PHÉP & BÁO CÁO ADMIN
               </div>
             </div>
-            <button onClick={() => navigate('/requests')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '4px 10px', color: 'var(--primary)' }}>
-              Quản lý đơn từ →
-            </button>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-            {/* Nút 1: Xin nghỉ phép kế hoạch (trước 1 tuần) */}
-            <div
-              onClick={() => navigate('/requests?type=annual_leave')}
-              style={{
-                padding: '12px 14px', borderRadius: '10px',
-                background: 'var(--green-soft)', border: '1px solid rgba(5, 150, 105, 0.25)',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Calendar size={15} /> 🏖️ Nghỉ phép năm
-                </div>
-                <span className="badge badge--success" style={{ fontSize: '10px', padding: '2px 6px' }}>Kế hoạch trước</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Xin nghỉ phép trước 1 tuần, tự động trừ ngày phép khi Admin duyệt.
-              </div>
-            </div>
-
-            {/* Nút 2: Nghỉ ốm / Đột xuất */}
-            <div
-              onClick={() => navigate('/requests?type=sick_leave')}
-              style={{
-                padding: '12px 14px', borderRadius: '10px',
-                background: 'var(--yellow-soft)', border: '1px solid rgba(217, 119, 6, 0.25)',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <HeartPulse size={15} /> 🏥 Nghỉ ốm / Đột xuất
-                </div>
-                <span className="badge badge--warning" style={{ fontSize: '10px', padding: '2px 6px' }}>Báo gấp</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Báo cáo nhanh trường hợp ốm đau, việc gia đình đột xuất gửi Admin.
-              </div>
-            </div>
-
-            {/* Nút 3: Giải trình WFH / Công tác */}
-            <div
-              onClick={() => navigate('/requests?type=wfh')}
-              style={{
-                padding: '12px 14px', borderRadius: '10px',
-                background: 'var(--blue-soft)', border: '1px solid rgba(37, 99, 235, 0.25)',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Briefcase size={15} /> 💼 Giải trình WFH / Công tác
-                </div>
-                <span className="badge badge--info" style={{ fontSize: '10px', padding: '2px 6px' }}>Ngoài công ty</span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                Làm việc tại nhà hoặc đi công tác ngoài công ty được tính đủ công.
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                onClick={(e) => { e.stopPropagation(); navigate('/requests'); }}
+                style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}
+              >
+                Quản lý đơn từ →
+              </span>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{ padding: '3px', height: '26px', width: '26px', borderRadius: '50%', color: 'var(--text-muted)' }}
+              >
+                {showQuickRequests ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* WIDGET: DỰ ÁN CỦA TÔI */}
-        <div className="card animate-fade-in" style={{ marginBottom: '14px', padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🚀 DỰ ÁN ĐANG THAM GIA</span>
-              <span className="badge badge--info" style={{ fontSize: '10px' }}>{myProjects.length}</span>
-            </div>
-            <button onClick={() => navigate('/projects')} className="btn btn--ghost" style={{ fontSize: '11px', padding: '4px 8px', color: 'var(--primary)' }}>
-              Xem tất cả →
-            </button>
-          </div>
-
-          {myProjects.length === 0 ? (
-            <div style={{ padding: '14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', background: 'var(--bg-raised)', borderRadius: '8px' }}>
-              Chưa có dự án nào được phân công.
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
-              {myProjects.slice(0, 4).map(p => (
-                <div key={p._id || p.id} style={{
-                  background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px',
-                  border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
-                }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span className="badge badge--info" style={{ fontSize: '10px', fontWeight: 800 }}>{p.code}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {p.deadline ? `⏳ ${p.deadline}` : 'Không có deadline'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                      🎨 {p.category || 'Kiến trúc'} {p.pm_name ? `· 👷 PM: ${p.pm_name}` : ''}
-                    </div>
+          {showQuickRequests && (
+            <div className="animate-fade-in" style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+              <div
+                onClick={() => navigate('/requests?type=annual_leave')}
+                style={{
+                  padding: '12px 14px', borderRadius: '10px',
+                  background: 'var(--green-soft)', border: '1px solid rgba(5, 150, 105, 0.25)',
+                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Calendar size={15} /> 🏖️ Nghỉ phép năm
                   </div>
-
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, marginBottom: '2px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Tiến độ</span>
-                      <span style={{ color: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)' }}>{p.progress || 0}%</span>
-                    </div>
-                    <div style={{ width: '100%', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{
-                        width: `${p.progress || 0}%`, height: '100%',
-                        background: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)',
-                        borderRadius: '3px', transition: 'width 0.3s'
-                      }} />
-                    </div>
-                  </div>
+                  <span className="badge badge--success" style={{ fontSize: '10px', padding: '2px 6px' }}>Kế hoạch trước</span>
                 </div>
-              ))}
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Xin nghỉ phép trước 1 tuần, tự động trừ ngày phép khi Admin duyệt.
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigate('/requests?type=sick_leave')}
+                style={{
+                  padding: '12px 14px', borderRadius: '10px',
+                  background: 'var(--yellow-soft)', border: '1px solid rgba(217, 119, 6, 0.25)',
+                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <HeartPulse size={15} /> 🏥 Nghỉ ốm / Đột xuất
+                  </div>
+                  <span className="badge badge--warning" style={{ fontSize: '10px', padding: '2px 6px' }}>Báo gấp</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Báo cáo nhanh trường hợp ốm đau, việc gia đình đột xuất gửi Admin.
+                </div>
+              </div>
+
+              <div
+                onClick={() => navigate('/requests?type=wfh')}
+                style={{
+                  padding: '12px 14px', borderRadius: '10px',
+                  background: 'var(--blue-soft)', border: '1px solid rgba(37, 99, 235, 0.25)',
+                  cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '4px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Briefcase size={15} /> 💼 Giải trình WFH / Công tác
+                  </div>
+                  <span className="badge badge--info" style={{ fontSize: '10px', padding: '2px 6px' }}>Ngoài công ty</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Làm việc tại nhà hoặc đi công tác ngoài công ty được tính đủ công.
+                </div>
+              </div>
             </div>
           )}
         </div>
 
-        {/* WIDGET: SỰ KIỆN, SINH NHẬT & KỶ NIỆM GẮN BÓ TRONG THÁNG */}
+        {/* WIDGET: DỰ ÁN CỦA TÔI (Collapsible Accordion) */}
+        {myProjects.length > 0 && (
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '12px 14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+            <div
+              onClick={() => setShowMyProjects(!showMyProjects)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🚀 DỰ ÁN ĐANG THAM GIA</span>
+                <span className="badge badge--info" style={{ fontSize: '10px' }}>{myProjects.length}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  onClick={(e) => { e.stopPropagation(); navigate('/projects'); }}
+                  style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}
+                >
+                  Xem tất cả →
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  style={{ padding: '3px', height: '26px', width: '26px', borderRadius: '50%', color: 'var(--text-muted)' }}
+                >
+                  {showMyProjects ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {showMyProjects && (
+              <div className="animate-fade-in" style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '10px' }}>
+                {myProjects.slice(0, 4).map(p => (
+                  <div key={p._id || p.id} style={{
+                    background: 'var(--bg-raised)', padding: '10px 12px', borderRadius: '10px',
+                    border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                        <span className="badge badge--info" style={{ fontSize: '10px', fontWeight: 800 }}>{p.code}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {p.deadline ? `⏳ ${p.deadline}` : 'Không có deadline'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        🎨 {p.category || 'Kiến trúc'} {p.pm_name ? `· 👷 PM: ${p.pm_name}` : ''}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', fontWeight: 700, marginBottom: '2px' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Tiến độ</span>
+                        <span style={{ color: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)' }}>{p.progress || 0}%</span>
+                      </div>
+                      <div style={{ width: '100%', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{
+                          width: `${p.progress || 0}%`, height: '100%',
+                          background: (p.progress || 0) === 100 ? 'var(--green)' : 'var(--primary)',
+                          borderRadius: '3px', transition: 'width 0.3s'
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* WIDGET: SỰ KIỆN, SINH NHẬT & KỶ NIỆM GẮN BÓ TRONG THÁNG (Collapsible Accordion) */}
         {(birthdays.length > 0 || anniversaries.length > 0 || holidays.length > 0) && (
           <div className="card animate-fade-in" style={{
-            marginBottom: '16px', padding: '14px 16px',
+            marginBottom: '14px', padding: '12px 14px',
             background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%)',
-            border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '14px'
+            border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '12px'
           }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🎉 SỰ KIỆN & CHÚC MỪNG TRONG THÁNG</span>
+            <div
+              onClick={() => setShowEvents(!showEvents)}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🎉 SỰ KIỆN & CHÚC MỪNG TRONG THÁNG</span>
+                <span className="badge badge--warning" style={{ fontSize: '10px' }}>
+                  {birthdays.length + anniversaries.length + holidays.length}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                style={{ padding: '3px', height: '26px', width: '26px', borderRadius: '50%', color: 'var(--text-muted)' }}
+              >
+                {showEvents ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-              {/* Sinh nhật */}
-              {birthdays.slice(0, 3).map(b => (
-                <div
-                  key={b.user_id || b.id || b._id}
-                  onClick={() => setSelectedBirthday(b)}
-                  className="card--interactive"
-                  style={{
-                    background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                    border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                  title="Click để xem chi tiết sinh nhật"
-                >
-                  <span style={{ fontSize: '18px' }}>🎂</span>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {b.full_name}
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      Sinh nhật {b.day ? `ngày ${b.day}` : b.dob ? `ngày ${b.dob.split('-')[2] || b.dob}` : 'tháng này'}
+            {showEvents && (
+              <div className="animate-fade-in" style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                {/* Sinh nhật */}
+                {birthdays.slice(0, 3).map(b => (
+                  <div
+                    key={b.user_id || b.id || b._id}
+                    onClick={() => setSelectedBirthday(b)}
+                    className="card--interactive"
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                    title="Click để xem chi tiết sinh nhật"
+                  >
+                    <span style={{ fontSize: '18px' }}>🎂</span>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {b.full_name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        Sinh nhật {b.day ? `ngày ${b.day}` : b.dob ? `ngày ${b.dob.split('-')[2] || b.dob}` : 'tháng này'}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {/* Kỷ niệm gắn bó */}
-              {anniversaries.slice(0, 3).map(a => (
-                <div
-                  key={a.user_id || a.id || a._id}
-                  onClick={() => setSelectedAnniversary(a)}
-                  className="card--interactive"
-                  style={{
-                    background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                    border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                  title="Click để xem chi tiết vinh danh cống hiến"
-                >
-                  <img
-                    src={a.avatar_url || '/logo.png'}
-                    alt={a.full_name}
-                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
-                    onError={e => { e.target.src = '/logo.png'; }}
-                  />
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {a.full_name}
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>
-                      {a.badge || `Tròn ${a.years_count || a.years || 1} năm gắn bó`}
+                {/* Kỷ niệm gắn bó */}
+                {anniversaries.slice(0, 3).map(a => (
+                  <div
+                    key={a.user_id || a.id || a._id}
+                    onClick={() => setSelectedAnniversary(a)}
+                    className="card--interactive"
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                    title="Click để xem chi tiết vinh danh cống hiến"
+                  >
+                    <img
+                      src={a.avatar_url || '/logo.png'}
+                      alt={a.full_name}
+                      style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {a.full_name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 600 }}>
+                        {a.badge || `Tròn ${a.years_count || a.years || 1} năm gắn bó`}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {/* Ngày lễ */}
-              {holidays.slice(0, 2).map((h, idx) => (
-                <div
-                  key={h._id || idx}
-                  onClick={() => setSelectedHoliday(h)}
-                  className="card--interactive"
-                  style={{
-                    background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
-                    border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                  title="Click để xem chi tiết ngày lễ / sự kiện"
-                >
-                  <span style={{ fontSize: '18px' }}>🎌</span>
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {h.name}
-                    </div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                      Nghỉ lễ: {h.date}
+                {/* Ngày lễ */}
+                {holidays.slice(0, 2).map((h, idx) => (
+                  <div
+                    key={h._id || idx}
+                    onClick={() => setSelectedHoliday(h)}
+                    className="card--interactive"
+                    style={{
+                      background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px',
+                      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                    title="Click để xem chi tiết ngày lễ / sự kiện"
+                  >
+                    <span style={{ fontSize: '18px' }}>🏖️</span>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {h.name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {h.date} {h.end_date && h.end_date !== h.date ? `➔ ${h.end_date}` : ''}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
