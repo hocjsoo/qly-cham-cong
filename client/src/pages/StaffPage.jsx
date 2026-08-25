@@ -243,7 +243,7 @@ export default function StaffPage() {
     }
   };
 
-  const [sortBy, setSortBy] = useState('name_asc'); // 'name_asc' | 'name_desc' | 'date_desc' | 'date_asc' | 'code_asc'
+  const [sortBy, setSortBy] = useState('code_asc'); // 'code_asc' | 'name_asc' | 'name_desc' | 'date_desc' | 'date_asc'
 
   const normalizeStr = (str) => {
     if (!str) return '';
@@ -348,7 +348,7 @@ export default function StaffPage() {
       const dateA = a.join_date ? new Date(a.join_date) : new Date(a.created_at || 0);
       return dateA - dateB;
     } else if (sortBy === 'code_asc') {
-      return (a.employee_code || '').localeCompare(b.employee_code || '', 'vi');
+      return (a.employee_code || '').localeCompare(b.employee_code || '', 'vi', { numeric: true, sensitivity: 'base' });
     }
     return 0;
   });
@@ -615,11 +615,11 @@ export default function StaffPage() {
 
           <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
             <select className="form-input" style={{ width: 'auto', padding: '6px 8px', fontSize: '12px', flexShrink: 0, fontWeight: 600, color: 'var(--primary)' }} value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="code_asc">🏷️ Mã nhân viên</option>
               <option value="name_asc">🔤 Tên A → Z</option>
               <option value="name_desc">🔤 Tên Z → A</option>
               <option value="date_desc">📅 Ngày vào (Mới nhất)</option>
               <option value="date_asc">📅 Ngày vào (Cũ nhất)</option>
-              <option value="code_asc">🏷️ Mã nhân viên</option>
             </select>
 
             {/* Role Filter with Dynamic Counts */}
