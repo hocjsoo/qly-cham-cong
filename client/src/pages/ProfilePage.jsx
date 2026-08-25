@@ -284,13 +284,12 @@ export default function ProfilePage() {
             }}
             title={user?.avatar_url ? 'Click để xem ảnh phóng to' : 'Click để tải ảnh'}
           >
-            {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.full_name} style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
-            ) : (
-              <div className="avatar" style={{ width: '80px', height: '80px', fontSize: '26px', margin: '0 auto' }}>
-                {initials}
-              </div>
-            )}
+            <img
+              src={user?.avatar_url || '/logo.png'}
+              alt={user?.full_name || 'User'}
+              style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
+              onError={e => { e.target.src = '/logo.png'; }}
+            />
             <div
               onClick={(e) => { e.stopPropagation(); handleAvatarSelect(); }}
               style={{

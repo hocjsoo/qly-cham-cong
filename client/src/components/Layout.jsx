@@ -76,11 +76,12 @@ export default function Layout() {
         </div>
 
         <div className="desktop-sidebar__user">
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt={user.full_name} style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }} />
-          ) : (
-            <div className="avatar" style={{ width: '38px', height: '38px', fontSize: '13px' }}>{initials}</div>
-          )}
+          <img
+            src={user?.avatar_url || '/logo.png'}
+            alt={user?.full_name || 'User'}
+            style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
+            onError={e => { e.target.src = '/logo.png'; }}
+          />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user?.full_name}

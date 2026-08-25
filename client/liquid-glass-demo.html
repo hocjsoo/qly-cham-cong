@@ -564,6 +564,13 @@
           <article class="demo-card glass-card span-4"><h3>Địa điểm làm việc</h3><div class="segmented" style="width:100%"><button class="active">Văn phòng</button><button>Công trình</button><button>WFH</button></div><p class="muted" style="font-size:12px">Chọn loại địa điểm trước khi chấm công. GPS luôn được ghi nhận.</p></article>
           <article class="demo-card glass-card span-4"><h3>Dự án hôm nay</h3><div class="mini-row"><span><strong>ET Riverside</strong><small class="muted" style="display:block">Phụ trách hiện trường</small></span><span class="status" style="--tone:#0867f2;--tone-soft:#e4eeff">Đang chạy</span></div></article>
           <article class="demo-card glass-card span-4"><h3>Thiết bị</h3><div class="mini-row"><span><strong>Chrome · Windows</strong><small class="muted" style="display:block">Thiết bị chính chủ</small></span><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Tin cậy</span></div></article>
+          ${dataTable('Danh sách ca chấm công',['Ngày','Vào','Ra','Loại','Giờ','OT','Trạng thái','Sửa'],[
+            ['25/08/2026','07:58','17:32','🏢 Văn phòng','8h 34m','—',tableStatus('Đủ công'),'⋯'],
+            ['24/08/2026','08:15','17:30','🏢 Văn phòng','8h 15m','—',tableStatus('Đi muộn','#e87500','#fff0dc'),'⋯'],
+            ['23/08/2026','08:00','18:45','🏗️ Công trình','8h 30m','2h',tableStatus('Đã duyệt'),'⋯'],
+            ['22/08/2026','07:55','17:28','🏠 WFH','8h 33m','—',tableStatus('Đủ công'),'⋯'],
+            ['21/08/2026','—','—','Nghỉ phép','—','—',tableStatus('Nghỉ phép','#7657ed','#eee9ff'),'⋯']
+          ],{placeholder:'Tìm ngày, loại công...',total:22,flush:true})}
         </div>`,
 
       history: () => `${header('Lịch sử chấm công','Theo dõi ca làm việc, vị trí và các lần điều chỉnh trong tháng.','<button class="secondary-btn" data-action="export">↓ Xuất lịch sử</button>')}
@@ -579,25 +586,70 @@
           ${person('NA','Nguyễn Văn An','Nghỉ phép · 27–28/08','Chờ duyệt','#0867f2','#e4eeff')}
           ${person('BN','Trần Thị Bích Ngọc','Đi muộn · 26/08','Chờ duyệt','#0867f2','#e4eeff')}
           ${person('MH','Lê Minh Hoàng','Làm thêm giờ · 25/08','Chờ duyệt','#0867f2','#e4eeff')}
-        </div></article><article class="demo-card glass-card span-4"><h3>Chi tiết yêu cầu</h3><p><strong>Nguyễn Văn An</strong></p><p class="muted">Xin nghỉ phép 2 ngày vì lý do gia đình. Số dư phép sau duyệt: 7 ngày.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px"><button class="danger-btn" data-action="reject">Từ chối</button><button class="primary-btn" data-action="approve">Duyệt đơn</button></div></article></div>`,
+        </div></article><article class="demo-card glass-card span-4"><h3>Chi tiết yêu cầu</h3><p><strong>Nguyễn Văn An</strong></p><p class="muted">Xin nghỉ phép 2 ngày vì lý do gia đình. Số dư phép sau duyệt: 7 ngày.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px"><button class="danger-btn" data-action="reject">Từ chối</button><button class="primary-btn" data-action="approve">Duyệt đơn</button></div></article>
+        ${dataTable('Danh sách đơn từ',['Mã đơn','Nhân viên','Loại đơn','Từ ngày','Đến ngày','Số ngày/Giờ','Trạng thái','Người duyệt','Thao tác'],[
+          ['DX-0826-01','Nguyễn Văn An','Nghỉ phép','27/08','28/08','2 ngày',tableStatus('Chờ duyệt','#0867f2','#e4eeff'),'—','Duyệt · Từ chối'],
+          ['DX-0826-02','Trần Thị Bích Ngọc','Đi muộn','26/08','26/08','30 phút',tableStatus('Chờ duyệt','#0867f2','#e4eeff'),'—','Duyệt · Từ chối'],
+          ['DX-0826-03','Lê Minh Hoàng','Tăng ca','25/08','25/08','2 giờ',tableStatus('Đã duyệt'),'Admin','Hoàn tác'],
+          ['DX-0826-04','Phạm Thu Hà','Về sớm','24/08','24/08','1 giờ',tableStatus('Từ chối','#df3931','#ffe4e2'),'Leader','Xem'],
+          ['DX-0826-05','Hoàng Văn Dũng','Công tác','29/08','31/08','3 ngày',tableStatus('Chờ duyệt','#0867f2','#e4eeff'),'—','Duyệt · Từ chối']
+        ],{placeholder:'Tìm mã đơn, nhân viên...',total:28,flush:true})}</div>`,
 
       reports: () => `${header('Bảng công & Báo cáo','Tổng hợp ngày công, giờ làm và xuất dữ liệu phục vụ tính lương.','<button class="primary-btn" data-action="export">↓ Xuất Excel</button>')}
         <div class="feature-grid">${miniMetric('Tổng ngày công','874','Toàn công ty','#0867f2')}${miniMetric('Giờ làm','7.126h','Trong tháng 08','#0aa461')}${miniMetric('Đi muộn','42','Giảm 8%','#ff8605')}${miniMetric('OT đã duyệt','116h','32 nhân viên','#7657ed')}
           <article class="demo-card glass-card span-8"><h3>Xu hướng chuyên cần 6 tháng</h3><svg class="chart" viewBox="0 0 650 220" role="img" aria-label="Biểu đồ xu hướng"><g><line class="grid-line" x1="40" y1="30" x2="630" y2="30"/><line class="grid-line" x1="40" y1="90" x2="630" y2="90"/><line class="grid-line" x1="40" y1="150" x2="630" y2="150"/></g><path class="chart-area" d="M50 150L150 125L250 132L350 88L450 72L550 48L620 56V190H50Z"/><path class="chart-line" d="M50 150L150 125L250 132L350 88L450 72L550 48L620 56"/><g class="axis-label"><text x="40" y="210">T3</text><text x="145" y="210">T4</text><text x="245" y="210">T5</text><text x="345" y="210">T6</text><text x="445" y="210">T7</text><text x="545" y="210">T8</text></g></svg></article>
           <article class="demo-card glass-card span-4"><h3>Phân bổ ngày công</h3><div class="mini-list"><div><div style="display:flex;justify-content:space-between"><span>Đủ công</span><b>78%</b></div><div class="progress-track"><div class="progress-fill" style="width:78%"></div></div></div><div><div style="display:flex;justify-content:space-between"><span>Nghỉ phép</span><b>12%</b></div><div class="progress-track"><div class="progress-fill" style="width:12%;background:#0aa461"></div></div></div><div><div style="display:flex;justify-content:space-between"><span>Thiếu công</span><b>10%</b></div><div class="progress-track"><div class="progress-fill" style="width:10%;background:#ff8605"></div></div></div></div></article>
+          ${dataTable('Ma trận tổng hợp công tháng 08/2026',['ID','Nhân sự','Chức vụ','🏢 NLV VP','🚗 CT Nội địa','✈️ CT Quốc tế','🏠 WFH','🏖️ Phép','🏥 Ốm','⏸️ KL','🔥 Giờ OT','⚠️ Đi muộn'],[
+            ['NV001','Nguyễn Văn An','Nhân viên','18.5','1','0','1','1','0','0','6.5h','1'],
+            ['NV002','Trần Thị Bích Ngọc','Leader','20','0','0','1','0','1','0','3h','2'],
+            ['NV003','Lê Minh Hoàng','Nhân viên','17','3','0','0','1','0','0','8h','0'],
+            ['NV004','Phạm Thu Hà','Nhân viên','19','0','1','0','1','0','0','2h','1'],
+            ['NV005','Hoàng Văn Dũng','Nhân viên','16','4','0','1','0','0','1','5h','3']
+          ],{placeholder:'Tìm nhân sự...',total:48,flush:true})}
         </div>`,
 
       projects: () => `${header('Dự án & Công trình','Theo dõi tiến độ và đội ngũ phụ trách tại từng công trình.','<button class="primary-btn" data-action="new-project">＋ Thêm dự án</button>')}<div class="feature-grid">
         ${[['ET Riverside','68%','15 thành viên','#0867f2'],['Văn phòng Quận 7','42%','8 thành viên','#7657ed'],['Kho vận Long An','86%','12 thành viên','#0aa461']].map(p=>`<article class="demo-card glass-card span-4 project-card" style="--project:${p[3]}"><div style="display:flex;justify-content:space-between"><h3>${p[0]}</h3><span class="status" style="--tone:#078f57;--tone-soft:#dff5e9">Đang chạy</span></div><p class="muted">PM: Nguyễn Văn Học</p><div class="project-meta"><span>${p[2]}</span><span>·</span><span>Deadline 30/09/2026</span></div><div class="progress-track"><div class="progress-fill" style="width:${p[1]};background:${p[3]}"></div></div><div style="margin-top:8px;text-align:right"><b>${p[1]}</b></div></article>`).join('')}
-        <article class="demo-card glass-card span-12"><h3>Công việc sắp đến hạn</h3><div class="mini-list">${person('HA','Hoàn thiện tầng 5','ET Riverside · Hạn 28/08','3 ngày','#ff8605','#fff0dc')}${person('NT','Nghiệm thu điện','Văn phòng Quận 7 · Hạn 30/08','5 ngày','#0867f2','#e4eeff')}</div></article></div>`,
+        <article class="demo-card glass-card span-12"><h3>Công việc sắp đến hạn</h3><div class="mini-list">${person('HA','Hoàn thiện tầng 5','ET Riverside · Hạn 28/08','3 ngày','#ff8605','#fff0dc')}${person('NT','Nghiệm thu điện','Văn phòng Quận 7 · Hạn 30/08','5 ngày','#0867f2','#e4eeff')}</div></article>
+        ${dataTable('Danh sách dự án & công trình',['Mã DA','Dự án & DA thành phần','Chủ đầu tư','PM','Thành viên','Tiến độ','Trạng thái','⚙️'],[
+          ['ETR-01','ET Riverside','ET Group','Nguyễn Văn Học','15','68%',tableStatus('Đang triển khai'),'⋯'],
+          ['VPQ7-02','Văn phòng Quận 7','An Phú Corp','Trần Minh Tuấn','8','42%',tableStatus('Đang triển khai'),'⋯'],
+          ['KLA-03','Kho vận Long An','ET Logistics','Lê Minh Hoàng','12','86%',tableStatus('Sắp hoàn thành','#0867f2','#e4eeff'),'⋯'],
+          ['ETR-MEP','↳ Hệ thống MEP','ET Group','Phạm Quốc Anh','6','74%',tableStatus('Đang triển khai'),'⋯'],
+          ['ETR-LS','↳ Cảnh quan Riverside','ET Group','Nguyễn Văn Học','4','30%',tableStatus('Tạm dừng','#e87500','#fff0dc'),'⋯']
+        ],{placeholder:'Tìm mã, dự án, PM...',total:12,flush:true})}</div>`,
 
-      expenses: () => `${header('Chi tiêu & Hoàn ứng','Tổng hợp chi phí công tác và trạng thái hoàn ứng.','<button class="primary-btn" data-action="new-expense">＋ Thêm khoản chi</button>')}<div class="feature-grid">${miniMetric('Tổng chi tháng','84,6tr','+12% so tháng trước','#0867f2')}${miniMetric('Chờ duyệt','12,8tr','6 khoản chi','#ff8605')}${miniMetric('Đã hoàn ứng','61,2tr','24 hồ sơ','#0aa461')}${miniMetric('Tạm ứng','10,6tr','3 nhân viên','#7657ed')}<article class="demo-card glass-card span-8"><h3>Khoản chi gần đây</h3><div class="mini-list">${person('NA','Tiếp khách dự án Riverside','2.450.000đ · 24/08','Đã duyệt')}${person('MH','Vật tư công trình','6.820.000đ · 23/08','Chờ duyệt','#ff8605','#fff0dc')}${person('TH','Công tác phí Long An','1.200.000đ · 22/08','Đã hoàn ứng')}</div></article><article class="demo-card glass-card span-4"><h3>Chi theo nhóm</h3><div class="mini-list"><div>Vật tư <b style="float:right">46%</b></div><div>Đi lại <b style="float:right">24%</b></div><div>Tiếp khách <b style="float:right">18%</b></div><div>Khác <b style="float:right">12%</b></div></div></article></div>`,
+      expenses: () => `${header('Chi tiêu & Hoàn ứng','Tổng hợp chi phí công tác và trạng thái hoàn ứng.','<button class="primary-btn" data-action="new-expense">＋ Thêm khoản chi</button>')}<div class="feature-grid">${miniMetric('Tổng chi tháng','84,6tr','+12% so tháng trước','#0867f2')}${miniMetric('Chờ duyệt','12,8tr','6 khoản chi','#ff8605')}${miniMetric('Đã hoàn ứng','61,2tr','24 hồ sơ','#0aa461')}${miniMetric('Tạm ứng','10,6tr','3 nhân viên','#7657ed')}${dataTable('Bảng tổng hợp chi tiêu',['STT','Ngày giao dịch','Mô tả khoản chi','Người chi','Số tiền','Trạng thái duyệt','Trạng thái trả','Hóa đơn VAT','Ảnh bill','Thao tác'],[
+        ['1','24/08/2026','Tiếp khách dự án Riverside','Nguyễn Văn An','2.450.000đ',tableStatus('Đã duyệt'),tableStatus('Đã hoàn'),'Có','Xem ảnh','⋯'],
+        ['2','23/08/2026','Vật tư công trình','Lê Minh Hoàng','6.820.000đ',tableStatus('Chờ duyệt','#e87500','#fff0dc'),tableStatus('Chưa trả','#df3931','#ffe4e2'),'Không','Xem ảnh','Duyệt · Sửa'],
+        ['3','22/08/2026','Công tác phí Long An','Phạm Thu Hà','1.200.000đ',tableStatus('Đã duyệt'),tableStatus('Đã hoàn'),'Có','Xem ảnh','⋯'],
+        ['4','21/08/2026','Mua thiết bị văn phòng','Trần Minh Tuấn','8.950.000đ',tableStatus('Đã duyệt'),tableStatus('Chờ trả','#e87500','#fff0dc'),'Có','Xem ảnh','⋯'],
+        ['5','20/08/2026','Chi phí vận chuyển','Hoàng Văn Dũng','780.000đ',tableStatus('Từ chối','#df3931','#ffe4e2'),tableStatus('Không áp dụng','#627087','#e9eef5'),'Không','—','Xem']
+      ],{placeholder:'Tìm mô tả, người chi...',total:36,flush:true})}</div>`,
 
-      vehicles: () => `${header('Phương tiện gửi xe','Danh sách phương tiện đăng ký của nhân viên.','<button class="primary-btn" data-action="new-vehicle">＋ Đăng ký xe</button>')}<div class="feature-grid">${miniMetric('Tổng phương tiện','38','Đang hoạt động','#0867f2')}${miniMetric('Xe máy','31','81.6%','#0aa461')}${miniMetric('Ô tô','7','18.4%','#7657ed')}<article class="demo-card glass-card span-12"><h3>Danh sách phương tiện</h3><div class="mini-list">${person('NA','Nguyễn Văn An','Honda SH · 59A3-123.45','Đã xác nhận')}${person('BN','Trần Thị Bích Ngọc','VinFast VF5 · 51K-888.26','Đã xác nhận')}${person('MH','Lê Minh Hoàng','Yamaha NVX · 59X2-456.78','Chờ duyệt','#ff8605','#fff0dc')}</div></article></div>`,
+      vehicles: () => `${header('Phương tiện gửi xe','Danh sách phương tiện đăng ký của nhân viên.','<button class="primary-btn" data-action="new-vehicle">＋ Đăng ký xe</button>')}<div class="feature-grid">${miniMetric('Tổng phương tiện','38','Đang hoạt động','#0867f2')}${miniMetric('Xe máy','31','81.6%','#0aa461')}${miniMetric('Ô tô','7','18.4%','#7657ed')}${dataTable('Bảng phương tiện gửi xe',['STT','Chủ xe / Nhân viên','SĐT','Địa điểm gửi xe','Mô tả xe & biển số','Thao tác'],[
+        ['1','Nguyễn Văn An','090 123 4567','Hầm B1 · Văn phòng ET','Honda SH · 59A3-123.45','Sửa · Xóa'],
+        ['2','Trần Thị Bích Ngọc','091 222 8899','Hầm B1 · Văn phòng ET','VinFast VF5 · 51K-888.26','Sửa · Xóa'],
+        ['3','Lê Minh Hoàng','098 345 7788','Bãi xe công trình','Yamaha NVX · 59X2-456.78','Sửa · Xóa'],
+        ['4','Phạm Thu Hà','093 888 2211','Hầm B2 · Văn phòng ET','Honda Vision · 59C2-667.89','Sửa · Xóa'],
+        ['5','Hoàng Văn Dũng','097 555 4433','Hầm B1 · Văn phòng ET','Toyota Vios · 51H-234.56','Sửa · Xóa']
+      ],{placeholder:'Tìm nhân viên, biển số...',total:38,flush:true})}</div>`,
 
-      leaderboard: () => `${header('Bảng xếp hạng chuyên cần','Ghi nhận những thành viên duy trì giờ giấc và ngày công tốt.')}<div class="segmented" style="margin-bottom:16px"><button>Hôm nay</button><button>Tuần</button><button class="active">Tháng</button></div><div class="feature-grid"><article class="demo-card glass-card span-8"><h3>Top chuyên cần tháng 8</h3><div class="mini-list">${person('1','Lê Minh Hoàng','22 ngày đúng giờ · 176h','1.280 điểm','#7657ed','#eee9ff')}${person('2','Nguyễn Văn An','21 ngày đúng giờ · 172h','1.190 điểm','#0867f2','#e4eeff')}${person('3','Trần Thị Mai','20 ngày đúng giờ · 168h','1.080 điểm','#ff8605','#fff0dc')}${person('4','Hoàng Văn Dũng','19 ngày đúng giờ · 164h','980 điểm')}</div></article><article class="demo-card glass-card span-4"><h3>Thành tích của bạn</h3><div style="text-align:center;padding:20px"><div class="avatar-sm" style="width:76px;height:76px;margin:auto;font-size:22px">NH</div><div class="metric" style="margin-top:12px">#2</div><p class="muted">Tăng 3 hạng so với tháng trước</p><div class="progress-track"><div class="progress-fill" style="width:82%"></div></div></div></article></div>`,
+      leaderboard: () => `${header('Bảng xếp hạng chuyên cần','Ghi nhận những thành viên duy trì giờ giấc và ngày công tốt.')}<div class="segmented" style="margin-bottom:16px"><button>Hôm nay</button><button>Tuần</button><button class="active">Tháng</button></div><div class="feature-grid"><article class="demo-card glass-card span-4"><h3>Thành tích của bạn</h3><div style="text-align:center;padding:20px"><div class="avatar-sm" style="width:76px;height:76px;margin:auto;font-size:22px">NH</div><div class="metric" style="margin-top:12px">#2</div><p class="muted">Tăng 3 hạng so với tháng trước</p><div class="progress-track"><div class="progress-fill" style="width:82%"></div></div></div></article>${dataTable('Xếp hạng chuyên cần',['Hạng','Nhân sự','Phòng ban','Ngày đúng giờ','Tổng giờ','Đi muộn','Thành tích'],[
+        ['🥇 1','Lê Minh Hoàng','IT','22','176h','0','1.280 điểm'],
+        ['🥈 2','Nguyễn Văn Học','IT','21','172h','1','1.190 điểm'],
+        ['🥉 3','Trần Thị Mai','Nhân sự','20','168h','1','1.080 điểm'],
+        ['4','Hoàng Văn Dũng','Kinh doanh','19','164h','2','980 điểm'],
+        ['5','Phạm Thu Hà','Kế toán','18','158h','1','920 điểm']
+      ],{placeholder:'Tìm nhân sự...',total:48,flush:true})}</div>`,
 
-      staff: () => `${header('Quản lý nhân viên','Thông tin nhân sự, phòng ban và thiết bị chấm công chính.','<button class="primary-btn" data-action="new-staff">＋ Thêm nhân viên</button>')}<div class="feature-grid">${miniMetric('Đang làm việc','48','3 phòng ban','#0867f2')}${miniMetric('Thiết bị tin cậy','43','89.6%','#0aa461')}${miniMetric('Cần xác minh','5','Thiết bị hoặc selfie','#ff8605')}<article class="demo-card glass-card span-12"><div style="display:flex;gap:10px;margin-bottom:14px"><div class="search-wrap" style="width:300px;max-width:100%"><svg class="icon"><use href="#i-search"/></svg><input class="search" placeholder="Tìm nhân viên..."></div></div><div class="mini-list">${person('NA','Nguyễn Văn An','Kinh doanh · NV0001','Đang làm')}${person('BN','Trần Thị Bích Ngọc','Nhân sự · NV0002','Đang làm')}${person('MH','Lê Minh Hoàng','IT · NV0003','Thiết bị lạ','#ff8605','#fff0dc')}${person('TH','Phạm Thu Hà','Kế toán · NV0004','Nghỉ phép','#7657ed','#eee9ff')}</div></article></div>`,
+      staff: () => `${header('Quản lý nhân viên','Thông tin nhân sự, phòng ban và thiết bị chấm công chính.','<button class="primary-btn" data-action="new-staff">＋ Thêm nhân viên</button>')}<div class="feature-grid">${miniMetric('Đang làm việc','48','3 phòng ban','#0867f2')}${miniMetric('Thiết bị tin cậy','43','89.6%','#0aa461')}${miniMetric('Cần xác minh','5','Thiết bị hoặc selfie','#ff8605')}${dataTable('Danh sách nhân sự',['Mã NV','Họ và tên','Phòng ban','Chức vụ','Vai trò','Số điện thoại','Ngày vào làm','Thiết bị chính','Trạng thái','Thao tác'],[
+        ['NV0001','Nguyễn Văn An','Kinh doanh','Chuyên viên','Nhân viên','090 123 4567','12/03/2024',tableStatus('Tin cậy'),tableStatus('Đang làm'),'Xem · Sửa'],
+        ['NV0002','Trần Thị Bích Ngọc','Nhân sự','Trưởng nhóm','Leader','091 222 8899','08/01/2023',tableStatus('Tin cậy'),tableStatus('Đang làm'),'Xem · Sửa'],
+        ['NV0003','Lê Minh Hoàng','IT','Kỹ sư','Nhân viên','098 345 7788','20/06/2025',tableStatus('Thiết bị lạ','#e87500','#fff0dc'),tableStatus('Đang làm'),'Xác minh · Sửa'],
+        ['NV0004','Phạm Thu Hà','Kế toán','Kế toán viên','Nhân viên','093 888 2211','15/09/2022',tableStatus('Tin cậy'),tableStatus('Nghỉ phép','#7657ed','#eee9ff'),'Xem · Sửa'],
+        ['NV0005','Hoàng Văn Dũng','Kinh doanh','Nhân viên','Nhân viên','097 555 4433','01/02/2026',tableStatus('Chưa đăng ký','#627087','#e9eef5'),tableStatus('Đang làm'),'Xem · Sửa']
+      ],{placeholder:'Tìm mã, tên, phòng ban...',total:48,flush:true})}</div>`,
 
       notifications: () => `${header('Trung tâm thông báo','Thông báo hệ thống, đơn từ và cảnh báo chấm công theo thời gian thực.','<button class="secondary-btn" data-action="read-all">Đánh dấu đã đọc</button>')}<div class="feature-grid"><article class="demo-card glass-card span-8"><div class="mini-list">${person('!','Thiết bị lạ cần xác minh','Lê Minh Hoàng vừa chấm công · 5 phút trước','Mới','#ef443b','#ffe4e2')}${person('Đ','Đơn nghỉ phép mới','Nguyễn Văn An · 18 phút trước','Mới','#0867f2','#e4eeff')}${person('✓','Đã chốt công tháng 07','Thực hiện bởi Admin · Hôm qua','Hệ thống','#0aa461','#dff5e9')}${person('📢','Thông báo lịch nghỉ lễ','Áp dụng toàn công ty · 2 ngày trước','Nội bộ','#7657ed','#eee9ff')}</div></article><article class="demo-card glass-card span-4"><h3>Tùy chọn nhận tin</h3><div class="switch-row"><span>Cảnh báo thiết bị</span><button class="switch on"></button></div><div class="switch-row"><span>Đơn từ mới</span><button class="switch on"></button></div><div class="switch-row"><span>Sinh nhật</span><button class="switch"></button></div></article></div>`,
 
@@ -656,6 +708,19 @@
       } else {
         showToast('Đã mở biểu mẫu thao tác demo');
       }
+    });
+
+    featurePage.addEventListener('input', (event) => {
+      if (!event.target.classList.contains('demo-table-search')) return;
+      const term = event.target.value.trim().toLocaleLowerCase('vi');
+      const panel = event.target.closest('.table-panel');
+      const tableRows = [...panel.querySelectorAll('tbody tr')];
+      let visible = 0;
+      tableRows.forEach((row) => {
+        row.hidden = !row.dataset.search.includes(term);
+        if (!row.hidden) visible += 1;
+      });
+      panel.querySelector('.table-footer > span').textContent = `Hiển thị ${visible} bản ghi phù hợp`;
     });
 
     setInterval(() => {

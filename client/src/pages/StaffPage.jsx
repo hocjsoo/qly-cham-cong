@@ -724,16 +724,12 @@ export default function StaffPage() {
                   style={{ padding: '12px 14px', borderLeft: u.is_active === false ? '3px solid var(--border)' : '3px solid var(--primary)', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {u.avatar_url ? (
-                      <img
-                        src={u.avatar_url}
-                        alt={u.full_name}
-                        style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)' }}
-                        onError={e => { e.target.onerror=null; e.target.src=''; }}
-                      />
-                    ) : (
-                      <div className="avatar" style={{ width: 44, height: 44, background: isInactive ? 'var(--text-muted)' : 'var(--primary)', flexShrink: 0, fontSize: '15px' }}>{initials}</div>
-                    )}
+                    <img
+                      src={u.avatar_url || '/logo.png'}
+                      alt={u.full_name}
+                      style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)' }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '14px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1574,17 +1570,12 @@ export default function StaffPage() {
                 }}
                 title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
-                {viewingStaffDetail.avatar_url ? (
-                  <img
-                    src={viewingStaffDetail.avatar_url}
-                    alt={viewingStaffDetail.full_name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : (
-                  <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={viewingStaffDetail.avatar_url || '/logo.png'}
+                  alt={viewingStaffDetail.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
 
               <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '6px', marginBottom: '2px', color: 'var(--text)' }}>{viewingStaffDetail.full_name}</h2>
