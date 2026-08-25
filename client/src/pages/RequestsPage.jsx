@@ -611,11 +611,12 @@ export default function RequestsPage() {
                             }}
                             title="Xem hồ sơ nhân sự"
                           >
-                            {item.user_id?.avatar_url ? (
-                              <img src={item.user_id.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              empName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase()
-                            )}
+                            <img
+                              src={item.user_id?.avatar_url || '/logo.png'}
+                              alt=""
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={e => { e.target.src = '/logo.png'; }}
+                            />
                           </div>
                           <div>
                             <div
@@ -879,11 +880,12 @@ export default function RequestsPage() {
                             }}
                             title="Click để xem hồ sơ nhân sự"
                           >
-                            {avatarUrl ? (
-                              <img src={avatarUrl} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            ) : (
-                              initials
-                            )}
+                            <img
+                              src={avatarUrl || '/logo.png'}
+                              alt={displayName}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              onError={e => { e.target.src = '/logo.png'; }}
+                            />
                           </div>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -1433,17 +1435,12 @@ export default function RequestsPage() {
                 style={{ cursor: (viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? 'zoom-in' : 'default', position: 'relative' }}
                 title={(viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? 'Click để xem ảnh lớn' : ''}
               >
-                {(viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar) ? (
-                  <img
-                    src={viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar}
-                    alt=""
-                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
-                  />
-                ) : (
-                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                    {(viewingStaffDetail.full_name || viewingStaffDetail.user_name || 'U').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={viewingStaffDetail.avatar_url || viewingStaffDetail.user_avatar || '/logo.png'}
+                  alt=""
+                  style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
               <div>
                 <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>

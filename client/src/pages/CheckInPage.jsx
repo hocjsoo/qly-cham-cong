@@ -968,7 +968,12 @@ export default function CheckInPage() {
                   }}
                   title="Click để xem chi tiết vinh danh cống hiến"
                 >
-                  <span style={{ fontSize: '18px' }}>🏅</span>
+                  <img
+                    src={a.avatar_url || '/logo.png'}
+                    alt={a.full_name}
+                    style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)', flexShrink: 0 }}
+                    onError={e => { e.target.src = '/logo.png'; }}
+                  />
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                       {a.full_name}
@@ -1137,13 +1142,12 @@ export default function CheckInPage() {
               border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: '16px',
               display: 'flex', alignItems: 'center', gap: '14px'
             }}>
-              {selectedBirthday.avatar_url ? (
-                <img src={selectedBirthday.avatar_url} alt={selectedBirthday.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)' }} />
-              ) : (
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                  {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                </div>
-              )}
+              <img
+                src={selectedBirthday.avatar_url || '/logo.png'}
+                alt={selectedBirthday.full_name}
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)', flexShrink: 0 }}
+                onError={e => { e.target.src = '/logo.png'; }}
+              />
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
                   {selectedBirthday.full_name}
@@ -1249,13 +1253,12 @@ export default function CheckInPage() {
               border: '1px solid var(--primary-soft)', marginBottom: '16px',
               display: 'flex', alignItems: 'center', gap: '14px'
             }}>
-              {selectedAnniversary.avatar_url ? (
-                <img src={selectedAnniversary.avatar_url} alt={selectedAnniversary.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
-              ) : (
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                  {selectedAnniversary.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                </div>
-              )}
+              <img
+                src={selectedAnniversary.avatar_url || '/logo.png'}
+                alt={selectedAnniversary.full_name}
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', flexShrink: 0 }}
+                onError={e => { e.target.src = '/logo.png'; }}
+              />
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
                   {selectedAnniversary.full_name}

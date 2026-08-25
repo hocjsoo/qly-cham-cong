@@ -77,7 +77,7 @@ const getBirthdays = async (req, res) => {
         day,
         position: u.position || 'Nhân viên',
         department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',
-        avatar_url: u.avatar_url,
+        avatar_url: u.avatar_url || '/logo.png',
         employee_code: u.employee_code || 'NS-000',
         employee_type: u.employee_type,
       };
@@ -266,7 +266,7 @@ const getAnniversaries = async (req, res) => {
             full_name: u.full_name,
             email: u.email,
             phone: u.phone || '',
-            avatar_url: u.avatar_url,
+            avatar_url: u.avatar_url || '/logo.png',
             employee_code: u.employee_code || 'NS-000',
             position: u.position || 'Nhân viên',
             department_name: deptNames.length > 0 ? deptNames.join(', ') : '—',

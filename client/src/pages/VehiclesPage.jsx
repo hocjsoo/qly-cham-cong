@@ -374,13 +374,12 @@ export default function VehiclesPage() {
                           style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                           title="Click để xem hồ sơ nhân sự"
                         >
-                          {s.avatar_url ? (
-                            <img src={s.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
-                          ) : (
-                            <div className="avatar" style={{ width: 30, height: 30, fontSize: '11px' }}>
-                              {s.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                            </div>
-                          )}
+                          <img
+                            src={s.avatar_url || '/logo.png'}
+                            alt=""
+                            style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            onError={e => { e.target.src = '/logo.png'; }}
+                          />
                           <div>
                             <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '13px', whiteSpace: 'nowrap' }}>{s.full_name}</div>
                             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>#{s.employee_code || 'NS'}</div>
@@ -457,13 +456,12 @@ export default function VehiclesPage() {
                       style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                       title="Click để xem hồ sơ nhân sự"
                     >
-                      {s.avatar_url ? (
-                        <img src={s.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
-                      ) : (
-                        <div className="avatar" style={{ width: 38, height: 38, fontSize: '13px' }}>
-                          {s.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                        </div>
-                      )}
+                        <img
+                          src={s.avatar_url || '/logo.png'}
+                          alt=""
+                          style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                          onError={e => { e.target.src = '/logo.png'; }}
+                        />
                       <div>
                         <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)' }}>
                           {s.full_name} {isMine && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
@@ -696,17 +694,12 @@ export default function VehiclesPage() {
                 style={{ cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default', position: 'relative' }}
                 title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
-                {viewingStaffDetail.avatar_url ? (
-                  <img
-                    src={viewingStaffDetail.avatar_url}
-                    alt=""
-                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
-                  />
-                ) : (
-                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                    {(viewingStaffDetail.full_name || 'U').split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={viewingStaffDetail.avatar_url || '/logo.png'}
+                  alt=""
+                  style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
               <div>
                 <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>

@@ -542,13 +542,12 @@ export default function ExpensesPage() {
                       </td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {exp.user_id?.avatar_url ? (
-                            <img src={exp.user_id.avatar_url} alt="" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
-                          ) : (
-                            <div className="avatar" style={{ width: 24, height: 24, fontSize: '10px' }}>
-                              {exp.user_id?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || 'NV'}
-                            </div>
-                          )}
+                          <img
+                            src={exp.user_id?.avatar_url || '/logo.png'}
+                            alt=""
+                            style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            onError={e => { e.target.src = '/logo.png'; }}
+                          />
                           <span style={{ fontWeight: 600, color: 'var(--text)' }}>
                             {exp.user_id?.full_name || 'Nhân viên'}
                           </span>

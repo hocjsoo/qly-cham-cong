@@ -429,13 +429,12 @@ export default function LeaderboardPage() {
                   title="Click để xem hồ sơ nhân sự"
                 >
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
-                    {top2.avatar_url ? (
-                      <img src={top2.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #94a3b8', objectFit: 'cover' }} />
-                    ) : (
-                      <div className="avatar" style={{ width: 44, height: 44, fontSize: '13px', border: '2.5px solid #94a3b8' }}>
-                        {top2.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                      </div>
-                    )}
+                    <img
+                      src={top2.avatar_url || '/logo.png'}
+                      alt=""
+                      style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #94a3b8', objectFit: 'cover' }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
                     <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#94a3b8', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '1px 5px', borderRadius: '10px' }}>
                       #2 🥈
                     </span>
@@ -461,13 +460,12 @@ export default function LeaderboardPage() {
               >
                 <Crown size={26} color="#eab308" style={{ marginBottom: '2px', filter: 'drop-shadow(0 2px 4px rgba(234,179,8,0.5))' }} />
                 <div style={{ position: 'relative', marginBottom: '6px' }}>
-                  {top1.avatar_url ? (
-                    <img src={top1.avatar_url} alt="" style={{ width: 54, height: 54, borderRadius: '50%', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)', objectFit: 'cover' }} />
-                  ) : (
-                    <div className="avatar" style={{ width: 54, height: 54, fontSize: '16px', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)' }}>
-                      {top1.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                    </div>
-                  )}
+                  <img
+                    src={top1.avatar_url || '/logo.png'}
+                    alt=""
+                    style={{ width: 54, height: 54, borderRadius: '50%', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)', objectFit: 'cover' }}
+                    onError={e => { e.target.src = '/logo.png'; }}
+                  />
                   <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#eab308', color: '#000', fontSize: '11px', fontWeight: 900, padding: '1px 6px', borderRadius: '10px' }}>
                     #1 👑
                   </span>
@@ -492,13 +490,12 @@ export default function LeaderboardPage() {
                   title="Click để xem hồ sơ nhân sự"
                 >
                   <div style={{ position: 'relative', marginBottom: '6px' }}>
-                    {top3.avatar_url ? (
-                      <img src={top3.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #d97706', objectFit: 'cover' }} />
-                    ) : (
-                      <div className="avatar" style={{ width: 44, height: 44, fontSize: '13px', border: '2.5px solid #d97706' }}>
-                        {top3.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                      </div>
-                    )}
+                    <img
+                      src={top3.avatar_url || '/logo.png'}
+                      alt=""
+                      style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #d97706', objectFit: 'cover' }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
                     <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#d97706', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '1px 5px', borderRadius: '10px' }}>
                       #3 🥉
                     </span>
@@ -599,13 +596,12 @@ export default function LeaderboardPage() {
                       {/* User Column */}
                       <td style={{ padding: '10px 14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {r.avatar_url ? (
-                            <img src={r.avatar_url} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }} />
-                          ) : (
-                            <div className="avatar" style={{ width: 30, height: 30, fontSize: '11px' }}>
-                              {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                            </div>
-                          )}
+                          <img
+                            src={r.avatar_url || '/logo.png'}
+                            alt=""
+                            style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            onError={e => { e.target.src = '/logo.png'; }}
+                          />
                           <div style={{ fontWeight: isCurrent ? 800 : 700, color: isCurrent ? 'var(--primary)' : 'var(--text)', fontSize: '13.5px' }}>
                             {r.full_name} {isCurrent && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
                           </div>
@@ -723,17 +719,12 @@ export default function LeaderboardPage() {
                 style={{ cursor: viewingStaffDetail.avatar_url ? 'zoom-in' : 'default', position: 'relative' }}
                 title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
-                {viewingStaffDetail.avatar_url ? (
-                  <img
-                    src={viewingStaffDetail.avatar_url}
-                    alt={viewingStaffDetail.full_name}
-                    style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
-                  />
-                ) : (
-                  <div style={{ width: 62, height: 62, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={viewingStaffDetail.avatar_url || '/logo.png'}
+                  alt={viewingStaffDetail.full_name}
+                  style={{ width: 62, height: 62, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
               <div>
                 <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text)' }}>

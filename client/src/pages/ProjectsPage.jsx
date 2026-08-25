@@ -795,21 +795,12 @@ export default function ProjectsPage() {
                                 maxWidth: '140px'
                               }}
                             >
-                              {foundPm.avatar_url ? (
                                 <img
-                                  src={foundPm.avatar_url}
+                                  src={foundPm.avatar_url || '/logo.png'}
                                   alt=""
                                   style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }}
+                                  onError={e => { e.target.src = '/logo.png'; }}
                                 />
-                              ) : (
-                                <div style={{
-                                  width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)',
-                                  color: '#fff', fontSize: '9px', fontWeight: 800, display: 'flex',
-                                  alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                                }}>
-                                  {pmInitials}
-                                </div>
-                              )}
                               <div style={{ lineHeight: 1.15, overflow: 'hidden' }}>
                                 <div style={{ fontSize: '11.5px', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {p.pm_name}
@@ -851,11 +842,12 @@ export default function ProjectsPage() {
                                   cursor: 'pointer'
                                 }}
                               >
-                                {m.avatar_url ? (
-                                  <img src={m.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                ) : (
-                                  (m.full_name || 'U').charAt(0).toUpperCase()
-                                )}
+                                <img
+                                  src={m.avatar_url || '/logo.png'}
+                                  alt=""
+                                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                  onError={e => { e.target.src = '/logo.png'; }}
+                                />
                               </div>
                             ))}
                             {members.length > 3 && (
@@ -1010,13 +1002,12 @@ export default function ProjectsPage() {
                               border: '1px solid var(--border)'
                             }}
                           >
-                            {foundPm.avatar_url ? (
-                              <img src={foundPm.avatar_url} alt="" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)' }} />
-                            ) : (
-                              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '9px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                {pmInitials}
-                              </div>
-                            )}
+                            <img
+                              src={foundPm.avatar_url || '/logo.png'}
+                              alt=""
+                              style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--primary)', flexShrink: 0 }}
+                              onError={e => { e.target.src = '/logo.png'; }}
+                            />
                             <span>
                               👷 PM: {p.pm_name}
                             </span>
@@ -1047,11 +1038,12 @@ export default function ProjectsPage() {
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  {staffObj.avatar_url ? (
-                                    <img src={staffObj.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                  ) : (
-                                    (staffObj.full_name || 'U').charAt(0).toUpperCase()
-                                  )}
+                                  <img
+                                    src={staffObj.avatar_url || '/logo.png'}
+                                    alt=""
+                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                    onError={e => { e.target.src = '/logo.png'; }}
+                                  />
                                 </div>
                               );
                             })}
@@ -1837,23 +1829,14 @@ export default function ProjectsPage() {
               display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px',
               border: '1px solid var(--border)'
             }}>
-              {viewingStaffDetail.avatar_url ? (
                 <img
-                  src={viewingStaffDetail.avatar_url}
+                  src={viewingStaffDetail.avatar_url || '/logo.png'}
                   alt=""
-                  onClick={() => setFullAvatarImage(viewingStaffDetail.avatar_url)}
+                  onClick={() => setFullAvatarImage(viewingStaffDetail.avatar_url || '/logo.png')}
                   style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'pointer' }}
                   title="Click để phóng to ảnh đại diện"
+                  onError={e => { e.target.src = '/logo.png'; }}
                 />
-              ) : (
-                <div style={{
-                  width: '60px', height: '60px', borderRadius: '50%', background: 'var(--primary)',
-                  color: '#fff', fontSize: '22px', fontWeight: 800, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center'
-                }}>
-                  {(viewingStaffDetail.full_name || 'U').charAt(0).toUpperCase()}
-                </div>
-              )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
                   {viewingStaffDetail.full_name}

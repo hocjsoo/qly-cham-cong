@@ -250,11 +250,12 @@ export default function DashboardPage() {
               <RefreshCw size={16} style={{ animation: loading ? 'spin 0.6s linear infinite' : 'none' }} />
             </button>
             <HeaderActions />
-            {user?.avatar_url ? (
-              <img src={user.avatar_url} alt={user.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }} />
-            ) : (
-              <div className="avatar">{initials}</div>
-            )}
+            <img
+              src={user?.avatar_url || '/logo.png'}
+              alt={user?.full_name || 'User'}
+              style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', flexShrink: 0 }}
+              onError={e => { e.target.src = '/logo.png'; }}
+            />
           </div>
         </div>
       </div>
@@ -476,17 +477,12 @@ export default function DashboardPage() {
                     }}
                     title="Click để xem chi tiết vinh danh cống hiến"
                   >
-                    {a.avatar_url ? (
-                      <img src={a.avatar_url} alt={a.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }} />
-                    ) : (
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%', background: 'var(--primary-soft)',
-                        color: 'var(--primary)', fontSize: '16px', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontWeight: 800, flexShrink: 0
-                      }}>
-                        🏅
-                      </div>
-                    )}
+                    <img
+                      src={a.avatar_url || '/logo.png'}
+                      alt={a.full_name}
+                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', flexShrink: 0 }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
                     <div>
                       <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span>{a.full_name}</span>
@@ -513,13 +509,12 @@ export default function DashboardPage() {
                     }}
                     title="Click để xem chi tiết sinh nhật"
                   >
-                    {b.avatar_url ? (
-                      <img src={b.avatar_url} alt={b.full_name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)' }} />
-                    ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                        {b.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                      </div>
-                    )}
+                    <img
+                      src={b.avatar_url || '/logo.png'}
+                      alt={b.full_name}
+                      style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--yellow)', flexShrink: 0 }}
+                      onError={e => { e.target.src = '/logo.png'; }}
+                    />
                     <div>
                       <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <span>{b.full_name}</span>
@@ -663,23 +658,17 @@ export default function DashboardPage() {
                   className="person-row animate-fade-in card--interactive"
                   style={{ cursor: 'pointer' }}
                 >
-                  {p.avatar_url ? (
-                    <img
-                      src={p.avatar_url}
-                      alt={p.full_name}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setFullAvatarImage({ url: p.avatar_url, title: p.full_name });
-                      }}
-                      title="Click để phóng to ảnh"
-                      style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
-                      onError={e => { e.target.onerror=null; e.target.src=''; }}
-                    />
-                  ) : (
-                    <div className="avatar" style={{ width: 38, height: 38, fontSize: '13px', flexShrink: 0 }}>
-                      {p.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                    </div>
-                  )}
+                  <img
+                    src={p.avatar_url || '/logo.png'}
+                    alt={p.full_name}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFullAvatarImage({ url: p.avatar_url || '/logo.png', title: p.full_name });
+                    }}
+                    title="Click để phóng to ảnh"
+                    style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--primary)', cursor: 'zoom-in' }}
+                    onError={e => { e.target.src = '/logo.png'; }}
+                  />
                   <div className="person-row__info">
                     <div className="person-row__name">{p.full_name}</div>
                     <div className="person-row__meta">
@@ -781,17 +770,12 @@ export default function DashboardPage() {
                 }}
                 title={viewingStaffDetail.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
-                {viewingStaffDetail.avatar_url ? (
-                  <img
-                    src={viewingStaffDetail.avatar_url}
-                    alt={viewingStaffDetail.full_name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : (
-                  <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {viewingStaffDetail.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={viewingStaffDetail.avatar_url || '/logo.png'}
+                  alt={viewingStaffDetail.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
 
               <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '6px', marginBottom: '2px', color: 'var(--text)' }}>{viewingStaffDetail.full_name}</h2>
@@ -886,17 +870,12 @@ export default function DashboardPage() {
                 }}
                 title={selectedBirthday.avatar_url ? 'Click để xem ảnh lớn' : ''}
               >
-                {selectedBirthday.avatar_url ? (
-                  <img
-                    src={selectedBirthday.avatar_url}
-                    alt={selectedBirthday.full_name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                ) : (
-                  <div className="avatar" style={{ width: '100%', height: '100%', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--yellow)', color: '#000' }}>
-                    {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                  </div>
-                )}
+                <img
+                  src={selectedBirthday.avatar_url || '/logo.png'}
+                  alt={selectedBirthday.full_name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  onError={e => { e.target.src = '/logo.png'; }}
+                />
               </div>
 
               <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--yellow)', marginBottom: '4px' }}>
@@ -1179,13 +1158,12 @@ export default function DashboardPage() {
               border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: '16px',
               display: 'flex', alignItems: 'center', gap: '14px'
             }}>
-              {selectedBirthday.avatar_url ? (
-                <img src={selectedBirthday.avatar_url} alt={selectedBirthday.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)' }} />
-              ) : (
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--yellow)', color: '#000', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                  {selectedBirthday.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                </div>
-              )}
+              <img
+                src={selectedBirthday.avatar_url || '/logo.png'}
+                alt={selectedBirthday.full_name}
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--yellow)', flexShrink: 0 }}
+                onError={e => { e.target.src = '/logo.png'; }}
+              />
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
                   {selectedBirthday.full_name}
@@ -1291,13 +1269,12 @@ export default function DashboardPage() {
               border: '1px solid var(--primary-soft)', marginBottom: '16px',
               display: 'flex', alignItems: 'center', gap: '14px'
             }}>
-              {selectedAnniversary.avatar_url ? (
-                <img src={selectedAnniversary.avatar_url} alt={selectedAnniversary.full_name} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }} />
-              ) : (
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>
-                  {selectedAnniversary.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()}
-                </div>
-              )}
+              <img
+                src={selectedAnniversary.avatar_url || '/logo.png'}
+                alt={selectedAnniversary.full_name}
+                style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', flexShrink: 0 }}
+                onError={e => { e.target.src = '/logo.png'; }}
+              />
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text)' }}>
                   {selectedAnniversary.full_name}

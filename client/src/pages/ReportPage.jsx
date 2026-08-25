@@ -632,17 +632,12 @@ export default function ReportPage() {
                               {/* Staff Header Row */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                                  {r.avatar_url ? (
                                     <img
-                                      src={r.avatar_url}
+                                      src={r.avatar_url || '/logo.png'}
                                       alt={r.full_name}
                                       style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--border)' }}
+                                      onError={e => { e.target.src = '/logo.png'; }}
                                     />
-                                  ) : (
-                                    <div className="avatar" style={{ width: '38px', height: '38px', fontSize: '12px', fontWeight: 800, background: 'var(--primary-soft)', color: 'var(--primary)', flexShrink: 0 }}>
-                                      {r.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?'}
-                                    </div>
-                                  )}
                                   <div style={{ minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                       <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>{r.full_name}</span>
