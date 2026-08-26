@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy } from 'lucide-react';
+import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarCheck } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
 
@@ -43,6 +43,7 @@ export default function Layout() {
     ...(!isStaffExempt ? [{ to: '/checkin', icon: Clock, label: 'Chấm công' }] : []),
     ...(!isStaffExempt ? [{ to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null }] : []),
     { to: '/projects', icon: FolderKanban, label: 'Dự án' },
+    { to: '/tts-schedule', icon: CalendarCheck, label: 'Lịch TTS' },
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
     { to: '/reports', icon: BarChart2, label: 'Bảng công' },
     { to: '/history', icon: History, label: 'Lịch sử' },
