@@ -1,3 +1,4 @@
+import ImageLightbox from "../components/ImageLightbox";
 // src/pages/LeaderboardPage.jsx
 // Bảng Xếp Hạng & Vinh Danh Đa Chiều — Podium Top 3, Bảng danh sách 100% nhân sự, Sticky My Rank, Lọc Ngày/Tháng/Năm/All
 
@@ -829,37 +830,7 @@ export default function LeaderboardPage() {
       )}
 
       {/* Full Avatar Zoom Modal */}
-      {fullAvatarImage && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.85)' }}
-          onClick={() => setFullAvatarImage(null)}
-        >
-          <div
-            className="animate-fade-in"
-            onClick={e => e.stopPropagation()}
-            style={{ position: 'relative', maxWidth: '480px', width: '100%', textAlign: 'center' }}
-          >
-            <button
-              onClick={() => setFullAvatarImage(null)}
-              className="btn btn--ghost"
-              style={{ position: 'absolute', top: '-40px', right: '0', color: '#fff', fontSize: '16px' }}
-            >
-              <X size={24} />
-            </button>
-            <img
-              src={fullAvatarImage.url}
-              alt={fullAvatarImage.title}
-              style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
-            />
-            {fullAvatarImage.title && (
-              <div style={{ color: '#fff', fontSize: '15px', fontWeight: 700, marginTop: '12px' }}>
-                {fullAvatarImage.title}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import ImageLightbox from "../components/ImageLightbox";
 // src/pages/ExpensesPage.jsx
 // Quản lý Bảng Tổng Hợp Chi Tiêu & Hoàn Ứng Cty — Chuẩn theo mẫu Google Sheets
 
@@ -896,30 +897,7 @@ export default function ExpensesPage() {
       )}
 
       {/* Bill Image Lightbox */}
-      {fullBillImage && (
-        <div className="modal-overlay" onClick={() => setFullBillImage(null)} style={{ background: 'rgba(0,0,0,0.9)', zIndex: 99999, alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
-            <button
-              onClick={() => setFullBillImage(null)}
-              style={{
-                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
-                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={fullBillImage.url}
-              alt={fullBillImage.title}
-              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain', border: '2px solid rgba(255,255,255,0.2)' }}
-            />
-            <div style={{ color: '#fff', marginTop: '10px', fontSize: '13px', fontWeight: 700 }}>
-              📸 {fullBillImage.title}
-            </div>
-          </div>
-        </div>
-      )}
+      <ImageLightbox image={fullBillImage} onClose={() => setFullBillImage(null)} />
     
       {/* Staff Detail & Bank Profile Modal Sheet */}
       {viewingStaffDetail && typeof document !== "undefined" && createPortal(

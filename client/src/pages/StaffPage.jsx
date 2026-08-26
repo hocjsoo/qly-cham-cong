@@ -1,3 +1,4 @@
+import ImageLightbox from "../components/ImageLightbox";
 // src/pages/StaffPage.jsx
 // Quản lý nhân viên — Safe ConfirmDialog, modal chống bấm ngoài đóng, CRUD đầy đủ
 
@@ -1813,30 +1814,7 @@ export default function StaffPage() {
       )}
 
       {/* Fullsize Avatar Lightbox Modal */}
-      {fullAvatarImage && (
-        <div className="modal-overlay" onClick={() => setFullAvatarImage(null)} style={{ background: 'rgba(0, 0, 0, 0.9)', zIndex: 999999, alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', maxWidth: '90vw', maxHeight: '90vh', textAlign: 'center' }}>
-            <button
-              onClick={() => setFullAvatarImage(null)}
-              style={{
-                position: 'absolute', top: '-40px', right: '0', background: 'rgba(255,255,255,0.2)',
-                border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={fullAvatarImage.url}
-              alt={fullAvatarImage.title}
-              style={{ maxWidth: '85vw', maxHeight: '80vh', borderRadius: '16px', objectFit: 'contain', boxShadow: '0 20px 50px rgba(0,0,0,0.8)', border: '2px solid rgba(255,255,255,0.2)' }}
-            />
-            <div style={{ color: '#fff', marginTop: '12px', fontSize: '14px', fontWeight: 700 }}>
-              📸 {fullAvatarImage.title}
-            </div>
-          </div>
-        </div>
-      )}
+      <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
     </div>
   );
 }
