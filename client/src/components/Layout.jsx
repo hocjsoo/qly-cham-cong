@@ -100,7 +100,7 @@ export default function Layout() {
               to={t.to}
               className={({ isActive }) => `desktop-nav__item${isActive ? ' active' : ''}`}
             >
-              <t.icon size={18} strokeWidth={1.8} />
+              <t.icon size={24} strokeWidth={2.2} />
               <span style={{ flex: 1 }}>{t.label}</span>
               {t.badge && (
                 <span className="sidebar-badge">{t.badge}</span>
@@ -132,7 +132,7 @@ export default function Layout() {
             style={{ position: 'relative' }}
           >
             <span className="bottom-nav__icon" style={{ position: 'relative' }}>
-              <t.icon size={22} strokeWidth={2} />
+              <t.icon size={24} strokeWidth={2.2} />
               {t.badge && (
                 <span className="nav-badge">{t.badge}</span>
               )}
