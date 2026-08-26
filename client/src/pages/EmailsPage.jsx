@@ -2,7 +2,7 @@
 // Trang Soạn & Gửi Email Tùy Chỉnh Toàn Màn Hình (2 Cột Soạn Thảo & Live Preview Song Song) — Admin Only
 
 import { useState, useEffect, useMemo } from "react";
-import { Mail, Send, Eye, Edit3, Check, Users, ShieldAlert, Sparkles, FileText, CheckSquare, Square, RefreshCw, Link as LinkIcon, ExternalLink, ArrowRight, Info } from "lucide-react";
+import { Mail, Send, Eye, Edit3, Check, Users, ShieldAlert, Sparkles, FileText, CheckSquare, Square, RefreshCw, Link as LinkIcon, ExternalLink, ArrowRight, Info, ShieldCheck } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
 import useAuthStore from "../stores/authStore";
@@ -134,6 +134,7 @@ export default function EmailsPage() {
     setSelectedRecipientIds(prev => prev.filter(x => !ids.has(x)));
   };
 
+  // Live HTML generation for preview (Architectural Frame)
   const livePreviewHtml = useMemo(() => {
     const mockVars = {
       ho_ten: "Nguyễn Văn A",
@@ -150,19 +151,20 @@ export default function EmailsPage() {
       renderedBody = renderedBody.replace(new RegExp("\\{" + k + "\\}", "gi"), v);
     }
     const cleanBody = renderedBody
+      .replace(/\\n/g, "<br>")
       .replace(/\n/g, "<br>")
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 750;\">$1</strong>");
 
     let ctaButtons = "";
     if (actionText && actionUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin: 24px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 28px; background: #2563eb; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.3);\">" + actionText + "</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin: 26px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 30px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 700; border-radius: 12px; box-shadow: 0 6px 18px rgba(37,99,235,0.32); letter-spacing: -0.01em;\">" + actionText + "</a></div>";
     }
 
     if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-bottom: 20px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"color: #2563eb; text-decoration: underline; font-size: 13.5px; font-weight: 600;\">📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Chi Tiết →</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin-top: 12px; margin-bottom: 20px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600; background: rgba(37,99,235,0.08); padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(37,99,235,0.2);\">📖 Xem Tài Liệu Hướng Dẫn Chi Tiết →</a></div>";
     }
 
-    return "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 18px 12px; background: #f4f3ef; color: #171a1d;\"><div style=\"background: #ffffff; border-radius: 16px; border: 1px solid #d5d8dc; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.06);\"><div style=\"background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 20px; text-align: center; color: #ffffff;\"><div style=\"display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px; margin-bottom: 8px;\">ET</div><h1 style=\"margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: #ffffff;\">ET ARCHITECTS</h1><div style=\"color: #94a3b8; font-size: 11.5px; margin-top: 4px; font-weight: 500;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ DOANH NGHIỆP</div></div><div style=\"padding: 26px 20px;\">" + (subject ? "<h2 style=\"font-size: 17px; font-weight: 800; color: #171a1d; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14px; line-height: 1.75; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 20px; font-size: 11px; color: #64748b; line-height: 1.6; text-align: center;\">" + (footerText ? "<p style=\"margin: 0 0 4px;\">" + footerText + "</p>" : "") + "<p style=\"margin: 0;\"><strong>ET Architects JSC</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</p><p style=\"margin: 3px 0 0; color: #94a3b8;\">Email được gửi tự động từ hệ thống ET Office Portal.</p></div></div></div>";
+    return "<div style=\"background-color: #f1f0eb; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcdad1; box-shadow: 0 14px 40px rgba(0,0,0,0.07);\"><div style=\"background: linear-gradient(145deg, #111418 0%, #1a1f26 100%); padding: 26px 20px; text-align: center; border-bottom: 3px solid #2563eb;\"><div style=\"display: inline-block; width: 42px; height: 42px; line-height: 42px; border-radius: 10px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px; margin-bottom: 6px; box-shadow: 0 4px 12px rgba(37,99,235,0.4);\">ET</div><div style=\"color: #ffffff; font-size: 19px; font-weight: 800; letter-spacing: -0.02em;\">ET ARCHITECTS</div><div style=\"color: #94a3b8; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px;\">Hệ Thống Quản Lý Nội Bộ & Chấm Công</div></div><div style=\"padding: 26px 22px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14px; line-height: 1.75; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 18px 22px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 700; color: #334155; margin-bottom: 4px;\">" + footerText + "</div>" : "") + "<div><strong>Công ty Cổ phần Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
   }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
   const handleSendTestEmail = async () => {
@@ -181,7 +183,7 @@ export default function EmailsPage() {
         documentUrl,
         footerText,
       });
-      toast.success(data.message || "Đã gửi email thử nghiệm!");
+      toast.success(data.message || "Đã gửi email thử nghiệm!", { duration: 4000 });
     } catch (err) {
       toast.error(err?.response?.data?.error || "Lỗi gửi email thử nghiệm");
     } finally {
@@ -252,7 +254,7 @@ export default function EmailsPage() {
           </div>
 
           <div style={{ fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-            <Info size={14} /> Tự động thay đổi tên, chức vụ, mật khẩu theo từng nhân sự
+            <ShieldCheck size={14} color="var(--green)" /> Tự động thay đổi tên, chức vụ, mật khẩu theo từng nhân sự
           </div>
         </div>
 
@@ -377,7 +379,7 @@ export default function EmailsPage() {
               </div>
 
               {/* Rendered HTML Container */}
-              <div style={{ maxHeight: "480px", overflowY: "auto", borderRadius: "12px", border: "1px solid var(--border)", background: "#f4f3ef", padding: "10px" }}>
+              <div style={{ maxHeight: "500px", overflowY: "auto", borderRadius: "14px", border: "1px solid var(--border)", background: "#f1f0eb", padding: "12px" }}>
                 <div dangerouslySetInnerHTML={{ __html: livePreviewHtml }} />
               </div>
             </div>
@@ -475,9 +477,9 @@ export default function EmailsPage() {
           </div>
 
           {/* Broadcast Action Bottom Button */}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", alignItems: "center", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", paddingTop: "14px", borderTop: "1px solid var(--border)" }}>
             <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-              Sẵn sàng gửi tới <strong>{selectedRecipientIds.length} nhân sự</strong>
+              Sẵn sàng gửi tới <strong>{selectedRecipientIds.length} nhân sự</strong> qua Gmail SMTP
             </span>
             <button
               type="button"
