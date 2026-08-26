@@ -4,7 +4,7 @@ const Project = require('../models/Project');
 // GET /api/projects
 const getProjects = async (req, res) => {
   try {
-    const { active_only, search, category, status, sort } = req.query;
+    const { active_only, search, category, status, sort, my_only } = req.query;
     let filter = { is_active: { $ne: false } };
 
     if (active_only === 'true') {
@@ -26,6 +26,30 @@ const getProjects = async (req, res) => {
       ];
     }
 
+    // Nhân sự thường chỉ xem được các dự án mình tham gia hoặc phụ trách làm PM
+    const isStaff = req.user && (req.user.role === 'staff' || req.user.role === 'employee');
+    if (isStaff || my_only === 'true') {
+      const userConditions = [
+        { members: req.user._id },
+        { pm_id: req.user._id },
+      ];
+      if (req.user.full_name) {
+        const cleanName = req.user.full_name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+        userConditions.push({ pm_name: { $regex: cleanName, $options: 'i' } });
+      }
+
+      if (filter.$or) {
+        const searchOr = filter.$or;
+        delete filter.$or;
+        filter.$and = [
+          { $or: searchOr },
+          { $or: userConditions }
+        ];
+      } else {
+        filter.$or = userConditions;
+      }
+    }
+
     let sortOption = { created_at: -1 };
     if (sort === 'name_asc') sortOption = { name: 1 };
     else if (sort === 'name_desc') sortOption = { name: -1 };
@@ -38,8 +62,8 @@ const getProjects = async (req, res) => {
       .populate('pm_id', 'full_name email avatar_url employee_code position phone')
       .sort(sortOption);
 
-    // Seeding dự án mẫu nếu trống
-    if (projects.length === 0 && !active_only && !search && (!category || category === 'all')) {
+    // Seeding dự án mẫu nếu trống (chỉ khi là admin)
+    if (projects.length === 0 && req.user?.role === 'admin' && !active_only && !search && (!category || category === 'all')) {
       projects = await Project.insertMany([
         { name: 'Văn phòng ET Architects Hà Nội', code: 'DA-ETHN', category: 'Kiến trúc', client_name: 'ET Group', address: 'Tầng 5, Hà Nội', status: 'Đang tiến hành', pm_name: 'KTS. Nguyễn Hoàng', progress: 75, deadline: '2026-12-31' },
         { name: 'Biệt thự Palm City', code: 'DA-PALM', category: 'Nội thất', client_name: 'Anh Minh', address: 'Quận 2, TP.HCM', status: 'Đang tiến hành', pm_name: 'KTS. Trần Nam', progress: 40, deadline: '2026-10-15' },

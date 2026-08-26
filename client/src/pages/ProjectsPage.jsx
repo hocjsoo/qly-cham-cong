@@ -348,16 +348,21 @@ export default function ProjectsPage() {
     return null;
   };
 
+  const currentScopeList = (isStaff || scope === 'my') ? myProjectsList : projects;
+  const displayTotalCount = currentScopeList.length;
+  const displayActiveCount = currentScopeList.filter(p => p.status === 'Đang tiến hành').length;
+  const displayCompletedCount = currentScopeList.filter(p => p.status === 'Đã hoàn thành').length;
+
   const availableYears = Array.from(new Set(
-    projects.map(p => getProjectYear(p)).filter(Boolean)
+    currentScopeList.map(p => getProjectYear(p)).filter(Boolean)
   )).sort((a, b) => Number(b) - Number(a));
 
   const availablePms = Array.from(new Set(
-    projects.map(p => p.pm_name && p.pm_name.trim()).filter(Boolean)
+    currentScopeList.map(p => p.pm_name && p.pm_name.trim()).filter(Boolean)
   )).sort((a, b) => a.localeCompare(b, 'vi'));
 
   const availableCodePrefixes = Array.from(new Set(
-    projects.map(p => getProjectCodePrefix(p)).filter(Boolean)
+    currentScopeList.map(p => getProjectCodePrefix(p)).filter(Boolean)
   )).sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
 
   const hasActiveFilters = Boolean(
@@ -379,10 +384,8 @@ export default function ProjectsPage() {
   };
 
   const filteredProjects = projects.filter(p => {
-    const uid = user?._id || user?.id;
-    const isMember = Array.isArray(p.members) && p.members.some(m => (m?._id || m?.id || m) === uid);
-    const isPm = p.pm_name && user?.full_name && p.pm_name.toLowerCase().includes(user.full_name.toLowerCase());
-    const matchScope = scope === 'all' ? true : (isMember || isPm);
+    const isMyProj = checkIsMyProject(p, user);
+    const matchScope = (!isStaff && scope === 'all') ? true : isMyProj;
 
     let matchSearch = true;
     if (searchTerm.trim()) {
@@ -447,20 +450,19 @@ export default function ProjectsPage() {
     return 0;
   });
 
-  const currentScopeList = scope === 'my' ? myProjectsList : projects;
-  const displayTotalCount = currentScopeList.length;
-  const displayActiveCount = currentScopeList.filter(p => p.status === 'Đang tiến hành').length;
-  const displayCompletedCount = currentScopeList.filter(p => p.status === 'Đã hoàn thành').length;
-
   return (
     <div className="page">
       {/* Header */}
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">Danh Mục Dự Án (ET Staff)</div>
+            <div className="header__title">
+              {isStaff ? 'Dự Án Tham Gia' : 'Danh Mục Dự Án (ET Staff)'}
+            </div>
             <div className="header__subtitle">
-              {scope === 'my' ? `${myProjectsList.length} dự án bạn đang tham gia` : `${projects.length} dự án toàn công ty`} · Khớp 100% Bảng Mẫu THÔNG TIN NS+DA
+              {isStaff
+                ? `${myProjectsList.length} dự án bạn đang tham gia`
+                : (scope === 'my' ? `${myProjectsList.length} dự án bạn phụ trách / tham gia` : `${projects.length} dự án toàn công ty`)}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -475,39 +477,41 @@ export default function ProjectsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Role Scope Switcher Tabs */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-          <button
-            onClick={() => setScope('my')}
-            style={{
-              flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-              background: scope === 'my' ? 'var(--bg-card)' : 'transparent',
-              color: scope === 'my' ? 'var(--primary)' : 'var(--text-secondary)',
-              boxShadow: scope === 'my' ? 'var(--shadow-xs)' : 'none',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            🚀 Dự án của tôi ({myProjectsList.length})
-          </button>
-          <button
-            onClick={() => setScope('all')}
-            style={{
-              flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-              background: scope === 'all' ? 'var(--bg-card)' : 'transparent',
-              color: scope === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
-              boxShadow: scope === 'all' ? 'var(--shadow-xs)' : 'none',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            🏢 Tất cả dự án công ty ({projects.length})
-          </button>
-        </div>
+        {/* Role Scope Switcher Tabs — Chỉ hiển thị cho Admin & Leader */}
+        {isAdminOrManager && (
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setScope('my')}
+              style={{
+                flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                background: scope === 'my' ? 'var(--bg-card)' : 'transparent',
+                color: scope === 'my' ? 'var(--primary)' : 'var(--text-secondary)',
+                boxShadow: scope === 'my' ? 'var(--shadow-xs)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              🚀 Dự án của tôi ({myProjectsList.length})
+            </button>
+            <button
+              onClick={() => setScope('all')}
+              style={{
+                flex: 1, padding: '8px 12px', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                background: scope === 'all' ? 'var(--bg-card)' : 'transparent',
+                color: scope === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
+                boxShadow: scope === 'all' ? 'var(--shadow-xs)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              🏢 Tất cả dự án công ty ({projects.length})
+            </button>
+          </div>
+        )}
 
         {/* Stat KPI Cards (Dynamically calculated based on active Scope) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
           <div className="card" style={{ padding: '12px 14px', background: 'var(--bg-card)' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {scope === 'my' ? 'DỰ ÁN THAM GIA' : 'TỔNG SỐ DỰ ÁN'}
+              {isStaff || scope === 'my' ? 'DỰ ÁN THAM GIA' : 'TỔNG SỐ DỰ ÁN'}
             </div>
             <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>{displayTotalCount}</div>
           </div>

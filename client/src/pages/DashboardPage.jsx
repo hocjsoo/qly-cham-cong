@@ -374,7 +374,9 @@ export default function DashboardPage() {
   }
 
   const myProjsFromAll = allProjects.filter(p => checkIsMyProject(p, user));
-  const combinedProjects = myProjsFromAll.length > 0 ? myProjsFromAll : (data?.my_projects || allProjects.slice(0, 6));
+  const combinedProjects = myProjsFromAll.length > 0
+    ? myProjsFromAll
+    : (isAdminOrLeader ? (data?.my_projects || allProjects.slice(0, 6)) : (data?.my_projects || []));
 
   return (
     <div className="page">

@@ -64,8 +64,8 @@ const getTodaySummary = async (req, res) => {
       .populate('pm_id', 'full_name email avatar_url employee_code position')
       .sort({ progress: -1, updated_at: -1 });
 
-    // Fallback nếu nhân viên chưa được gán dự án riêng: lấy các dự án đang hoạt động
-    if (myProjects.length === 0) {
+    // Fallback chỉ dành cho Admin nếu chưa gán dự án riêng
+    if (myProjects.length === 0 && req.user.role === 'admin') {
       myProjects = await Project.find({
         is_active: { $ne: false },
         status: { $nin: ['Đã hoàn thành', 'Đã lưu trữ', 'cancelled'] }
