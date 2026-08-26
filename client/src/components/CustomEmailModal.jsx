@@ -1,7 +1,7 @@
 // client/src/components/CustomEmailModal.jsx
 // Bộ Soạn & Gửi Email Tùy Chỉnh (Live Preview, Gửi Thử Nghiệm, Mẫu Thư & Chọn Người Nhận) — Admin Tool
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Mail, Send, Eye, Edit3, X, Users, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import toast from "react-hot-toast";
@@ -59,6 +59,45 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
   const [sendingTest, setSendingTest] = useState(false);
   const [broadcasting, setBroadcasting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const imageInputRef = useRef(null);
+
+  const handleSelectImageFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+
+        setBody(prev => prev + "\n\n[img: " + optimizedBase64 + "]\n");
+        toast.success("Đã chọn ảnh từ thiết bị và chèn vào bài viết! 🖼️");
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
 
   const handleApplyTemplate = (tplId) => {
     const tpl = PRESET_TEMPLATES.find(t => t.id === tplId);
@@ -192,6 +231,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
       style={{ zIndex: 999999, padding: "16px" }}
       onClick={onClose}
     >
+      <input type="file" ref={imageInputRef} onChange={handleSelectImageFile} accept="image/*" style={{ display: "none" }} />
       <div
         className="modal-sheet animate-slide-up"
         onClick={e => e.stopPropagation()}

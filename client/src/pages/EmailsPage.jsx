@@ -100,6 +100,50 @@ export default function EmailsPage() {
   const [broadcasting, setBroadcasting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  const imageInputRef = useRef(null);
+
+  const handleSelectImageFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Vui lòng chọn ảnh nhỏ hơn 5MB để email gửi nhanh mượt");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        const optimizedBase64 = canvas.toDataURL("image/jpeg", 0.85);
+
+        setBody(prev => prev + "\n\n[img: " + optimizedBase64 + "]\n");
+        toast.success("Đã chọn ảnh từ thiết bị và chèn vào bài viết! 🖼️");
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -321,6 +365,7 @@ export default function EmailsPage() {
 
   return (
     <div className="page">
+      <input type="file" ref={imageInputRef} onChange={handleSelectImageFile} accept="image/*" style={{ display: "none" }} />
       {/* Header */}
       <div className="header">
         <div className="header__inner header__inner--wide">
@@ -427,7 +472,7 @@ export default function EmailsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBody(prev => prev + "\n\n[img: https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80]\n")}
+                  onClick={() => imageInputRef.current?.click()}
                   className="btn btn--ghost"
                   style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "#2563eb", fontWeight: 700 }}
                   title="Chèn ảnh minh họa / bản vẽ / poster"
