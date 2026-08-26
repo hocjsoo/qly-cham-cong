@@ -17,15 +17,17 @@ function runTtsWeeklyScheduleTests(assert) {
   ], meta.allowed_dates);
   assert(slots.length === 6 && slots[0].morning === true && slots[1].morning === false && slots[1].afternoon === true,
     'TC-TTS-04: Chuẩn hóa checkbox Boolean và loại ngày ngoài tuần');
-  assert(__test.isScheduleManager({ role: 'admin' }) && __test.isScheduleManager({ role: 'leader' }),
-    'TC-TTS-05: Admin và Leader được quản lý lịch TTS');
-  assert(__test.isScheduleManager({ role: 'employee', can_manage_tts_schedule: true }),
-    'TC-TTS-06: Nhân sự được cấp quyền riêng có thể phân công');
-  assert(!__test.isScheduleManager({ role: 'employee', can_manage_tts_schedule: false }),
+  assert(__test.isScheduleAdmin({ role: 'admin' }) && !__test.isScheduleAdmin({ role: 'leader', can_manage_tts_schedule: true }),
+    'TC-TTS-05: Chỉ Admin được sửa lịch đăng ký, nội dung và trạng thái khóa');
+  assert(__test.canManageDuties({ role: 'employee', can_manage_tts_schedule: true }),
+    'TC-TTS-06: Nhân sự được cấp quyền riêng có thể phân công trực nhật');
+  assert(!__test.canManageDuties({ role: 'employee', can_manage_tts_schedule: false }),
     'TC-TTS-07: Nhân viên thường chỉ có quyền xem');
+  assert(__test.canManageDuties({ role: 'leader', can_manage_tts_schedule: true }),
+    'TC-TTS-08: Leader chỉ được phân công trực nhật khi Admin cấp quyền riêng');
   const attendanceFields = ['check_in_time', 'check_out_time', 'total_hours', 'ot_hours', 'status'];
   assert(attendanceFields.every(field => !Object.prototype.hasOwnProperty.call(slots[0], field)),
-    'TC-TTS-08: Dữ liệu đăng ký TTS không chứa trường chấm công');
+    'TC-TTS-09: Dữ liệu đăng ký TTS không chứa trường chấm công');
 }
 
 module.exports = runTtsWeeklyScheduleTests;

@@ -979,8 +979,8 @@ export default function StaffPage() {
                     onChange={e => setForm(f => ({ ...f, can_manage_tts_schedule: e.target.checked }))}
                   />
                   <span>
-                    <strong style={{ display: 'block', fontSize: '13px' }}>Quyền phân công Lịch TTS</strong>
-                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Được điều chỉnh lịch đăng ký và phân công trực nhật, không nhận thêm quyền Admin khác.</span>
+                    <strong style={{ display: 'block', fontSize: '13px' }}>Quyền phân công trực nhật</strong>
+                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Chỉ được xếp người dọn văn phòng và nhà vệ sinh, không được sửa lịch đăng ký TTS hoặc các quyền Admin khác.</span>
                   </span>
                 </label>
               </div>

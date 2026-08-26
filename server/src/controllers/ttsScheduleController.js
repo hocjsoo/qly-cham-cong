@@ -35,9 +35,8 @@ const buildWeekMeta = (weekStartValue) => {
   };
 };
 
-const isScheduleManager = (user) => Boolean(
-  user && (['admin', 'leader', 'manager'].includes(user.role) || user.can_manage_tts_schedule)
-);
+const isScheduleAdmin = user => Boolean(user && user.role === 'admin');
+const canManageDuties = user => Boolean(isScheduleAdmin(user) || user?.can_manage_tts_schedule === true);
 
 const sanitizeSlots = (slots, allowedDates) => {
   if (!Array.isArray(slots)) return [];
@@ -90,7 +89,7 @@ const getWeeklySchedule = async (req, res) => {
         .select('full_name employee_code employee_type avatar_url position')
         .sort({ employee_code: 1, full_name: 1 }),
       User.find({ is_active: { $ne: false } })
-        .select('full_name employee_code employee_type avatar_url position')
+        .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule')
         .sort({ employee_code: 1, full_name: 1 }),
     ]);
 
@@ -113,7 +112,8 @@ const getWeeklySchedule = async (req, res) => {
       people,
       allowed_dates: meta.allowed_dates,
       is_registration_locked: Boolean(schedule?.status === 'locked' || deadlinePassed),
-      can_manage: isScheduleManager(req.user),
+      can_manage: isScheduleAdmin(req.user),
+      can_manage_duties: canManageDuties(req.user),
     });
   } catch (error) {
     console.error('GetWeeklySchedule error:', error);
@@ -159,7 +159,7 @@ const updateMyRegistration = async (req, res) => {
 
 // PUT /api/tts-schedules/:weekStart/registration/:userId
 const updateRegistrationByManager = async (req, res) => {
-  if (!isScheduleManager(req.user)) return res.status(403).json({ error: 'Bạn không có quyền điều chỉnh lịch TTS.' });
+  if (!isScheduleAdmin(req.user)) return res.status(403).json({ error: 'Chỉ Admin được điều chỉnh lịch đăng ký của TTS.' });
   const meta = buildWeekMeta(req.params.weekStart);
   if (!meta) return res.status(400).json({ error: 'Tuần đăng ký không hợp lệ.' });
   try {
@@ -197,7 +197,7 @@ const updateRegistrationByManager = async (req, res) => {
 
 // PUT /api/tts-schedules/:weekStart/duties
 const updateDuties = async (req, res) => {
-  if (!isScheduleManager(req.user)) return res.status(403).json({ error: 'Bạn không có quyền phân công trực nhật.' });
+  if (!canManageDuties(req.user)) return res.status(403).json({ error: 'Bạn không có quyền phân công trực nhật.' });
   const meta = buildWeekMeta(req.params.weekStart);
   if (!meta) return res.status(400).json({ error: 'Tuần phân công không hợp lệ.' });
   try {
@@ -237,7 +237,7 @@ const updateDuties = async (req, res) => {
 };
 
 const updateInstructions = async (req, res) => {
-  if (!isScheduleManager(req.user)) return res.status(403).json({ error: 'Bạn không có quyền sửa nội dung trực nhật.' });
+  if (!isScheduleAdmin(req.user)) return res.status(403).json({ error: 'Chỉ Admin được sửa nội dung trực nhật.' });
   const meta = buildWeekMeta(req.params.weekStart);
   if (!meta) return res.status(400).json({ error: 'Tuần không hợp lệ.' });
   try {
@@ -257,7 +257,7 @@ const updateInstructions = async (req, res) => {
 };
 
 const toggleLock = async (req, res) => {
-  if (!isScheduleManager(req.user)) return res.status(403).json({ error: 'Bạn không có quyền khóa hoặc mở lịch.' });
+  if (!isScheduleAdmin(req.user)) return res.status(403).json({ error: 'Chỉ Admin được khóa hoặc mở lịch.' });
   const meta = buildWeekMeta(req.params.weekStart);
   if (!meta) return res.status(400).json({ error: 'Tuần không hợp lệ.' });
   try {
@@ -279,5 +279,5 @@ module.exports = {
   updateDuties,
   updateInstructions,
   toggleLock,
-  __test: { buildWeekMeta, sanitizeSlots, isScheduleManager, getMonday },
+  __test: { buildWeekMeta, sanitizeSlots, isScheduleAdmin, canManageDuties, getMonday },
 };
