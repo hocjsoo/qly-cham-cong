@@ -96,7 +96,13 @@ export default function ReportPage() {
   const pdfIndividualPrintRef = useRef(null);
   const matrixTableScrollRef = useRef(null);
   const matrixTopScrollRef = useRef(null);
-  const [matrixScrollMetrics, setMatrixScrollMetrics] = useState({ scrollWidth: 0, clientWidth: 0 });
+  const [matrixScrollMetrics, setMatrixScrollMetrics] = useState({
+    scrollWidth: 0,
+    clientWidth: 0,
+    left: 0,
+    width: 0,
+    showFloating: false,
+  });
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState('pdf'); // 'pdf' | 'excel'
@@ -217,9 +223,17 @@ export default function ReportPage() {
     if (!scroller) return undefined;
 
     const updateScrollMetrics = () => {
+      const rect = scroller.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const hasHorizontalOverflow = scroller.scrollWidth > scroller.clientWidth + 1;
       setMatrixScrollMetrics({
         scrollWidth: scroller.scrollWidth,
         clientWidth: scroller.clientWidth,
+        left: Math.max(0, rect.left),
+        width: Math.min(rect.width, window.innerWidth - Math.max(0, rect.left)),
+        showFloating: hasHorizontalOverflow
+          && rect.top < viewportHeight - 24
+          && rect.bottom > viewportHeight,
       });
     };
 
@@ -231,11 +245,13 @@ export default function ReportPage() {
     resizeObserver?.observe(scroller);
     if (scroller.firstElementChild) resizeObserver?.observe(scroller.firstElementChild);
     window.addEventListener('resize', updateScrollMetrics);
+    window.addEventListener('scroll', updateScrollMetrics, { passive: true });
 
     return () => {
       window.cancelAnimationFrame(frameId);
       resizeObserver?.disconnect();
       window.removeEventListener('resize', updateScrollMetrics);
+      window.removeEventListener('scroll', updateScrollMetrics);
     };
   }, [matrixData, viewMode, tableDisplayMode, displayedStaffRows.length]);
 
@@ -245,6 +261,15 @@ export default function ReportPage() {
       target.scrollLeft = source.scrollLeft;
     }
   };
+
+  useEffect(() => {
+    if (!matrixScrollMetrics.showFloating) return;
+    const floatingScroller = matrixTopScrollRef.current;
+    const tableScroller = matrixTableScrollRef.current;
+    if (floatingScroller && tableScroller) {
+      floatingScroller.scrollLeft = tableScroller.scrollLeft;
+    }
+  }, [matrixScrollMetrics.showFloating]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -1111,12 +1136,16 @@ export default function ReportPage() {
                   {/* 📊 VIEW MODE: TABLE (Full 31-day Horizontal Spreadsheet) */}
                   {viewMode === 'table' && (
                     <div className="timesheet-table-region">
-                      {matrixScrollMetrics.scrollWidth > matrixScrollMetrics.clientWidth + 1 && (
+                      {matrixScrollMetrics.showFloating && (
                         <div
                           ref={matrixTopScrollRef}
                           className="timesheet-top-scrollbar"
                           onScroll={event => syncMatrixScroll(event.currentTarget, matrixTableScrollRef)}
                           aria-label="Cuộn ngang bảng chấm công"
+                          style={{
+                            left: `${matrixScrollMetrics.left}px`,
+                            width: `${matrixScrollMetrics.width}px`,
+                          }}
                         >
                           <div style={{ width: `${matrixScrollMetrics.scrollWidth}px`, height: '1px' }} />
                         </div>

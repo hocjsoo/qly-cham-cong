@@ -1730,17 +1730,16 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .timesheet-top-scrollbar {
-  position: sticky;
-  top: 8px;
-  z-index: 30;
-  height: 16px;
-  margin: 0 12px 6px;
+  position: fixed;
+  bottom: 10px;
+  z-index: 90;
+  height: 18px;
   overflow-x: auto;
   overflow-y: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--bg-card);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 5px 18px rgba(15, 23, 42, 0.2);
   scrollbar-color: var(--primary) var(--bg-raised);
   scrollbar-width: thin;
 }
