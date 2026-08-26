@@ -97,6 +97,19 @@ function ProtectedRoute({ children, roles }) {
   return children;
 }
 
+
+// Đồng bộ hoá dataset.page cho toàn bộ ứng dụng để áp dụng đầy đủ quy tắc giao diện chuyên sâu
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    const rawPath = location.pathname.replace(/^\//, "") || "login";
+    const cleanPath = rawPath.split("/")[0] || "login";
+    document.documentElement.dataset.page = cleanPath;
+    document.documentElement.dataset.reviewPage = cleanPath;
+  }, [location.pathname]);
+  return null;
+}
+
 export default function App() {
   const { user } = useAuthStore();
   const { fetchSettings } = useSettingsStore();
@@ -110,6 +123,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <RouteTracker />
       <MagicCursor />
       <Toaster
         position="top-center"
