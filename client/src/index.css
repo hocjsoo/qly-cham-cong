@@ -1725,6 +1725,41 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   box-shadow: 4px 0 10px rgba(0, 0, 0, 0.12) !important;
 }
 
+.timesheet-table-region {
+  position: relative;
+}
+
+.timesheet-top-scrollbar {
+  position: sticky;
+  top: 8px;
+  z-index: 30;
+  height: 16px;
+  margin: 0 12px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  scrollbar-color: var(--primary) var(--bg-raised);
+  scrollbar-width: thin;
+}
+
+.timesheet-top-scrollbar::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timesheet-top-scrollbar::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: var(--bg-raised);
+}
+
+.timesheet-top-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid var(--bg-raised);
+  border-radius: 999px;
+  background: var(--primary);
+}
+
 [data-theme="dark"] .table-sticky-col-1 {
   background: var(--bg-card) !important;
 }

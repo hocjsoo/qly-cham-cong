@@ -94,6 +94,9 @@ export default function ReportPage() {
   const individualRef = useRef(null);
   const pdfMatrixPrintRef = useRef(null);
   const pdfIndividualPrintRef = useRef(null);
+  const matrixTableScrollRef = useRef(null);
+  const matrixTopScrollRef = useRef(null);
+  const [matrixScrollMetrics, setMatrixScrollMetrics] = useState({ scrollWidth: 0, clientWidth: 0 });
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportFormat, setExportFormat] = useState('pdf'); // 'pdf' | 'excel'
@@ -206,6 +209,42 @@ export default function ReportPage() {
     if (!filterStaffId) return sourceRows;
     return sourceRows.filter(row => String(row.id) === String(filterStaffId));
   }, [matrixData, filterStaffId]);
+
+  useEffect(() => {
+    if (viewMode !== 'table') return undefined;
+
+    const scroller = matrixTableScrollRef.current;
+    if (!scroller) return undefined;
+
+    const updateScrollMetrics = () => {
+      setMatrixScrollMetrics({
+        scrollWidth: scroller.scrollWidth,
+        clientWidth: scroller.clientWidth,
+      });
+    };
+
+    updateScrollMetrics();
+    const frameId = window.requestAnimationFrame(updateScrollMetrics);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateScrollMetrics)
+      : null;
+    resizeObserver?.observe(scroller);
+    if (scroller.firstElementChild) resizeObserver?.observe(scroller.firstElementChild);
+    window.addEventListener('resize', updateScrollMetrics);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateScrollMetrics);
+    };
+  }, [matrixData, viewMode, tableDisplayMode, displayedStaffRows.length]);
+
+  const syncMatrixScroll = (source, targetRef) => {
+    const target = targetRef.current;
+    if (target && Math.abs(target.scrollLeft - source.scrollLeft) > 1) {
+      target.scrollLeft = source.scrollLeft;
+    }
+  };
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -1071,7 +1110,23 @@ export default function ReportPage() {
 
                   {/* 📊 VIEW MODE: TABLE (Full 31-day Horizontal Spreadsheet) */}
                   {viewMode === 'table' && (
-                    <div className="timesheet-table-shell" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '16px', background: 'var(--bg-card)' }}>
+                    <div className="timesheet-table-region">
+                      {matrixScrollMetrics.scrollWidth > matrixScrollMetrics.clientWidth + 1 && (
+                        <div
+                          ref={matrixTopScrollRef}
+                          className="timesheet-top-scrollbar"
+                          onScroll={event => syncMatrixScroll(event.currentTarget, matrixTableScrollRef)}
+                          aria-label="Cuộn ngang bảng chấm công"
+                        >
+                          <div style={{ width: `${matrixScrollMetrics.scrollWidth}px`, height: '1px' }} />
+                        </div>
+                      )}
+                    <div
+                      ref={matrixTableScrollRef}
+                      className="timesheet-table-shell"
+                      onScroll={event => syncMatrixScroll(event.currentTarget, matrixTopScrollRef)}
+                      style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '16px', background: 'var(--bg-card)' }}
+                    >
                       {/* Corporate Timesheet Banner */}
                       <div className="timesheet-banner-compact timesheet-board-head" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
@@ -1309,6 +1364,7 @@ export default function ReportPage() {
                           </tr>
                         </tfoot>
                       </table>
+                    </div>
                     </div>
                   )}
                 </div>
