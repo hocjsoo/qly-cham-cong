@@ -6,7 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true, // Cho phép kết nối từ điện thoại trong cùng mạng WiFi
-    port: 5173
+    port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      }
+    }
   },
   build: {
     rollupOptions: {

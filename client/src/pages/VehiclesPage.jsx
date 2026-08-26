@@ -197,61 +197,61 @@ export default function VehiclesPage() {
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
         {/* Top KPI Summary Cards */}
-        <div className="kpi-grid-4" style={{ marginBottom: '14px' }}>
+        <div className="kpi-grid-4" style={{ marginBottom: "16px" }}>
           <div
-            onClick={() => setFilterLocation(filterLocation === '17T10' ? 'all' : '17T10')}
-            className="card card--interactive"
+            onClick={() => setFilterLocation(filterLocation === "17T10" ? "all" : "17T10")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterLocation === '17T10' ? '2px solid var(--primary)' : '1px solid var(--border)',
-              background: filterLocation === '17T10' ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterLocation === "17T10" ? "2px solid var(--green)" : "1px solid var(--border)",
+              background: filterLocation === "17T10" ? "var(--green-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--primary)' }}>{count17T10}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>🏢 Gửi Tòa 17T10</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Cần đóng vé tháng</div>
+            <div className="stat-card-modern__value" style={{ color: "var(--green)" }}>{count17T10}</div>
+            <div className="stat-card-modern__label">🏢 Gửi Hầm 17T10</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Hầm tòa nhà</div>
           </div>
 
           <div
-            onClick={() => setFilterLocation(filterLocation === 'outside' ? 'all' : 'outside')}
-            className="card card--interactive"
+            onClick={() => setFilterLocation(filterLocation === "outside" ? "all" : "outside")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterLocation === 'outside' ? '2px solid var(--yellow)' : '1px solid var(--border)',
-              background: filterLocation === 'outside' ? 'rgba(234, 179, 8, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterLocation === "outside" ? "2px solid var(--yellow)" : "1px solid var(--border)",
+              background: filterLocation === "outside" ? "var(--yellow-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--yellow)' }}>{countOutside}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>🅿️ Gửi Ngoài</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tự túc bãi ngoài</div>
+            <div className="stat-card-modern__value" style={{ color: "var(--yellow)" }}>{countOutside}</div>
+            <div className="stat-card-modern__label">🅿️ Gửi Ngoài</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Tự túc bãi ngoài</div>
           </div>
 
           <div
-            onClick={() => setFilterLocation(filterLocation === 'none' ? 'all' : 'none')}
-            className="card card--interactive"
+            onClick={() => setFilterLocation(filterLocation === "none" ? "all" : "none")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterLocation === 'none' ? '2px solid var(--text-muted)' : '1px solid var(--border)',
-              background: filterLocation === 'none' ? 'rgba(150, 150, 150, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterLocation === "none" ? "2px solid var(--text-muted)" : "1px solid var(--border)",
+              background: filterLocation === "none" ? "var(--bg-raised)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-secondary)' }}>{countNoVehicle}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>🚫 Không Gửi Xe</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Đi bộ / Bus / Grab</div>
+            <div className="stat-card-modern__value" style={{ color: "var(--text-secondary)" }}>{countNoVehicle}</div>
+            <div className="stat-card-modern__label">🚫 Không Gửi Xe</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Đi bộ / Bus / Grab</div>
           </div>
 
           <div
-            onClick={() => setFilterLocation(filterLocation === 'missing' ? 'all' : 'missing')}
-            className="card card--interactive"
+            onClick={() => setFilterLocation(filterLocation === "missing" ? "all" : "missing")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterLocation === 'missing' ? '2px solid var(--red)' : '1px solid var(--border)',
-              background: filterLocation === 'missing' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterLocation === "missing" ? "2px solid var(--red)" : "1px solid var(--border)",
+              background: filterLocation === "missing" ? "var(--red-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--red)' }}>{countMissing}</div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>⚠️ Chưa Cập Nhật</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Cần điền biển số</div>
+            <div className="stat-card-modern__value" style={{ color: "var(--red)" }}>{countMissing}</div>
+            <div className="stat-card-modern__label">⚠️ Chưa Cập Nhật</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Cần điền biển số</div>
           </div>
         </div>
 

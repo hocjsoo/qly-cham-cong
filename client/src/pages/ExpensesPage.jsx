@@ -295,61 +295,61 @@ export default function ExpensesPage() {
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
         {/* Top Financial KPI Summary Cards */}
-        <div className="kpi-grid-4" style={{ marginBottom: '14px' }}>
-          <div className="card" style={{ padding: '12px', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
+        <div className="kpi-grid-4" style={{ marginBottom: "16px" }}>
+          <div className="stat-card-modern">
+            <div className="stat-card-modern__value" style={{ color: "var(--primary)" }}>
               {formatVND(summary.totalApprovedAmount)}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>💰 Tổng Đã Duyệt Chi</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Khoản chi hợp lệ</div>
+            <div className="stat-card-modern__label">💰 Tổng Đã Duyệt Chi</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Khoản chi hợp lệ</div>
           </div>
 
           <div
-            onClick={() => setFilterApproval(filterApproval === 'pending' ? 'all' : 'pending')}
-            className="card card--interactive"
+            onClick={() => setFilterApproval(filterApproval === "pending" ? "all" : "pending")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterApproval === 'pending' ? '2px solid var(--yellow)' : '1px solid var(--border)',
-              background: filterApproval === 'pending' ? 'rgba(234, 179, 8, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterApproval === "pending" ? "2px solid var(--yellow)" : "1px solid var(--border)",
+              background: filterApproval === "pending" ? "var(--yellow-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--yellow)' }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--yellow)" }}>
               {summary.totalPendingCount} khoản ({formatVND(summary.totalPendingAmount)})
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>⏳ Chờ Duyệt Chi</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Cần Admin xem xét</div>
+            <div className="stat-card-modern__label">⏳ Chờ Duyệt Chi</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Cần Admin xem xét</div>
           </div>
 
           <div
-            onClick={() => setFilterPayment(filterPayment === 'unpaid' ? 'all' : 'unpaid')}
-            className="card card--interactive"
+            onClick={() => setFilterPayment(filterPayment === "unpaid" ? "all" : "unpaid")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterPayment === 'unpaid' ? '2px solid var(--red)' : '1px solid var(--border)',
-              background: filterPayment === 'unpaid' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterPayment === "unpaid" ? "2px solid var(--red)" : "1px solid var(--border)",
+              background: filterPayment === "unpaid" ? "var(--red-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--red)' }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--red)" }}>
               {formatVND(summary.totalUnpaidAmount)}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>💸 Chưa Hoàn Tiền</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Cần chuyển khoản trả</div>
+            <div className="stat-card-modern__label">💸 Chưa Hoàn Tiền</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Cần chuyển khoản trả</div>
           </div>
 
           <div
-            onClick={() => setFilterPayment(filterPayment === 'paid' ? 'all' : 'paid')}
-            className="card card--interactive"
+            onClick={() => setFilterPayment(filterPayment === "paid" ? "all" : "paid")}
+            className="stat-card-modern card--interactive"
             style={{
-              padding: '12px', textAlign: 'center', cursor: 'pointer',
-              border: filterPayment === 'paid' ? '2px solid var(--green)' : '1px solid var(--border)',
-              background: filterPayment === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-card)'
+              cursor: "pointer",
+              border: filterPayment === "paid" ? "2px solid var(--green)" : "1px solid var(--border)",
+              background: filterPayment === "paid" ? "var(--green-soft)" : "var(--bg-card)"
             }}
           >
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green)' }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--green)" }}>
               {formatVND(summary.totalPaidAmount)}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text)', fontWeight: 700, marginTop: '2px' }}>💳 Đã Hoàn Ứng</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Đã thanh toán xong</div>
+            <div className="stat-card-modern__label">💳 Đã Hoàn Ứng</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Đã thanh toán xong</div>
           </div>
         </div>
 
