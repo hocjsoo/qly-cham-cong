@@ -50,7 +50,7 @@ function renderTemplateVariables(templateStr, vars = {}) {
 /**
  * Xây dựng khung giao diện Email HTML phong cách Kiến trúc Cao cấp chuẩn Logo ET Architects thật
  */
-function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText, useInlineDataUri = false }) {
+function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText }) {
   const cleanBody = (body || "")
     .replace(/\\n/g, "<br>")
     .replace(/\n/g, "<br>")
@@ -73,7 +73,7 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
     '</div>';
   }
 
-  const logoSrc = useInlineDataUri ? "' + logoDataUri + '" : "cid:company_logo";
+  const logoSrc = "cid:company_logo";
 
   return '<div style="background-color: #f5f4f0; padding: 36px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; min-height: 100%;">' +
     '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
