@@ -51,6 +51,10 @@ export default function ReportPage() {
   const [viewMode, setViewMode] = useState(() => (typeof window !== 'undefined' && window.innerWidth < 768 ? 'cards' : 'table'));
   const [tableDisplayMode, setTableDisplayMode] = useState('days'); // 'days' | 'summary' | 'full'
   const [expandedStaffIds, setExpandedStaffIds] = useState(new Set());
+  const [mobileWeekIndex, setMobileWeekIndex] = useState(() => {
+    const firstDayOffset = (new Date(now.getFullYear(), now.getMonth(), 1).getDay() + 6) % 7;
+    return Math.floor((firstDayOffset + now.getDate() - 1) / 7);
+  });
 
   // Data states
   const [report, setReport] = useState(null);
@@ -192,10 +196,12 @@ export default function ReportPage() {
   };
 
   const prevMonth = () => {
+    setMobileWeekIndex(0);
     if (month === 1) { setMonth(12); setYear(y => y - 1); }
     else setMonth(m => m - 1);
   };
   const nextMonth = () => {
+    setMobileWeekIndex(0);
     if (month === 12) { setMonth(1); setYear(y => y + 1); }
     else setMonth(m => m + 1);
   };
@@ -414,17 +420,8 @@ export default function ReportPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Month Picker & Tabs */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-          {/* Month Stepper */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-card)', padding: '4px 10px', borderRadius: '10px', border: '1px solid var(--border)' }}>
-            <button onClick={prevMonth} className="theme-toggle-btn" style={{ width: '28px', height: '28px' }}><ChevronLeft size={16} /></button>
-            <span style={{ fontWeight: 800, fontSize: '14px', color: 'var(--primary)', minWidth: '110px', textAlign: 'center' }}>
-              {MONTHS[month - 1]} {year}
-            </span>
-            <button onClick={nextMonth} className="theme-toggle-btn" style={{ width: '28px', height: '28px' }}><ChevronRight size={16} /></button>
-          </div>
-
+        {/* Admin analysis tabs */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: isAdmin ? '10px' : '0', flexWrap: 'wrap', gap: '8px' }}>
           {/* Navigation Tabs — Chỉ Admin mới thấy các tab phân tích (Leader & Employee chỉ xem Bảng Chấm Công) */}
           {isAdmin && (
             <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
@@ -442,7 +439,7 @@ export default function ReportPage() {
         {tab === 'timesheet_lock' && (
           <div>
             {/* Action Bar & Lock Status */}
-            <div className="card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+            <div className="card timesheet-filter-card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
               {/* Nút chốt/mở chốt, trạng thái & lịch sử sửa — chỉ Admin mới thấy */}
               {isAdmin && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid var(--border-muted)' }}>
@@ -477,8 +474,13 @@ export default function ReportPage() {
               )}
 
               {/* Quick Matrix Filter Bar & View Mode Toggle */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
+              <div className="timesheet-toolbar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="timesheet-toolbar__filters" style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px', flexWrap: 'wrap' }}>
+                  <div className="timesheet-toolbar__month">
+                    <button onClick={prevMonth} type="button" aria-label="Tháng trước"><ChevronLeft size={16} /></button>
+                    <strong>{MONTHS[month - 1]} {year}</strong>
+                    <button onClick={nextMonth} type="button" aria-label="Tháng sau"><ChevronRight size={16} /></button>
+                  </div>
                   <div style={{ position: 'relative', flex: 1, minWidth: '160px' }}>
                     <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                     <input
@@ -558,19 +560,19 @@ export default function ReportPage() {
               const sundayCount = (matrixData.header_days || []).filter(day => day.isSunday || day.weekday === 'CN').length;
               const standardDays = matrixData.standard_working_days || ((matrixData.days_in_month || 31) - sundayCount);
               const stats = [
-                { label: 'Nhân sự hiển thị', value: displayedStaffRows.length, unit: 'người', tone: 'blue' },
-                { label: 'Ngày công chuẩn', value: standardDays, unit: 'ngày', tone: 'slate' },
-                { label: 'Công văn phòng', value: totalOffice.toFixed(2), unit: 'công', tone: 'green' },
-                { label: 'Tăng ca', value: `${totalOt.toFixed(1)}h`, unit: 'OT', tone: 'purple' },
-                { label: 'Đi muộn', value: totalLate, unit: 'lượt', tone: 'amber' },
-                { label: 'Về sớm', value: totalEarly, unit: 'lượt', tone: 'red' },
+                { label: 'Nhân sự hiển thị', value: displayedStaffRows.length, unit: 'người', tone: 'blue', icon: '👥' },
+                { label: 'Ngày công chuẩn', value: standardDays, unit: 'ngày', tone: 'slate', icon: '▦' },
+                { label: 'Công văn phòng', value: totalOffice.toFixed(2), unit: 'công', tone: 'green', icon: '🏢' },
+                { label: 'Tăng ca', value: `${totalOt.toFixed(1)}h`, unit: 'OT', tone: 'purple', icon: '↗' },
+                { label: 'Đi muộn', value: totalLate, unit: 'lượt', tone: 'amber', icon: '⏱' },
+                { label: 'Về sớm', value: totalEarly, unit: 'lượt', tone: 'red', icon: '↙' },
               ];
               return (
                 <div className="timesheet-stats" aria-label="Tổng quan bảng chấm công">
                   {stats.map(stat => (
                     <div key={stat.label} className={`timesheet-stat timesheet-stat--${stat.tone}`}>
                       <span className="timesheet-stat__label">{stat.label}</span>
-                      <div><strong>{stat.value}</strong><small>{stat.unit}</small></div>
+                      <div className="timesheet-stat__content"><div><strong>{stat.value}</strong><small>{stat.unit}</small></div><i>{stat.icon}</i></div>
                     </div>
                   ))}
                 </div>
@@ -646,6 +648,24 @@ export default function ReportPage() {
 
               const showSummaryColumns = tableDisplayMode !== 'days';
               const showDayColumns = tableDisplayMode !== 'summary';
+              const weekdaySlot = { T2: 0, T3: 1, T4: 2, T5: 3, T6: 4, T7: 5, CN: 6 };
+              const mobileWeeks = [];
+              let currentWeek = Array(7).fill(null);
+              (matrixData.header_days || []).forEach((headerDay, index) => {
+                const slot = weekdaySlot[headerDay.weekday];
+                if (slot === undefined) return;
+                currentWeek[slot] = headerDay;
+                if (slot === 6 || index === matrixData.header_days.length - 1) {
+                  mobileWeeks.push(currentWeek);
+                  currentWeek = Array(7).fill(null);
+                }
+              });
+              const safeMobileWeekIndex = Math.min(mobileWeekIndex, Math.max(0, mobileWeeks.length - 1));
+              const selectedMobileWeek = mobileWeeks[safeMobileWeekIndex] || [];
+              const mobileWeekDays = selectedMobileWeek.filter(Boolean);
+              const mobileWeekLabel = mobileWeekDays.length
+                ? `${String(mobileWeekDays[0].day).padStart(2, '0')}–${String(mobileWeekDays[mobileWeekDays.length - 1].day).padStart(2, '0')}/${String(month).padStart(2, '0')}`
+                : `Tháng ${month}`;
 
               return (
                 <div>
@@ -653,7 +673,7 @@ export default function ReportPage() {
                   {viewMode === 'cards' && (
                     <div className="animate-fade-in">
                       {/* Multi-card expand / collapse buttons */}
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '10px' }}>
+                      <div className="timesheet-card-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '10px' }}>
                         <button
                           onClick={() => setExpandedStaffIds(new Set(displayedStaffRows.map(r => r.id)))}
                           className="btn btn--ghost"
@@ -672,14 +692,27 @@ export default function ReportPage() {
                         </button>
                       </div>
 
+                      <div className="timesheet-mobile-week-nav">
+                        <button type="button" onClick={() => setMobileWeekIndex(index => Math.max(0, index - 1))} disabled={safeMobileWeekIndex === 0} aria-label="Tuần trước">
+                          <ChevronLeft size={16} />
+                        </button>
+                        <div>
+                          <strong>Tuần {safeMobileWeekIndex + 1}</strong>
+                          <span>{mobileWeekLabel}</span>
+                        </div>
+                        <button type="button" onClick={() => setMobileWeekIndex(index => Math.min(mobileWeeks.length - 1, index + 1))} disabled={safeMobileWeekIndex >= mobileWeeks.length - 1} aria-label="Tuần sau">
+                          <ChevronRight size={16} />
+                        </button>
+                      </div>
+
                       {/* Staff Cards List */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+                      <div className="timesheet-staff-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
                         {displayedStaffRows.map((r) => {
                           const totalMonthWork = (r.nlv_office || 0) + (r.ct_domestic || 0) + (r.ct_foreign || 0) + (r.wfh || 0);
                           const isExpanded = expandedStaffIds.has(r.id);
 
                           return (
-                            <div key={r.id} className="card" style={{ padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.2s ease' }}>
+                            <div key={r.id} className="card timesheet-staff-card" style={{ padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.2s ease' }}>
                               {/* Staff Header Row */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
@@ -717,8 +750,47 @@ export default function ReportPage() {
                                 </div>
                               </div>
 
+                              <div className="timesheet-mobile-weekstrip">
+                                {selectedMobileWeek.map((headerDay, slot) => {
+                                  if (!headerDay) return <div key={`empty-${slot}`} className="timesheet-mobile-day is-empty" />;
+                                  const dayData = r.days.find(day => day.day === headerDay.day);
+                                  const isSunday = headerDay.weekday === 'CN' || headerDay.isSunday;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={headerDay.day}
+                                      className={`timesheet-mobile-day${isSunday ? ' is-sunday' : ''}`}
+                                      disabled={isSunday}
+                                      onClick={() => {
+                                        if (!dayData || isSunday) return;
+                                        setSelectedCell({
+                                          user_id: r.id, staff_name: r.full_name, staff_code: r.code,
+                                          department_name: r.department_name, dateStr: dayData.dateStr,
+                                          day: dayData.day, weekday: headerDay.weekday,
+                                          current_symbol: dayData.symbol, check_in_time: dayData.check_in_time,
+                                          check_out_time: dayData.check_out_time, total_hours: dayData.total_hours,
+                                          ot_hours: dayData.ot_hours, is_late: dayData.is_late,
+                                          late_minutes: dayData.late_minutes, is_early_leave: dayData.is_early_leave,
+                                          early_minutes: dayData.early_minutes, status: dayData.status,
+                                          notes: dayData.notes, check_in_type: dayData.check_in_type,
+                                          is_modified: dayData.is_modified, audit_logs: dayData.audit_logs || [],
+                                          is_locked: r.is_locked,
+                                        });
+                                        setCellSymbol(dayData.symbol || 'x');
+                                        setCellOtHours(dayData.ot_hours || 0);
+                                        setCellReason('');
+                                      }}
+                                      aria-label={`${r.full_name}, ngày ${headerDay.day}: ${isSunday ? 'Chủ nhật để trống' : dayData?.symbol || 'Trống'}`}
+                                    >
+                                      <span>{headerDay.weekday}<small>{String(headerDay.day).padStart(2, '0')}</small></span>
+                                      <b>{isSunday ? '' : renderDaySymbol(dayData?.symbol, false)}</b>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
                               {/* Metric Pills Grid */}
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '10px', textAlign: 'center' }}>
+                              <div className="timesheet-card-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '10px', textAlign: 'center' }}>
                                 <div>
                                   <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Tại VP</div>
                                   <div style={{ fontWeight: 800, color: '#10b981', fontSize: '12px', marginTop: '2px' }}>{r.nlv_office || 0}</div>
@@ -763,7 +835,7 @@ export default function ReportPage() {
                                 >
                                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                     <Calendar size={13} color="var(--primary)" />
-                                    {isExpanded ? 'Thu gọn lịch chấm công' : `Xem chi tiết ${r.days?.length || 31} ngày`}
+                                    {isExpanded ? 'Thu gọn cả tháng' : 'Xem cả tháng'}
                                   </span>
                                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                 </button>
@@ -934,21 +1006,17 @@ export default function ReportPage() {
                   {viewMode === 'table' && (
                     <div className="timesheet-table-shell" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '16px', background: 'var(--bg-card)' }}>
                       {/* Corporate Timesheet Banner */}
-                      <div className="timesheet-banner-compact" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                      <div className="timesheet-banner-compact timesheet-board-head" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-card)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
                           <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>🏛️ BẢNG CHẤM CÔNG NHÂN SỰ — ET ARCHITECTS</span>
+                            <span>Tháng {String(month).padStart(2, '0')} / {year}</span>
                           </div>
                           {(() => {
                             const sunCount = matrixData.header_days ? matrixData.header_days.filter(h => h.isSunday || h.weekday === 'CN').length : 0;
                             const stdDays = matrixData.standard_working_days || ((matrixData.days_in_month || 31) - sunCount);
                             return (
                               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                <span>THÁNG {month} NĂM {year} · Sĩ số: <strong style={{ color: 'var(--primary)' }}>{displayedStaffRows.length} nhân sự</strong></span>
-                                <span style={{ opacity: 0.4 }}>·</span>
-                                <span style={{ color: '#d97706', background: 'rgba(245, 158, 11, 0.12)', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '11.5px' }}>
-                                  Ngày công chuẩn: <strong>{stdDays}</strong>
-                                </span>
+                                <span>{displayedStaffRows.length} nhân sự · {stdDays} ngày công chuẩn · Chọn chế độ phù hợp để bảng dễ đối chiếu hơn</span>
                               </div>
                             );
                           })()}
@@ -976,9 +1044,12 @@ export default function ReportPage() {
                               </button>
                             ))}
                           </div>
-                          <span className="badge badge--success" style={{ fontSize: '11px' }}>
-                            Mẫu quản lý: ET_Staff {year}
-                          </span>
+                          <div className="timesheet-legend">
+                            <span className="timesheet-legend__item is-green"><i />x · 0,5x · 0,75x</span>
+                            <span className="timesheet-legend__item is-blue"><i />CT1 · CT2 · WFH</span>
+                            <span className="timesheet-legend__item is-purple"><i />P · O · KL · K</span>
+                            <span className="timesheet-legend__item is-red"><i />CN để trống</span>
+                          </div>
                           {matrixData.global_locked && (
                             <span className="badge badge--warning" style={{ fontSize: '11px' }}>
                               🔒 Đã chốt công
@@ -991,8 +1062,8 @@ export default function ReportPage() {
                         <thead>
                           {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                           <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th className="table-sticky-col-1" style={{ padding: '6px 6px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>ID</th>
-                            <th className="table-sticky-col-2" style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                            <th className="table-sticky-col-1" style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
+                            <th className="table-sticky-col-2" style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>PHÒNG BAN</th>
                             <th style={{ padding: '6px 8px', minWidth: '75px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>CHỨC VỤ</th>
 
                             {/* Summary Columns Header */}
@@ -1010,7 +1081,7 @@ export default function ReportPage() {
                               <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng giờ tăng ca OT (Không cộng vào công, phục vụ đánh giá)">🔥 Giờ OT</th>
                             </>}
 
-                            {/* Days Weekday Row */}
+                            {/* Day and weekday in one compact header, matching preview */}
                             {showDayColumns && matrixData.header_days.map(hd => {
                               const isSun = hd.weekday === 'CN' || hd.isSunday;
                               const isHol = hd.isHoliday;
@@ -1021,51 +1092,31 @@ export default function ReportPage() {
                                   color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text-muted)',
                                   minWidth: '38px', width: '38px',
                                   fontSize: '10px', fontWeight: isHol || isSun ? 800 : 600,
-                                  borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
-                                }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : isSun ? 'Chủ Nhật' : hd.weekday}>
-                                  {isHol ? 'LỄ' : hd.weekday}
-                                </th>
-                              );
-                            })}
-                            {isAdmin && <th rowSpan={2} style={{ minWidth: '42px', padding: '4px', borderBottom: '2px solid var(--primary)', background: 'var(--bg-raised)', color: 'var(--text-muted)' }}>Khóa</th>}
-                          </tr>
-
-                          {/* Row 2 Header: Days 01..31 */}
-                          <tr style={{ background: 'var(--bg-card)', color: 'var(--text)', fontWeight: 800 }}>
-                            <th colSpan="3" className="table-sticky-col-1" style={{ padding: '3px 6px', textAlign: 'left', borderBottom: '2px solid var(--primary)', fontSize: '10px' }}>BẢNG CHẤM CÔNG</th>
-                            {showSummaryColumns && <th colSpan="11" style={{ padding: '3px 6px', fontSize: '10px', color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.10)', borderBottom: '2px solid var(--primary)' }}>TỔNG CỘNG THEO LOẠI CÔNG & CHUYÊN CẦN</th>}
-
-                            {showDayColumns && matrixData.header_days.map(hd => {
-                              const isSun = hd.weekday === 'CN' || hd.isSunday;
-                              const isHol = hd.isHoliday;
-                              return (
-                                <th key={hd.day} style={{
-                                  padding: '3px 1px',
-                                  background: isHol ? 'rgba(236, 72, 153, 0.22)' : isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
-                                  color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text)',
-                                  minWidth: '38px', width: '38px',
-                                  fontSize: '10px', fontWeight: isHol || isSun ? 800 : 700,
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
-                                }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : hd.dateStr}>
-                                  {hd.dayStr}
+                                }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : isSun ? 'Chủ Nhật' : hd.weekday}>
+                                  <strong style={{ display: 'block', fontSize: '11px', color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text)' }}>{hd.dayStr}</strong>
+                                  <small style={{ display: 'block', marginTop: '2px', fontSize: '8px', color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text-muted)' }}>{isHol ? 'LỄ' : hd.weekday}</small>
                                 </th>
                               );
                             })}
+                            {isAdmin && <th style={{ minWidth: '42px', padding: '4px', borderBottom: '2px solid var(--primary)', background: 'var(--bg-raised)', color: 'var(--text-muted)' }}>Khóa</th>}
                           </tr>
                         </thead>
 
                         <tbody>
                           {displayedStaffRows.map((r, idx) => (
                             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
-                              <td className="table-sticky-col-1" style={{ padding: '5px 6px', textAlign: 'left', fontWeight: 800, color: 'var(--primary)', fontSize: '11px' }}>{r.code}</td>
-                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 700, color: 'var(--text)', fontSize: '11.5px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '7px', minWidth: '155px' }}>
-                                  <img src={r.avatar_url || '/logo.png'} alt="" style={{ width: '28px', height: '28px', flex: '0 0 auto', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} onError={e => { e.currentTarget.src = '/logo.png'; }} />
+                              <td className="table-sticky-col-1" style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)', fontSize: '11.5px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: '190px' }}>
+                                  <img src={r.avatar_url || '/logo.png'} alt="" style={{ width: '34px', height: '34px', flex: '0 0 auto', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} onError={e => { e.currentTarget.src = '/logo.png'; }} />
                                   <div style={{ minWidth: 0 }}>
                                     <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.full_name}</span>
-                                    <small style={{ display: 'block', marginTop: '1px', color: 'var(--text-muted)', fontSize: '9px' }}>{r.department_name || 'Chưa phân phòng'}</small>
+                                    <small style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '9px' }}>{r.code}</small>
                                   </div>
                                 </div>
+                              </td>
+                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left' }}>
+                                <span className="timesheet-dept-pill">{r.department_name || 'Chưa phân'}</span>
                               </td>
                               <td style={{ padding: '5px 6px', color: 'var(--text-secondary)', fontSize: '11px' }}>{r.role_label}</td>
 
