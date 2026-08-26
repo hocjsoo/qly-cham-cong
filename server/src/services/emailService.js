@@ -1,5 +1,5 @@
 // server/src/services/emailService.js
-// Dịch Vụ Gửi Email Chuẩn Logo & Thương Hiệu ET Architects qua Gmail SMTP (Nodemailer) — Zero-Impact Test Isolated
+// Dịch Vụ Gửi Email Chuẩn Giao Diện ET Architects Portal qua Gmail SMTP — Zero-Impact Test Isolated
 
 const nodemailer = require("nodemailer");
 const path = require("path");
@@ -48,82 +48,76 @@ function renderTemplateVariables(templateStr, vars = {}) {
 }
 
 /**
- * Xây dựng khung giao diện Email HTML phong cách Kiến trúc Cao cấp chuẩn Logo ET Architects thật
+ * Xây dựng khung Email HTML chuẩn giao diện Web Portal ET Architects (Thanh lịch, đồng bộ 100%)
  */
 function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText }) {
   let cleanBody = (body || "")
     .replace(/\\n/g, "<br>")
     .replace(/\n/g, "<br>")
-    .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 800;\">$1</strong>");
+    .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 750;\">$1</strong>");
 
   // Parse [img: URL]
   cleanBody = cleanBody.replace(/\[img:\s*([^\]]+)\]/gi, (match, url) => {
-    return '<div style="text-align: center; margin: 18px 0;"><img src="' + url.trim() + '" alt="Hình ảnh" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: inline-block; border: 1px solid #e2e8f0;" /></div>';
+    return '<div style="text-align: center; margin: 18px 0;"><img src="' + url.trim() + '" alt="Hình ảnh" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); display: inline-block; border: 1px solid #e2e8f0;" /></div>';
   });
 
-  // Parse [button: Label | URL] or [button: Label, URL]
+  // Parse [button: Label | URL]
   cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
-    return '<div style="text-align: center; margin: 20px 0;"><a href="' + url.trim() + '" target="_blank" style="display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;">' + label.trim() + '</a></div>';
+    return '<div style="text-align: center; margin: 22px 0 14px;"><a href="' + url.trim() + '" target="_blank" style="display: inline-block; padding: 12px 28px; background: #2563eb; color: #ffffff !important; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">' + label.trim() + '</a></div>';
   });
 
   // Parse [link: Text | URL]
   cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
-    return '<a href="' + url.trim() + '" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 700;">' + text.trim() + '</a>';
+    return '<a href="' + url.trim() + '" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 600;">' + text.trim() + '</a>';
   });
 
   let ctaSection = "";
   if (actionText && actionUrl) {
-    ctaSection += '<div style="text-align: center; margin: 30px 0 18px;">' +
-      '<a href="' + actionUrl + '" target="_blank" style="display: inline-block; padding: 15px 36px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;">' +
+    ctaSection += '<div style="text-align: center; margin: 26px 0 14px;">' +
+      '<a href="' + actionUrl + '" target="_blank" style="display: inline-block; padding: 13px 30px; background: #2563eb; color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.25);">' +
         actionText +
       '</a>' +
     '</div>';
   }
 
   if (documentUrl) {
-    ctaSection += '<div style="text-align: center; margin-top: 14px; margin-bottom: 22px;">' +
-      '<a href="' + documentUrl + '" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-size: 13.5px; font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 9px 18px; border-radius: 999px; border: 1px solid rgba(37, 99, 235, 0.2);">' +
-        '📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →' +
+    ctaSection += '<div style="text-align: center; margin-top: 10px; margin-bottom: 18px;">' +
+      '<a href="' + documentUrl + '" target="_blank" style="display: inline-block; color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600; background: rgba(37,99,235,0.06); padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(37,99,235,0.18);">' +
+        '📖 Xem Tài Liệu Hướng Dẫn Chi Tiết →' +
       '</a>' +
     '</div>';
   }
 
-  const logoSrc = "cid:company_logo";
+  const logoPath = getLogoPath();
 
-  return '<div style="background-color: #f5f4f0; padding: 36px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; min-height: 100%;">' +
-    '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
-      '<!-- Official Company Logo & Header -->' +
+  return '<div style="background-color: #f4f3ef; padding: 28px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; min-height: 100%;">' +
+    '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #d5d8dc; box-shadow: 0 10px 32px rgba(35,39,41,0.06);">' +
+      '<!-- Header Matching Web Portal -->' +
       '<tr>' +
-        '<td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 28px; text-align: center; border-bottom: 3px solid #2563eb;">' +
-          '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +
-            '<tr>' +
-              '<td style="text-align: center; vertical-align: middle;">' +
-                '<img src="' + logoSrc + '" alt="ET Architects" style="height: 56px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); border-radius: 8px;" />' +
-                '<div style="color: #ffffff; font-size: 21px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 10px;">ET ARCHITECTS</div>' +
-                '<div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
-              '</td>' +
-            '</tr>' +
-          '</table>' +
+        '<td style="background: #ffffff; padding: 26px 28px 20px; text-align: center; border-bottom: 1px solid #e7eaee;">' +
+          (logoPath ? '<img src="cid:company_logo" alt="ET Architects" style="height: 52px; max-width: 170px; object-fit: contain; display: inline-block; margin-bottom: 10px;" />' : "") +
+          '<div style="color: #171a1d; font-size: 19px; font-weight: 800; letter-spacing: -0.02em;">Kiến trúc ET</div>' +
+          '<div style="color: #5e676f; font-size: 12px; font-weight: 600; margin-top: 3px;">Hệ Thống Quản Lý Chấm Công & Nội Bộ</div>' +
         '</td>' +
       '</tr>' +
 
-      '<!-- Main Content Body -->' +
+      '<!-- Body Content -->' +
       '<tr>' +
-        '<td style="padding: 34px 30px;">' +
-          (title ? ('<h2 style="font-size: 19px; font-weight: 800; color: #0f172a; margin: 0 0 22px; line-height: 1.35; letter-spacing: -0.01em; border-bottom: 2px solid #f1f5f9; padding-bottom: 14px;">' + title + '</h2>') : "") +
-          '<div style="font-size: 14.5px; line-height: 1.85; color: #334155;">' +
+        '<td style="padding: 28px 28px 24px;">' +
+          (title ? ('<h2 style="font-size: 18px; font-weight: 800; color: #171a1d; margin: 0 0 18px; border-bottom: 1px solid #e7eaee; padding-bottom: 12px; line-height: 1.35;">' + title + '</h2>') : "") +
+          '<div style="font-size: 14px; line-height: 1.8; color: #3e464c;">' +
             cleanBody +
           '</div>' +
           ctaSection +
         '</td>' +
       '</tr>' +
 
-      '<!-- Corporate Footer Signature -->' +
+      '<!-- Clean Corporate Footer -->' +
       '<tr>' +
-        '<td style="background: #f8fafc; padding: 22px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">' +
-          (footerText ? ('<div style="font-weight: 800; color: #1e293b; margin-bottom: 6px; font-size: 13px;">' + footerText + '</div>') : "") +
+        '<td style="background: #f8f7f2; padding: 18px 24px; border-top: 1px solid #e7eaee; text-align: center; font-size: 11.5px; color: #5e676f; line-height: 1.6;">' +
+          (footerText ? ('<div style="font-weight: 700; color: #171a1d; margin-bottom: 4px; font-size: 12px;">' + footerText + '</div>') : "") +
           '<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div>' +
-          '<div style="margin-top: 4px; color: #94a3b8; font-size: 11px;">Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.</div>' +
+          '<div style="margin-top: 3px; color: #8c959d; font-size: 10.5px;">Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.</div>' +
         '</td>' +
       '</tr>' +
     '</table>' +
@@ -144,41 +138,41 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
   const logoPath = getLogoPath();
   const attachments = logoPath ? [{ filename: "logo.png", path: logoPath, cid: "company_logo" }] : [];
 
-  const html = '<div style="background-color: #f5f4f0; padding: 36px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;">' +
-    '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
+  const html = '<div style="background-color: #f4f3ef; padding: 28px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;">' +
+    '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #d5d8dc; box-shadow: 0 10px 32px rgba(35,39,41,0.06);">' +
       '<!-- Header -->' +
       '<tr>' +
-        '<td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: center; border-bottom: 3px solid #2563eb;">' +
-          (logoPath ? '<img src="cid:company_logo" alt="ET Architects" style="height: 52px; max-width: 170px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 6px;" />' : "") +
-          '<div style="color: #ffffff; font-size: 19px; font-weight: 900; letter-spacing: -0.02em; margin-top: 8px;">ET ARCHITECTS</div>' +
-          '<div style="color: #94a3b8; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
+        '<td style="background: #ffffff; padding: 24px 24px 18px; text-align: center; border-bottom: 1px solid #e7eaee;">' +
+          (logoPath ? '<img src="cid:company_logo" alt="ET Architects" style="height: 48px; max-width: 160px; object-fit: contain; display: inline-block; margin-bottom: 8px;" />' : "") +
+          '<div style="color: #171a1d; font-size: 18px; font-weight: 800;">Kiến trúc ET</div>' +
+          '<div style="color: #5e676f; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-top: 2px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
         '</td>' +
       '</tr>' +
 
       '<tr>' +
-        '<td style="padding: 32px 28px;">' +
-          '<p style="color: #334155; font-size: 15px; line-height: 1.6; margin-top: 0;">' +
+        '<td style="padding: 26px 26px 22px;">' +
+          '<p style="color: #171a1d; font-size: 14.5px; line-height: 1.6; margin-top: 0;">' +
             'Xin chào <strong>' + (recipientName || "bạn") + '</strong>,' +
           '</p>' +
-          '<p style="color: #475569; font-size: 14px; line-height: 1.65;">' +
+          '<p style="color: #3e464c; font-size: 13.5px; line-height: 1.65;">' +
             'Bạn vừa gửi yêu cầu khôi phục mật khẩu tài khoản ET Office Portal. Dưới đây là <strong>Mã xác thực OTP (6 chữ số)</strong> của bạn:' +
           '</p>' +
 
-          '<div style="text-align: center; margin: 28px 0;">' +
-            '<div style="display: inline-block; padding: 16px 36px; background: #0f172a; color: #38bdf8; font-size: 32px; font-weight: 900; letter-spacing: 8px; border-radius: 14px; font-family: monospace; border: 2px solid #2563eb; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);">' +
+          '<div style="text-align: center; margin: 24px 0;">' +
+            '<div style="display: inline-block; padding: 14px 32px; background: rgba(37,99,235,0.08); color: #2563eb; font-size: 30px; font-weight: 800; letter-spacing: 6px; border-radius: 12px; font-family: monospace; border: 1.5px solid rgba(37,99,235,0.3);">' +
               resetCode +
             '</div>' +
           '</div>' +
 
-          '<div style="background: #f8fafc; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 8px; font-size: 12.5px; color: #64748b; line-height: 1.5;">' +
-            '⏳ Mã xác thực có hiệu lực trong vòng <strong>30 phút</strong>. Vì lý do an toàn, tuyệt đối không chia sẻ mã này cho bất kỳ ai.' +
+          '<div style="background: #f8f7f2; border-left: 3px solid #d97706; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #5e676f; line-height: 1.5;">' +
+            '⏳ Mã xác thực có hiệu lực trong vòng <strong>30 phút</strong>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.' +
           '</div>' +
         '</td>' +
       '</tr>' +
 
       '<tr>' +
-        '<td style="background: #f8fafc; padding: 18px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11px; color: #94a3b8;">' +
-          '© 2026 ET Architects JSC · Hệ thống Chấm công & Phân quyền Bảo mật' +
+        '<td style="background: #f8f7f2; padding: 16px 20px; border-top: 1px solid #e7eaee; text-align: center; font-size: 11px; color: #8c959d;">' +
+          '© 2026 Kiến trúc ET · Hệ thống Chấm công Thông minh' +
         '</td>' +
       '</tr>' +
     '</table>' +

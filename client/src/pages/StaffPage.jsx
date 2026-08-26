@@ -41,11 +41,11 @@ const computeLiveSummary = (inTime, outTime, workEndTime = '18:30') => {
 };
 
 const ROLE_LABELS = {
-  admin:    { label: 'Admin',     cls: 'badge--danger' },
-  leader:   { label: 'Leader',    cls: 'badge--warning' },
-  manager:  { label: 'Leader',    cls: 'badge--warning' },
+  admin: { label: 'Admin', cls: 'badge--danger' },
+  leader: { label: 'Leader', cls: 'badge--warning' },
+  manager: { label: 'Leader', cls: 'badge--warning' },
   employee: { label: 'Nhân viên', cls: 'badge--info' },
-  staff:    { label: 'Nhân viên', cls: 'badge--info' },
+  staff: { label: 'Nhân viên', cls: 'badge--info' },
 };
 
 // Safe Confirm Dialog — không bị đóng khi bấm vào overlay
@@ -718,7 +718,7 @@ export default function StaffPage() {
         {/* Staff list */}
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[1,2,3,4].map(i => <div key={i} className="skeleton-card" style={{ height: '72px', borderRadius: '12px' }} />)}
+            {[1, 2, 3, 4].map(i => <div key={i} className="skeleton-card" style={{ height: '72px', borderRadius: '12px' }} />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="empty-state">
@@ -1296,7 +1296,7 @@ export default function StaffPage() {
               }}
             >
               <div className="modal-sheet__handle" />
-              
+
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-muted)', paddingBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1403,7 +1403,7 @@ export default function StaffPage() {
                     <span>🟢 Giờ vào (Check-in)</span>
                     <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 700 }}>{overrideForm.check_in_time || '—'}</span>
                   </label>
-                  
+
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <button
                       type="button"
@@ -1828,7 +1828,7 @@ export default function StaffPage() {
 
       {/* Fullsize Avatar Lightbox Modal */}
       <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
-    
+
       {/* Custom Email Dispatcher Modal */}
       {showEmailModal && (
         <CustomEmailModal
@@ -1838,6 +1838,6 @@ export default function StaffPage() {
           onClose={() => setShowEmailModal(false)}
         />
       )}
-</div>
+    </div>
   );
 }

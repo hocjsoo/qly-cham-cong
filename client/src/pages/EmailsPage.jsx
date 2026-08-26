@@ -285,33 +285,33 @@ export default function EmailsPage() {
     let cleanBody = renderedBody
       .replace(/\\n/g, "<br>")
       .replace(/\n/g, "<br>")
-      .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 800;\">$1</strong>");
+      .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 750;\">$1</strong>");
 
     // Parse [img: URL]
     cleanBody = cleanBody.replace(/\[img:\s*([^\]]+)\]/gi, (match, url) => {
-      return "<div style=\"text-align: center; margin: 16px 0;\"><img src=\"" + url.trim() + "\" alt=\"Hình ảnh\" style=\"max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); display: inline-block; border: 1px solid #e2e8f0;\" /></div>";
+      return "<div style=\"text-align: center; margin: 16px 0;\"><img src=\"" + url.trim() + "\" alt=\"Hình ảnh\" style=\"max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); display: inline-block; border: 1px solid #e2e8f0;\" /></div>";
     });
 
     // Parse [button: Label | URL]
     cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
-      return "<div style=\"text-align: center; margin: 20px 0;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;\">" + label.trim() + "</a></div>";
+      return "<div style=\"text-align: center; margin: 20px 0 12px;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 12px 28px; background: #2563eb; color: #ffffff !important; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.25);\">" + label.trim() + "</a></div>";
     });
 
     // Parse [link: Text | URL]
     cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
-      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #2563eb; text-decoration: underline; font-weight: 700;\">" + text.trim() + "</a>";
+      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #2563eb; text-decoration: underline; font-weight: 600;\">" + text.trim() + "</a>";
     });
 
     let ctaButtons = "";
     if (actionText && actionUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin: 28px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;\">" + actionText + "</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin: 24px 0 12px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 13px 30px; background: #2563eb; color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.25);\">" + actionText + "</a></div>";
     }
 
     if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 22px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(37, 99, 235, 0.2);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin-top: 8px; margin-bottom: 16px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-block; color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 600; background: rgba(37,99,235,0.06); padding: 8px 16px; border-radius: 8px; border: 1px solid rgba(37,99,235,0.18);\">📖 Xem Tài Liệu Hướng Dẫn Chi Tiết →</a></div>";
     }
 
-    return "<div style=\"background-color: #f5f4f0; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 16px 48px rgba(15,23,42,0.08);\"><div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 22px; text-align: center; border-bottom: 3px solid #2563eb;\"><div style=\"text-align: center;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px;\">ET ARCHITECTS</div><div style=\"color: #94a3b8; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #1e293b; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
+    return "<div style=\"background-color: #f4f3ef; padding: 20px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #d5d8dc; box-shadow: 0 10px 32px rgba(35,39,41,0.06);\"><div style=\"background: #ffffff; padding: 22px 24px 18px; text-align: center; border-bottom: 1px solid #e7eaee;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 48px; max-width: 160px; object-fit: contain; display: inline-block; margin-bottom: 8px;\" /><div style=\"color: #171a1d; font-size: 18px; font-weight: 800; letter-spacing: -0.02em;\">Kiến trúc ET</div><div style=\"color: #5e676f; font-size: 11.5px; font-weight: 600; margin-top: 2px;\">Hệ Thống Quản Lý Chấm Công & Nội Bộ</div></div><div style=\"padding: 24px 22px;\">" + (subject ? "<h2 style=\"font-size: 17px; font-weight: 800; color: #171a1d; margin: 0 0 16px; border-bottom: 1px solid #e7eaee; padding-bottom: 10px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 13.5px; line-height: 1.8; color: #3e464c;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8f7f2; padding: 16px 20px; border-top: 1px solid #e7eaee; text-align: center; font-size: 11px; color: #5e676f; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 700; color: #171a1d; margin-bottom: 3px; font-size: 11.5px;\">" + footerText + "</div>" : "") + "<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 3px; color: #8c959d; font-size: 10px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
   }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
   const handleSendTestEmail = async () => {
