@@ -1130,7 +1130,7 @@ export default function ReportPage() {
                           {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                           <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
                             <th className="table-sticky-col-1" style={{ padding: '6px 10px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>NHÂN SỰ</th>
-                            <th className="table-sticky-col-2" style={{ padding: '6px 8px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>PHÒNG BAN</th>
+                            <th style={{ padding: '6px 8px', minWidth: '104px', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>PHÒNG BAN</th>
                             <th style={{ padding: '6px 8px', minWidth: '75px', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)' }}>CHỨC VỤ</th>
 
                             {/* Summary Columns Header */}
@@ -1182,7 +1182,7 @@ export default function ReportPage() {
                                   </div>
                                 </button>
                               </td>
-                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px' }}>
+                              <td style={{ padding: '5px 8px', minWidth: '104px', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px' }}>
                                 {r.department_name || 'Chưa phân'}
                               </td>
                               <td style={{ padding: '5px 6px', color: 'var(--text-secondary)', fontSize: '11px' }}>{r.role_label}</td>
@@ -1282,9 +1282,10 @@ export default function ReportPage() {
                         {/* System Total Footer Row */}
                         <tfoot style={{ borderTop: '2px solid var(--primary)' }}>
                           <tr style={{ background: 'var(--bg-raised)', fontWeight: 800, color: 'var(--text)' }}>
-                            <td colSpan="2" className="table-sticky-col-1" style={{ padding: '6px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800, fontSize: '11px' }}>
+                            <td className="table-sticky-col-1" style={{ padding: '6px 6px', textAlign: 'left', color: 'var(--primary)', fontWeight: 800, fontSize: '11px' }}>
                               TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
                             </td>
+                            <td style={{ padding: '4px 4px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             <td style={{ padding: '4px 4px', color: 'var(--text-muted)', opacity: 0.2 }}>—</td>
                             {showSummaryColumns && <>
                               <td style={{ padding: '4px 3px', borderLeft: '1px solid var(--border-muted)' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0), '#10b981')}</td>
