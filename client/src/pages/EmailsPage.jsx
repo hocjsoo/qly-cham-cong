@@ -11,23 +11,53 @@ import HeaderActions from "../components/HeaderActions";
 const PRESET_TEMPLATES = [
   {
     id: "onboarding",
-    name: "🚀 Bàn giao tài khoản & Hướng dẫn sử dụng",
+    name: "🚀 Bàn giao tài khoản & HDSD",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\nCông ty Cổ phần Kiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm vào nút **Đăng Nhập Hệ Thống** bên dưới để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đăng nhập đầu tiên.\n3. Xem tài liệu hướng dẫn sử dụng chi tiết để nắm rõ các quy định chấm công và nộp đơn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
-    actionText: "🚀 Đăng Nhập Hệ Thống Ngay",
-    actionUrl: "https://qly-cham-cong.vercel.app",
-    documentUrl: "https://drive.google.com",
-    footerText: "Ban Giám Đốc & Phòng Hành Chính Nhân Sự ET Architects",
+    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🚀 Đăng Nhập Hệ Thống Ngay | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://drive.google.com]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút đăng nhập phía trên để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đầu đăng nhập.\n3. Tham khảo tài liệu hướng dẫn để nắm rõ các quy định.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    actionText: "",
+    actionUrl: "",
+    documentUrl: "",
+    footerText: "Ban Giám Đốc & Phòng Hành Chính Nhân Sự Kiến trúc ET",
+  },
+  {
+    id: "holiday",
+    name: "🏖️ Thông báo Lịch Nghỉ Lễ",
+    subject: "Thông báo Lịch Nghỉ Lễ chính thức từ Ban Giám Đốc",
+    body: "Kính gửi toàn thể cán bộ nhân viên **Kiến trúc ET**,\n\nBan Giám Đốc xin trân trọng thông báo về **Lịch Nghỉ Lễ** sắp tới của công ty như sau:\n\n📅 **THỜI GIAN NGHỈ:**\n• Bắt đầu nghỉ từ: **[ Ngày bắt đầu ]**\n• Đi làm lại vào ngày: **[ Ngày đi làm lại ]**\n\n📌 **LƯU Ý:**\n1. Các bộ phận hoàn thành bàn giao hồ sơ thiết kế trước kỳ nghỉ.\n2. Nhân sự trực nhật kiểm tra tắt toàn bộ thiết bị điện, khóa cửa văn phòng trước khi về.\n\nChúc toàn thể anh/chị/em có một kỳ nghỉ lễ vui vẻ và ý nghĩa bên gia đình!",
+    actionText: "Xem Lịch Trên Hệ Thống",
+    actionUrl: "https://qly-cham-cong.vercel.app/checkin",
+    documentUrl: "",
+    footerText: "Ban Giám Đốc Kiến trúc ET",
   },
   {
     id: "announcement",
-    name: "📢 Thông báo chính thức từ Ban Giám Đốc",
-    subject: "Thông báo chính thức từ Ban Giám Đốc ET Architects",
-    body: "Kính gửi toàn thể cán bộ nhân viên **ET Architects**,\n\nBan Giám Đốc xin gửi tới anh/chị/em thông báo quan trọng về kế hoạch công việc và các lưu ý trong thời gian tới:\n\n[ Nhập nội dung thông báo chi tiết tại đây... ]\n\nĐề nghị các phòng ban và từng cá nhân nghiêm túc phối hợp thực hiện.",
-    actionText: "Mở Hệ Thống ET Portal",
-    actionUrl: "https://qly-cham-cong.vercel.app",
+    name: "📢 Thông báo Họp & Quyết định",
+    subject: "Thông báo chính thức từ Ban Giám Đốc Kiến trúc ET",
+    body: "Kính gửi toàn thể cán bộ nhân viên **Kiến trúc ET**,\n\nBan Giám Đốc xin gửi tới anh/chị/em thông báo quan trọng về kế hoạch công việc và các lưu ý trong thời gian tới:\n\n[ Nhập nội dung thông báo chi tiết tại đây... ]\n\n[button: Mở Bảng Điều Khiển ET Portal | https://qly-cham-cong.vercel.app/dashboard]\n\nĐề nghị các phòng ban và từng cá nhân nghiêm túc phối hợp thực hiện.",
+    actionText: "",
+    actionUrl: "",
     documentUrl: "",
-    footerText: "Ban Giám Đốc ET Architects",
+    footerText: "Ban Giám Đốc Kiến trúc ET",
+  },
+  {
+    id: "duty_reminder",
+    name: "📋 Nhắc Lịch Tuần & Trực Nhật",
+    subject: "Nhắc nhở đăng ký Lịch Làm Việc & Lịch Trực Nhật tuần mới",
+    body: "Xin chào **{ho_ten}**,\n\nNhằm đảm bảo tiến độ công việc và vệ sinh văn phòng, đề nghị các bạn nhân sự và thực tập sinh (TTS) hoàn thành đăng ký lịch làm việc trước **23:59 Chủ Nhật tuần này**.\n\n[button: 📅 Đăng Ký Lịch Làm Việc Ngay | https://qly-cham-cong.vercel.app/tts-schedule]\n\nLịch trực nhật tuần mới sẽ được tự động phân công công bằng theo hệ số 12 tuần trên hệ thống.\n\nTrân trọng cảm ơn sự phối hợp của các bạn!",
+    actionText: "",
+    actionUrl: "",
+    documentUrl: "",
+    footerText: "Phòng Hành Chính Nhân Sự Kiến trúc ET",
+  },
+  {
+    id: "birthday",
+    name: "🎉 Chúc Mừng Sinh Nhật / Tri Ân",
+    subject: "Chúc Mừng Sinh Nhật — Kiến trúc ET thân gửi lời chúc tốt đẹp nhất!",
+    body: "Thân gửi **{ho_ten}**,\n\nNhân ngày sinh nhật của bạn, thay mặt toàn thể đại gia đình **Kiến trúc ET**, Ban Giám Đốc xin gửi tới bạn lời chúc mừng nồng nhiệt và chân thành nhất! 🎂🎉\n\nChúc bạn luôn dồi dào sức khỏe, ngập tràn niềm vui, hạnh phúc và gặt hái được nhiều thành công mới trên con đường sáng tạo kiến trúc cùng công ty! 🌟",
+    actionText: "Gửi Lời Chúc Trên Portal",
+    actionUrl: "https://qly-cham-cong.vercel.app/dashboard",
+    documentUrl: "",
+    footerText: "Ban Giám Đốc & Đại Gia Đình Kiến trúc ET",
   },
   {
     id: "custom",
@@ -37,7 +67,7 @@ const PRESET_TEMPLATES = [
     actionText: "",
     actionUrl: "",
     documentUrl: "",
-    footerText: "ET Architects JSC",
+    footerText: "Kiến trúc ET",
   },
 ];
 
@@ -208,10 +238,25 @@ export default function EmailsPage() {
     for (const [k, v] of Object.entries(mockVars)) {
       renderedBody = renderedBody.replace(new RegExp("\\{" + k + "\\}", "gi"), v);
     }
-    const cleanBody = renderedBody
+    let cleanBody = renderedBody
       .replace(/\\n/g, "<br>")
       .replace(/\n/g, "<br>")
       .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 800;\">$1</strong>");
+
+    // Parse [img: URL]
+    cleanBody = cleanBody.replace(/\[img:\s*([^\]]+)\]/gi, (match, url) => {
+      return "<div style=\"text-align: center; margin: 16px 0;\"><img src=\"" + url.trim() + "\" alt=\"Hình ảnh\" style=\"max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); display: inline-block; border: 1px solid #e2e8f0;\" /></div>";
+    });
+
+    // Parse [button: Label | URL]
+    cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
+      return "<div style=\"text-align: center; margin: 20px 0;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;\">" + label.trim() + "</a></div>";
+    });
+
+    // Parse [link: Text | URL]
+    cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
+      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #4f46e5; text-decoration: underline; font-weight: 700;\">" + text.trim() + "</a>";
+    });
 
     let ctaButtons = "";
     if (actionText && actionUrl) {
@@ -219,10 +264,10 @@ export default function EmailsPage() {
     }
 
     if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 22px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #4f46e5; text-decoration: none; font-size: 13.5px; font-weight: 700; background: rgba(99,102,241,0.08); padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(99,102,241,0.22);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 22px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #4f46e5; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(99,102,241,0.08); padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(99,102,241,0.22);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
     }
 
-    return "<div style=\"background-color: #f5f4f0; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 16px 48px rgba(15,23,42,0.08);\"><div style=\"background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 28px 22px; text-align: center; border-bottom: 3px solid #6366f1;\"><div style=\"text-align: center;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px;\">ET ARCHITECTS</div><div style=\"color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #1e293b; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong>Công ty Cổ phần Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
+    return "<div style=\"background-color: #f5f4f0; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 16px 48px rgba(15,23,42,0.08);\"><div style=\"background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 28px 22px; text-align: center; border-bottom: 3px solid #6366f1;\"><div style=\"text-align: center;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px;\">ET ARCHITECTS</div><div style=\"color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #1e293b; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
   }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
   const handleSendTestEmail = async () => {
@@ -340,27 +385,64 @@ export default function EmailsPage() {
 
             {/* Variable Inserter */}
             <div>
-              <div style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--text-muted)", marginBottom: "6px" }}>
-                💡 Bấm để chèn biến thông minh (Tự động điền theo từng người nhận):
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px", flexWrap: "wrap", gap: "6px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--text-muted)" }}>
+                  💡 Bấm để chèn biến thông minh & phần tử vào vị trí con trỏ:
+                </span>
+                <span style={{ fontSize: "11px", color: "var(--primary)" }}>
+                  Tự động căn chỉnh & đổi nội dung theo từng người
+                </span>
               </div>
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
                 {[
-                  { tag: "ho_ten", label: "+ {ho_ten}" },
-                  { tag: "email", label: "+ {email}" },
-                  { tag: "mat_khau", label: "+ {mat_khau}" },
-                  { tag: "chuc_vu", label: "+ {chuc_vu}" },
-                  { tag: "phong_ban", label: "+ {phong_ban}" },
+                  { tag: "ho_ten", label: "👤 {ho_ten}" },
+                  { tag: "email", label: "📧 {email}" },
+                  { tag: "mat_khau", label: "🔑 {mat_khau}" },
+                  { tag: "chuc_vu", label: "💼 {chuc_vu}" },
+                  { tag: "phong_ban", label: "🏢 {phong_ban}" },
                 ].map(v => (
                   <button
                     key={v.tag}
                     type="button"
                     onClick={() => insertVariable(v.tag)}
                     className="btn btn--ghost"
-                    style={{ padding: "5px 10px", fontSize: "12px", borderRadius: "8px", fontFamily: "monospace", color: "var(--primary)" }}
+                    style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", fontFamily: "monospace", color: "var(--primary)", fontWeight: 700 }}
                   >
-                    {v.label}
+                    + {v.label}
                   </button>
                 ))}
+              </div>
+
+              {/* Rich Elements Insert Buttons */}
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setBody(prev => prev + "\n\n[button: 🚀 Đăng Nhập Hệ Thống Ngay | https://qly-cham-cong.vercel.app]\n")}
+                  className="btn btn--ghost"
+                  style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "var(--green)", fontWeight: 700 }}
+                  title="Chèn nút bấm hành động nổi bật vào vị trí này"
+                >
+                  + 🔘 Thêm Nút Bấm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBody(prev => prev + "\n\n[img: https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80]\n")}
+                  className="btn btn--ghost"
+                  style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "#8b5cf6", fontWeight: 700 }}
+                  title="Chèn ảnh minh họa / bản vẽ / poster"
+                >
+                  + 🖼️ Thêm Ảnh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBody(prev => prev + " [link: Xem chi tiết tại đây | https://drive.google.com] ")}
+                  className="btn btn--ghost"
+                  style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "var(--primary)", fontWeight: 700 }}
+                  title="Chèn đường link liên kết văn bản"
+                >
+                  + 🔗 Thêm Link
+                </button>
               </div>
             </div>
 

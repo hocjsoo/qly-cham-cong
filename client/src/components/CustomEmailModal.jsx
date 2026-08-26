@@ -12,7 +12,7 @@ const PRESET_TEMPLATES = [
     id: "onboarding",
     name: "🚀 Bàn giao tài khoản & Hướng dẫn sử dụng",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\nCông ty Cổ phần Kiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm vào nút **Đăng Nhập Hệ Thống** bên dưới để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đăng nhập đầu tiên.\n3. Xem tài liệu hướng dẫn sử dụng chi tiết để nắm rõ các quy định chấm công và nộp đơn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    body: "Xin chào **{ho_ten}**,\n\nKiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm vào nút **Đăng Nhập Hệ Thống** bên dưới để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đăng nhập đầu tiên.\n3. Xem tài liệu hướng dẫn sử dụng chi tiết để nắm rõ các quy định chấm công và nộp đơn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "🚀 Đăng Nhập Hệ Thống Ngay",
     actionUrl: "https://qly-cham-cong.vercel.app",
     documentUrl: "https://drive.google.com",

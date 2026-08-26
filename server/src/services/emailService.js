@@ -51,10 +51,25 @@ function renderTemplateVariables(templateStr, vars = {}) {
  * Xây dựng khung giao diện Email HTML phong cách Kiến trúc Cao cấp chuẩn Logo ET Architects thật
  */
 function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText }) {
-  const cleanBody = (body || "")
+  let cleanBody = (body || "")
     .replace(/\\n/g, "<br>")
     .replace(/\n/g, "<br>")
     .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #0f172a; font-weight: 800;\">$1</strong>");
+
+  // Parse [img: URL]
+  cleanBody = cleanBody.replace(/\[img:\s*([^\]]+)\]/gi, (match, url) => {
+    return '<div style="text-align: center; margin: 18px 0;"><img src="' + url.trim() + '" alt="Hình ảnh" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: inline-block; border: 1px solid #e2e8f0;" /></div>';
+  });
+
+  // Parse [button: Label | URL] or [button: Label, URL]
+  cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
+    return '<div style="text-align: center; margin: 20px 0;"><a href="' + url.trim() + '" target="_blank" style="display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;">' + label.trim() + '</a></div>';
+  });
+
+  // Parse [link: Text | URL]
+  cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
+    return '<a href="' + url.trim() + '" target="_blank" style="color: #4f46e5; text-decoration: underline; font-weight: 700;">' + text.trim() + '</a>';
+  });
 
   let ctaSection = "";
   if (actionText && actionUrl) {
@@ -107,7 +122,7 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
       '<tr>' +
         '<td style="background: #f8fafc; padding: 22px 30px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #64748b; line-height: 1.6;">' +
           (footerText ? ('<div style="font-weight: 800; color: #1e293b; margin-bottom: 6px; font-size: 13px;">' + footerText + '</div>') : "") +
-          '<div><strong>Công ty Cổ phần Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div>' +
+          '<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div>' +
           '<div style="margin-top: 4px; color: #94a3b8; font-size: 11px;">Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.</div>' +
         '</td>' +
       '</tr>' +
