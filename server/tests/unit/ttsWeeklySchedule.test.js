@@ -1,4 +1,5 @@
 const { __test } = require('../../src/controllers/ttsScheduleController');
+const { isInactiveEmploymentStatus, getActiveEmploymentFilter } = require('../../src/utils/employmentStatus');
 
 function runTtsWeeklyScheduleTests(assert) {
   console.log('\n📅 [TEST SUITE: TTS WEEKLY AVAILABILITY & DUTY ROSTER]');
@@ -28,6 +29,11 @@ function runTtsWeeklyScheduleTests(assert) {
   const attendanceFields = ['check_in_time', 'check_out_time', 'total_hours', 'ot_hours', 'status'];
   assert(attendanceFields.every(field => !Object.prototype.hasOwnProperty.call(slots[0], field)),
     'TC-TTS-09: Dữ liệu đăng ký TTS không chứa trường chấm công');
+  assert(['Da nghi viec', 'Nghỉ việc', 'Nghi om', 'Nghi thai san', 'Khac'].every(isInactiveEmploymentStatus),
+    'TC-TTS-10: Nhận diện đủ trạng thái nhân sự đã nghỉ bằng cả tiếng Việt có dấu và không dấu');
+  const activeFilter = getActiveEmploymentFilter({ employee_type: 'TTS' });
+  assert(activeFilter.employee_type === 'TTS' && activeFilter.is_active.$ne === false && activeFilter.employment_status.$nin.includes('Da nghi viec'),
+    'TC-TTS-11: Truy vấn Lịch TTS loại nhân sự đã nghỉ ngay từ database');
 }
 
 module.exports = runTtsWeeklyScheduleTests;

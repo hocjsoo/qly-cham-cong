@@ -1,6 +1,7 @@
 const TtsWeeklySchedule = require('../models/TtsWeeklySchedule');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { getActiveEmploymentFilter, isInactiveEmploymentStatus } = require('../utils/employmentStatus');
 
 const DAY_MS = 86400000;
 
@@ -83,15 +84,17 @@ const getWeeklySchedule = async (req, res) => {
     const meta = buildWeekMeta(requested);
     if (!meta) return res.status(400).json({ error: 'week_start phải là ngày Thứ 2 hợp lệ (YYYY-MM-DD).' });
 
-    const [schedule, ttsUsers, people] = await Promise.all([
+    const [schedule, ttsCandidates, peopleCandidates] = await Promise.all([
       populateSchedule(TtsWeeklySchedule.findOne({ week_start: meta.week_start })),
-      User.find({ employee_type: 'TTS', is_active: { $ne: false } })
-        .select('full_name employee_code employee_type avatar_url position')
+      User.find(getActiveEmploymentFilter({ employee_type: 'TTS' }))
+        .select('full_name employee_code employee_type avatar_url position employment_status')
         .sort({ employee_code: 1, full_name: 1 }),
-      User.find({ is_active: { $ne: false } })
-        .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule')
+      User.find(getActiveEmploymentFilter())
+        .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule employment_status')
         .sort({ employee_code: 1, full_name: 1 }),
     ]);
+    const ttsUsers = ttsCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
+    const people = peopleCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
 
     const deadlinePassed = new Date() > meta.registration_deadline;
     res.json({

@@ -6,6 +6,7 @@ const TimesheetLock = require('../models/TimesheetLock');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const SystemSetting = require('../models/SystemSetting');
 const Holiday = require('../models/Holiday');
+const { getActiveEmploymentFilter, isInactiveEmploymentStatus } = require('../utils/employmentStatus');
 
 // Map symbol to status / check_in_type / work_units for override
 const SYMBOL_TO_STATUS_MAP = {
@@ -35,14 +36,14 @@ const getFullMatrix = async (req, res) => {
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
     // Lấy danh sách nhân viên đang làm việc (bỏ qua người miễn chấm công, đã nghỉ việc, nghỉ thai sản, nghỉ ốm, khác)
-    const users = await User.find({
-      is_active: { $ne: false },
+    const userCandidates = await User.find(getActiveEmploymentFilter({
       is_attendance_exempt: { $ne: true }, // Miễn chấm công -> Ẩn hoàn toàn khỏi Bảng Chấm Công
-      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    })
+    }))
       .populate('department_id', 'name')
       .populate('department_ids', 'name')
       .sort({ employee_code: 1, full_name: 1 });
+    // Phòng thủ thêm trước dữ liệu trạng thái cũ/không dấu chưa chuẩn hóa trong DB.
+    const users = userCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
 
     // Lấy tất cả bản ghi điểm danh, lịch sử chỉnh sửa, chốt công, cấu hình và ngày nghỉ lễ
     const [attendances, auditLogsList, lockRecords, settings, holidays] = await Promise.all([
