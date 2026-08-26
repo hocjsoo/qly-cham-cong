@@ -1575,6 +1575,159 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   text-overflow: ellipsis;
 }
 
+.timesheet-person-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timesheet-person-button:hover span:first-child,
+.timesheet-person-button:focus-visible span:first-child {
+  color: var(--primary) !important;
+}
+
+.timesheet-profile-modal {
+  width: min(620px, calc(100vw - 24px));
+  max-width: 620px;
+}
+
+.timesheet-profile-modal__heading,
+.timesheet-profile-modal__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timesheet-profile-modal__heading {
+  margin-bottom: 14px;
+}
+
+.timesheet-profile-modal__heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.timesheet-profile-modal__heading span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.timesheet-profile-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-card);
+}
+
+.timesheet-profile-card__hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  background: var(--primary-soft);
+}
+
+.timesheet-profile-card__hero img {
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 3px solid var(--bg-card);
+  border-radius: 50%;
+}
+
+.timesheet-profile-card__hero h4 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.timesheet-profile-card__hero span {
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timesheet-profile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.timesheet-profile-card__details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+
+.timesheet-profile-card__details > div {
+  min-width: 0;
+  padding: 11px 14px;
+  border-right: 1px solid var(--border-muted);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.timesheet-profile-card__details > div.is-wide {
+  grid-column: 1 / -1;
+}
+
+.timesheet-profile-card dt,
+.timesheet-profile-bank dt {
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.timesheet-profile-card dd,
+.timesheet-profile-bank dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timesheet-profile-bank {
+  margin: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-raised);
+}
+
+.timesheet-profile-bank > strong {
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.timesheet-profile-bank dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 9px 0 0;
+}
+
+.timesheet-profile-modal__actions {
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
 .table-sticky-col-1 {
   position: sticky !important;
   left: 0 !important;
@@ -1614,6 +1767,32 @@ tr:hover .table-sticky-col-2 {
 }
 
 @media (max-width: 768px) {
+  .timesheet-profile-modal {
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+
+  .timesheet-profile-card__hero {
+    padding: 14px;
+  }
+
+  .timesheet-profile-card__hero img {
+    width: 60px;
+    height: 60px;
+  }
+
+  .timesheet-profile-card__details {
+    grid-template-columns: 1fr;
+  }
+
+  .timesheet-profile-card__details > div.is-wide {
+    grid-column: auto;
+  }
+
+  .timesheet-profile-bank dl {
+    grid-template-columns: 1fr;
+  }
+
   .timesheet-filter-card {
     padding: 9px !important;
   }

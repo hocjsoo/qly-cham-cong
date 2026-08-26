@@ -105,11 +105,15 @@ export default function ReportPage() {
   // PDF Preview State
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [pdfInstance, setPdfInstance] = useState(null);
+  const [pdfDownloadName, setPdfDownloadName] = useState('');
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showPdfPreviewModal, setShowPdfPreviewModal] = useState(false);
 
   // Departments from Database API
   const [dbDepartments, setDbDepartments] = useState([]);
+  const [staffDirectory, setStaffDirectory] = useState([]);
+  const [viewingStaffProfile, setViewingStaffProfile] = useState(null);
+  const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
 
   useEffect(() => {
     const syncResponsiveView = () => setViewMode(window.innerWidth < 768 ? 'cards' : 'table');
@@ -118,6 +122,10 @@ export default function ReportPage() {
     return () => window.removeEventListener('resize', syncResponsiveView);
   }, []);
 
+  useEffect(() => () => {
+    if (pdfBlobUrl) window.URL.revokeObjectURL(pdfBlobUrl);
+  }, [pdfBlobUrl]);
+
   useEffect(() => {
     api.get('/departments').then(res => {
       if (Array.isArray(res.data)) {
@@ -125,6 +133,30 @@ export default function ReportPage() {
       }
     }).catch(() => {});
   }, []);
+
+  const openStaffProfile = async (matrixRow) => {
+    const rowId = String(matrixRow.id || matrixRow._id);
+    const cached = staffDirectory.find(person => String(person.id || person._id) === rowId);
+    setViewingStaffProfile(cached || {
+      ...matrixRow,
+      employee_code: matrixRow.code,
+      position: matrixRow.role_label,
+    });
+    if (cached) return;
+
+    setLoadingStaffProfile(true);
+    try {
+      const { data } = await api.get('/users?active_only=true');
+      const users = Array.isArray(data) ? data : [];
+      setStaffDirectory(users);
+      const fullProfile = users.find(person => String(person.id || person._id) === rowId);
+      if (fullProfile) setViewingStaffProfile(fullProfile);
+    } catch {
+      // Dữ liệu tóm tắt trong bảng vẫn đủ để modal hoạt động nếu danh bạ tạm thời lỗi.
+    } finally {
+      setLoadingStaffProfile(false);
+    }
+  };
 
   const departmentOptions = useMemo(() => {
     const set = new Set();
@@ -168,6 +200,12 @@ export default function ReportPage() {
       return matchSearch && matchDept && matchAttendance && matchStaffType;
     });
   }, [matrixData, searchQuery, deptFilter, attendanceFilter, staffTypeFilter]);
+
+  const pdfMatrixRows = useMemo(() => {
+    const sourceRows = matrixData?.staff_rows || [];
+    if (!filterStaffId) return sourceRows;
+    return sourceRows.filter(row => String(row.id) === String(filterStaffId));
+  }, [matrixData, filterStaffId]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -290,7 +328,8 @@ export default function ReportPage() {
     try {
       const queryUser = targetUserId || (exportScope === 'single' ? selectedExportUser : '');
       const userObj = matrixData?.staff_rows?.find(s => s.id === queryUser);
-      const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
+      const safeName = userObj?.full_name?.replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '_');
+      const fileNameSuffix = safeName ? `_${safeName}` : '';
 
       toast.loading(`Đang tạo file Excel mẫu ET_Staff ${year}...`, { id: 'excel' });
       const response = await api.get(`/export/excel?month=${month}&year=${year}${queryUser ? `&user_id=${queryUser}` : ''}`, { responseType: 'blob' });
@@ -311,12 +350,32 @@ export default function ReportPage() {
 
   // 2. Xuất & Xem Trước File PDF Chuẩn A4 Sắc Nét (jsPDF High-Def Offscreen Renderer)
   const handleGeneratePdfPreview = async (targetUserId = null) => {
-    const isIndividual = (exportTarget === 'individual' || tab === 'individual_detail');
+    const isIndividual = exportTarget === 'individual';
     const queryUser = targetUserId || (exportScope === 'single' ? selectedExportUser : '');
+    if (isIndividual && !queryUser) {
+      toast.error('Vui lòng chọn nhân sự cần xuất phiếu cá nhân');
+      return;
+    }
+
+    const userObj = matrixData?.staff_rows?.find(s => String(s.id) === String(queryUser));
+    const safeName = userObj?.full_name?.replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '_');
+    setPdfDownloadName(`Bang_Cong_Thang_${String(month).padStart(2, '0')}_${year}${safeName ? `_${safeName}` : '_Toan_Cong_Ty'}.pdf`);
     setFilterStaffId(queryUser);
     setShowExportModal(false);
     setGeneratingPdf(true);
-    toast.loading('Đang khởi tạo file PDF A4 sắc nét 100%...', { id: 'pdf' });
+    toast.loading(isIndividual ? 'Đang tạo phiếu chấm công cá nhân...' : 'Đang tạo bảng công PDF toàn công ty...', { id: 'pdf' });
+
+    if (isIndividual) {
+      try {
+        const { data } = await api.get(`/reports/individual-detail?month=${month}&year=${year}&user_id=${queryUser}`);
+        setIndividualDetail(data);
+      } catch (err) {
+        toast.error(err?.response?.data?.error || 'Không tải được dữ liệu phiếu cá nhân', { id: 'pdf' });
+        setGeneratingPdf(false);
+        setFilterStaffId('');
+        return;
+      }
+    }
 
     const printEl = isIndividual ? pdfIndividualPrintRef.current : pdfMatrixPrintRef.current;
 
@@ -379,6 +438,14 @@ export default function ReportPage() {
 
   // Thực thi nút Nộp trong Modal Xuất Bảng Công
   const handleExecuteExport = () => {
+    if ((exportTarget === 'individual' || exportScope === 'single') && !selectedExportUser) {
+      toast.error('Vui lòng chọn nhân sự cần xuất');
+      return;
+    }
+    if (exportTarget === 'individual' && exportFormat !== 'pdf') {
+      toast.error('Phiếu cá nhân hiện được xuất ở định dạng PDF');
+      return;
+    }
     if (exportFormat === 'excel') {
       exportExcel(exportScope === 'single' ? selectedExportUser : null);
     } else {
@@ -386,13 +453,18 @@ export default function ReportPage() {
     }
   };
 
+  const openExportDialog = () => {
+    setExportTarget('matrix');
+    setExportFormat('pdf');
+    setExportScope('all');
+    setSelectedExportUser('');
+    setShowExportModal(true);
+  };
+
   // Tải File PDF Về Máy
   const handleDownloadPdf = () => {
     if (!pdfInstance) return;
-    const userObj = matrixData?.staff_rows?.find(s => s.id === filterStaffId);
-    const fileNameSuffix = userObj ? `_${userObj.full_name.replace(/\s+/g, '_')}` : '';
-
-    pdfInstance.save(`ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}_BangCong.pdf`);
+    pdfInstance.save(pdfDownloadName || `Bang_Cong_Thang_${String(month).padStart(2, '0')}_${year}.pdf`);
     toast.success('Đã tải file PDF bảng công về máy thành công! 📥');
   };
 
@@ -419,7 +491,7 @@ export default function ReportPage() {
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {isAdmin && (
-              <button onClick={() => setShowExportModal(true)} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
+              <button onClick={openExportDialog} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
                 {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công (PDF/Excel)</>}
               </button>
             )}
@@ -712,7 +784,7 @@ export default function ReportPage() {
                             <div key={r.id} className="card timesheet-staff-card" style={{ padding: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.2s ease' }}>
                               {/* Staff Header Row */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                <button type="button" className="timesheet-person-button" onClick={() => openStaffProfile(r)} aria-label={`Xem hồ sơ ${r.full_name}`}>
                                     <img
                                       src={r.avatar_url || '/logo.png'}
                                       alt={r.full_name}
@@ -735,7 +807,7 @@ export default function ReportPage() {
                                       {r.department_name || r.role_label}
                                     </div>
                                   </div>
-                                </div>
+                                </button>
 
                                 {/* Main Work Metric */}
                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1102,13 +1174,13 @@ export default function ReportPage() {
                           {displayedStaffRows.map((r, idx) => (
                             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                               <td className="table-sticky-col-1" style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)', fontSize: '11.5px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: '190px' }}>
+                                <button type="button" className="timesheet-person-button" onClick={() => openStaffProfile(r)} aria-label={`Xem hồ sơ ${r.full_name}`}>
                                   <img src={r.avatar_url || '/logo.png'} alt="" style={{ width: '34px', height: '34px', flex: '0 0 auto', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }} onError={e => { e.currentTarget.src = '/logo.png'; }} />
                                   <div style={{ minWidth: 0 }}>
                                     <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.full_name}</span>
                                     <small style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '9px' }}>{r.code}</small>
                                   </div>
-                                </div>
+                                </button>
                               </td>
                               <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left' }}>
                                 <span className="timesheet-dept-pill">{r.department_name || 'Chưa phân'}</span>
@@ -1380,7 +1452,7 @@ export default function ReportPage() {
             </thead>
 
             <tbody>
-              {displayedStaffRows.map((r, idx) => {
+              {pdfMatrixRows.map((r, idx) => {
                 const renderPdfSum = (val, color) => {
                   if (!val || val === 0) return <span style={{ color: '#cbd5e1', opacity: 0.3 }}>—</span>;
                   return <span style={{ fontWeight: 800, color }}>{val.toFixed(2)}</span>;
@@ -1433,31 +1505,31 @@ export default function ReportPage() {
             <tfoot>
               <tr style={{ background: '#f1f5f9', fontWeight: 800, color: '#0f172a', borderTop: '2px solid #1e293b' }}>
                 <td colSpan="3" style={{ padding: '8px 10px', textAlign: 'left', color: '#1e293b', border: '1px solid #cbd5e1' }}>
-                  TỔNG CỘNG HỆ THỐNG ({displayedStaffRows.length} NV)
+                  TỔNG CỘNG HỆ THỐNG ({pdfMatrixRows.length} NV)
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#059669' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.nlv_office, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#2563eb' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.ct_domestic, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.ct_domestic, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#7c3aed' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.ct_foreign, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.ct_foreign, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#0891b2' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.wfh, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.wfh, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#7c3aed' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.annual_leave, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.annual_leave, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#dc2626' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.sick_leave, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#475569' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.unpaid_leave, 0).toFixed(2)}
                 </td>
                 <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1', color: '#64748b' }}>
-                  {displayedStaffRows.reduce((s, r) => s + r.other_leave, 0).toFixed(2)}
+                  {pdfMatrixRows.reduce((s, r) => s + r.other_leave, 0).toFixed(2)}
                 </td>
                 {matrixData?.header_days?.map(hd => (
                   <td key={hd.day} style={{ padding: '6px 4px', fontSize: '10px', color: '#94a3b8', border: '1px solid #cbd5e1' }}>—</td>
@@ -1628,6 +1700,68 @@ export default function ReportPage() {
           </div>
         </div>
       </div>
+
+      {/* EMPLOYEE DIRECTORY PROFILE — same interaction as Weekly Schedule */}
+      {viewingStaffProfile && (
+        <div className="modal-overlay" onClick={() => setViewingStaffProfile(null)}>
+          <div className="modal-sheet animate-slide-up timesheet-profile-modal" onClick={event => event.stopPropagation()}>
+            <div className="modal-sheet__handle" />
+            <div className="timesheet-profile-modal__heading">
+              <div><h3>Hồ sơ nhân sự</h3><span>Thông tin danh bạ công ty</span></div>
+              <button type="button" className="btn btn--ghost" onClick={() => setViewingStaffProfile(null)} aria-label="Đóng"><X size={18} /></button>
+            </div>
+
+            <section className="timesheet-profile-card">
+              <div className="timesheet-profile-card__hero">
+                <img src={viewingStaffProfile.avatar_url || '/logo.png'} alt={viewingStaffProfile.full_name} onError={event => { event.currentTarget.src = '/logo.png'; }} />
+                <div>
+                  <h4>{viewingStaffProfile.full_name}</h4>
+                  <span>{viewingStaffProfile.employee_code || viewingStaffProfile.code || 'NS'} · {viewingStaffProfile.position || viewingStaffProfile.role_label || 'Nhân viên'}</span>
+                </div>
+              </div>
+
+              {loadingStaffProfile && <div className="timesheet-profile-loading"><span className="spinner" /> Đang đồng bộ hồ sơ...</div>}
+
+              <dl className="timesheet-profile-card__details">
+                <div><dt>Loại nhân sự</dt><dd>{{ NS: 'Nhân sự chính thức', TV: 'Thử việc', TTS: 'Thực tập sinh' }[viewingStaffProfile.employee_type] || viewingStaffProfile.employee_type || 'Nhân sự chính thức'}</dd></div>
+                <div><dt>Vai trò</dt><dd>{viewingStaffProfile.role === 'admin' ? 'Admin' : ['leader', 'manager'].includes(viewingStaffProfile.role) ? 'Leader' : 'Nhân viên'}</dd></div>
+                <div><dt>Phòng ban</dt><dd>{viewingStaffProfile.department_name || viewingStaffProfile.department_id?.name || 'Chưa phân phòng'}</dd></div>
+                <div><dt>Ngày vào công ty</dt><dd>{viewingStaffProfile.join_date || (viewingStaffProfile.start_year ? `Năm ${viewingStaffProfile.start_year}` : 'Chưa cập nhật')}</dd></div>
+                <div><dt>Email</dt><dd>{viewingStaffProfile.email || 'Chưa cập nhật'}</dd></div>
+                <div><dt>Số điện thoại</dt><dd>{viewingStaffProfile.phone || 'Chưa cập nhật'}</dd></div>
+                <div><dt>Trạng thái làm việc</dt><dd>{viewingStaffProfile.employment_status || 'Đang làm việc'}</dd></div>
+                <div><dt>Địa điểm gửi xe</dt><dd>{viewingStaffProfile.parking_location || 'Chưa cập nhật'}</dd></div>
+                <div className="is-wide"><dt>Xe & biển số</dt><dd>{viewingStaffProfile.vehicle_info || viewingStaffProfile.license_plate || 'Chưa cập nhật'}</dd></div>
+              </dl>
+
+              {isAdmin && (viewingStaffProfile.bank_name || viewingStaffProfile.bank_account || viewingStaffProfile.branch) && (
+                <div className="timesheet-profile-bank">
+                  <strong>🏦 Tài khoản ngân hàng</strong>
+                  <dl>
+                    <div><dt>Ngân hàng</dt><dd>{viewingStaffProfile.bank_name || 'Chưa cập nhật'}</dd></div>
+                    <div><dt>Số tài khoản</dt><dd>{viewingStaffProfile.bank_account || 'Chưa cập nhật'}</dd></div>
+                    <div><dt>Chi nhánh</dt><dd>{viewingStaffProfile.branch || 'Chưa cập nhật'}</dd></div>
+                  </dl>
+                </div>
+              )}
+            </section>
+
+            <div className="timesheet-profile-modal__actions">
+              <button type="button" className="btn btn--ghost" onClick={() => setViewingStaffProfile(null)}>Đóng</button>
+              {isAdmin && (
+                <button type="button" className="btn btn--primary" onClick={() => {
+                  setSelectedExportUser(String(viewingStaffProfile.id || viewingStaffProfile._id));
+                  setExportTarget('individual');
+                  setExportFormat('pdf');
+                  setExportScope('single');
+                  setViewingStaffProfile(null);
+                  setShowExportModal(true);
+                }}><FileText size={16} /> Xuất phiếu cá nhân</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: CHI TIẾT NGÀY ĐIỂM DANH & CHỈNH SỬA Ô CÔNG */}
       {selectedCell && (
@@ -1877,14 +2011,17 @@ export default function ReportPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Download size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Tùy Chọn Xuất Bảng Chấm Công</h3>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Xuất bảng chấm công</h3>
+                  <div style={{ marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Tháng {String(month).padStart(2, '0')}/{year}</div>
+                </div>
               </div>
               <button onClick={() => setShowExportModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
             {/* Step 1: Target type */}
             <div style={{ marginBottom: '14px' }}>
-              <label className="form-label" style={{ marginBottom: '6px' }}>1. Chọn loại bảng công cần xuất</label>
+              <label className="form-label" style={{ marginBottom: '6px' }}>1. Nội dung cần xuất</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <button
                   type="button"
@@ -1896,11 +2033,11 @@ export default function ReportPage() {
                     fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
                   }}
                 >
-                  <Lock size={15} /> Bảng Tổng Hợp ET_Staff
+                  <FileSpreadsheet size={15} /> Bảng công tổng hợp
                 </button>
                 <button
                   type="button"
-                  onClick={() => setExportTarget('individual')}
+                  onClick={() => { setExportTarget('individual'); setExportFormat('pdf'); setExportScope('single'); }}
                   style={{
                     padding: '10px 8px', borderRadius: '10px', border: exportTarget === 'individual' ? '2px solid var(--primary)' : '1px solid var(--border)',
                     background: exportTarget === 'individual' ? 'var(--primary-soft)' : 'var(--bg-raised)',
@@ -1908,14 +2045,14 @@ export default function ReportPage() {
                     fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
                   }}
                 >
-                  <FileText size={15} /> Phiếu Cá Nhân Chi Tiết
+                  <FileText size={15} /> Phiếu cá nhân
                 </button>
               </div>
             </div>
 
             {/* Step 2: Format selection */}
             <div style={{ marginBottom: '14px' }}>
-              <label className="form-label" style={{ marginBottom: '6px' }}>2. Chọn định dạng file xuất</label>
+              <label className="form-label" style={{ marginBottom: '6px' }}>2. Định dạng file</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <button
                   type="button"
@@ -1931,12 +2068,13 @@ export default function ReportPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setExportFormat('excel')}
+                  onClick={() => { setExportFormat('excel'); setExportTarget('matrix'); }}
+                  disabled={exportTarget === 'individual'}
                   style={{
                     padding: '10px', borderRadius: '10px', border: exportFormat === 'excel' ? '2px solid var(--primary)' : '1px solid var(--border)',
                     background: exportFormat === 'excel' ? 'var(--primary-soft)' : 'var(--bg-raised)',
                     color: exportFormat === 'excel' ? 'var(--primary)' : 'var(--text)',
-                    fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer'
+                    fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: exportTarget === 'individual' ? 'not-allowed' : 'pointer', opacity: exportTarget === 'individual' ? 0.45 : 1
                   }}
                 >
                   <FileSpreadsheet size={16} /> Excel (.xlsx)
@@ -1944,47 +2082,43 @@ export default function ReportPage() {
               </div>
             </div>
 
-            {/* Step 3: Scope selection */}
+            {/* Step 3: Scope selection — individual export always requires one employee */}
             <div style={{ marginBottom: '16px' }}>
-              <label className="form-label" style={{ marginBottom: '6px' }}>3. Chọn phạm vi nhân sự</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input type="radio" name="exportScope" checked={exportScope === 'all'} onChange={() => setExportScope('all')} />
-                  <strong>📊 Toàn bộ nhân sự (Toàn công ty)</strong>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                  <input type="radio" name="exportScope" checked={exportScope === 'single'} onChange={() => setExportScope('single')} />
-                  <strong>👤 Chọn theo từng nhân viên</strong>
-                </label>
-              </div>
-
-              {exportScope === 'single' && (
-                <div style={{ marginTop: '10px' }}>
-                  <select
-                    className="form-select"
-                    value={selectedExportUser}
-                    onChange={e => setSelectedExportUser(e.target.value)}
-                  >
-                    <option value="">-- Chọn nhân viên cần xuất --</option>
-                    {(matrixData?.staff_rows || []).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.code} - {s.full_name} ({s.role_label})
-                      </option>
-                    ))}
-                  </select>
+              <label className="form-label" style={{ marginBottom: '6px' }}>3. Phạm vi nhân sự</label>
+              {exportTarget === 'matrix' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: exportScope === 'single' ? '10px' : 0 }}>
+                  <button type="button" onClick={() => setExportScope('all')} className={`chip ${exportScope === 'all' ? 'active' : ''}`} style={{ justifyContent: 'center', margin: 0, minHeight: '38px' }}>Toàn công ty</button>
+                  <button type="button" onClick={() => setExportScope('single')} className={`chip ${exportScope === 'single' ? 'active' : ''}`} style={{ justifyContent: 'center', margin: 0, minHeight: '38px' }}>Một nhân sự</button>
                 </div>
               )}
+
+              {(exportTarget === 'individual' || exportScope === 'single') && (
+                <select className="form-select" value={selectedExportUser} onChange={e => setSelectedExportUser(e.target.value)}>
+                  <option value="">Chọn nhân sự cần xuất</option>
+                  {(matrixData?.staff_rows || []).map(s => (
+                    <option key={s.id} value={s.id}>{s.code} — {s.full_name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '14px', padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-raised)', color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
+              {exportTarget === 'individual'
+                ? 'Phiếu cá nhân: PDF khổ A4 dọc, gồm công tháng và chi tiết ngày chấm.'
+                : exportFormat === 'excel'
+                  ? 'Excel: phù hợp lưu trữ, lọc dữ liệu và tiếp tục tính toán.'
+                  : 'PDF tổng hợp: khổ A4 ngang, phù hợp xem, in và ký duyệt.'}
             </div>
 
             {/* Execute Button */}
             <button
               onClick={handleExecuteExport}
-              disabled={exportScope === 'single' && !selectedExportUser}
+              disabled={(exportTarget === 'individual' || exportScope === 'single') && !selectedExportUser}
               className="btn btn--primary btn--full"
               style={{ padding: '12px', justifyContent: 'center', gap: '8px', fontSize: '14px', fontWeight: 800 }}
             >
               {exportFormat === 'pdf' ? <FileType size={18} /> : <FileSpreadsheet size={18} />}
-              {exportFormat === 'pdf' ? 'Tạo & Xem Trước File PDF (Sắc Nét A4)' : 'Xuất File Excel Ngay'}
+              {exportFormat === 'pdf' ? 'Tạo và xem trước PDF' : 'Tải file Excel'}
             </button>
           </div>
         </div>
