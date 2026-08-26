@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive,
-  getUserDevices, deleteUserDevice, trustUserDevice
+  getUserDevices, deleteUserDevice, trustUserDevice, sendTestEmail, broadcastCustomEmail
 } = require('../controllers/userController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
@@ -39,5 +39,12 @@ router.patch('/:id/toggle-active', toggleActive);
 
 // PATCH /api/users/:id/avatar — CHỈ ADMIN cập nhật avatar
 router.patch('/:id/avatar', updateAvatar);
+
+
+// POST /api/users/email/send-test — Gửi email thử nghiệm (Admin only)
+router.post("/email/send-test", sendTestEmail);
+
+// POST /api/users/email/broadcast-custom — Gửi email tùy chỉnh hàng loạt (Admin only)
+router.post("/email/broadcast-custom", broadcastCustomEmail);
 
 module.exports = router;

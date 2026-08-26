@@ -1,3 +1,5 @@
+const { renderTemplateVariables, buildCustomHtmlEmail, sendCustomEmail } = require("../services/emailService");
+const crypto = require("crypto");
 // controllers/userController.js - Mongoose User Management Controller
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
@@ -458,7 +460,146 @@ const trustUserDevice = async (req, res) => {
   }
 };
 
+
+// POST /api/users/email/send-test — Admin gửi email thử nghiệm vào bất kỳ địa chỉ nào
+const sendTestEmail = async (req, res) => {
+  const { toEmail, title, body, actionText, actionUrl, documentUrl, footerText } = req.body;
+  if (!toEmail) {
+    return res.status(400).json({ error: "Vui lòng nhập địa chỉ email nhận thử nghiệm." });
+  }
+
+  try {
+    const mockVars = {
+      ho_ten: req.user?.full_name || "Nguyễn Văn A",
+      email: toEmail,
+      chuc_vu: "Kiến trúc sư",
+      phong_ban: "Phòng Thiết Kế Kiến Trúc",
+      mat_khau: "ET@2026#8492",
+      link_he_thong: actionUrl || process.env.FRONTEND_URL || "https://qly-cham-cong.vercel.app",
+      link_tai_lieu: documentUrl || "https://drive.google.com",
+    };
+
+    const renderedTitle = renderTemplateVariables(title || "Thông báo từ ET Architects", mockVars);
+    const renderedBody = renderTemplateVariables(body || "", mockVars);
+    const html = buildCustomHtmlEmail({
+      title: renderedTitle,
+      body: renderedBody,
+      actionText: renderTemplateVariables(actionText || "", mockVars),
+      actionUrl: renderTemplateVariables(actionUrl || "", mockVars),
+      documentUrl: renderTemplateVariables(documentUrl || "", mockVars),
+      footerText: renderTemplateVariables(footerText || "", mockVars),
+    });
+
+    const result = await sendCustomEmail({
+      toEmail,
+      subject: "[ET Office Portal - THỬ NGHIỆM] " + renderedTitle,
+      htmlContent: html,
+    });
+
+    res.json({
+      message: result.sent
+        ? ("Đã gửi email thử nghiệm thành công tới " + toEmail + "!")
+        : "Đã tạo mẫu email xem trước thành công (chưa bật SMTP Gmail).",
+      sent: result.sent,
+      previewHtml: html,
+    });
+  } catch (err) {
+    console.error("SendTestEmail error:", err);
+    res.status(500).json({ error: "Lỗi gửi email thử nghiệm: " + err.message });
+  }
+};
+
+// POST /api/users/email/broadcast-custom — Admin gửi email hàng loạt cho nhân viên
+const broadcastCustomEmail = async (req, res) => {
+  const {
+    recipientIds,
+    title,
+    body,
+    actionText,
+    actionUrl,
+    documentUrl,
+    footerText
+  } = req.body;
+
+  if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+    return res.status(400).json({ error: "Vui lòng chọn ít nhất một nhân sự nhận email." });
+  }
+
+  try {
+    const users = await User.find({ _id: { $in: recipientIds } }).populate("department_id department_ids");
+    let sentCount = 0;
+    let failedCount = 0;
+
+    const needsPassword = body && (body.includes("{mat_khau}") || (title && title.includes("{mat_khau}")));
+
+    for (const u of users) {
+      if (!u.email || !u.email.includes("@")) {
+        failedCount++;
+        continue;
+      }
+
+      let tempPassword = null;
+      if (needsPassword) {
+        tempPassword = "ET@" + crypto.randomInt(100000, 999999).toString();
+        u.password_hash = await bcrypt.hash(tempPassword, 10);
+        u.must_change_password = true;
+        await u.save();
+      }
+
+      const deptName = Array.isArray(u.department_ids) && u.department_ids.length > 0
+        ? u.department_ids.map(d => d?.name).filter(Boolean).join(", ")
+        : (u.department_id?.name || "Văn Phòng ET");
+
+      const userVars = {
+        ho_ten: u.full_name,
+        email: u.email,
+        chuc_vu: u.position || "Nhân sự",
+        phong_ban: deptName,
+        mat_khau: tempPassword || "Mật khẩu hiện tại của bạn",
+        link_he_thong: actionUrl || process.env.FRONTEND_URL || "https://qly-cham-cong.vercel.app",
+        link_tai_lieu: documentUrl || "",
+      };
+
+      const renderedTitle = renderTemplateVariables(title || "Thông báo từ ET Architects", userVars);
+      const renderedBody = renderTemplateVariables(body || "", userVars);
+      const html = buildCustomHtmlEmail({
+        title: renderedTitle,
+        body: renderedBody,
+        actionText: renderTemplateVariables(actionText || "", userVars),
+        actionUrl: renderTemplateVariables(actionUrl || "", userVars),
+        documentUrl: renderTemplateVariables(documentUrl || "", userVars),
+        footerText: renderTemplateVariables(footerText || "", userVars),
+      });
+
+      const result = await sendCustomEmail({
+        toEmail: u.email,
+        subject: "[ET Office Portal] " + renderedTitle,
+        htmlContent: html,
+      });
+
+      if (result.sent) sentCount++;
+      else failedCount++;
+
+      // Delay 1s per email to respect Gmail SMTP rate limits
+      if (users.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    res.json({
+      message: "Đã gửi thành công " + sentCount + "/" + users.length + " email!",
+      total: users.length,
+      sent: sentCount,
+      failed: failedCount,
+    });
+  } catch (err) {
+    console.error("BroadcastCustomEmail error:", err);
+    res.status(500).json({ error: "Lỗi gửi email hàng loạt: " + err.message });
+  }
+};
+
 module.exports = {
+  sendTestEmail, broadcastCustomEmail,
   getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive,
   getUserDevices, deleteUserDevice, trustUserDevice
 };

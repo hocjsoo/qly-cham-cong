@@ -1,3 +1,4 @@
+import CustomEmailModal from "../components/CustomEmailModal";
 import ImageLightbox from "../components/ImageLightbox";
 // src/pages/StaffPage.jsx
 // Quản lý nhân viên — Safe ConfirmDialog, modal chống bấm ngoài đóng, CRUD đầy đủ
@@ -81,6 +82,7 @@ export default function StaffPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterEmpType, setFilterEmpType] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [editing, setEditing] = useState(null);
 
   const [form, setForm] = useState({
@@ -550,9 +552,19 @@ export default function StaffPage() {
               <Download size={14} /> DS Gửi Xe (17T10)
             </button>
             {isAdmin && (
-              <button onClick={openCreate} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
-                <Plus size={14} /> Thêm mới
-              </button>
+              <>
+                <button
+                  onClick={() => setShowEmailModal(true)}
+                  className="btn btn--ghost"
+                  style={{ padding: "6px 10px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", color: "var(--primary)" }}
+                  title="Soạn thảo và gửi email bàn giao tài khoản hoặc thông báo tùy chỉnh"
+                >
+                  <Mail size={14} /> Gửi Email
+                </button>
+                <button onClick={openCreate} className="btn btn--primary" style={{ padding: "6px 12px", fontSize: "13px" }}>
+                  <Plus size={14} /> Thêm mới
+                </button>
+              </>
             )}
             <HeaderActions />
           </div>
@@ -1815,6 +1827,16 @@ export default function StaffPage() {
 
       {/* Fullsize Avatar Lightbox Modal */}
       <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
-    </div>
+    
+      {/* Custom Email Dispatcher Modal */}
+      {showEmailModal && (
+        <CustomEmailModal
+          staffList={staff}
+          departments={depts}
+          currentUser={currentUser}
+          onClose={() => setShowEmailModal(false)}
+        />
+      )}
+</div>
   );
 }
