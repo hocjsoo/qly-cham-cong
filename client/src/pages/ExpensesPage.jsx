@@ -54,7 +54,8 @@ export default function ExpensesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(null); // expense object
   const [rejectionReason, setRejectionReason] = useState('');
-  const [fullBillImage, setFullBillImage] = useState(null); // { url, title }
+  const [fullBillImage, setFullBillImage] = useState(null);
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null); // { url, title }
 
   // Form State
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -919,6 +920,85 @@ export default function ExpensesPage() {
           </div>
         </div>
       )}
-    </div>
+    
+      {/* Staff Detail & Bank Profile Modal Sheet */}
+      {viewingStaffDetail && typeof document !== "undefined" && createPortal(
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: "16px" }} onClick={() => setViewingStaffDetail(null)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: "440px", margin: "0 auto", padding: "20px 18px" }}>
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--border)" }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 800, margin: 0, color: "var(--text)" }}>👤 Hồ Sơ Nhân Sự & Thanh Toán</h3>
+              <button onClick={() => setViewingStaffDetail(null)} className="btn btn--ghost" style={{ padding: "4px 8px" }}><X size={18} /></button>
+            </div>
+
+            <div style={{ textAlign: "center", marginBottom: "18px" }}>
+              <img
+                src={viewingStaffDetail.avatar_url || "/logo.png"}
+                alt=""
+                style={{ width: "74px", height: "74px", borderRadius: "50%", objectFit: "cover", margin: "0 auto 8px", border: "3px solid var(--primary)", display: "block" }}
+                onError={e => { e.target.src = "/logo.png"; }}
+              />
+              <h2 style={{ fontSize: "17px", fontWeight: 800, margin: "4px 0 2px", color: "var(--text)" }}>{viewingStaffDetail.full_name}</h2>
+              <div style={{ fontSize: "12px", color: "var(--primary)", fontWeight: 700 }}>#{viewingStaffDetail.employee_code || "NS"} · {viewingStaffDetail.position || "Nhân sự"}</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px", fontSize: "13px" }}>
+              <div style={{ background: "var(--bg-input)", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Email:</span>
+                <strong>{viewingStaffDetail.email || "Chưa cập nhật"}</strong>
+              </div>
+              <div style={{ background: "var(--bg-input)", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Số điện thoại:</span>
+                {viewingStaffDetail.phone ? (
+                  <a href={"tel:" + viewingStaffDetail.phone} style={{ fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}>{viewingStaffDetail.phone}</a>
+                ) : <strong>Chưa cập nhật</strong>}
+              </div>
+              <div style={{ background: "var(--bg-input)", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-muted)" }}>Phòng ban:</span>
+                <strong>{viewingStaffDetail.department_name || "Văn phòng"}</strong>
+              </div>
+
+              {/* Bank Account Details for Reimbursement */}
+              <div style={{ background: "var(--primary-soft)", padding: "12px 14px", borderRadius: "12px", border: "1px solid color-mix(in srgb, var(--primary) 30%, var(--border))", marginTop: "4px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", marginBottom: "8px", letterSpacing: "0.04em" }}>
+                  💳 Thông Tin Nhận Tiền Hoàn Ứng
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Ngân hàng:</span>
+                  <strong>{viewingStaffDetail.bank_name || "Chưa cập nhật"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Số tài khoản:</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <strong style={{ color: "var(--primary)", fontSize: "14px", fontVariantNumeric: "tabular-nums" }}>{viewingStaffDetail.bank_account || "Chưa cập nhật"}</strong>
+                    {viewingStaffDetail.bank_account && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingStaffDetail.bank_account);
+                          toast.success("Đã copy số tài khoản!");
+                        }}
+                        className="btn btn--ghost"
+                        style={{ padding: "2px 6px", fontSize: "10px" }}
+                      >
+                        Copy
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Chi nhánh:</span>
+                  <strong>{viewingStaffDetail.branch || "Chưa cập nhật"}</strong>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setViewingStaffDetail(null)} className="btn btn--primary btn--full">Đóng</button>
+          </div>
+        </div>,
+        document.body
+      )}
+</div>
   );
 }

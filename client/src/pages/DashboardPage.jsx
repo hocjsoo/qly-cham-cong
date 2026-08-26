@@ -1010,7 +1010,7 @@ export default function DashboardPage() {
 
 
       {/* Staff Account & Detail Profile Modal Sheet */}
-      {viewingStaffDetail && (
+      {viewingStaffDetail && typeof document !== "undefined" && createPortal(
         <div className="modal-overlay" onClick={() => setViewingStaffDetail(null)}>
           <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', margin: '0 auto', padding: '20px 18px' }}>
             <div className="modal-sheet__handle" />
@@ -1073,11 +1073,27 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Bank Info for Admin */}
+            {isAdminOrLeader && (viewingStaffDetail.bank_name || viewingStaffDetail.bank_account) && (
+              <div style={{ background: "var(--primary-soft)", padding: "12px 14px", borderRadius: "12px", border: "1px solid color-mix(in srgb, var(--primary) 30%, var(--border))", marginBottom: "16px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", marginBottom: "6px" }}>💳 Tài Khoản Ngân Hàng</div>
+                <div style={{ fontSize: "13px", display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Ngân hàng:</span>
+                  <strong>{viewingStaffDetail.bank_name || "—"}</strong>
+                </div>
+                <div style={{ fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Số tài khoản:</span>
+                  <strong style={{ color: "var(--primary)", fontSize: "14px", fontVariantNumeric: "tabular-nums" }}>{viewingStaffDetail.bank_account || "—"}</strong>
+                </div>
+              </div>
+            )}
+
             <button onClick={() => setViewingStaffDetail(null)} className="btn btn--primary btn--full">
               Đóng
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Fullsize Avatar Lightbox Modal */}
