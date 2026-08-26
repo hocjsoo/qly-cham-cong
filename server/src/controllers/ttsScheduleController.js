@@ -46,6 +46,36 @@ const getWeeklySchedule = async (req, res) => {
       .populate('registrations.user_id', 'full_name phone email bank_account bank_name position avatar_url employee_code')
       .populate('updated_by', 'full_name');
 
+    // Tự động dọn dẹp nếu bản ghi trong DB còn vướng dữ liệu mẫu thử nghiệm cũ
+    if (schedule) {
+      let changed = false;
+      const hasDummyNames = schedule.registrations?.some(r => 
+        ['tiến', 'sơn', 'hoàng'].includes(r.full_name?.trim().toLowerCase()) && (!r.user_id)
+      );
+      const hasDummyDuty = schedule.duty_roster?.t2?.office_cleaning === 'My, Ly' || schedule.duty_roster?.t3?.office_cleaning === 'Ninh';
+
+      if (hasDummyNames) {
+        schedule.registrations = schedule.registrations.filter(r => 
+          !['tiến', 'sơn', 'hoàng'].includes(r.full_name?.trim().toLowerCase()) || r.user_id
+        );
+        changed = true;
+      }
+      if (hasDummyDuty) {
+        schedule.duty_roster = {
+          t2: { office_cleaning: '', toilet_cleaning: '' },
+          t3: { office_cleaning: '', toilet_cleaning: '' },
+          t4: { office_cleaning: '', toilet_cleaning: '' },
+          t5: { office_cleaning: '', toilet_cleaning: '' },
+          t6: { office_cleaning: '', toilet_cleaning: '' },
+          t7: { office_cleaning: '', toilet_cleaning: '' },
+        };
+        changed = true;
+      }
+      if (changed) {
+        await schedule.save();
+      }
+    }
+
     // Nếu tuần này chưa có bản ghi, tự động khởi tạo bảng trống
     if (!schedule) {
       // Tính start_date và end_date cho tuần được chọn
@@ -265,10 +295,44 @@ const removeInternFromSchedule = async (req, res) => {
   }
 };
 
+// POST /api/tts-schedules/reset-week - Xóa trắng toàn bộ dữ liệu tuần (Admin / Leader)
+const resetWeeklySchedule = async (req, res) => {
+  try {
+    const { week_number, year } = req.body;
+    if (!week_number || !year) {
+      return res.status(400).json({ error: 'Thiếu thông tin tuần và năm.' });
+    }
+
+    let schedule = await TtsSchedule.findOne({ week_number, year });
+    if (!schedule) {
+      return res.status(404).json({ error: 'Không tìm thấy lịch tuần.' });
+    }
+
+    schedule.registrations = [];
+    schedule.duty_roster = {
+      t2: { office_cleaning: '', toilet_cleaning: '' },
+      t3: { office_cleaning: '', toilet_cleaning: '' },
+      t4: { office_cleaning: '', toilet_cleaning: '' },
+      t5: { office_cleaning: '', toilet_cleaning: '' },
+      t6: { office_cleaning: '', toilet_cleaning: '' },
+      t7: { office_cleaning: '', toilet_cleaning: '' },
+    };
+    schedule.updated_by = req.user._id;
+    schedule.updated_at = new Date();
+    await schedule.save();
+
+    res.json({ message: 'Đã xóa trắng dữ liệu tuần này thành công! 🧹', schedule });
+  } catch (error) {
+    console.error('ResetWeeklySchedule error:', error);
+    res.status(500).json({ error: 'Lỗi làm mới tuần.' });
+  }
+};
+
 module.exports = {
   getWeeklySchedule,
   registerSchedule,
   updateDutyRoster,
   addInternToSchedule,
   removeInternFromSchedule,
+  resetWeeklySchedule,
 };

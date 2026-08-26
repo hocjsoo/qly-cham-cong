@@ -9,6 +9,7 @@ const {
   updateDutyRoster,
   addInternToSchedule,
   removeInternFromSchedule,
+  resetWeeklySchedule,
 } = require('../controllers/ttsScheduleController');
 
 router.use(authMiddleware);
@@ -27,5 +28,8 @@ router.post('/add-intern', requireRole('admin', 'manager'), addInternToSchedule)
 
 // DELETE /api/tts-schedules/registration/:regId — Xóa TTS khỏi bảng tuần (Admin & Leader)
 router.delete('/registration/:regId', requireRole('admin', 'manager'), removeInternFromSchedule);
+
+// POST /api/tts-schedules/reset-week — Xóa trắng toàn bộ dữ liệu tuần (Admin & Leader)
+router.post('/reset-week', requireRole('admin', 'manager'), resetWeeklySchedule);
 
 module.exports = router;

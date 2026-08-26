@@ -5,7 +5,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Edit2, 
-  Trash2, Save, RefreshCw, Printer, X, Check, User
+  Trash2, Save, RefreshCw, Printer, X, Check, RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -272,6 +272,23 @@ export default function TtsSchedulePage() {
     }
   };
 
+  // Xóa trắng toàn bộ dữ liệu tuần (Làm mới sạch)
+  const handleResetWeek = async () => {
+    if (!window.confirm(`Bạn có chắc muốn xóa trắng toàn bộ dữ liệu của Tuần ${weekNumber} / ${year} để nhập mới hoàn toàn?`)) {
+      return;
+    }
+    try {
+      await api.post('/tts-schedules/reset-week', {
+        week_number: weekNumber,
+        year: year
+      });
+      toast.success('Đã làm mới bảng tuần trống hoàn toàn! 🧹');
+      fetchSchedule(weekNumber, year);
+    } catch {
+      toast.error('Lỗi làm mới bảng tuần');
+    }
+  };
+
   // Thêm TTS vào bảng (Đồng bộ từ tài khoản nhân sự có ảnh)
   const handleSelectStaffUser = (staff) => {
     setSelectedStaffUser(staff);
@@ -299,7 +316,7 @@ export default function TtsSchedulePage() {
         year: year,
         ...newInternForm
       });
-      toast.success('Đã thêm TTS vào bảng thành công ✅');
+      toast.success('Đã thêm nhân sự vào bảng thành công ✅');
       setShowAddInternModal(false);
       setSelectedStaffUser(null);
       setNewInternForm({ user_id: '', full_name: '', phone: '', bank_account: '', bank_name: 'MB' });
@@ -378,7 +395,7 @@ export default function TtsSchedulePage() {
             </button>
             {isAdminOrLeader && (
               <button onClick={handleOpenDutyModal} className="btn btn--ghost" style={{ padding: '6px 12px', fontSize: '13px' }}>
-                🧹 Phân công trực nhật
+                🧹 Phân công trực nhật (Leader Ninh)
               </button>
             )}
             <HeaderActions />
@@ -419,13 +436,23 @@ export default function TtsSchedulePage() {
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
               {isAdminOrLeader && (
-                <button 
-                  onClick={() => setShowAddInternModal(true)} 
-                  className="btn btn--ghost" 
-                  style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
-                >
-                  <Plus size={14} /> Thêm TTS Vào Bảng
-                </button>
+                <>
+                  <button 
+                    onClick={() => setShowAddInternModal(true)} 
+                    className="btn btn--primary" 
+                    style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
+                  >
+                    <Plus size={14} /> Thêm TTS Vào Bảng
+                  </button>
+                  <button 
+                    onClick={handleResetWeek} 
+                    className="btn btn--ghost" 
+                    style={{ padding: '6px 10px', fontSize: '12px', gap: '4px', color: 'var(--red)' }}
+                    title="Xóa trắng dữ liệu tuần này"
+                  >
+                    <RotateCcw size={13} /> Làm mới tuần trống
+                  </button>
+                </>
               )}
               <button 
                 onClick={() => fetchSchedule(weekNumber, year)} 
@@ -514,9 +541,13 @@ export default function TtsSchedulePage() {
                             <img 
                               src={avatar} 
                               alt={intern.full_name} 
-                              style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #d1d5db' }} 
+                              style={{ width: '26px', height: '26px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--primary)' }} 
                             />
-                          ) : null}
+                          ) : (
+                            <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
+                              {intern.full_name?.split(' ').slice(-1)[0]?.[0] || 'U'}
+                            </div>
+                          )}
                           <div style={{ fontSize: '13px', fontWeight: 800 }}>{intern.full_name}</div>
                           {isAdminOrLeader && (
                             <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
@@ -538,7 +569,31 @@ export default function TtsSchedulePage() {
                           )}
                         </div>
                       ) : (
-                        <span style={{ color: '#d1d5db' }}>—</span>
+                        isAdminOrLeader ? (
+                          <button
+                            onClick={() => setShowAddInternModal(true)}
+                            style={{
+                              background: 'transparent',
+                              border: '1px dashed #9ca3af',
+                              borderRadius: '4px',
+                              padding: '6px 8px',
+                              fontSize: '11px',
+                              color: '#6b7280',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '2px',
+                              margin: '0 auto',
+                              width: '90%'
+                            }}
+                            title="Thêm TTS vào cột này"
+                          >
+                            <Plus size={11} /> Thêm TTS
+                          </button>
+                        ) : (
+                          <span style={{ color: '#d1d5db' }}>—</span>
+                        )
                       )}
                     </th>
                   );
@@ -751,7 +806,7 @@ export default function TtsSchedulePage() {
                           }}
                           title={isAdminOrLeader ? 'Bấm để sửa phân công' : ''}
                         >
-                          {duty.toilet_cleaning || (isSaturday ? 'A Minh' : '')}
+                          {duty.toilet_cleaning || ''}
                         </td>
                       )}
 
