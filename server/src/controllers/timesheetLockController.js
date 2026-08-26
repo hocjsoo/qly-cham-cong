@@ -181,47 +181,8 @@ const getFullMatrix = async (req, res) => {
         const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
         const latestAudit = dayAudits[0];
 
-        // ƯU TIÊN 1: Nếu ngày này đã từng được Admin chỉnh sửa (lưu trong Lịch sử Audit Log), khôi phục 100% ký hiệu Admin đã duyệt
-        if (latestAudit?.new_symbol) {
-          const s = latestAudit.new_symbol.split(' ')[0].trim();
-          if (s === '0,75x' || s === '0.75x') {
-            symbol = '0,75x';
-            nlv_office += 0.75;
-          } else if (s === '0,5x' || s === '0.5x') {
-            symbol = '0,5x';
-            nlv_office += 0.5;
-          } else if (s === 'x' || s === '1.0x') {
-            symbol = 'x';
-            nlv_office += 1;
-          } else if (s === 'CT1') {
-            symbol = 'CT1';
-            ct_domestic += 1;
-          } else if (s === 'CT2') {
-            symbol = 'CT2';
-            ct_foreign += 1;
-          } else if (s === 'WFH') {
-            symbol = 'WFH';
-            wfh += 1;
-          } else if (s === 'P') {
-            symbol = 'P';
-            annual_leave += 1;
-          } else if (s === 'O') {
-            symbol = 'O';
-            sick_leave += 1;
-          } else if (s === 'KL') {
-            symbol = 'KL';
-            unpaid_leave += 1;
-          } else if (s === 'K') {
-            symbol = 'K';
-            other_leave += 1;
-          } else if (s === 'L') {
-            symbol = 'L';
-          } else {
-            symbol = s;
-            nlv_office += 1;
-          }
-        } else if (att) {
-          // ƯU TIÊN 2: Dữ liệu điểm danh gốc từ máy chấm công / GPS
+        // ƯU TIÊN 1 (Source of Truth): Dữ liệu chấm công hiện tại trong Attendance (bao gồm cả khi Admin đã sửa hoặc đơn từ mới duyệt)
+        if (att) {
           const notes = (att.notes || '').toUpperCase();
           if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) {
             symbol = 'CT2';
@@ -264,6 +225,45 @@ const getFullMatrix = async (req, res) => {
           } else if (att.total_hours > 0) {
             symbol = '0,5x';
             nlv_office += 0.5;
+          }
+        } else if (latestAudit?.new_symbol) {
+          // ƯU TIÊN 2 (Fallback): Bản ghi Audit Log khi dữ liệu cũ chưa có bản ghi Attendance đầy đủ
+          const s = latestAudit.new_symbol.split(' ')[0].trim();
+          if (s === '0,75x' || s === '0.75x') {
+            symbol = '0,75x';
+            nlv_office += 0.75;
+          } else if (s === '0,5x' || s === '0.5x') {
+            symbol = '0,5x';
+            nlv_office += 0.5;
+          } else if (s === 'x' || s === '1.0x') {
+            symbol = 'x';
+            nlv_office += 1;
+          } else if (s === 'CT1') {
+            symbol = 'CT1';
+            ct_domestic += 1;
+          } else if (s === 'CT2') {
+            symbol = 'CT2';
+            ct_foreign += 1;
+          } else if (s === 'WFH') {
+            symbol = 'WFH';
+            wfh += 1;
+          } else if (s === 'P') {
+            symbol = 'P';
+            annual_leave += 1;
+          } else if (s === 'O') {
+            symbol = 'O';
+            sick_leave += 1;
+          } else if (s === 'KL') {
+            symbol = 'KL';
+            unpaid_leave += 1;
+          } else if (s === 'K') {
+            symbol = 'K';
+            other_leave += 1;
+          } else if (s === 'L') {
+            symbol = 'L';
+          } else {
+            symbol = s;
+            nlv_office += 1;
           }
         } else if (hd.isHoliday) {
           // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
@@ -408,14 +408,29 @@ const overrideCell = async (req, res) => {
     return res.status(400).json({ error: 'Ký hiệu công và Lý do chỉnh sửa là bắt buộc.' });
   }
 
+  // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
+  if (!SYMBOL_TO_STATUS_MAP[new_symbol]) {
+    return res.status(400).json({
+      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận các ký hiệu: x, 0,75x, 0,5x, CT1, CT2, WFH, P, O, KL, K, L.'
+    });
+  }
+
   try {
     let attendance = await Attendance.findOne({ user_id, date });
     const oldSymbol = attendance ? (attendance.notes || '—') : '—';
-    const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol] || SYMBOL_TO_STATUS_MAP['x'];
+    const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol];
 
-    const confirmedOtHours = (ot_hours !== undefined && ot_hours !== null && ot_hours !== '')
-      ? Math.max(0, parseFloat(ot_hours) || 0)
-      : (attendance?.ot_hours || 0);
+    // 2. Kiểm tra tính hợp lệ của Giờ OT: Số hữu hạn, 0 <= OT <= 16, bước 0.5h
+    let confirmedOtHours = attendance?.ot_hours || 0;
+    if (ot_hours !== undefined && ot_hours !== null && ot_hours !== '') {
+      const numOt = Number(ot_hours);
+      if (!Number.isFinite(numOt) || numOt < 0 || numOt > 16 || (numOt * 2) % 1 !== 0) {
+        return res.status(400).json({
+          error: 'Số giờ OT không hợp lệ. Vui lòng nhập số hữu hạn từ 0 đến 16 giờ theo bước 0.5h (ví dụ: 0, 0.5, 1, 1.5...).'
+        });
+      }
+      confirmedOtHours = numOt;
+    }
 
     const otNotePart = confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : '';
     const noteContent = custom_notes

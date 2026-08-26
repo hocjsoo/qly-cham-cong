@@ -52,6 +52,31 @@ function runProjectSiteTests(assert) {
   const checkClosed = validateSiteCheckin(closedProject, 10.9328, 106.6974);
   assert(checkClosed.valid === false && checkClosed.error.includes('kết thúc'),
     'TC-PROJ-03: Chặn điểm danh đối với dự án đã hoàn thành / kết thúc');
+
+  // TC-PROJ-04: Nhận diện PM dự án — Khắc phục rủi ro trùng tên cuối (Codex Review)
+  function checkIsPM(project, user) {
+    if (!project || !user) return false;
+    if (project.pm_id && user._id && String(project.pm_id) === String(user._id)) return true;
+    if (!project.pm_id && project.pm_name && user.full_name) {
+      return project.pm_name.trim().toLowerCase() === user.full_name.trim().toLowerCase();
+    }
+    return false;
+  }
+
+  const projWithPMId = { _id: 'p1', pm_id: 'user_pm_01', pm_name: 'Trần Hoàng Nam' };
+  const userNam1 = { _id: 'user_emp_99', full_name: 'Nguyễn Văn Nam' };
+  const userNamPM = { _id: 'user_pm_01', full_name: 'Trần Hoàng Nam' };
+
+  assert(checkIsPM(projWithPMId, userNam1) === false,
+    'TC-PROJ-04.1: Nhân viên "Nguyễn Văn Nam" KHÔNG được nhận diện nhầm là PM của "Trần Hoàng Nam"');
+  assert(checkIsPM(projWithPMId, userNamPM) === true,
+    'TC-PROJ-04.2: PM chính xác "Trần Hoàng Nam" (khớp pm_id) được cấp quyền PM');
+
+  const legacyProj = { _id: 'p2', pm_id: null, pm_name: 'Trần Hoàng Nam' };
+  assert(checkIsPM(legacyProj, userNam1) === false,
+    'TC-PROJ-04.3: Dự án cũ không có pm_id: "Nguyễn Văn Nam" KHÔNG khớp "Trần Hoàng Nam"');
+  assert(checkIsPM(legacyProj, { _id: 'u_diff', full_name: 'Trần Hoàng Nam' }) === true,
+    'TC-PROJ-04.4: Dự án cũ không có pm_id: Khớp chính xác 100% họ tên "Trần Hoàng Nam"');
 }
 
 module.exports = runProjectSiteTests;

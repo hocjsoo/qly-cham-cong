@@ -33,15 +33,10 @@ const getProjects = async (req, res) => {
         { members: req.user._id },
         { pm_id: req.user._id },
       ];
+      // Chỉ dùng pm_name đầy đủ (exact match) cho dữ liệu dự án cũ chưa có pm_id
       if (req.user.full_name) {
         const cleanName = req.user.full_name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-        userConditions.push({ pm_name: { $regex: cleanName, $options: 'i' } });
-
-        const nameParts = req.user.full_name.trim().split(/\s+/);
-        if (nameParts.length > 1) {
-          const lastName = nameParts[nameParts.length - 1].replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-          userConditions.push({ pm_name: { $regex: `\\b${lastName}\\b`, $options: 'i' } });
-        }
+        userConditions.push({ pm_name: { $regex: `^${cleanName}$`, $options: 'i' } });
       }
 
       if (filter.$or) {

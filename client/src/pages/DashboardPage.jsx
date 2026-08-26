@@ -65,7 +65,7 @@ export default function DashboardPage() {
     const ucode = (currentUser.employee_code || '').toLowerCase().trim();
     const uemail = (currentUser.email || '').toLowerCase().trim();
     
-    // 1. Check members (ID, employee_code, email, full_name, name parts)
+    // 1. Check members (ID, employee_code, email, hoặc exact full_name)
     if (Array.isArray(p.members)) {
       const isMember = p.members.some(m => {
         if (!m) return false;
@@ -79,26 +79,21 @@ export default function DashboardPage() {
         if (uemail && mEmail && mEmail === uemail) return true;
 
         const mName = String(m.full_name || '').toLowerCase().trim();
-        if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
+        if (uname && mName && mName === uname) return true;
 
         return false;
       });
       if (isMember) return true;
     }
 
-    // 2. Check pm_id
+    // 2. Check pm_id (Ưu tiên tuyệt đối pm_id)
     const pmId = String(p.pm_id?._id || p.pm_id?.id || p.pm_id || '');
     if (uid && pmId && pmId === uid) return true;
 
-    // 3. Check pm_name
-    if (p.pm_name && uname) {
+    // 3. Check pm_name (Chỉ áp dụng so khớp chính xác 100% họ tên cho dự án cũ chưa có pm_id)
+    if (!pmId && p.pm_name && uname) {
       const pmNameLower = p.pm_name.toLowerCase().trim();
-      if (pmNameLower.includes(uname) || uname.includes(pmNameLower)) return true;
-      const nameParts = uname.split(/\s+/);
-      if (nameParts.length > 1) {
-        const lastName = nameParts[nameParts.length - 1];
-        if (lastName.length > 1 && pmNameLower.includes(lastName)) return true;
-      }
+      if (pmNameLower === uname) return true;
     }
 
     return false;
