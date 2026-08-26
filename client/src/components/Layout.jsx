@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Clock, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
+import { Clock, Mail, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
 
@@ -50,6 +50,7 @@ export default function Layout() {
     { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
     { to: '/vehicles', icon: Bike, label: 'Gửi xe' },
     ...(!isStaff ? [{ to: '/staff', icon: Users, label: 'Nhân viên' }] : []),
+    ...(isAdmin ? [{ to: '/emails', icon: Mail, label: 'Gửi Email' }] : []),
     ...(isAdmin ? [{ to: '/settings', icon: Settings, label: 'Cài đặt' }] : []),
     { to: '/profile', icon: User, label: 'Cá nhân' },
   ];

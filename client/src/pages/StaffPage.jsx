@@ -4,6 +4,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // Quản lý nhân viên — Safe ConfirmDialog, modal chống bấm ngoài đóng, CRUD đầy đủ
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, X, Search, Edit2, Trash2, Shield, UserCheck, Building2, Phone, AlertTriangle, UserX, Download, UserPlus, Clock, Bike, Mail, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -71,6 +72,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
 }
 
 export default function StaffPage() {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const isAdmin = currentUser?.role === 'admin';
   const [staff, setStaff] = useState([]);
@@ -554,7 +556,7 @@ export default function StaffPage() {
             {isAdmin && (
               <>
                 <button
-                  onClick={() => setShowEmailModal(true)}
+                  onClick={() => navigate('/emails')}
                   className="btn btn--ghost"
                   style={{ padding: "6px 10px", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px", color: "var(--primary)" }}
                   title="Soạn thảo và gửi email bàn giao tài khoản hoặc thông báo tùy chỉnh"

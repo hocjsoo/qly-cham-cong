@@ -168,6 +168,12 @@ export default function App() {
               <Route path="/expenses" element={<ExpensesPage />} />
               <Route path="/tts-schedule" element={<TtsSchedulePage />} />
 
+              <Route path="/emails" element={
+                <ProtectedRoute roles={["admin"]}>
+                  <EmailsPage />
+                </ProtectedRoute>
+              } />
+
               <Route path="/settings" element={
                 <ProtectedRoute roles={['admin']}>
                   <SettingsPage />
