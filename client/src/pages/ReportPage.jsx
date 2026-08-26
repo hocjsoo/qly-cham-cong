@@ -72,6 +72,7 @@ export default function ReportPage() {
   // Edit Cell Modal State
   const [selectedCell, setSelectedCell] = useState(null);
   const [cellSymbol, setCellSymbol] = useState('x');
+  const [cellOtHours, setCellOtHours] = useState(0);
   const [cellCheckIn, setCellCheckIn] = useState('08:30');
   const [cellCheckOut, setCellCheckOut] = useState('17:30');
   const [cellReason, setCellReason] = useState('');
@@ -170,6 +171,16 @@ export default function ReportPage() {
         ]);
         setReport(rRes.data);
         setTrend(tRes.data);
+      } else if (tab === 'payroll' && isAdmin) {
+        const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`);
+        setPayroll(data);
+      } else if (tab === 'ranking' && isAdmin) {
+        const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
+        setRanking(data);
+      } else if (tab === 'individual_detail' && isAdmin) {
+        const queryUser = selectedDetailUserId ? `&user_id=${selectedDetailUserId}` : '';
+        const { data } = await api.get(`/reports/individual-detail?month=${month}&year=${year}${queryUser}`);
+        setIndividualDetail(data);
       }
     } catch { toast.error('Lỗi tải dữ liệu'); }
     finally { setLoading(false); }
@@ -210,7 +221,7 @@ export default function ReportPage() {
     }
   };
 
-  // Sửa Ô Công Có Ghi Lý Do
+  // Sửa Ô Công & Xác Nhận Giờ OT Có Ghi Lý Do
   const handleSaveCellOverride = async () => {
     if (!selectedCell) return;
     if (!cellReason.trim()) {
@@ -220,15 +231,18 @@ export default function ReportPage() {
 
     setSubmittingCell(true);
     try {
+      const parsedOt = Math.max(0, parseFloat(cellOtHours) || 0);
       await api.post('/timesheet-lock/override-cell', {
         user_id: selectedCell.user_id,
         date: selectedCell.dateStr,
         new_symbol: cellSymbol,
+        ot_hours: parsedOt,
         reason: cellReason.trim(),
       });
-      toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}] & lưu lịch sử! ✅`);
+      toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}]${parsedOt > 0 ? ` (+${parsedOt}h OT)` : ''} & lưu lịch sử! ✅`);
       setSelectedCell(null);
       setCellReason('');
+      setCellOtHours(0);
       loadTab();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi chỉnh sửa ô công');
@@ -798,8 +812,7 @@ export default function ReportPage() {
                                                 is_locked: r.is_locked
                                               });
                                               setCellSymbol(d.symbol || 'x');
-                                              setCellCheckIn(d.check_in_time || '08:30');
-                                              setCellCheckOut(d.check_out_time || '17:30');
+                                              setCellOtHours(d.ot_hours || 0);
                                               setCellReason('');
                                             }}
                                             style={{
@@ -1020,8 +1033,7 @@ export default function ReportPage() {
                                         holiday_name: hdObj?.holidayName || null,
                                       });
                                       setCellSymbol(d.symbol || (isHol ? 'L' : 'x'));
-                                      setCellCheckIn(d.check_in_time || '08:30');
-                                      setCellCheckOut(d.check_out_time || '17:30');
+                                      setCellOtHours(d.ot_hours || 0);
                                       setCellReason('');
                                     }}
                                     style={{
@@ -1599,38 +1611,57 @@ export default function ReportPage() {
             {isAdminOrManager ? (
               <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', marginTop: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Công (Admin / Leader)
+                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu & Giờ OT (Admin / Leader)
                 </div>
 
-                <div className="form-group" style={{ marginBottom: '8px' }}>
-                  <label className="form-label" style={{ fontSize: '11px' }}>Ký hiệu công mới *</label>
-                  <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)} style={{ fontSize: '12.5px' }}>
-                    <option value="x">x : Đủ 1 công (1.0)</option>
-                    <option value="0,75x">0,75x : 3/4 công (0.75)</option>
-                    <option value="0,5x">0,5x : 1/2 công (0.5)</option>
-                    <option value="CT1">CT1 : CT Trong nước (1.0)</option>
-                    <option value="CT2">CT2 : CT Nước ngoài (1.0)</option>
-                    <option value="WFH">WFH : Work from home (1.0)</option>
-                    <option value="P">P : Nghỉ phép năm</option>
-                    <option value="O">O : Nghỉ ốm</option>
-                    <option value="KL">KL : Nghỉ không lương</option>
-                    <option value="L">L : Nghỉ Lễ công ty</option>
-                    <option value="K">K : Khác</option>
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px' }}>Ký hiệu công mới *</label>
+                    <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)} style={{ fontSize: '12.5px' }}>
+                      <option value="x">x : Đủ 1 công (1.0)</option>
+                      <option value="0,75x">0,75x : 3/4 công (0.75)</option>
+                      <option value="0,5x">0,5x : 1/2 công (0.5)</option>
+                      <option value="CT1">CT1 : CT Trong nước (1.0)</option>
+                      <option value="CT2">CT2 : CT Nước ngoài (1.0)</option>
+                      <option value="WFH">WFH : Work from home (1.0)</option>
+                      <option value="P">P : Nghỉ phép năm</option>
+                      <option value="O">O : Nghỉ ốm</option>
+                      <option value="KL">KL : Nghỉ không lương</option>
+                      <option value="L">L : Nghỉ Lễ công ty</option>
+                      <option value="K">K : Khác</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🔥 Giờ OT (Tăng ca)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="12"
+                      className="form-input"
+                      value={cellOtHours}
+                      onChange={e => setCellOtHours(e.target.value)}
+                      placeholder="0"
+                      style={{ fontSize: '12.5px', padding: '6px 8px' }}
+                    />
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '10px' }}>
-                  <label className="form-label" style={{ fontSize: '11px' }}>Lý do chỉnh sửa * (Bắt buộc lưu lịch sử)</label>
+                  <label className="form-label" style={{ fontSize: '11px' }}>Lý do chỉnh sửa / duyệt giải trình * (Bắt buộc lưu lịch sử)</label>
                   <textarea
                     className="form-input"
                     rows={2}
                     value={cellReason}
                     onChange={e => setCellReason(e.target.value)}
-                    placeholder="Nhập lý do điều chỉnh ký hiệu công..."
+                    placeholder="Nhập lý do điều chỉnh ký hiệu công hoặc duyệt giải trình quên chấm..."
                     style={{ fontSize: '12px' }}
                   />
                   <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                    💡 Hệ thống chỉ ghi nhận ký hiệu công & lý do để chốt công chuẩn xác, không bắt buộc nhập giờ vào/ra hay tính thêm OT.
+                    💡 Giờ check-in/out do nhân sự tự chấm. Nếu quên chấm, Admin duyệt ký hiệu công & xác nhận số giờ OT theo giải trình.
                   </div>
                 </div>
 

@@ -183,7 +183,7 @@ const getFullMatrix = async (req, res) => {
 
         // ƯU TIÊN 1: Nếu ngày này đã từng được Admin chỉnh sửa (lưu trong Lịch sử Audit Log), khôi phục 100% ký hiệu Admin đã duyệt
         if (latestAudit?.new_symbol) {
-          const s = latestAudit.new_symbol;
+          const s = latestAudit.new_symbol.split(' ')[0].trim();
           if (s === '0,75x' || s === '0.75x') {
             symbol = '0,75x';
             nlv_office += 0.75;
@@ -400,9 +400,9 @@ const toggleLock = async (req, res) => {
   }
 };
 
-// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công (Admin chỉ duyệt ký hiệu & lý do, không cần giờ vào/ra & không phình OT)
+// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công & xác nhận giờ OT (Admin duyệt ký hiệu, lý do & giờ OT)
 const overrideCell = async (req, res) => {
-  const { user_id, date, new_symbol, reason, custom_notes } = req.body;
+  const { user_id, date, new_symbol, reason, ot_hours, custom_notes } = req.body;
 
   if (!user_id || !date || !new_symbol || !reason || !reason.trim()) {
     return res.status(400).json({ error: 'Ký hiệu công và Lý do chỉnh sửa là bắt buộc.' });
@@ -413,12 +413,19 @@ const overrideCell = async (req, res) => {
     const oldSymbol = attendance ? (attendance.notes || '—') : '—';
     const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol] || SYMBOL_TO_STATUS_MAP['x'];
 
-    const noteContent = custom_notes ? `${custom_notes} | Sửa: ${reason.trim()}` : `Ký hiệu: [${new_symbol}] | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
+    const confirmedOtHours = (ot_hours !== undefined && ot_hours !== null && ot_hours !== '')
+      ? Math.max(0, parseFloat(ot_hours) || 0)
+      : (attendance?.ot_hours || 0);
+
+    const otNotePart = confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : '';
+    const noteContent = custom_notes
+      ? `${custom_notes}${otNotePart} | Sửa: ${reason.trim()}`
+      : `Ký hiệu: [${new_symbol}]${otNotePart} | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
 
     if (attendance) {
       attendance.total_hours = targetConfig.total_hours;
       attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0;
-      attendance.ot_hours = 0; // Chỉnh sửa công theo ngày không tính thêm OT
+      attendance.ot_hours = confirmedOtHours;
       attendance.is_late = targetConfig.is_late;
       attendance.late_tier = targetConfig.late_tier;
       attendance.check_in_type = targetConfig.check_in_type;
@@ -431,7 +438,7 @@ const overrideCell = async (req, res) => {
         date,
         total_hours: targetConfig.total_hours,
         work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0,
-        ot_hours: 0,
+        ot_hours: confirmedOtHours,
         is_late: targetConfig.is_late,
         late_tier: targetConfig.late_tier,
         check_in_type: targetConfig.check_in_type,
@@ -449,7 +456,7 @@ const overrideCell = async (req, res) => {
       user_name: user ? user.full_name : 'Nhân viên',
       date,
       old_symbol: oldSymbol,
-      new_symbol,
+      new_symbol: confirmedOtHours > 0 ? `${new_symbol} (+${confirmedOtHours}h OT)` : new_symbol,
       reason: reason.trim(),
       modified_by: req.user._id,
       modified_by_name: req.user.full_name,
@@ -457,7 +464,7 @@ const overrideCell = async (req, res) => {
     });
 
     res.json({
-      message: `Đã điều chỉnh ô công ngày ${date} thành [${new_symbol}] ✅`,
+      message: `Đã điều chỉnh ô công ngày ${date} thành [${new_symbol}]${confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : ''} ✅`,
       attendance,
       audit_log: auditLog,
     });
