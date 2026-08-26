@@ -5,6 +5,7 @@ const Project = require('../models/Project');
 const SystemSetting = require('../models/SystemSetting');
 const DeviceSession = require('../models/DeviceSession');
 const DeviceRegistry = require('../models/DeviceRegistry');
+const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const User = require('../models/User');
 
 // Helper tính khoảng cách GPS (Haversine)
@@ -789,9 +790,10 @@ const deleteAttendance = async (req, res) => {
     // 1. Xóa bản ghi chấm công
     await Attendance.findByIdAndDelete(id);
 
-    // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại không bị vướng
+    // 2. Xóa dữ liệu thiết bị đăng ký & Lịch sử audit log của ngày đó để cho phép chấm lại hoàn toàn sạch sẽ
     if (user_id && date) {
       await DeviceRegistry.deleteMany({ user_id, date });
+      await AttendanceAuditLog.deleteMany({ user_id, date });
     }
 
     res.json({ message: 'Đã xóa bản ghi chấm công thành công! Nhân viên có thể thực hiện chấm công lại.', id });
@@ -933,10 +935,11 @@ const verifyFlaggedAttendance = async (req, res) => {
       const { user_id, date } = attendance;
 
       if (allowReset) {
-        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại
+        // Xóa bản ghi chấm công, DeviceRegistry & AuditLog trong ngày để nhân viên được phép chấm lại
         await Attendance.findByIdAndDelete(id);
         if (user_id && date) {
           await DeviceRegistry.deleteMany({ user_id, date });
+          await AttendanceAuditLog.deleteMany({ user_id, date });
         }
         return res.json({ message: 'Đã từ chối & xóa bản ghi thành công. Nhân viên đã có thể chấm công lại! 🗑️', id });
       } else {
@@ -969,7 +972,12 @@ const verifyFlaggedAttendance = async (req, res) => {
 
       return res.json({ message: 'Đã hoàn tác ca về trạng thái Chờ duyệt! 🔄', attendance: populated });
     } else if (action === 'delete') {
+      const { user_id, date } = attendance;
       await Attendance.findByIdAndDelete(id);
+      if (user_id && date) {
+        await DeviceRegistry.deleteMany({ user_id, date });
+        await AttendanceAuditLog.deleteMany({ user_id, date });
+      }
       return res.json({ message: 'Đã xóa ca chấm công thành công! 🗑️', id });
     } else {
       return res.status(400).json({ error: 'Hành động không hợp lệ (approve, reject, revert hoặc delete).' });

@@ -33,10 +33,15 @@ const getProjects = async (req, res) => {
         { members: req.user._id },
         { pm_id: req.user._id },
       ];
-      // Chỉ dùng pm_name đầy đủ (exact match) cho dữ liệu dự án cũ chưa có pm_id
+      // Chỉ dùng pm_name đầy đủ (exact match) cho dữ liệu dự án cũ khi pm_id chưa được gán
       if (req.user.full_name) {
         const cleanName = req.user.full_name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-        userConditions.push({ pm_name: { $regex: `^${cleanName}$`, $options: 'i' } });
+        userConditions.push({
+          $and: [
+            { $or: [{ pm_id: null }, { pm_id: { $exists: false } }] },
+            { pm_name: { $regex: `^${cleanName}$`, $options: 'i' } }
+          ]
+        });
       }
 
       if (filter.$or) {

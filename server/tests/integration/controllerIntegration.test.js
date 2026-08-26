@@ -16,6 +16,8 @@ const OfficeLocation = require('../../src/models/OfficeLocation');
 const SystemSetting = require('../../src/models/SystemSetting');
 const DeviceRegistry = require('../../src/models/DeviceRegistry');
 const DeviceSession = require('../../src/models/DeviceSession');
+const Project = require('../../src/models/Project');
+const AttendanceAuditLog = require('../../src/models/AttendanceAuditLog');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -52,6 +54,8 @@ async function runControllerIntegrationTests(assert) {
   const originalDevRegFindOneAndUpdate = DeviceRegistry.findOneAndUpdate;
   const originalDevSessFindOne = DeviceSession.findOne;
   const originalDevSessSave = DeviceSession.prototype.save;
+  const originalProjFind = Project.find;
+  const originalAuditLogCreate = AttendanceAuditLog.create;
 
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -87,6 +91,16 @@ async function runControllerIntegrationTests(assert) {
     department_ids: ['dept_it'],
     email: 'emp_it@company.com',
     phone: '0902',
+    is_active: true,
+    toObject() { return { ...this }; }
+  };
+
+  const userNamEmp = {
+    _id: '507f1f77bcf86cd799439099',
+    employee_code: 'NS-099',
+    full_name: 'Nguyễn Văn Nam',
+    role: 'employee',
+    email: 'nam_nv@company.com',
     is_active: true,
     toObject() { return { ...this }; }
   };
@@ -178,7 +192,7 @@ async function runControllerIntegrationTests(assert) {
   };
 
   User.findById = function(id) {
-    const found = [mockAdminUser, mockLeaderUser, mockEmpUser].find(u => u._id.toString() === id.toString()) || mockAdminUser;
+    const found = [mockAdminUser, mockLeaderUser, mockEmpUser, userNamEmp].find(u => u._id.toString() === id.toString()) || mockAdminUser;
     return {
       select() {
         return Promise.resolve({
@@ -424,6 +438,127 @@ async function runControllerIntegrationTests(assert) {
     assert(resNaNCoord.status === 400 && resNaNCoord.body.gps_required === true,
       'TC-HTTP-15: POST /api/attendance/checkin với lat/lng NaN bị chặn 400');
 
+    // =========================================================================
+    // 5. PROJECT CONTROLLER: Supertest kiểm thử nhận diện PM dự án (Codex Review)
+    // =========================================================================
+    const userNamEmp = {
+      _id: '507f1f77bcf86cd799439099',
+      employee_code: 'NS-099',
+      full_name: 'Nguyễn Văn Nam',
+      role: 'employee',
+      email: 'nam_nv@company.com',
+      is_active: true,
+      toObject() { return { ...this }; }
+    };
+    const namEmpToken = generateTestToken(userNamEmp);
+
+    const originalProjFind = Project.find;
+    let capturedProjQuery = null;
+
+    Project.find = function(query) {
+      capturedProjQuery = query;
+      return {
+        populate: function() {
+          return {
+            populate: function() {
+              return {
+                sort: function() {
+                  return Promise.resolve([
+                    { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
+                  ]);
+                }
+              };
+            }
+          };
+        }
+      };
+    };
+
+    const resProjList = await request(app)
+      .get('/api/projects')
+      .set('Authorization', `Bearer ${namEmpToken}`);
+    assert(resProjList.status === 200, 'TC-HTTP-16.1: GET /api/projects trả về 200 OK');
+
+    // Kiểm tra cấu trúc truy vấn MongoDB đã được sửa an toàn tuyệt đối
+    const pmNameCond = capturedProjQuery?.$or?.find(c => c.$and);
+    assert(pmNameCond !== undefined, 'TC-HTTP-16.2: Truy vấn $or có điều kiện $and bọc pm_name và pm_id null check');
+    assert(pmNameCond.$and[0].$or[0].pm_id === null, 'TC-HTTP-16.3: Bắt buộc pm_id là null hoặc không tồn tại mới đối chiếu pm_name');
+
+    // =========================================================================
+    // 6. TIMESHEET LOCK CONTROLLER: Supertest kiểm thử overrideCell (Codex Review)
+    // =========================================================================
+    const originalAuditLogCreate = AttendanceAuditLog.create;
+    AttendanceAuditLog.create = function(data) {
+      return Promise.resolve({ _id: 'audit_log_01', ...data });
+    };
+
+    // TC-HTTP-17: Từ chối Ký hiệu lạ "ABC" -> 400 Bad Request
+    const resInvalidSymbol = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: 'ABC',
+        reason: 'Sửa nhầm',
+      });
+    assert(resInvalidSymbol.status === 400 && resInvalidSymbol.body.error.includes('Ký hiệu công không hợp lệ'),
+      'TC-HTTP-17: POST /api/timesheet-lock/override-cell từ chối ký hiệu lạ ABC với 400 Bad Request');
+
+    // TC-HTTP-18: Kiểm tra giới hạn Giờ OT (0..16, bước 0.5)
+    const resNegativeOt = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: 'x',
+        ot_hours: -4,
+        reason: 'OT âm',
+      });
+    assert(resNegativeOt.status === 400 && resNegativeOt.body.error.includes('Số giờ OT không hợp lệ'),
+      'TC-HTTP-18.1: POST /api/timesheet-lock/override-cell từ chối OT âm với 400 Bad Request');
+
+    const resOverflowOt = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: 'x',
+        ot_hours: 24,
+        reason: 'OT quá 16h',
+      });
+    assert(resOverflowOt.status === 400 && resOverflowOt.body.error.includes('Số giờ OT không hợp lệ'),
+      'TC-HTTP-18.2: POST /api/timesheet-lock/override-cell từ chối OT > 16h với 400 Bad Request');
+
+    const resFractionOt = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: 'x',
+        ot_hours: 1.23,
+        reason: 'OT không theo bước 0.5',
+      });
+    assert(resFractionOt.status === 400 && resFractionOt.body.error.includes('Số giờ OT không hợp lệ'),
+      'TC-HTTP-18.3: POST /api/timesheet-lock/override-cell từ chối OT không phải bước 0.5 với 400 Bad Request');
+
+    // Chấp nhận ký hiệu hợp lệ '0,75x' và OT hợp lệ 2.5h
+    const resValidOverride = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: '0,75x',
+        ot_hours: 2.5,
+        reason: 'Làm việc 6h và tăng ca 2.5h',
+      });
+    assert(resValidOverride.status === 200,
+      'TC-HTTP-18.4: POST /api/timesheet-lock/override-cell chấp nhận ký hiệu "0,75x" và OT "2.5h"');
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;
@@ -438,6 +573,8 @@ async function runControllerIntegrationTests(assert) {
     DeviceRegistry.findOneAndUpdate = originalDevRegFindOneAndUpdate;
     DeviceSession.findOne = originalDevSessFindOne;
     DeviceSession.prototype.save = originalDevSessSave;
+    Project.find = originalProjFind;
+    AttendanceAuditLog.create = originalAuditLogCreate;
   }
 }
 
