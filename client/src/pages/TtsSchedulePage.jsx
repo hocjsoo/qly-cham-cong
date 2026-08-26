@@ -467,17 +467,15 @@ export default function TtsSchedulePage() {
 
               {/* ROW 1: TÊN TTS & LỊCH TRỰC NHẬT HEADER */}
               <tr style={{ background: '#ffffff', borderBottom: '1px solid #9ca3af' }}>
-                {/* Cột TT (Span 3 hàng SĐT, STK) */}
+                {/* Cột TT (Span 3 hàng) */}
                 <th rowSpan="3" style={{ width: '42px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '13px', verticalAlign: 'middle', background: '#f9fafb' }}>
                   TT
                 </th>
 
-                {/* Ô header SĐT */}
-                <th style={{ width: '55px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', background: '#f9fafb' }}>
-                  SĐT
-                </th>
+                {/* Ô trống bên cạnh TT ở hàng Tên TTS */}
+                <th style={{ width: '55px', border: '1px solid #9ca3af', background: '#f9fafb' }}></th>
 
-                {/* Các cột TTS */}
+                {/* Các cột Tên TTS */}
                 {internColumns.map((intern, i) => (
                   <th 
                     key={intern?._id || `empty-${i}`} 
@@ -543,10 +541,12 @@ export default function TtsSchedulePage() {
 
               {/* ROW 2: SĐT DATA & SUBHEADER TRỰC NHẬT */}
               <tr style={{ background: '#ffffff', borderBottom: '1px solid #9ca3af' }}>
-                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', background: '#f9fafb' }}>
-                  STK
+                {/* Nhãn SĐT */}
+                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', background: '#f9fafb', padding: '4px 2px' }}>
+                  SĐT
                 </th>
 
+                {/* Dữ liệu SĐT của từng TTS */}
                 {internColumns.map((intern, i) => (
                   <th 
                     key={`phone-${i}`} 
@@ -563,22 +563,26 @@ export default function TtsSchedulePage() {
                   </th>
                 ))}
 
-                {/* 3 Subheader cột trực nhật */}
-                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff' }}>
+                {/* 3 Subheader cột trực nhật (Span 2 hàng Row 2 & Row 3) */}
+                <th rowSpan="2" style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff', verticalAlign: 'middle' }}>
                   DỌN VĂN PHÒNG
                 </th>
-                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff' }}>
+                <th rowSpan="2" style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff', verticalAlign: 'middle' }}>
                   DỌN NHÀ VỆ SINH
                 </th>
-                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', minWidth: '340px', padding: '6px', background: '#ffffff' }}>
+                <th rowSpan="2" style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', minWidth: '340px', padding: '6px', background: '#ffffff', verticalAlign: 'middle' }}>
                   NỘI DUNG
                 </th>
               </tr>
 
               {/* ROW 3: STK DATA */}
               <tr style={{ background: '#ffffff', borderBottom: '2px solid #374151' }}>
-                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#f9fafb' }}></th>
+                {/* Nhãn STK */}
+                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', fontWeight: 800, fontSize: '12px', background: '#f9fafb', padding: '4px 2px' }}>
+                  STK
+                </th>
 
+                {/* Dữ liệu STK của từng TTS */}
                 {internColumns.map((intern, i) => (
                   <th 
                     key={`bank-${i}`} 
@@ -589,18 +593,14 @@ export default function TtsSchedulePage() {
                       fontSize: '11px', 
                       color: '#374151', 
                       padding: '4px 2px',
-                      background: '#ffffff'
+                      background: '#ffffff',
+                      lineHeight: 1.3
                     }}
                   >
                     <div>{intern?.bank_account || ''}</div>
-                    {intern?.bank_name && <div style={{ fontSize: '10px', color: '#6b7280' }}>{intern.bank_name}</div>}
+                    {intern?.bank_account && <div style={{ fontSize: '10px', color: '#111827', fontWeight: 600 }}>{intern?.bank_name || 'MB'}</div>}
                   </th>
                 ))}
-
-                {/* 3 cột trực nhật trống ở hàng STK */}
-                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
-                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
-                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
               </tr>
             </thead>
 
