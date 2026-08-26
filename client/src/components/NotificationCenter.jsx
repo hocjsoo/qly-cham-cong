@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 // client/src/components/NotificationCenter.jsx
 // Facebook-Style Notification Center Engine — Floating Dropdown & Bottom Sheet
 
@@ -38,6 +39,7 @@ export default function NotificationCenter() {
   const [selectedNotifForDetail, setSelectedNotifForDetail] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const dropdownRef = useRef(null);
+  const popoverRef = useRef(null);
 
   // Admin Broadcast / Holiday Modal State
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
@@ -55,16 +57,6 @@ export default function NotificationCenter() {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 20000); // Polling 20s
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const fetchNotifications = async () => {
@@ -204,10 +196,11 @@ export default function NotificationCenter() {
       </button>
 
       {/* Facebook-Style Notification Popover & Bottom Sheet */}
-      {open && (
-        <div className="notification-drawer-container">
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="notification-popover-overlay" onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 999990, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-start", justifyContent: "flex-end", padding: "64px 16px 16px", boxSizing: "border-box" }}>
           {/* Facebook-Style Floating Box */}
           <div
+            ref={popoverRef}
             className="card fb-popover-card animate-slide-up"
             onClick={e => e.stopPropagation()}
             style={{
@@ -389,11 +382,12 @@ export default function NotificationCenter() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Admin Broadcast / Holiday Modal (Facebook Style Modal Sheet) */}
-      {showBroadcastModal && (
+      {showBroadcastModal && typeof document !== "undefined" && createPortal(
         <div className="modal-overlay">
           <div className="modal-sheet animate-slide-up" style={{ maxWidth: '440px', margin: '0 auto', borderRadius: '16px' }}>
             <div className="modal-sheet__handle" />
@@ -487,11 +481,12 @@ export default function NotificationCenter() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Notification Detail Modal Sheet — Redesigned Spacious & Premium */}
-      {selectedNotifForDetail && (
+      {selectedNotifForDetail && typeof document !== "undefined" && createPortal(
         <div className="modal-overlay" style={{ zIndex: 999999, padding: '16px' }} onClick={() => setSelectedNotifForDetail(null)}>
           <div
             className="modal-sheet animate-slide-up"
@@ -592,11 +587,12 @@ export default function NotificationCenter() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirmation Modal for Delete Notification */}
-      {confirmDeleteId && (
+      {confirmDeleteId && typeof document !== "undefined" && createPortal(
         <div className="modal-overlay" style={{ zIndex: 999999 }} onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}>
           <div className="modal-sheet animate-slide-up" style={{ maxWidth: '340px', margin: '0 auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -621,7 +617,8 @@ export default function NotificationCenter() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
