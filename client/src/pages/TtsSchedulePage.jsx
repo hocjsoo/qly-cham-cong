@@ -282,38 +282,26 @@ export default function TtsSchedulePage() {
         {loading ? <div className="tts-loading-skeleton" role="status" aria-label="Đang tải lịch tuần"><div className="tts-skeleton-heading" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /></div> : (
           <>
             <section className="tts-board-card">
-              <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng khả dụng tuần</h2><p>TTS bấm ô của mình để đăng ký; Admin có thể điều chỉnh toàn bảng</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Chưa đăng ký</span></div></div>
+              <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng khả dụng tuần</h2><p>Mỗi người một dòng · S là sáng, C là chiều</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Trống</span></div></div>
               {ttsUsers.length === 0 ? <div className="tts-empty"><UserRoundCheck size={28} /><strong>Chưa có tài khoản TTS đang hoạt động</strong><span>Admin có thể tạo tài khoản Employee và chọn loại nhân sự TTS.</span></div> : (
                 <div className="tts-table-wrap">
-                  <div className="tts-scroll-hint"><ChevronRight size={13} /> Vuốt ngang để xem thêm nhân sự</div>
+                  <div className="tts-scroll-hint"><ChevronRight size={13} /> Vuốt ngang để xem các ngày</div>
                   <div className="tts-table-scroll">
                   <table className="tts-grid-table">
-                    <thead><tr><th className="tts-sticky-cell">Ngày</th><th className="tts-session-head">Buổi</th>{ttsUsers.map(person => { const editable = canManage || (personId(person) === personId(user) && !locked); return <th key={personId(person)}><button className="tts-person-head" onClick={() => editable && openRegistration(person)} aria-label={`${editable ? 'Mở lịch' : 'Xem lịch'} của ${person.full_name}`}><Avatar person={person} /><span>{person.full_name}</span><small>{person.employee_code}</small></button></th>; })}<th className="tts-count-col">SL</th></tr></thead>
-                    <tbody>{days.flatMap((date, dayIndex) => ['morning', 'afternoon'].map((session, sessionIndex) => (
-                      <tr key={`${date}-${session}`} className={`${sessionIndex === 0 ? 'tts-day-start' : ''} ${dayIndex % 2 ? 'tts-day-alt' : ''}`}>
-                        {sessionIndex === 0 && <th rowSpan="2" className="tts-day-cell tts-sticky-cell"><strong>{DAY_NAMES[dayIndex]}</strong><small>{formatShortDate(date)}</small></th>}
-                        <th className="tts-session-cell"><span className={session === 'morning' ? 'is-morning' : 'is-afternoon'}>{session === 'morning' ? 'Sáng' : 'Chiều'}</span></th>
-                        {ttsUsers.map(person => {
+                    <thead><tr><th className="tts-sticky-cell tts-person-column">Thực tập sinh</th>{days.map((date, index) => <th className="tts-day-head" key={date}><strong>{DAY_NAMES[index]}</strong><small>{formatShortDate(date)}</small></th>)}<th className="tts-count-col">Tổng</th></tr></thead>
+                    <tbody>{ttsUsers.map((person, personIndex) => {
+                      const editable = canManage || (isTts && personId(person) === personId(user) && !locked);
+                      return <tr key={personId(person)} className={personIndex % 2 ? 'tts-person-alt' : ''}>
+                        <th className="tts-sticky-cell tts-person-cell"><button className="tts-person-head" onClick={() => editable && openRegistration(person)} aria-label={`${editable ? 'Mở lịch' : 'Xem lịch'} của ${person.full_name}`}><Avatar person={person} /><span><b>{person.full_name}</b><small>{person.employee_code}</small></span></button></th>
+                        {days.map((date, dayIndex) => <td className="tts-compact-day" key={date}><div className="tts-day-slots">{[['morning', 'S'], ['afternoon', 'C']].map(([session, label]) => {
                           const active = Boolean(slotFor(personId(person), date)?.[session]);
-                          const editable = canManage || (isTts && personId(person) === personId(user) && !locked);
                           const cellKey = `${personId(person)}-${date}-${session}`;
-                          return <td key={personId(person)} className={active ? 'is-available' : ''}>
-                            <button
-                              type="button"
-                              className={`tts-slot-button ${editable ? 'is-editable' : ''}`}
-                              onClick={() => toggleAvailabilityCell(person, date, session)}
-                              disabled={!editable || Boolean(savingCell)}
-                              title={editable ? `${active ? 'Bỏ' : 'Đăng ký'} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'} cho ${person.full_name}` : `${person.full_name}: ${active ? 'Có mặt' : 'Không đăng ký'}`}
-                              aria-label={`${person.full_name}, ${DAY_NAMES[dayIndex]} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'}: ${active ? 'đã đăng ký' : 'chưa đăng ký'}`}
-                            >
-                              {savingCell === cellKey ? <span className="spinner" /> : active ? <span className="tts-slot-state is-ready"><Check size={14} /><b>Có</b></span> : <span className="tts-slot-state is-empty"><i /><b>Trống</b></span>}
-                            </button>
-                          </td>;
-                        })}
-                        <td className="tts-count-col"><strong>{sessionCount(date, session)}</strong></td>
-                      </tr>
-                    )))}</tbody>
-                    <tfoot><tr><th className="tts-sticky-cell" colSpan="2">Tổng buổi</th>{ttsUsers.map(person => <td key={personId(person)}><strong>{totalSessions(personId(person))}</strong></td>)}<td className="tts-count-col">—</td></tr></tfoot>
+                          return <button type="button" key={session} className={`tts-mini-slot ${active ? 'is-ready' : 'is-empty'} ${editable ? 'is-editable' : ''}`} onClick={() => toggleAvailabilityCell(person, date, session)} disabled={!editable || Boolean(savingCell)} title={`${DAY_NAMES[dayIndex]} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'}: ${active ? 'Có mặt' : 'Chưa đăng ký'}`} aria-label={`${person.full_name}, ${DAY_NAMES[dayIndex]} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'}: ${active ? 'đã đăng ký' : 'chưa đăng ký'}`}>{savingCell === cellKey ? <span className="spinner" /> : <><span>{label}</span>{active && <Check size={12} />}</>}</button>;
+                        })}</div></td>)}
+                        <td className="tts-count-col"><strong>{totalSessions(personId(person))}</strong><small>buổi</small></td>
+                      </tr>;
+                    })}</tbody>
+                    <tfoot><tr><th className="tts-sticky-cell">Có mặt</th>{days.map(date => <td key={date}><div className="tts-count-summary"><span>S <b>{sessionCount(date, 'morning')}</b></span><span>C <b>{sessionCount(date, 'afternoon')}</b></span></div></td>)}<td className="tts-count-col">—</td></tr></tfoot>
                   </table>
                   </div>
                 </div>
