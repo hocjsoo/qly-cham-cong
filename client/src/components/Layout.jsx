@@ -132,7 +132,7 @@ export default function Layout() {
             style={{ position: 'relative' }}
           >
             <span className="bottom-nav__icon" style={{ position: 'relative' }}>
-              <t.icon size={20} strokeWidth={1.8} />
+              <t.icon size={22} strokeWidth={2} />
               {t.badge && (
                 <span className="nav-badge">{t.badge}</span>
               )}
