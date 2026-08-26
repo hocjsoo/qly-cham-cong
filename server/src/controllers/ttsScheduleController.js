@@ -87,10 +87,11 @@ const getWeeklySchedule = async (req, res) => {
     const [schedule, ttsCandidates, peopleCandidates] = await Promise.all([
       populateSchedule(TtsWeeklySchedule.findOne({ week_start: meta.week_start })),
       User.find(getActiveEmploymentFilter({ employee_type: 'TTS' }))
-        .select('full_name employee_code employee_type avatar_url position employment_status')
+        .select('full_name employee_code employee_type avatar_url position employment_status email phone role department_id join_date')
+        .populate('department_id', 'name')
         .sort({ employee_code: 1, full_name: 1 }),
       User.find(getActiveEmploymentFilter())
-        .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule employment_status')
+        .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule is_duty_exempt employment_status')
         .sort({ employee_code: 1, full_name: 1 }),
     ]);
     const ttsUsers = ttsCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));

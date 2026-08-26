@@ -60,6 +60,7 @@ export default function TtsSchedulePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [registrationEditor, setRegistrationEditor] = useState(null);
+  const [viewingPerson, setViewingPerson] = useState(null);
   const [dutyEditorOpen, setDutyEditorOpen] = useState(false);
   const [permissionEditorOpen, setPermissionEditorOpen] = useState(false);
   const [instructionEditorOpen, setInstructionEditorOpen] = useState(false);
@@ -68,6 +69,7 @@ export default function TtsSchedulePage() {
   const [draftDuties, setDraftDuties] = useState([]);
   const [activeDutyDate, setActiveDutyDate] = useState('');
   const [activeDutyField, setActiveDutyField] = useState('office_cleaning_user_ids');
+  const [showDutyExempt, setShowDutyExempt] = useState(false);
   const [draftInstructions, setDraftInstructions] = useState({ before_work: '', during_day: '', weekly: '' });
 
   const loadSchedule = useCallback(async () => {
@@ -187,6 +189,7 @@ export default function TtsSchedulePage() {
     }));
     setActiveDutyDate(days[0] || '');
     setActiveDutyField('office_cleaning_user_ids');
+    setShowDutyExempt(false);
     setDutyEditorOpen(true);
   };
 
@@ -254,6 +257,31 @@ export default function TtsSchedulePage() {
 
   const activeDuty = draftDuties.find(duty => duty.date === activeDutyDate);
 
+  const dutyAssignmentCounts = useMemo(() => {
+    const counts = new Map();
+    draftDuties.forEach(duty => {
+      [...(duty.office_cleaning_user_ids || []), ...(duty.restroom_cleaning_user_ids || [])].forEach(id => {
+        counts.set(String(id), (counts.get(String(id)) || 0) + 1);
+      });
+    });
+    return counts;
+  }, [draftDuties]);
+
+  const selectedDutyIds = new Set(activeDuty?.[activeDutyField] || []);
+  const visibleDutyPeople = people
+    .filter(person => showDutyExempt || !person.is_duty_exempt || selectedDutyIds.has(personId(person)))
+    .sort((a, b) => {
+      const aId = personId(a);
+      const bId = personId(b);
+      const selectedDiff = Number(selectedDutyIds.has(bId)) - Number(selectedDutyIds.has(aId));
+      if (selectedDiff) return selectedDiff;
+      const exemptDiff = Number(Boolean(a.is_duty_exempt)) - Number(Boolean(b.is_duty_exempt));
+      if (exemptDiff) return exemptDiff;
+      const countDiff = (dutyAssignmentCounts.get(aId) || 0) - (dutyAssignmentCounts.get(bId) || 0);
+      if (countDiff) return countDiff;
+      return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'vi');
+    });
+
   const myTtsPerson = ttsUsers.find(person => personId(person) === personId(user));
   return (
     <main className="page tts-page">
@@ -298,7 +326,7 @@ export default function TtsSchedulePage() {
                     <tbody>{ttsUsers.map((person, personIndex) => {
                       const editable = canManage || (isTts && personId(person) === personId(user) && !locked);
                       return <tr key={personId(person)} className={personIndex % 2 ? 'tts-person-alt' : ''}>
-                        <th className="tts-sticky-cell tts-person-cell"><button className="tts-person-head" onClick={() => editable && openRegistration(person)} aria-label={`${editable ? 'Mở lịch' : 'Xem lịch'} của ${person.full_name}`}><Avatar person={person} /><span><b>{person.full_name}</b><small>{person.employee_code}</small></span></button></th>
+                        <th className="tts-sticky-cell tts-person-cell"><button className="tts-person-head" onClick={() => setViewingPerson(person)} aria-label={`Xem hồ sơ của ${person.full_name}`}><Avatar person={person} /><span><b>{person.full_name}</b><small>{person.employee_code}</small></span></button></th>
                         {days.map((date, dayIndex) => <td className="tts-compact-day" key={date}><div className="tts-day-slots">{['morning', 'afternoon'].map((session) => {
                           const active = Boolean(slotFor(personId(person), date)?.[session]);
                           const cellKey = `${personId(person)}-${date}-${session}`;
@@ -316,7 +344,7 @@ export default function TtsSchedulePage() {
                   const editable = canManage || (isTts && personId(person) === personId(user) && !locked);
                   const note = String(registrations.get(personId(person))?.note || '').trim();
                   return <article className="tts-mobile-person" key={personId(person)}>
-                    <header><button type="button" className="tts-mobile-person__identity" onClick={() => openRegistration(person)} disabled={!editable}><Avatar person={person} size={40} /><span><strong>{person.full_name}</strong><small>{person.employee_code || 'TTS'}</small></span></button><div className="tts-mobile-person__total"><strong>{totalSessions(personId(person))}</strong><span>buổi</span></div></header>
+                    <header><button type="button" className="tts-mobile-person__identity" onClick={() => setViewingPerson(person)}><Avatar person={person} size={40} /><span><strong>{person.full_name}</strong><small>{person.employee_code || 'TTS'}</small></span></button><div className="tts-mobile-person__total"><strong>{totalSessions(personId(person))}</strong><span>buổi</span></div></header>
                     <div className="tts-mobile-days">{days.map((date, dayIndex) => <div className="tts-mobile-day" key={date}><div><strong>{DAY_NAMES[dayIndex]}</strong><span>{formatShortDate(date)}</span></div><div className="tts-mobile-day__slots">{[['morning', 'Sáng'], ['afternoon', 'Chiều']].map(([session, label]) => {
                       const active = Boolean(slotFor(personId(person), date)?.[session]);
                       const cellKey = `${personId(person)}-${date}-${session}`;
@@ -349,6 +377,30 @@ export default function TtsSchedulePage() {
         )}
       </div>
 
+      {viewingPerson && <Modal title="Hồ sơ nhân sự" subtitle="Thông tin thực tập sinh" onClose={() => setViewingPerson(null)}>
+        <section className="tts-profile-card">
+          <div className="tts-profile-card__hero">
+            <Avatar person={viewingPerson} size={72} />
+            <div>
+              <h3>{viewingPerson.full_name}</h3>
+              <span>{viewingPerson.employee_code || 'TTS'} · {viewingPerson.position || 'Thực tập sinh'}</span>
+            </div>
+          </div>
+          <dl className="tts-profile-card__details">
+            <div><dt>Loại nhân sự</dt><dd>{viewingPerson.employee_type || 'TTS'}</dd></div>
+            <div><dt>Vai trò</dt><dd>{viewingPerson.role === 'admin' ? 'Admin' : viewingPerson.role === 'leader' || viewingPerson.role === 'manager' ? 'Leader' : 'Nhân viên'}</dd></div>
+            <div><dt>Phòng ban</dt><dd>{viewingPerson.department_id?.name || 'Chưa phân phòng'}</dd></div>
+            <div><dt>Ngày vào</dt><dd>{viewingPerson.join_date ? formatShortDate(viewingPerson.join_date) : 'Chưa cập nhật'}</dd></div>
+            <div><dt>Email</dt><dd>{viewingPerson.email || 'Chưa cập nhật'}</dd></div>
+            <div><dt>Số điện thoại</dt><dd>{viewingPerson.phone || 'Chưa cập nhật'}</dd></div>
+          </dl>
+        </section>
+        <div className="tts-modal__actions">
+          <button className="btn btn--ghost" onClick={() => setViewingPerson(null)}>Đóng</button>
+          {(canManage || (isTts && personId(viewingPerson) === personId(user) && !locked)) && <button className="btn btn--primary" onClick={() => { const person = viewingPerson; setViewingPerson(null); openRegistration(person); }}><ClipboardCheck size={16} /> Xem / chỉnh lịch đăng ký</button>}
+        </div>
+      </Modal>}
+
       {registrationEditor && <Modal title={`Lịch của ${registrationEditor.person.full_name}`} subtitle={`Tuần ${formatShortDate(weekStart)} — ${formatShortDate(schedule?.week_end || weekStart)}`} onClose={() => setRegistrationEditor(null)}>
         <div className="tts-register-grid">{registrationEditor.slots.map((slot, index) => <div className="tts-register-day" key={slot.date}><div><strong>{DAY_NAMES[index]}</strong><span>{formatShortDate(slot.date)}</span></div>{['morning', 'afternoon'].map(session => <button key={session} className={slot[session] ? 'is-selected' : ''} onClick={() => setRegistrationEditor(current => ({ ...current, slots: current.slots.map(item => item.date === slot.date ? { ...item, [session]: !item[session] } : item) }))}><span>{slot[session] && <Check size={13} />}</span>{session === 'morning' ? 'Sáng' : 'Chiều'}</button>)}</div>)}</div>
         <label className="tts-field"><span>Ghi chú lịch học</span><textarea value={registrationEditor.note} onChange={event => setRegistrationEditor(current => ({ ...current, note: event.target.value }))} rows="3" placeholder="Ví dụ: Chiều Thứ 4 đến muộn 30 phút..." /></label>
@@ -368,11 +420,16 @@ export default function TtsSchedulePage() {
               })}
             </div>
             <div className="tts-assignee-panel">
-              <div className="tts-assignee-panel__heading"><strong>Chọn nhân sự</strong><span>Có thể chọn nhiều người</span></div>
-              <div className="tts-assignee-grid">{people.map(person => {
+              <div className="tts-assignee-panel__heading">
+                <div><strong>Chọn nhân sự</strong><span>Người chưa có lịch được xếp trước</span></div>
+                {people.some(person => person.is_duty_exempt) && <button type="button" className="tts-exempt-toggle" onClick={() => setShowDutyExempt(current => !current)}>{showDutyExempt ? 'Ẩn người miễn trực' : `Hiện người miễn trực (${people.filter(person => person.is_duty_exempt).length})`}</button>}
+              </div>
+              <div className="tts-assignee-grid">{visibleDutyPeople.map(person => {
                 const id = personId(person);
                 const selected = Boolean(activeDuty?.[activeDutyField]?.includes(id));
-                return <button type="button" className={selected ? 'is-selected' : ''} onClick={() => toggleDutyPerson(activeDutyDate, activeDutyField, id)} key={id}><Avatar person={person} size={28} /><span>{person.full_name}</span>{selected && <Check size={13} />}</button>;
+                const assignedCount = dutyAssignmentCounts.get(id) || 0;
+                const exempt = Boolean(person.is_duty_exempt);
+                return <button type="button" className={`${selected ? 'is-selected' : ''} ${assignedCount > 0 && !selected ? 'is-assigned' : ''} ${exempt ? 'is-exempt' : ''}`} onClick={() => toggleDutyPerson(activeDutyDate, activeDutyField, id)} disabled={exempt && !selected} title={exempt ? 'Nhân sự được miễn trực nhật' : assignedCount > 0 ? `Đã được phân ${assignedCount} hạng mục trong tuần` : 'Chưa được phân trong tuần'} key={id}><Avatar person={person} size={28} /><span>{person.full_name}</span>{selected ? <Check size={13} /> : assignedCount > 0 ? <small>Đã trực {assignedCount}</small> : null}{exempt && <small>Miễn trực</small>}</button>;
               })}</div>
             </div>
           </div>

@@ -89,6 +89,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean, // Miễn chấm công (Ban giám đốc, Cố vấn, QTV không bắt buộc điểm danh)
       default: false,
     },
+    is_duty_exempt: {
+      type: Boolean, // Không tham gia lịch dọn văn phòng / nhà vệ sinh
+      default: false,
+    },
     can_manage_tts_schedule: {
       type: Boolean,
       default: false,

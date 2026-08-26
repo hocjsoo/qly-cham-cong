@@ -100,6 +100,7 @@ export default function CheckInPage() {
   const [showQuickRequests, setShowQuickRequests] = useState(false);
   const [showMyProjects, setShowMyProjects] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
+  const [showWeeklyDutyDetails, setShowWeeklyDutyDetails] = useState(false);
 
   // Explanation suggestion modal
   const [showExplanationModal, setShowExplanationModal] = useState(false);
@@ -479,8 +480,8 @@ export default function CheckInPage() {
       <div className="container" style={{ paddingTop: '16px' }}>
         {/* Pinned Announcements */}
         {announcements.length > 0 && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '14px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Megaphone size={16} /> Thông báo & Sự kiện nổi bật ({announcements.length})
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -490,12 +491,12 @@ export default function CheckInPage() {
                   onClick={() => setSelectedAnnouncement(ann)}
                   style={{
                     fontSize: '12px', color: 'var(--text)', cursor: 'pointer',
-                    padding: '8px 10px', borderRadius: '8px', background: 'var(--bg-card)',
+                    padding: '7px 9px', borderRadius: '8px', background: 'var(--bg-card)',
                     border: '1px solid var(--border)', transition: 'all 0.15s'
                   }}
                   className="card--interactive"
                 >
-                  <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📌 {ann.title}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       {ann.expires_at && (
@@ -507,9 +508,6 @@ export default function CheckInPage() {
                         Xem chi tiết →
                       </span>
                     </div>
-                  </div>
-                  <div style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {ann.content}
                   </div>
                 </div>
               ))}
@@ -523,25 +521,23 @@ export default function CheckInPage() {
             className="card animate-fade-in"
             aria-label="Lịch trực nhật tuần này"
             style={{
-              marginBottom: '12px', padding: '12px 14px', borderLeft: '4px solid var(--yellow)',
+              marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--yellow)',
               background: 'color-mix(in srgb, var(--yellow) 7%, var(--bg-card))'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--text)', fontSize: '13px', fontWeight: 700 }}>
+            <button
+              type="button"
+              onClick={() => setShowWeeklyDutyDetails(current => !current)}
+              aria-expanded={showWeeklyDutyDetails}
+              style={{ width: '100%', minHeight: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: 0, color: 'var(--text)', textAlign: 'left', border: 0, background: 'transparent', cursor: 'pointer' }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
                 <Calendar size={16} color="var(--yellow)" /> Lịch trực tuần này
-              </div>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => navigate('/tts-schedule')}
-                style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}
-              >
-                Xem lịch <ChevronRight size={13} />
-              </button>
-            </div>
+              </span>
+              {showWeeklyDutyDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px' }}>
+            {showWeeklyDutyDetails && <><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px', marginTop: '10px' }}>
               <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
                 <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--primary)', fontSize: '11px' }}>🧹 Phân công của bạn</strong>
                 {myDutyAssignments.length > 0 ? (
@@ -580,7 +576,7 @@ export default function CheckInPage() {
                   <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chưa có người được phân công.</span>
                 )}
               </article>
-            </div>
+            </div><div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}><button type="button" className="btn btn--ghost" onClick={() => navigate('/tts-schedule')} style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}>Xem toàn bộ lịch <ChevronRight size={13} /></button></div></>}
           </section>
         )}
 

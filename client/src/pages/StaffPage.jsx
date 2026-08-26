@@ -84,8 +84,8 @@ export default function StaffPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
-    position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '', can_manage_tts_schedule: false,
-    parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '',
+    position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '', is_duty_exempt: false, can_manage_tts_schedule: false,
+    parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', bank_name: '', bank_account: '', branch: '',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -358,7 +358,7 @@ export default function StaffPage() {
     setForm({
       full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
       position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
-      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', is_attendance_exempt: false, can_manage_tts_schedule: false,
+      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', bank_name: '', bank_account: '', branch: '', is_attendance_exempt: false, is_duty_exempt: false, can_manage_tts_schedule: false,
     });
     setShowForm(true);
   };
@@ -387,7 +387,11 @@ export default function StaffPage() {
       avatar_url: user.avatar_url || '',
       parking_location: user.parking_location || 'Tòa 17T10 Nguyễn Thị Định',
       vehicle_info: user.vehicle_info || user.license_plate || '',
+      bank_name: user.bank_name || '',
+      bank_account: user.bank_account || '',
+      branch: user.branch || '',
       is_attendance_exempt: Boolean(user.is_attendance_exempt),
+      is_duty_exempt: Boolean(user.is_duty_exempt),
       can_manage_tts_schedule: Boolean(user.can_manage_tts_schedule),
     });
     setShowForm(true);
@@ -742,6 +746,7 @@ export default function StaffPage() {
                             🛡️ Miễn chấm công
                           </span>
                         )}
+                        {u.is_duty_exempt && <span className="badge badge--warning" style={{ fontSize: '10px' }}>🧹 Miễn trực</span>}
                         {u.employee_type && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>{u.employee_type}</span>}
                         {u.employment_status && u.employment_status !== 'Dang lam viec' && <span className={`badge ${empStatusColor}`} style={{ fontSize: '10px' }}>{u.employment_status}</span>}
                         {isInactive && <span className="badge badge--neutral" style={{ fontSize: '10px' }}>Đã khóa</span>}
@@ -969,7 +974,24 @@ export default function StaffPage() {
               </label>
             </div>
 
-            {/* Row 6: Avatar upload */}
+            {/* Cấu hình tham gia lịch trực nhật */}
+            {currentUser?.role === 'admin' && (
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: form.is_duty_exempt ? '1px solid var(--yellow)' : '1px solid var(--border)', borderRadius: '10px', background: form.is_duty_exempt ? 'var(--yellow-soft)' : 'var(--bg-raised)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.is_duty_exempt)}
+                    onChange={e => setForm(f => ({ ...f, is_duty_exempt: e.target.checked }))}
+                  />
+                  <span>
+                    <strong style={{ display: 'block', fontSize: '13px' }}>Miễn trực nhật</strong>
+                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Người này sẽ được ẩn mặc định khỏi danh sách phân công dọn văn phòng và nhà vệ sinh.</span>
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {/* Phân quyền lịch trực nhật */}
             {currentUser?.role === 'admin' && (
               <div className="form-group" style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: form.can_manage_tts_schedule ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: '10px', background: form.can_manage_tts_schedule ? 'var(--primary-soft)' : 'var(--bg-raised)', cursor: 'pointer' }}>
@@ -1073,6 +1095,56 @@ export default function StaffPage() {
                 })}
               </div>
             </div>
+
+            {/* Thông tin tài khoản ngân hàng — dữ liệu bảo mật, chỉ Admin quản lý */}
+            {currentUser?.role === 'admin' && (
+              <div style={{ background: 'var(--bg-raised)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px' }}>
+                <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>🏦 Thông tin tài khoản ngân hàng</span>
+                </div>
+                <div style={{ marginBottom: '10px', color: 'var(--text-muted)', fontSize: '10px' }}>Thông tin bảo mật, chỉ Admin được xem và chỉnh sửa. Chủ tài khoản theo họ tên nhân sự.</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Ngân hàng</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      list="staff-bank-options"
+                      value={form.bank_name || ''}
+                      onChange={e => setForm({ ...form, bank_name: e.target.value })}
+                      placeholder="VD: Vietcombank"
+                      autoComplete="off"
+                    />
+                    <datalist id="staff-bank-options">
+                      {['Vietcombank', 'BIDV', 'VietinBank', 'Agribank', 'Techcombank', 'MB Bank', 'ACB', 'VPBank', 'TPBank', 'Sacombank'].map(bank => <option value={bank} key={bank} />)}
+                    </datalist>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Số tài khoản</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="form-input"
+                      value={form.bank_account || ''}
+                      onChange={e => setForm({ ...form, bank_account: e.target.value.replace(/\s/g, '') })}
+                      placeholder="Nhập số tài khoản"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700 }}>Chi nhánh</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={form.branch || ''}
+                      onChange={e => setForm({ ...form, branch: e.target.value })}
+                      placeholder="VD: Hà Nội"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Row 8: Phương Tiện & Gửi Xe */}
             <div style={{ background: 'var(--bg-raised)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '18px' }}>
@@ -1643,6 +1715,17 @@ export default function StaffPage() {
                 <strong style={{ color: 'var(--text)' }}>{viewingStaffDetail.vehicle_info || viewingStaffDetail.license_plate || 'Chưa cập nhật'}</strong>
               </div>
             </div>
+
+            {isAdmin && (viewingStaffDetail.bank_name || viewingStaffDetail.bank_account || viewingStaffDetail.branch) && (
+              <div style={{ marginBottom: '18px', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--bg-raised)' }}>
+                <div style={{ marginBottom: '8px', color: 'var(--primary)', fontSize: '13px', fontWeight: 800 }}>🏦 Tài khoản ngân hàng</div>
+                <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Ngân hàng: </span><strong>{viewingStaffDetail.bank_name || 'Chưa cập nhật'}</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Số tài khoản: </span><strong style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{viewingStaffDetail.bank_account || 'Chưa cập nhật'}</strong></div>
+                  <div><span style={{ color: 'var(--text-muted)' }}>Chi nhánh: </span><strong>{viewingStaffDetail.branch || 'Chưa cập nhật'}</strong></div>
+                </div>
+              </div>
+            )}
 
             {/* Devices Section — CHỈ ADMIN MỚI XEM ĐƯỢC THIẾT BỊ (Chống chấm hộ & Thiết bị chính) */}
             {isAdmin && (
