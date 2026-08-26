@@ -1,8 +1,9 @@
 // client/src/pages/ProjectsPage.jsx
 // Quản Lý Dự Án / Công Trình — Khớp 100% Mẫu Bảng Excel THÔNG TIN NS+DA
 
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X, Phone, Mail, Calendar, MapPin, Bike } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X, Phone, Mail, Calendar, MapPin, Bike, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -44,6 +45,115 @@ const SELECT_STATUSES = [
   'Backlog',
   'Khác'
 ];
+
+function ImageLightbox({ image, onClose }) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef(null);
+
+  const changeZoom = (nextZoom) => {
+    const value = Math.min(4, Math.max(0.5, Number(nextZoom.toFixed(2))));
+    setZoom(value);
+    if (value === 1) setOffset({ x: 0, y: 0 });
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  useEffect(() => {
+    resetView();
+  }, [image?.url]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key === '+' || event.key === '=') changeZoom(zoom + 0.25);
+      if (event.key === '-') changeZoom(zoom - 0.25);
+      if (event.key === '0') resetView();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, zoom]);
+
+  if (!image) return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={image.title || 'Xem ảnh lớn'}
+      onClick={event => event.currentTarget === event.target && onClose()}
+      onWheel={event => {
+        event.preventDefault();
+        changeZoom(zoom + (event.deltaY < 0 ? 0.2 : -0.2));
+      }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000001, overflow: 'hidden',
+        display: 'grid', gridTemplateRows: 'auto 1fr auto', padding: '14px',
+        color: '#fff', background: 'rgba(2,6,23,.94)', backdropFilter: 'blur(6px)'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', zIndex: 2 }}>
+        <button type="button" onClick={() => changeZoom(zoom - 0.25)} aria-label="Thu nhỏ ảnh" title="Thu nhỏ" style={viewerButtonStyle}><ZoomOut size={19} /></button>
+        <span style={{ minWidth: '54px', alignSelf: 'center', textAlign: 'center', fontSize: '12px', fontWeight: 700 }}>{Math.round(zoom * 100)}%</span>
+        <button type="button" onClick={() => changeZoom(zoom + 0.25)} aria-label="Phóng to ảnh" title="Phóng to" style={viewerButtonStyle}><ZoomIn size={19} /></button>
+        <button type="button" onClick={resetView} aria-label="Đặt lại kích thước" title="Đặt lại" style={viewerButtonStyle}><RotateCcw size={18} /></button>
+        <button type="button" onClick={onClose} aria-label="Đóng ảnh" title="Đóng" style={viewerButtonStyle}><X size={21} /></button>
+      </div>
+
+      <div
+        style={{ minHeight: 0, display: 'grid', placeItems: 'center', overflow: 'hidden', touchAction: 'none' }}
+        onDoubleClick={() => zoom === 1 ? changeZoom(2) : resetView()}
+        onPointerDown={event => {
+          if (zoom <= 1) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragRef.current = { startX: event.clientX, startY: event.clientY, originX: offset.x, originY: offset.y };
+        }}
+        onPointerMove={event => {
+          if (!dragRef.current) return;
+          setOffset({
+            x: dragRef.current.originX + event.clientX - dragRef.current.startX,
+            y: dragRef.current.originY + event.clientY - dragRef.current.startY,
+          });
+        }}
+        onPointerUp={() => { dragRef.current = null; }}
+        onPointerCancel={() => { dragRef.current = null; }}
+      >
+        <img
+          src={image.url || '/logo.png'}
+          alt={image.title || 'Ảnh lớn'}
+          draggable="false"
+          onError={event => {
+            if (event.currentTarget.dataset.fallbackApplied) return;
+            event.currentTarget.dataset.fallbackApplied = 'true';
+            event.currentTarget.src = '/logo.png';
+          }}
+          style={{
+            maxWidth: '92vw', maxHeight: '78vh', objectFit: 'contain', userSelect: 'none',
+            borderRadius: '10px', boxShadow: '0 16px 60px rgba(0,0,0,.5)',
+            cursor: zoom > 1 ? 'grab' : 'zoom-in',
+            transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${zoom})`,
+            transition: dragRef.current ? 'none' : 'transform .16s ease-out'
+          }}
+        />
+      </div>
+
+      <div style={{ minHeight: '28px', paddingTop: '8px', textAlign: 'center' }}>
+        {image.title && <strong style={{ fontSize: '13px' }}>{image.title}</strong>}
+        <div style={{ marginTop: '3px', color: 'rgba(255,255,255,.62)', fontSize: '10px' }}>Cuộn hoặc dùng nút để thu phóng · Nhấp đúp để phóng nhanh · Kéo ảnh khi đã phóng</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+const viewerButtonStyle = {
+  width: '40px', height: '40px', display: 'grid', placeItems: 'center', padding: 0,
+  color: '#fff', border: '1px solid rgba(255,255,255,.25)', borderRadius: '10px',
+  background: 'rgba(30,41,59,.78)', cursor: 'pointer'
+};
 
 export default function ProjectsPage() {
   const { user } = useAuthStore();
@@ -2050,47 +2160,7 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Avatar Fullscreen Lightbox */}
-      {fullAvatarImage && (
-        <div
-          onClick={() => setFullAvatarImage(null)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={fullAvatarImage.title || 'Xem ảnh lớn'}
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-            zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
-          }}
-        >
-          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', display: 'grid', gap: '10px', justifyItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => setFullAvatarImage(null)}
-              aria-label="Đóng ảnh"
-              title="Đóng"
-              style={{
-                position: 'absolute', top: '10px', right: '10px', zIndex: 1,
-                width: '38px', height: '38px', display: 'grid', placeItems: 'center',
-                color: '#fff', border: '1px solid rgba(255,255,255,.35)', borderRadius: '50%',
-                background: 'rgba(15,23,42,.72)', backdropFilter: 'blur(8px)', cursor: 'pointer'
-              }}
-            >
-              <X size={20} />
-            </button>
-            <img
-              src={fullAvatarImage.url || '/logo.png'}
-              alt={fullAvatarImage.title || 'Ảnh lớn'}
-              onError={e => {
-                if (e.currentTarget.dataset.fallbackApplied) return;
-                e.currentTarget.dataset.fallbackApplied = 'true';
-                e.currentTarget.src = '/logo.png';
-              }}
-              style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
-            />
-            {fullAvatarImage.title && <strong style={{ maxWidth: '90vw', color: '#fff', fontSize: '13px', textAlign: 'center' }}>{fullAvatarImage.title}</strong>}
-          </div>
-        </div>
-      )}
+      <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
     </div>
   );
 }
