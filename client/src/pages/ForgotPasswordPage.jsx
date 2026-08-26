@@ -16,7 +16,27 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  
+  const handleRequestOtp = async () => {
+    if (!email) {
+      toast.error("Vui lòng nhập địa chỉ email trước");
+      return;
+    }
+    setSendingOtp(true);
+    try {
+      const { data } = await api.post("/auth/forgot-password", { email: email.trim() });
+      toast.success(data.message || "Đã gửi mã xác thực tới email của bạn!");
+      setOtpSent(true);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Không thể gửi mã. Vui lòng kiểm tra lại email.");
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,7 +114,7 @@ export default function ForgotPasswordPage() {
             Đặt lại mật khẩu
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5 }}>
-            Nhập email và <strong>Mã Reset 6 chữ số</strong> do Quản trị viên (Admin/Manager) cấp cho bạn.
+            Nhập email của bạn và bấm <strong>"Gửi mã OTP"</strong> để nhận mã xác thực qua Gmail hoặc lấy mã từ Quản trị viên.
           </p>
         </div>
 
@@ -108,14 +128,26 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit} className="card" style={{ padding: '20px' }}>
             <div className="form-group">
               <label className="form-label">Email tài khoản *</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="nguyen-van-a@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="nguyen-van-a@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={handleRequestOtp}
+                  disabled={sendingOtp || !email}
+                  className="btn btn--primary"
+                  style={{ fontSize: "12px", padding: "8px 14px", whiteSpace: "nowrap", flexShrink: 0 }}
+                >
+                  {sendingOtp ? <span className="spinner" /> : otpSent ? "Gửi lại mã" : "Gửi mã OTP"}
+                </button>
+              </div>
             </div>
 
             <div className="form-group">

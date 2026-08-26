@@ -1,3 +1,4 @@
+const { sendPasswordResetEmail } = require("../services/emailService");
 // controllers/authController.js — Production Auth: Login, Register, Forgot/Reset Password, First-time Setup
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
@@ -144,12 +145,17 @@ const forgotPassword = async (req, res) => {
     user.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000); // 30 phút
     await user.save();
 
-    // Trả mã cho Admin/Manager (không gửi email vì quy mô nhỏ)
+    // Gửi email thật qua Gmail SMTP nếu được cấu hình
+    const emailResult = await sendPasswordResetEmail(user.email, user.full_name, resetCode);
+
     res.json({
-      message: `Mã reset cho ${user.full_name}: ${resetCode} (hết hạn sau 30 phút)`,
+      message: emailResult.sent
+        ? ("Đã gửi mã xác thực khôi phục mật khẩu tới email " + user.email + ". Vui lòng kiểm tra hộp thư!")
+        : ("Mã reset cho " + user.full_name + ": " + resetCode + " (hết hạn sau 30 phút)"),
       reset_code: resetCode,
+      email_sent: emailResult.sent,
       user_name: user.full_name,
-      expires_in: '30 phút',
+      expires_in: "30 phút",
     });
 
   } catch (error) {
