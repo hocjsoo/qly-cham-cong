@@ -175,7 +175,53 @@ const getFullMatrix = async (req, res) => {
             early_count += 1;
             total_early_minutes += early_minutes;
           }
+        }
 
+        // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên
+        const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
+        const latestAudit = dayAudits[0];
+
+        // ƯU TIÊN 1: Nếu ngày này đã từng được Admin chỉnh sửa (lưu trong Lịch sử Audit Log), khôi phục 100% ký hiệu Admin đã duyệt
+        if (latestAudit?.new_symbol) {
+          const s = latestAudit.new_symbol;
+          if (s === '0,75x' || s === '0.75x') {
+            symbol = '0,75x';
+            nlv_office += 0.75;
+          } else if (s === '0,5x' || s === '0.5x') {
+            symbol = '0,5x';
+            nlv_office += 0.5;
+          } else if (s === 'x' || s === '1.0x') {
+            symbol = 'x';
+            nlv_office += 1;
+          } else if (s === 'CT1') {
+            symbol = 'CT1';
+            ct_domestic += 1;
+          } else if (s === 'CT2') {
+            symbol = 'CT2';
+            ct_foreign += 1;
+          } else if (s === 'WFH') {
+            symbol = 'WFH';
+            wfh += 1;
+          } else if (s === 'P') {
+            symbol = 'P';
+            annual_leave += 1;
+          } else if (s === 'O') {
+            symbol = 'O';
+            sick_leave += 1;
+          } else if (s === 'KL') {
+            symbol = 'KL';
+            unpaid_leave += 1;
+          } else if (s === 'K') {
+            symbol = 'K';
+            other_leave += 1;
+          } else if (s === 'L') {
+            symbol = 'L';
+          } else {
+            symbol = s;
+            nlv_office += 1;
+          }
+        } else if (att) {
+          // ƯU TIÊN 2: Dữ liệu điểm danh gốc từ máy chấm công / GPS
           const notes = (att.notes || '').toUpperCase();
           if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) {
             symbol = 'CT2';
@@ -223,9 +269,6 @@ const getFullMatrix = async (req, res) => {
           // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
           symbol = 'L';
         }
-
-        // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên
-        const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
 
         const formatTimeHHMM = (val) => {
           if (!val) return null;
