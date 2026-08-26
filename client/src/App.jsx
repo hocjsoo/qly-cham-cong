@@ -50,6 +50,7 @@ const VehiclesPage = lazyRetry(() => import('./pages/VehiclesPage'));
 const ExpensesPage = lazyRetry(() => import('./pages/ExpensesPage'));
 const LeaderboardPage = lazyRetry(() => import('./pages/LeaderboardPage'));
 const TtsSchedulePage = lazyRetry(() => import('./pages/TtsSchedulePage'));
+const EmailsPage = lazyRetry(() => import('./pages/EmailsPage'));
 
 // Fallback loader hiển thị nhẹ nhàng khi chuyển trang
 function PageLoader() {
