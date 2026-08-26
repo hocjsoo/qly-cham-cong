@@ -65,6 +65,7 @@ export default function ReportPage() {
   // Search & Filter state for Matrix View
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
+  const [attendanceFilter, setAttendanceFilter] = useState('');
 
   // Lock Confirm State
   const [lockConfirm, setLockConfirm] = useState(null); // { userId, currentLocked, actionText, targetText }
@@ -146,10 +147,14 @@ export default function ReportPage() {
       ].filter(Boolean);
 
       const matchDept = !deptFilter || staffDepts.includes(deptFilter) || r.department_name === deptFilter;
+      const matchAttendance = !attendanceFilter ||
+        (attendanceFilter === 'late' && Number(r.late_count || 0) > 0) ||
+        (attendanceFilter === 'early' && Number(r.early_count || 0) > 0) ||
+        (attendanceFilter === 'ot' && Number(r.total_ot_hours || 0) > 0);
 
-      return matchSearch && matchDept;
+      return matchSearch && matchDept && matchAttendance;
     });
-  }, [matrixData, searchQuery, deptFilter]);
+  }, [matrixData, searchQuery, deptFilter, attendanceFilter]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -394,8 +399,8 @@ export default function ReportPage() {
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">{isAdmin ? 'Báo cáo & Chốt công' : 'Bảng Chấm Công Tháng'}</div>
-            <div className="header__subtitle">Tháng {month}/{year} · ET Architects</div>
+            <div className="header__title">Bảng chấm công nhân sự</div>
+            <div className="header__subtitle">Theo dõi công, chuyên cần và OT toàn công ty · Tháng {month}/{year}</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {isAdmin && (
@@ -499,9 +504,22 @@ export default function ReportPage() {
                     </select>
                   )}
 
-                  {(searchQuery || deptFilter) && (
+                  <select
+                    className="form-input"
+                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '132px' }}
+                    value={attendanceFilter}
+                    onChange={e => setAttendanceFilter(e.target.value)}
+                    aria-label="Lọc chuyên cần"
+                  >
+                    <option value="">Tất cả chuyên cần</option>
+                    <option value="late">Có đi muộn</option>
+                    <option value="early">Có về sớm</option>
+                    <option value="ot">Có tăng ca OT</option>
+                  </select>
+
+                  {(searchQuery || deptFilter || attendanceFilter) && (
                     <button
-                      onClick={() => { setSearchQuery(''); setDeptFilter(''); }}
+                      onClick={() => { setSearchQuery(''); setDeptFilter(''); setAttendanceFilter(''); }}
                       className="btn btn--ghost"
                       style={{ padding: '4px 8px', fontSize: '11px' }}
                     >
@@ -531,6 +549,33 @@ export default function ReportPage() {
                 </div>
               </div>
             </div>
+
+            {matrixData?.staff_rows && (() => {
+              const totalOffice = displayedStaffRows.reduce((sum, row) => sum + Number(row.nlv_office || 0), 0);
+              const totalOt = displayedStaffRows.reduce((sum, row) => sum + Number(row.total_ot_hours || 0), 0);
+              const totalLate = displayedStaffRows.reduce((sum, row) => sum + Number(row.late_count || 0), 0);
+              const totalEarly = displayedStaffRows.reduce((sum, row) => sum + Number(row.early_count || 0), 0);
+              const sundayCount = (matrixData.header_days || []).filter(day => day.isSunday || day.weekday === 'CN').length;
+              const standardDays = matrixData.standard_working_days || ((matrixData.days_in_month || 31) - sundayCount);
+              const stats = [
+                { label: 'Nhân sự hiển thị', value: displayedStaffRows.length, unit: 'người', tone: 'blue' },
+                { label: 'Ngày công chuẩn', value: standardDays, unit: 'ngày', tone: 'slate' },
+                { label: 'Công văn phòng', value: totalOffice.toFixed(2), unit: 'công', tone: 'green' },
+                { label: 'Tăng ca', value: `${totalOt.toFixed(1)}h`, unit: 'OT', tone: 'purple' },
+                { label: 'Đi muộn', value: totalLate, unit: 'lượt', tone: 'amber' },
+                { label: 'Về sớm', value: totalEarly, unit: 'lượt', tone: 'red' },
+              ];
+              return (
+                <div className="timesheet-stats" aria-label="Tổng quan bảng chấm công">
+                  {stats.map(stat => (
+                    <div key={stat.label} className={`timesheet-stat timesheet-stat--${stat.tone}`}>
+                      <span className="timesheet-stat__label">{stat.label}</span>
+                      <div><strong>{stat.value}</strong><small>{stat.unit}</small></div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {/* Helper UI functions for Timesheet Matrix */}
             {(() => {
@@ -887,7 +932,7 @@ export default function ReportPage() {
 
                   {/* 📊 VIEW MODE: TABLE (Full 31-day Horizontal Spreadsheet) */}
                   {viewMode === 'table' && (
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg-card)' }}>
+                    <div className="timesheet-table-shell" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: '16px', background: 'var(--bg-card)' }}>
                       {/* Corporate Timesheet Banner */}
                       <div className="timesheet-banner-compact" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-raised)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
                         <div>
@@ -974,7 +1019,7 @@ export default function ReportPage() {
                                   padding: '3px 1px',
                                   background: isHol ? 'rgba(236, 72, 153, 0.18)' : isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
                                   color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text-muted)',
-                                  minWidth: '32px', width: '32px',
+                                  minWidth: '38px', width: '38px',
                                   fontSize: '10px', fontWeight: isHol || isSun ? 800 : 600,
                                   borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border-muted)'
                                 }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : isSun ? 'Chủ Nhật' : hd.weekday}>
@@ -998,7 +1043,7 @@ export default function ReportPage() {
                                   padding: '3px 1px',
                                   background: isHol ? 'rgba(236, 72, 153, 0.22)' : isSun ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-card)',
                                   color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text)',
-                                  minWidth: '32px', width: '32px',
+                                  minWidth: '38px', width: '38px',
                                   fontSize: '10px', fontWeight: isHol || isSun ? 800 : 700,
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
                                 }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : hd.dateStr}>
@@ -1087,7 +1132,7 @@ export default function ReportPage() {
                                     }}
                                     style={{
                                       padding: '4px 1px',
-                                      minWidth: '32px', width: '32px',
+                                      minWidth: '38px', width: '38px',
                                       cursor: !isSun ? 'pointer' : 'default',
                                       background: isHol ? 'rgba(236, 72, 153, 0.05)' : isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
@@ -1138,7 +1183,7 @@ export default function ReportPage() {
                               </td>
                             </>}
                             {showDayColumns && matrixData.header_days.map(hd => (
-                              <td key={hd.day} style={{ padding: '4px 1px', minWidth: '32px', width: '32px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>{hd.isSunday || hd.weekday === 'CN' ? '' : '—'}</td>
+                              <td key={hd.day} style={{ padding: '4px 1px', minWidth: '38px', width: '38px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>{hd.isSunday || hd.weekday === 'CN' ? '' : '—'}</td>
                             ))}
                             {isAdmin && <td />}
                           </tr>

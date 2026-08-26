@@ -1379,6 +1379,64 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 /* =============================================
    STICKY TABLE COLUMNS & PRINT PDF HELPER STYLES
    ============================================= */
+.timesheet-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.timesheet-stat {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.timesheet-stat__label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.timesheet-stat strong {
+  font-size: 21px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.timesheet-stat small {
+  margin-left: 5px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.timesheet-stat--blue { border-top: 3px solid #3b82f6; }
+.timesheet-stat--slate { border-top: 3px solid #64748b; }
+.timesheet-stat--green { border-top: 3px solid #10b981; }
+.timesheet-stat--purple { border-top: 3px solid #8b5cf6; }
+.timesheet-stat--amber { border-top: 3px solid #f59e0b; }
+.timesheet-stat--red { border-top: 3px solid #ef4444; }
+
+.timesheet-table-shell {
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.07);
+}
+
+.timesheet-table-shell tbody tr {
+  height: 46px;
+  transition: background-color 0.15s ease;
+}
+
+.timesheet-table-shell tbody tr:hover {
+  background: var(--bg-card-hover) !important;
+}
+
 .table-sticky-col-1 {
   position: sticky !important;
   left: 0 !important;
@@ -1417,6 +1475,19 @@ tr:hover .table-sticky-col-2 {
 }
 
 @media (max-width: 768px) {
+  .timesheet-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .timesheet-stat {
+    padding: 11px 12px;
+  }
+
+  .timesheet-stat strong {
+    font-size: 18px;
+  }
+
   .table-sticky-col-1 {
     min-width: 40px !important;
     max-width: 45px !important;
@@ -1433,6 +1504,12 @@ tr:hover .table-sticky-col-2 {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1180px) {
+  .timesheet-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1544,5 +1621,4 @@ tr:hover .table-sticky-col-2 {
     grid-template-columns: 1fr;
   }
 }
-
 

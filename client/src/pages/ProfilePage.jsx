@@ -2,7 +2,7 @@
 // Trang cá nhân — Xem thông tin, Quản lý ngày phép tồn, Đổi mật khẩu, Gửi yêu cầu đổi thông tin xe duyệt bởi Admin
 
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera, Bike, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera, Bike, AlertCircle, Clock, CheckCircle2, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -21,7 +21,7 @@ export default function ProfilePage() {
 
   const [showChangePass, setShowChangePass] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
-  const [showEditPhoneModal, setShowEditPhoneModal] = useState(false);
+  const [showEditBankModal, setShowEditBankModal] = useState(false);
   const [showVehicleRequestModal, setShowVehicleRequestModal] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
@@ -35,7 +35,11 @@ export default function ProfilePage() {
 
   // Employee Phone Update State
   const [employeePhone, setEmployeePhone] = useState(user?.phone || '');
-  const [updatingPhone, setUpdatingPhone] = useState(false);
+  // Self-service bank information (all roles edit only their own account)
+  const [bankName, setBankName] = useState(user?.bank_name || '');
+  const [bankAccount, setBankAccount] = useState(user?.bank_account || '');
+  const [bankBranch, setBankBranch] = useState(user?.branch || '');
+  const [updatingBank, setUpdatingBank] = useState(false);
 
   // Vehicle update request state (for Employee -> Admin approval)
   const [reqParkingLocation, setReqParkingLocation] = useState(user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
@@ -62,6 +66,9 @@ export default function ProfilePage() {
       setFullName(user.full_name || '');
       setPhone(user.phone || '');
       setEmployeePhone(user.phone || '');
+      setBankName(user.bank_name || '');
+      setBankAccount(user.bank_account || '');
+      setBankBranch(user.branch || '');
       setParkingLocation(user.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
       setVehicleInfo(user.vehicle_info || user.license_plate || '');
       setReqParkingLocation(user.parking_location || 'Tòa 17T10 Nguyễn Thị Định');
@@ -169,20 +176,40 @@ export default function ProfilePage() {
     } finally { setUpdatingInfo(false); }
   };
 
-  // Direct Update Phone (For Employee / Staff)
-  const handleUpdateEmployeePhone = async () => {
-    setUpdatingPhone(true);
+  const openBankEditor = () => {
+    setEmployeePhone(user?.phone || '');
+    setBankName(user?.bank_name || '');
+    setBankAccount(user?.bank_account || '');
+    setBankBranch(user?.branch || '');
+    setShowEditBankModal(true);
+  };
+
+  const handleUpdateBankInfo = async () => {
+    const normalizedAccount = bankAccount.replace(/\s+/g, '').trim();
+    if (normalizedAccount && !/^[0-9-]{4,30}$/.test(normalizedAccount)) {
+      toast.error('Số tài khoản chỉ gồm chữ số hoặc dấu gạch ngang');
+      return;
+    }
+    if (normalizedAccount && !bankName.trim()) {
+      toast.error('Vui lòng nhập tên ngân hàng');
+      return;
+    }
+
+    setUpdatingBank(true);
     try {
       const { data } = await api.patch('/auth/profile', {
-        phone: employeePhone.trim() || null
+        ...(isStaff ? { phone: employeePhone.trim() || null } : {}),
+        bank_name: bankName.trim() || null,
+        bank_account: normalizedAccount || null,
+        branch: bankBranch.trim() || null,
       });
-      toast.success(data.message || 'Đã cập nhật số điện thoại thành công! 📞');
+      toast.success(isStaff ? 'Đã cập nhật thông tin cá nhân' : 'Đã cập nhật thông tin ngân hàng');
       setUser(data.user);
-      setShowEditPhoneModal(false);
+      setShowEditBankModal(false);
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi cập nhật số điện thoại');
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật thông tin ngân hàng');
     } finally {
-      setUpdatingPhone(false);
+      setUpdatingBank(false);
     }
   };
 
@@ -386,10 +413,7 @@ export default function ProfilePage() {
           {isStaff && (
             <>
               <button
-                onClick={() => {
-                  setEmployeePhone(user?.phone || '');
-                  setShowEditPhoneModal(true);
-                }}
+                onClick={openBankEditor}
                 className="card animate-fade-in"
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
@@ -398,10 +422,10 @@ export default function ProfilePage() {
                   border: '1px solid var(--border)', background: 'var(--bg-card)'
                 }}
               >
-                <Phone size={18} color="var(--primary)" />
+                <User size={18} color="var(--primary)" />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>Cập nhật số điện thoại</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Đổi SĐT liên hệ công việc & khẩn cấp</div>
+                  <div style={{ fontWeight: 600 }}>Cập nhật thông tin cá nhân</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Số điện thoại và thông tin tài khoản ngân hàng</div>
                 </div>
                 <ChevronRight size={16} color="var(--text-muted)" />
               </button>
@@ -435,6 +459,26 @@ export default function ProfilePage() {
             </>
           )}
 
+          {!isStaff && (
+            <button
+              onClick={openBankEditor}
+              className="card animate-fade-in"
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                cursor: 'pointer', width: '100%', textAlign: 'left',
+                fontFamily: 'inherit', fontSize: '14px', color: 'var(--text)',
+                border: '1px solid var(--border)', background: 'var(--bg-card)'
+              }}
+            >
+              <CreditCard size={18} color="var(--primary)" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>Cập nhật thông tin ngân hàng</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Tên ngân hàng, số tài khoản và chi nhánh nhận thanh toán</div>
+              </div>
+              <ChevronRight size={16} color="var(--text-muted)" />
+            </button>
+          )}
+
           <button
             onClick={() => setShowChangePass(!showChangePass)}
             className="card animate-fade-in"
@@ -465,47 +509,86 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Staff Phone Update Modal */}
-      {showEditPhoneModal && (
-        <div className="modal-overlay" onClick={() => setShowEditPhoneModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+      {/* Self-service Bank Information Modal */}
+      {showEditBankModal && (
+        <div className="modal-overlay" onClick={() => setShowEditBankModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-sheet__handle" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                  📞 Cập Nhật Số Điện Thoại
+                  {isStaff ? '👤 Cập nhật thông tin cá nhân' : '💳 Thông tin ngân hàng'}
                 </h3>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Thông tin liên hệ công việc và xử lý khẩn cấp
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  Bạn chỉ đang cập nhật thông tin của chính mình
                 </div>
               </div>
-              <button onClick={() => setShowEditPhoneModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}>
+              <button onClick={() => setShowEditBankModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }} aria-label="Đóng">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Số điện thoại liên hệ</label>
-              <input
-                type="tel"
-                className="form-input"
-                value={employeePhone}
-                onChange={e => setEmployeePhone(e.target.value)}
-                placeholder="VD: 0912345678"
-                autoFocus
-              />
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                💡 Số điện thoại sẽ được cập nhật ngay lập tức vào danh bạ nội bộ công ty.
+            {isStaff && (
+              <div className="form-group">
+                <label className="form-label">Số điện thoại liên hệ</label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  className="form-input"
+                  value={employeePhone}
+                  onChange={e => setEmployeePhone(e.target.value)}
+                  placeholder="VD: 0912345678"
+                  maxLength={20}
+                  autoFocus
+                />
               </div>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">Tên ngân hàng</label>
+              <input
+                type="text"
+                className="form-input"
+                value={bankName}
+                onChange={e => setBankName(e.target.value)}
+                placeholder="VD: MB Bank, Vietcombank..."
+                maxLength={100}
+                autoFocus={!isStaff}
+              />
             </div>
 
-            <button
-              onClick={handleUpdateEmployeePhone}
-              disabled={updatingPhone}
-              className="btn btn--primary btn--full btn--lg"
-              style={{ marginTop: '8px' }}
-            >
-              {updatingPhone ? <span className="spinner" /> : 'Lưu Số Điện Thoại'}
+            <div className="form-group">
+              <label className="form-label">Số tài khoản</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="form-input"
+                value={bankAccount}
+                onChange={e => setBankAccount(e.target.value)}
+                placeholder="Nhập số tài khoản ngân hàng"
+                maxLength={30}
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Chi nhánh <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>(không bắt buộc)</span></label>
+              <input
+                type="text"
+                className="form-input"
+                value={bankBranch}
+                onChange={e => setBankBranch(e.target.value)}
+                placeholder="VD: Chi nhánh Thanh Xuân"
+                maxLength={120}
+              />
+            </div>
+
+            <div style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-raised)', color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.5 }}>
+              🔒 Thông tin ngân hàng chỉ hiển thị trong hồ sơ của bạn và khu vực quản trị được phân quyền.
+            </div>
+
+            <button onClick={handleUpdateBankInfo} disabled={updatingBank} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '14px' }}>
+              {updatingBank ? <span className="spinner" /> : (isStaff ? 'Lưu thông tin cá nhân' : 'Lưu thông tin ngân hàng')}
             </button>
           </div>
         </div>

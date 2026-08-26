@@ -251,12 +251,32 @@ const changePassword = async (req, res) => {
   }
 };
 
-// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân (họ tên, sđt, avatar)
+// PATCH /api/auth/profile — User tự cập nhật thông tin cá nhân (họ tên, sđt, avatar, ngân hàng)
 // Lưu ý: Thông tin gửi xe (parking_location, vehicle_info) chỉ Admin mới có quyền cập nhật trực tiếp.
 const updateProfile = async (req, res) => {
-  const { full_name, phone, avatar_url, parking_location, vehicle_info } = req.body;
-  if (full_name !== undefined && !full_name.trim()) {
+  const { full_name, phone, avatar_url, parking_location, vehicle_info, bank_name, bank_account, branch } = req.body;
+  if (full_name !== undefined && (typeof full_name !== 'string' || !full_name.trim())) {
     return res.status(400).json({ error: 'Họ tên không được để trống.' });
+  }
+
+  const bankFields = { bank_name, bank_account, branch };
+  for (const [field, value] of Object.entries(bankFields)) {
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      return res.status(400).json({ error: `Trường ${field} không hợp lệ.` });
+    }
+  }
+  const normalizedBankAccount = typeof bank_account === 'string' ? bank_account.replace(/\s+/g, '').trim() : bank_account;
+  if (normalizedBankAccount && !/^[0-9-]{4,30}$/.test(normalizedBankAccount)) {
+    return res.status(400).json({ error: 'Số tài khoản chỉ gồm chữ số hoặc dấu gạch ngang.' });
+  }
+  if (normalizedBankAccount && !(typeof bank_name === 'string' ? bank_name.trim() : bank_name)) {
+    return res.status(400).json({ error: 'Vui lòng nhập tên ngân hàng.' });
+  }
+  if (typeof bank_name === 'string' && bank_name.trim().length > 100) {
+    return res.status(400).json({ error: 'Tên ngân hàng không được vượt quá 100 ký tự.' });
+  }
+  if (typeof branch === 'string' && branch.trim().length > 120) {
+    return res.status(400).json({ error: 'Chi nhánh không được vượt quá 120 ký tự.' });
   }
 
   try {
@@ -264,6 +284,9 @@ const updateProfile = async (req, res) => {
     if (full_name !== undefined) updateData.full_name = full_name.trim();
     if (phone !== undefined) updateData.phone = phone ? phone.trim() : null;
     if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+    if (bank_name !== undefined) updateData.bank_name = bank_name ? bank_name.trim() : null;
+    if (bank_account !== undefined) updateData.bank_account = normalizedBankAccount || null;
+    if (branch !== undefined) updateData.branch = branch ? branch.trim() : null;
     
     // Chỉ Quản trị viên (Admin) mới có quyền cập nhật trực tiếp nơi gửi xe và biển số xe
     if (req.user.role === 'admin') {

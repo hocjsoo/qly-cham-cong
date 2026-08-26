@@ -346,6 +346,18 @@ async function runControllerIntegrationTests(assert) {
     assert(lastUpdatedData.full_name === 'Trưởng Phòng IT Mới' && lastUpdatedData.phone === '0988112233',
       'TC-HTTP-05.2: Họ tên và SĐT mới được lưu chính xác vào DB');
 
+    // Case 2.1b: Employee tự cập nhật thông tin ngân hàng của chính mình
+    lastUpdatedData = null;
+    const resProfBank = await request(app)
+      .patch('/api/auth/profile')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ bank_name: 'MB Bank', bank_account: ' 0123456789 ', branch: 'Thanh Xuân' });
+    assert(resProfBank.status === 200, 'TC-HTTP-05.3: Employee tự cập nhật thông tin ngân hàng trả về 200 OK');
+    assert(lastUpdatedData.bank_name === 'MB Bank' && lastUpdatedData.bank_account === '0123456789' && lastUpdatedData.branch === 'Thanh Xuân',
+      'TC-HTTP-05.4: Backend chuẩn hóa và lưu đúng thông tin ngân hàng vào chính tài khoản đang đăng nhập');
+    assert(resProfBank.body.user.bank_account === '0123456789',
+      'TC-HTTP-05.5: Response hồ sơ cá nhân trả lại số tài khoản mới để giao diện đồng bộ ngay');
+
     // Case 2.2: Non-admin gửi kèm trường xe -> Server lưu profile an toàn và trả thông báo rõ ràng
     lastUpdatedData = null;
     const resProfHack = await request(app)
