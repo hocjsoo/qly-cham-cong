@@ -1989,7 +1989,10 @@ export default function ProjectsPage() {
                 <img
                   src={viewingStaffDetail.avatar_url || '/logo.png'}
                   alt=""
-                  onClick={() => setFullAvatarImage(viewingStaffDetail.avatar_url || '/logo.png')}
+                  onClick={() => setFullAvatarImage({
+                    url: viewingStaffDetail.avatar_url || '/logo.png',
+                    title: viewingStaffDetail.full_name || 'Ảnh đại diện',
+                  })}
                   style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'pointer' }}
                   title="Click để phóng to ảnh đại diện"
                   onError={e => { e.target.src = '/logo.png'; }}
@@ -2051,16 +2054,41 @@ export default function ProjectsPage() {
       {fullAvatarImage && (
         <div
           onClick={() => setFullAvatarImage(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={fullAvatarImage.title || 'Xem ảnh lớn'}
           style={{
             position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
             zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
           }}
         >
-          <img
-            src={fullAvatarImage}
-            alt="Avatar lớn"
-            style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
-          />
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', display: 'grid', gap: '10px', justifyItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setFullAvatarImage(null)}
+              aria-label="Đóng ảnh"
+              title="Đóng"
+              style={{
+                position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+                width: '38px', height: '38px', display: 'grid', placeItems: 'center',
+                color: '#fff', border: '1px solid rgba(255,255,255,.35)', borderRadius: '50%',
+                background: 'rgba(15,23,42,.72)', backdropFilter: 'blur(8px)', cursor: 'pointer'
+              }}
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={fullAvatarImage.url || '/logo.png'}
+              alt={fullAvatarImage.title || 'Ảnh lớn'}
+              onError={e => {
+                if (e.currentTarget.dataset.fallbackApplied) return;
+                e.currentTarget.dataset.fallbackApplied = 'true';
+                e.currentTarget.src = '/logo.png';
+              }}
+              style={{ maxWidth: '90vw', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+            />
+            {fullAvatarImage.title && <strong style={{ maxWidth: '90vw', color: '#fff', fontSize: '13px', textAlign: 'center' }}>{fullAvatarImage.title}</strong>}
+          </div>
         </div>
       )}
     </div>
