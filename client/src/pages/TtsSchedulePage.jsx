@@ -29,10 +29,11 @@ const personId = person => String(person?._id || person?.id || person || '');
 function Avatar({ person, size = 34 }) {
   const initials = person?.full_name?.split(' ').map(word => word[0]).slice(-2).join('').toUpperCase() || '?';
   const [imageFailed, setImageFailed] = useState(false);
-  useEffect(() => setImageFailed(false), [person?.avatar_url]);
-  const hasPersonalAvatar = person?.avatar_url && person.avatar_url !== '/logo.png';
-  return hasPersonalAvatar && !imageFailed ? (
-    <img className="tts-avatar" src={person.avatar_url} alt={`Ảnh của ${person.full_name || 'nhân sự'}`} style={{ width: size, height: size }} onError={() => setImageFailed(true)} />
+  const [logoFailed, setLogoFailed] = useState(false);
+  useEffect(() => { setImageFailed(false); setLogoFailed(false); }, [person?.avatar_url]);
+  const avatarSrc = person?.avatar_url && !imageFailed ? person.avatar_url : '/logo.png';
+  return !logoFailed ? (
+    <img className={`tts-avatar ${avatarSrc === '/logo.png' ? 'tts-avatar--logo' : ''}`} src={avatarSrc} alt={`Ảnh của ${person?.full_name || 'nhân sự'}`} style={{ width: size, height: size }} onError={() => avatarSrc === '/logo.png' ? setLogoFailed(true) : setImageFailed(true)} />
   ) : <span className="tts-avatar tts-avatar--fallback" title={person?.full_name || ''} style={{ width: size, height: size }}>{initials}</span>;
 }
 
@@ -259,29 +260,37 @@ export default function TtsSchedulePage() {
 
       <div className="container tts-container">
         <section className="tts-toolbar" aria-label="Điều khiển tuần">
-          <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, -1))} aria-label="Tuần trước"><ChevronLeft /></button>
-          <div className="tts-week-title"><CalendarDays size={18} /><div><strong>{formatShortDate(weekStart)} — {formatShortDate(schedule?.week_end || toDateString(addDays(parseLocalDate(weekStart), 5)))}</strong><span>Thứ 2 đến Thứ 7</span></div></div>
-          <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, 1))} aria-label="Tuần sau"><ChevronRight /></button>
-          <button className="btn btn--ghost" onClick={() => setWeekStart(currentMonday())}>Tuần này</button>
-          <button className="btn btn--ghost" onClick={() => setWeekStart(shiftWeek(currentMonday(), 1))}>Tuần tới</button>
+          <div className="tts-toolbar__week-nav">
+            <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, -1))} aria-label="Tuần trước"><ChevronLeft /></button>
+            <div className="tts-week-title"><CalendarDays size={18} /><div><strong>{formatShortDate(weekStart)} — {formatShortDate(schedule?.week_end || toDateString(addDays(parseLocalDate(weekStart), 5)))}</strong><span>Thứ 2 đến Thứ 7</span></div></div>
+            <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, 1))} aria-label="Tuần sau"><ChevronRight /></button>
+          </div>
+          <div className="tts-toolbar__shortcuts">
+            <button className="btn btn--ghost" onClick={() => setWeekStart(currentMonday())}>Tuần này</button>
+            <button className="btn btn--ghost" onClick={() => setWeekStart(shiftWeek(currentMonday(), 1))}>Tuần tới</button>
+          </div>
           <span className={`tts-lock-state ${locked ? 'is-locked' : 'is-open'}`}>{locked ? <Lock size={13} /> : <LockOpen size={13} />}{locked ? 'Đã khóa' : 'Đang mở'}</span>
           <div className="tts-toolbar__spacer" />
-          {isTts && myTtsPerson && (!locked || canManage) && <button className="btn btn--primary" onClick={() => openRegistration(myTtsPerson)}><ClipboardCheck size={16} /> Đăng ký lịch của tôi</button>}
-          {canManageDuties && <button className="btn btn--ghost" onClick={openDuties}><SprayCan size={16} /> Phân công</button>}
-          {isAdmin && <button className="btn btn--ghost" onClick={() => setPermissionEditorOpen(true)}><ShieldCheck size={16} /> Phân quyền</button>}
-          {canManage && <button className="btn btn--ghost" onClick={toggleScheduleLock}>{schedule?.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}{schedule?.status === 'locked' ? 'Mở lịch' : 'Khóa lịch'}</button>}
+          <div className="tts-toolbar__actions">
+            {isTts && myTtsPerson && (!locked || canManage) && <button className="btn btn--primary" onClick={() => openRegistration(myTtsPerson)}><ClipboardCheck size={16} /> Đăng ký lịch của tôi</button>}
+            {canManageDuties && <button className="btn btn--ghost" onClick={openDuties}><SprayCan size={16} /> Phân công</button>}
+            {isAdmin && <button className="btn btn--ghost" onClick={() => setPermissionEditorOpen(true)}><ShieldCheck size={16} /> Phân quyền</button>}
+            {canManage && <button className="btn btn--ghost" onClick={toggleScheduleLock}>{schedule?.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}{schedule?.status === 'locked' ? 'Mở lịch' : 'Khóa lịch'}</button>}
+          </div>
         </section>
 
-        {loading ? <div className="tts-loading"><span className="spinner" /> Đang sắp lịch tuần...</div> : (
+        {loading ? <div className="tts-loading-skeleton" role="status" aria-label="Đang tải lịch tuần"><div className="tts-skeleton-heading" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /></div> : (
           <>
             <section className="tts-board-card">
-              <div className="tts-section-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng khả dụng tuần</h2><p>Chạm vào tên để xem hoặc điều chỉnh lịch</p></div></div><span className="tts-live-dot">Cập nhật trực tiếp</span></div>
+              <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng khả dụng tuần</h2><p>TTS bấm ô của mình để đăng ký; Admin có thể điều chỉnh toàn bảng</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Chưa đăng ký</span></div></div>
               {ttsUsers.length === 0 ? <div className="tts-empty"><UserRoundCheck size={28} /><strong>Chưa có tài khoản TTS đang hoạt động</strong><span>Admin có thể tạo tài khoản Employee và chọn loại nhân sự TTS.</span></div> : (
-                <div className="tts-table-scroll">
+                <div className="tts-table-wrap">
+                  <div className="tts-scroll-hint"><ChevronRight size={13} /> Vuốt ngang để xem thêm nhân sự</div>
+                  <div className="tts-table-scroll">
                   <table className="tts-grid-table">
-                    <thead><tr><th className="tts-sticky-cell">Ngày</th><th>Buổi</th>{ttsUsers.map(person => { const editable = canManage || (personId(person) === personId(user) && !locked); return <th key={personId(person)}><button className="tts-person-head" onClick={() => editable && openRegistration(person)} aria-label={`${editable ? 'Mở lịch' : 'Xem lịch'} của ${person.full_name}`}><Avatar person={person} /><span>{person.full_name}</span><small>{person.employee_code}</small></button></th>; })}<th className="tts-count-col">SL</th></tr></thead>
+                    <thead><tr><th className="tts-sticky-cell">Ngày</th><th className="tts-session-head">Buổi</th>{ttsUsers.map(person => { const editable = canManage || (personId(person) === personId(user) && !locked); return <th key={personId(person)}><button className="tts-person-head" onClick={() => editable && openRegistration(person)} aria-label={`${editable ? 'Mở lịch' : 'Xem lịch'} của ${person.full_name}`}><Avatar person={person} /><span>{person.full_name}</span><small>{person.employee_code}</small></button></th>; })}<th className="tts-count-col">SL</th></tr></thead>
                     <tbody>{days.flatMap((date, dayIndex) => ['morning', 'afternoon'].map((session, sessionIndex) => (
-                      <tr key={`${date}-${session}`}>
+                      <tr key={`${date}-${session}`} className={`${sessionIndex === 0 ? 'tts-day-start' : ''} ${dayIndex % 2 ? 'tts-day-alt' : ''}`}>
                         {sessionIndex === 0 && <th rowSpan="2" className="tts-day-cell tts-sticky-cell"><strong>{DAY_NAMES[dayIndex]}</strong><small>{formatShortDate(date)}</small></th>}
                         <th className="tts-session-cell"><span className={session === 'morning' ? 'is-morning' : 'is-afternoon'}>{session === 'morning' ? 'Sáng' : 'Chiều'}</span></th>
                         {ttsUsers.map(person => {
@@ -297,7 +306,7 @@ export default function TtsSchedulePage() {
                               title={editable ? `${active ? 'Bỏ' : 'Đăng ký'} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'} cho ${person.full_name}` : `${person.full_name}: ${active ? 'Có mặt' : 'Không đăng ký'}`}
                               aria-label={`${person.full_name}, ${DAY_NAMES[dayIndex]} ${session === 'morning' ? 'buổi sáng' : 'buổi chiều'}: ${active ? 'đã đăng ký' : 'chưa đăng ký'}`}
                             >
-                              {savingCell === cellKey ? <span className="spinner" /> : active ? <span className="tts-check"><Check size={15} /></span> : <span className="tts-dash">—</span>}
+                              {savingCell === cellKey ? <span className="spinner" /> : active ? <span className="tts-slot-state is-ready"><Check size={14} /><b>Có</b></span> : <span className="tts-slot-state is-empty"><i /><b>Trống</b></span>}
                             </button>
                           </td>;
                         })}
@@ -306,6 +315,7 @@ export default function TtsSchedulePage() {
                     )))}</tbody>
                     <tfoot><tr><th className="tts-sticky-cell" colSpan="2">Tổng buổi</th>{ttsUsers.map(person => <td key={personId(person)}><strong>{totalSessions(personId(person))}</strong></td>)}<td className="tts-count-col">—</td></tr></tfoot>
                   </table>
+                  </div>
                 </div>
               )}
             </section>
