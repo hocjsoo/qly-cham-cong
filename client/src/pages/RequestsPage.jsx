@@ -525,7 +525,7 @@ export default function RequestsPage() {
                   type="text"
                   className="form-input"
                   style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-                  placeholder="🔍 Tìm theo tên, mã NV, lý do cảnh báo..."
+                  placeholder="Tìm theo tên, mã NV, lý do cảnh báo..."
                   value={flaggedSearch}
                   onChange={e => setFlaggedSearch(e.target.value)}
                 />
@@ -790,7 +790,7 @@ export default function RequestsPage() {
                   type="text"
                   className="form-input"
                   style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-                  placeholder="🔍 Tìm theo Tên, Mã NS, Lý do, Dự án..."
+                  placeholder="Tìm theo Tên, Mã NS, Lý do, Dự án..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />

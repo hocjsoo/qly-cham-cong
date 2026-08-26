@@ -612,7 +612,7 @@ export default function StaffPage() {
               type="text"
               className="form-input"
               style={{ paddingLeft: '30px', padding: '8px 10px 8px 30px', fontSize: '13px' }}
-              placeholder="🔍 Tìm kiếm theo Tên, Mã NS, Email, SĐT, Biển số xe, Nơi gửi..."
+              placeholder="Tìm kiếm theo Tên, Mã NS, Email, SĐT, Biển số xe, Nơi gửi..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />

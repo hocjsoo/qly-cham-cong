@@ -265,7 +265,7 @@ export default function VehiclesPage() {
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '32px', fontSize: '13px' }}
-                placeholder="🔍 Gõ Biển số xe (29G1...), Loại xe (Lead, SH...), Tên nhân viên..."
+                placeholder="Gõ Biển số xe (29G1...), Loại xe (Lead, SH...), Tên nhân viên..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

@@ -659,7 +659,7 @@ export default function ProjectsPage() {
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '32px', fontSize: '13px', padding: '7px 10px 7px 32px' }}
-                placeholder="🔍 Tìm theo Mã, Tên dự án, PM, Địa chỉ, Thành viên..."
+                placeholder="Tìm theo Mã, Tên dự án, PM, Địa chỉ, Thành viên..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
@@ -1515,7 +1515,7 @@ export default function ProjectsPage() {
                         type="text"
                         className="form-input"
                         style={{ paddingLeft: '32px', fontSize: '12px' }}
-                        placeholder="🔍 Tìm theo tên hoặc chức danh PM..."
+                        placeholder="Tìm theo tên hoặc chức danh PM..."
                         value={pmSearchQuery}
                         onChange={e => {
                           setPmSearchQuery(e.target.value);
@@ -1749,7 +1749,7 @@ export default function ProjectsPage() {
                   type="text"
                   className="form-input"
                   style={{ paddingLeft: '32px', padding: '7px 10px 7px 32px', fontSize: '12.5px', width: '100%' }}
-                  placeholder="🔍 Tìm nhanh theo tên, chức danh hoặc mã nhân viên..."
+                  placeholder="Tìm nhanh theo tên, chức danh hoặc mã nhân viên..."
                   value={memberSearchQuery}
                   onChange={e => setMemberSearchQuery(e.target.value)}
                 />

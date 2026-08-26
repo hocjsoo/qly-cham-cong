@@ -264,7 +264,7 @@ export default function LeaderboardPage() {
                 type="text"
                 className="form-input"
                 style={{ paddingLeft: '32px', fontSize: '12.5px', height: '34px' }}
-                placeholder="🔍 Tìm nhân sự, phòng ban..."
+                placeholder="Tìm nhân sự, phòng ban..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
