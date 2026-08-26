@@ -26,9 +26,9 @@ const getProjects = async (req, res) => {
       ];
     }
 
-    // Nhân sự thường chỉ xem được các dự án mình tham gia hoặc phụ trách làm PM
-    const isStaff = req.user && (req.user.role === 'staff' || req.user.role === 'employee');
-    if (isStaff || my_only === 'true') {
+    // Chỉ Admin mới xem được toàn bộ dự án công ty; Tất cả Nhân sự (Leader, Employee, Staff...) chỉ xem dự án mình tham gia hoặc phụ trách
+    const isAdmin = req.user && req.user.role === 'admin';
+    if (!isAdmin || my_only === 'true') {
       const userConditions = [
         { members: req.user._id },
         { pm_id: req.user._id },
@@ -36,6 +36,12 @@ const getProjects = async (req, res) => {
       if (req.user.full_name) {
         const cleanName = req.user.full_name.trim().replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
         userConditions.push({ pm_name: { $regex: cleanName, $options: 'i' } });
+
+        const nameParts = req.user.full_name.trim().split(/\s+/);
+        if (nameParts.length > 1) {
+          const lastName = nameParts[nameParts.length - 1].replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+          userConditions.push({ pm_name: { $regex: `\\b${lastName}\\b`, $options: 'i' } });
+        }
       }
 
       if (filter.$or) {

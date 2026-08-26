@@ -49,7 +49,7 @@ export default function ProjectsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
-  const isStaff = !isAdminOrManager;
+  const isStaff = !isAdmin;
 
   // Quyền sửa dự án: Admin hoặc PM phụ trách dự án đó
   const canEditProject = (p) => {
@@ -64,7 +64,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [scope, setScope] = useState(isStaff ? 'my' : 'all'); // 'my' | 'all'
+  const [scope, setScope] = useState(isAdmin ? 'all' : 'my'); // 'my' | 'all'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedPm, setSelectedPm] = useState('all');
@@ -243,25 +243,43 @@ export default function ProjectsPage() {
     if (!p || !currentUser) return false;
     const uid = String(currentUser._id || currentUser.id || '');
     const uname = (currentUser.full_name || '').toLowerCase().trim();
+    const ucode = (currentUser.employee_code || '').toLowerCase().trim();
+    const uemail = (currentUser.email || '').toLowerCase().trim();
     
-    // 1. Check members (ID or full name)
-    const isMember = Array.isArray(p.members) && p.members.some(m => {
-      const mId = String(m?._id || m?.id || m || '');
-      if (mId && mId === uid) return true;
-      const mName = String(m?.full_name || '').toLowerCase().trim();
-      if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
-      return false;
-    });
-    if (isMember) return true;
+    // 1. Check members (ID, employee_code, email, full_name, name parts)
+    if (Array.isArray(p.members)) {
+      const isMember = p.members.some(m => {
+        if (!m) return false;
+        const mId = String(m._id || m.id || m || '');
+        if (uid && mId && mId === uid) return true;
+
+        const mCode = String(m.employee_code || '').toLowerCase().trim();
+        if (ucode && mCode && mCode === ucode) return true;
+
+        const mEmail = String(m.email || '').toLowerCase().trim();
+        if (uemail && mEmail && mEmail === uemail) return true;
+
+        const mName = String(m.full_name || '').toLowerCase().trim();
+        if (uname && mName && (mName.includes(uname) || uname.includes(mName))) return true;
+
+        return false;
+      });
+      if (isMember) return true;
+    }
 
     // 2. Check pm_id
     const pmId = String(p.pm_id?._id || p.pm_id?.id || p.pm_id || '');
-    if (pmId && pmId === uid) return true;
+    if (uid && pmId && pmId === uid) return true;
 
     // 3. Check pm_name
     if (p.pm_name && uname) {
       const pmNameLower = p.pm_name.toLowerCase().trim();
       if (pmNameLower.includes(uname) || uname.includes(pmNameLower)) return true;
+      const nameParts = uname.split(/\s+/);
+      if (nameParts.length > 1) {
+        const lastName = nameParts[nameParts.length - 1];
+        if (lastName.length > 1 && pmNameLower.includes(lastName)) return true;
+      }
     }
 
     return false;
@@ -477,8 +495,8 @@ export default function ProjectsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Role Scope Switcher Tabs — Chỉ hiển thị cho Admin & Leader */}
-        {isAdminOrManager && (
+        {/* Role Scope Switcher Tabs — Chỉ hiển thị duy nhất cho Admin tối cao */}
+        {isAdmin && (
           <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--border)' }}>
             <button
               onClick={() => setScope('my')}
