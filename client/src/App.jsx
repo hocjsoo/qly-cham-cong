@@ -49,7 +49,6 @@ const ProjectsPage = lazyRetry(() => import('./pages/ProjectsPage'));
 const VehiclesPage = lazyRetry(() => import('./pages/VehiclesPage'));
 const ExpensesPage = lazyRetry(() => import('./pages/ExpensesPage'));
 const LeaderboardPage = lazyRetry(() => import('./pages/LeaderboardPage'));
-const TtsSchedulePage = lazyRetry(() => import('./pages/TtsSchedulePage'));
 
 // Fallback loader hiển thị nhẹ nhàng khi chuyển trang
 function PageLoader() {
@@ -151,7 +150,6 @@ export default function App() {
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
-              <Route path="/tts-schedule" element={<TtsSchedulePage />} />
               <Route path="/expenses" element={<ExpensesPage />} />
 
               <Route path="/settings" element={
