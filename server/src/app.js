@@ -70,6 +70,7 @@ const holidayRoutes       = require('./routes/holiday.routes');
 const timesheetLockRoutes = require('./routes/timesheetLock.routes');
 const announcementRoutes  = require('./routes/announcement.routes');
 const expenseRoutes       = require('./routes/expense.routes');
+const ttsScheduleRoutes   = require('./routes/ttsSchedule.routes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
@@ -89,6 +90,7 @@ app.use('/api/holidays',      holidayRoutes);
 app.use('/api/timesheet-lock',timesheetLockRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/expenses',      expenseRoutes);
+app.use('/api/tts-schedules', ttsScheduleRoutes);
 
 const mongoose = require('mongoose');
 

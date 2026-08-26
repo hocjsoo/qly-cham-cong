@@ -84,7 +84,7 @@ export default function StaffPage() {
 
   const [form, setForm] = useState({
     full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
-    position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
+    position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '', can_manage_tts_schedule: false,
     parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -358,7 +358,7 @@ export default function StaffPage() {
     setForm({
       full_name: '', email: '', password: '', role: 'employee', department_id: '', department_ids: [], phone: '',
       position: '', dob: '', join_date: '', employee_type: 'NS', employee_code: '', employment_status: 'Dang lam viec', avatar_url: '',
-      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', is_attendance_exempt: false,
+      parking_location: 'Tòa 17T10 Nguyễn Thị Định', vehicle_info: '', is_attendance_exempt: false, can_manage_tts_schedule: false,
     });
     setShowForm(true);
   };
@@ -388,6 +388,7 @@ export default function StaffPage() {
       parking_location: user.parking_location || 'Tòa 17T10 Nguyễn Thị Định',
       vehicle_info: user.vehicle_info || user.license_plate || '',
       is_attendance_exempt: Boolean(user.is_attendance_exempt),
+      can_manage_tts_schedule: Boolean(user.can_manage_tts_schedule),
     });
     setShowForm(true);
   };
@@ -967,6 +968,23 @@ export default function StaffPage() {
                 </span>
               </label>
             </div>
+
+            {/* Row 6: Avatar upload */}
+            {currentUser?.role === 'admin' && (
+              <div className="form-group" style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', border: form.can_manage_tts_schedule ? '1px solid var(--primary)' : '1px solid var(--border)', borderRadius: '10px', background: form.can_manage_tts_schedule ? 'var(--primary-soft)' : 'var(--bg-raised)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(form.can_manage_tts_schedule)}
+                    onChange={e => setForm(f => ({ ...f, can_manage_tts_schedule: e.target.checked }))}
+                  />
+                  <span>
+                    <strong style={{ display: 'block', fontSize: '13px' }}>Quyền phân công Lịch TTS</strong>
+                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Được điều chỉnh lịch đăng ký và phân công trực nhật, không nhận thêm quyền Admin khác.</span>
+                  </span>
+                </label>
+              </div>
+            )}
 
             {/* Row 6: Avatar upload */}
             <div className="form-group" style={{ marginBottom: '14px' }}>

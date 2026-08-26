@@ -89,6 +89,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean, // Miễn chấm công (Ban giám đốc, Cố vấn, QTV không bắt buộc điểm danh)
       default: false,
     },
+    can_manage_tts_schedule: {
+      type: Boolean,
+      default: false,
+    },
 
     // --- Confidential HR Fields (Chỉ Admin / Giám đốc / PGĐ xem được) ---
     bhxh_code: { type: String, default: null },       // Mã số BHXH

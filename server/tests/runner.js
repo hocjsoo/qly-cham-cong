@@ -27,9 +27,11 @@ const runSystemSettingsTests = require('./unit/systemSettings.test');
 const runVehicleParkingTests = require('./unit/vehicleParkingManagement.test');
 const { runExpenseManagementTests } = require('./unit/expenseManagement.test');
 const { runLeaderboardRankingTests } = require('./unit/leaderboardRanking.test');
+const runTtsWeeklyScheduleTests = require('./unit/ttsWeeklySchedule.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
+const runTtsScheduleHttpTests = require('./integration/ttsScheduleHttp.test');
 
 // Expert QA & Process Validation Suites
 const runExpertRequestApprovalTests = require('./unit/expertRequestApproval.test');
@@ -109,6 +111,7 @@ async function runAllTests() {
     runVehicleParkingTests(assert);
     runExpenseManagementTests();
     runLeaderboardRankingTests();
+    runTtsWeeklyScheduleTests(assert);
 
     // === PHẦN 2: FRONTEND UI & CLIENT STATE ===
     runClientAuthStoreTests(assert);
@@ -124,6 +127,7 @@ async function runAllTests() {
     runExpertRequestApprovalTests(assert);
     runExpertTimeDateAdjusterTests(assert);
     await runControllerIntegrationTests(assert);
+    await runTtsScheduleHttpTests(assert);
 
     // === PHẦN 4: KIỂM THỬ HIỆU NĂNG & BENCHMARK ===
     runPerformanceTests(assert);
