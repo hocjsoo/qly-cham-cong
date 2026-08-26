@@ -25,6 +25,7 @@ const currentMonday = () => {
 };
 const shiftWeek = (weekStart, amount) => toDateString(addDays(parseLocalDate(weekStart), amount * 7));
 const formatShortDate = value => parseLocalDate(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+const formatFullDate = value => parseLocalDate(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
 const personId = person => String(person?._id || person?.id || person || '');
 
 function Avatar({ person, size = 34 }) {
@@ -287,7 +288,7 @@ export default function TtsSchedulePage() {
     <main className="page tts-page">
       <header className="header">
         <div className="header__inner">
-          <div><div className="header__title">Lịch tuần TTS</div><div className="header__subtitle">Lịch khả dụng để chủ động sắp xếp công việc</div></div>
+          <div><div className="header__title">Lịch tuần</div><div className="header__subtitle">Lịch khả dụng để chủ động sắp xếp công việc</div></div>
           <HeaderActions />
         </div>
       </header>
@@ -390,10 +391,24 @@ export default function TtsSchedulePage() {
             <div><dt>Loại nhân sự</dt><dd>{viewingPerson.employee_type || 'TTS'}</dd></div>
             <div><dt>Vai trò</dt><dd>{viewingPerson.role === 'admin' ? 'Admin' : viewingPerson.role === 'leader' || viewingPerson.role === 'manager' ? 'Leader' : 'Nhân viên'}</dd></div>
             <div><dt>Phòng ban</dt><dd>{viewingPerson.department_id?.name || 'Chưa phân phòng'}</dd></div>
-            <div><dt>Ngày vào</dt><dd>{viewingPerson.join_date ? formatShortDate(viewingPerson.join_date) : 'Chưa cập nhật'}</dd></div>
+            <div><dt>Ngày vào công ty</dt><dd>{viewingPerson.join_date ? formatFullDate(viewingPerson.join_date) : 'Chưa cập nhật'}</dd></div>
             <div><dt>Email</dt><dd>{viewingPerson.email || 'Chưa cập nhật'}</dd></div>
             <div><dt>Số điện thoại</dt><dd>{viewingPerson.phone || 'Chưa cập nhật'}</dd></div>
+            <div><dt>Trạng thái làm việc</dt><dd>{viewingPerson.employment_status || 'Đang làm việc'}</dd></div>
+            <div><dt>Chế độ chấm công</dt><dd>{viewingPerson.is_attendance_exempt ? 'Miễn chấm công' : 'Chấm công hằng ngày'}</dd></div>
+            <div><dt>Địa điểm gửi xe</dt><dd>{viewingPerson.parking_location || 'Chưa cập nhật'}</dd></div>
+            <div><dt>Xe & biển số</dt><dd>{viewingPerson.vehicle_info || viewingPerson.license_plate || 'Chưa cập nhật'}</dd></div>
           </dl>
+          {isAdmin && (viewingPerson.bank_name || viewingPerson.bank_account || viewingPerson.branch) && (
+            <section className="tts-profile-bank" aria-label="Thông tin tài khoản ngân hàng">
+              <strong>🏦 Tài khoản ngân hàng</strong>
+              <dl>
+                <div><dt>Ngân hàng</dt><dd>{viewingPerson.bank_name || 'Chưa cập nhật'}</dd></div>
+                <div><dt>Số tài khoản</dt><dd>{viewingPerson.bank_account || 'Chưa cập nhật'}</dd></div>
+                <div><dt>Chi nhánh</dt><dd>{viewingPerson.branch || 'Chưa cập nhật'}</dd></div>
+              </dl>
+            </section>
+          )}
         </section>
         <div className="tts-modal__actions">
           <button className="btn btn--ghost" onClick={() => setViewingPerson(null)}>Đóng</button>

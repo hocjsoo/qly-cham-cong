@@ -100,7 +100,6 @@ export default function CheckInPage() {
   const [showQuickRequests, setShowQuickRequests] = useState(false);
   const [showMyProjects, setShowMyProjects] = useState(false);
   const [showEvents, setShowEvents] = useState(false);
-  const [showWeeklyDutyDetails, setShowWeeklyDutyDetails] = useState(false);
 
   // Explanation suggestion modal
   const [showExplanationModal, setShowExplanationModal] = useState(false);
@@ -525,19 +524,13 @@ export default function CheckInPage() {
               background: 'color-mix(in srgb, var(--yellow) 7%, var(--bg-card))'
             }}
           >
-            <button
-              type="button"
-              onClick={() => setShowWeeklyDutyDetails(current => !current)}
-              aria-expanded={showWeeklyDutyDetails}
-              style={{ width: '100%', minHeight: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: 0, color: 'var(--text)', textAlign: 'left', border: 0, background: 'transparent', cursor: 'pointer' }}
-            >
+            <div style={{ minHeight: '30px', display: 'flex', alignItems: 'center', color: 'var(--text)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
                 <Calendar size={16} color="var(--yellow)" /> Lịch trực tuần này
               </span>
-              {showWeeklyDutyDetails ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
+            </div>
 
-            {showWeeklyDutyDetails && <><div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px', marginTop: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px', marginTop: '10px' }}>
               <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
                 <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--primary)', fontSize: '11px' }}>🧹 Phân công của bạn</strong>
                 {myDutyAssignments.length > 0 ? (
@@ -576,7 +569,7 @@ export default function CheckInPage() {
                   <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chưa có người được phân công.</span>
                 )}
               </article>
-            </div><div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}><button type="button" className="btn btn--ghost" onClick={() => navigate('/tts-schedule')} style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}>Xem toàn bộ lịch <ChevronRight size={13} /></button></div></>}
+            </div><div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}><button type="button" className="btn btn--ghost" onClick={() => navigate('/tts-schedule')} style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}>Xem toàn bộ lịch <ChevronRight size={13} /></button></div>
           </section>
         )}
 

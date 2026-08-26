@@ -87,14 +87,24 @@ const getWeeklySchedule = async (req, res) => {
     const [schedule, ttsCandidates, peopleCandidates] = await Promise.all([
       populateSchedule(TtsWeeklySchedule.findOne({ week_start: meta.week_start })),
       User.find(getActiveEmploymentFilter({ employee_type: 'TTS' }))
-        .select('full_name employee_code employee_type avatar_url position employment_status email phone role department_id join_date')
+        .select('full_name employee_code employee_type avatar_url position employment_status email phone role department_id join_date is_attendance_exempt is_duty_exempt parking_location vehicle_info license_plate bank_name bank_account branch')
         .populate('department_id', 'name')
         .sort({ employee_code: 1, full_name: 1 }),
       User.find(getActiveEmploymentFilter())
         .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule is_duty_exempt employment_status')
         .sort({ employee_code: 1, full_name: 1 }),
     ]);
-    const ttsUsers = ttsCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
+    const ttsUsers = ttsCandidates
+      .filter(user => !isInactiveEmploymentStatus(user.employment_status))
+      .map((user) => {
+        const profile = user.toObject();
+        if (!isScheduleAdmin(req.user)) {
+          delete profile.bank_name;
+          delete profile.bank_account;
+          delete profile.branch;
+        }
+        return profile;
+      });
     const people = peopleCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
 
     const deadlinePassed = new Date() > meta.registration_deadline;
