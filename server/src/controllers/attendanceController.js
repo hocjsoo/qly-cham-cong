@@ -773,6 +773,38 @@ const overrideAttendance = async (req, res) => {
   }
 };
 
+// Helper nội bộ: Xóa bản ghi chấm công, giải phóng thiết bị trong ngày và ghi nhận Audit Log minh bạch
+const deleteAttendanceAndLog = async ({ attendance, actor, reason }) => {
+  const { _id: id, user_id, date, notes } = attendance;
+
+  // 1. Xóa bản ghi chấm công
+  await Attendance.findByIdAndDelete(id);
+
+  // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại
+  if (user_id && date) {
+    await DeviceRegistry.deleteMany({ user_id, date });
+  }
+
+  // 3. Ghi nhận lịch sử Audit Log về hành động xóa ca (Bảo toàn lịch sử minh bạch 100%)
+  try {
+    const user = await User.findById(user_id);
+    await AttendanceAuditLog.create({
+      attendance_id: id,
+      user_id,
+      user_name: user ? user.full_name : 'Nhân viên',
+      date,
+      old_symbol: notes || '—',
+      new_symbol: '— (Đã xóa ca)',
+      reason: reason || 'Xóa bản ghi chấm công để nhân viên thực hiện chấm công lại',
+      modified_by: actor._id,
+      modified_by_name: actor.full_name,
+      modified_at: new Date(),
+    });
+  } catch (auditErr) {
+    console.warn('Lỗi ghi audit log khi xóa ca:', auditErr);
+  }
+};
+
 // DELETE /api/attendance/:id — CHỈ ADMIN xóa bản ghi chấm công để nhân viên chấm lại
 const deleteAttendance = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -785,34 +817,11 @@ const deleteAttendance = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công cần xóa.' });
     }
 
-    const { user_id, date } = attendance;
-
-    // 1. Xóa bản ghi chấm công
-    await Attendance.findByIdAndDelete(id);
-
-    // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại
-    if (user_id && date) {
-      await DeviceRegistry.deleteMany({ user_id, date });
-    }
-
-    // 3. Ghi nhận lịch sử Audit Log về hành động xóa ca chấm công (Bảo toàn lịch sử minh bạch 100%)
-    try {
-      const user = await User.findById(user_id);
-      await AttendanceAuditLog.create({
-        attendance_id: id,
-        user_id,
-        user_name: user ? user.full_name : 'Nhân viên',
-        date,
-        old_symbol: attendance.notes || '—',
-        new_symbol: '— (Đã xóa ca)',
-        reason: 'Admin xóa bản ghi để nhân viên thực hiện chấm công lại',
-        modified_by: req.user._id,
-        modified_by_name: req.user.full_name,
-        modified_at: new Date(),
-      });
-    } catch (auditErr) {
-      console.warn('Lỗi ghi audit log khi xóa ca:', auditErr);
-    }
+    await deleteAttendanceAndLog({
+      attendance,
+      actor: req.user,
+      reason: 'Admin xóa bản ghi để nhân viên thực hiện chấm công lại',
+    });
 
     res.json({ message: 'Đã xóa bản ghi chấm công thành công! Nhân viên có thể thực hiện chấm công lại.', id });
   } catch (error) {
@@ -950,14 +959,13 @@ const verifyFlaggedAttendance = async (req, res) => {
 
       return res.json({ message: 'Đã duyệt ca chấm công thành công! ✅', attendance: populated });
     } else if (action === 'reject') {
-      const { user_id, date } = attendance;
-
       if (allowReset) {
-        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại (giữ nguyên AuditLog lịch sử)
-        await Attendance.findByIdAndDelete(id);
-        if (user_id && date) {
-          await DeviceRegistry.deleteMany({ user_id, date });
-        }
+        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại kèm ghi nhận Audit Log
+        await deleteAttendanceAndLog({
+          attendance,
+          actor: req.user,
+          reason: reviewer_note ? `Từ chối ca & cho phép chấm lại: ${reviewer_note}` : 'Từ chối ca cảnh báo & xóa dữ liệu để nhân viên chấm công lại',
+        });
         return res.json({ message: 'Đã từ chối & xóa bản ghi thành công. Nhân viên đã có thể chấm công lại! 🗑️', id });
       } else {
         attendance.verification_status = 'rejected';
@@ -989,11 +997,11 @@ const verifyFlaggedAttendance = async (req, res) => {
 
       return res.json({ message: 'Đã hoàn tác ca về trạng thái Chờ duyệt! 🔄', attendance: populated });
     } else if (action === 'delete') {
-      const { user_id, date } = attendance;
-      await Attendance.findByIdAndDelete(id);
-      if (user_id && date) {
-        await DeviceRegistry.deleteMany({ user_id, date });
-      }
+      await deleteAttendanceAndLog({
+        attendance,
+        actor: req.user,
+        reason: reviewer_note ? `Xóa ca cảnh báo: ${reviewer_note}` : 'Admin/Leader xóa ca chấm công cảnh báo',
+      });
       return res.json({ message: 'Đã xóa ca chấm công thành công! 🗑️', id });
     } else {
       return res.status(400).json({ error: 'Hành động không hợp lệ (approve, reject, revert hoặc delete).' });

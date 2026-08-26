@@ -177,11 +177,10 @@ const getFullMatrix = async (req, res) => {
           }
         }
 
-        // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên
+        // Lấy toàn bộ lịch sử chỉnh sửa ngày này của nhân viên (hiển thị trong modal chi tiết ô công)
         const dayAudits = userAudits.filter(l => l.date === hd.dateStr);
-        const latestAudit = dayAudits[0];
 
-        // ƯU TIÊN 1 (Source of Truth): Dữ liệu chấm công hiện tại trong Attendance (bao gồm cả khi Admin đã sửa hoặc đơn từ mới duyệt)
+        // Source of Truth: Dữ liệu chấm công hiện tại trong Attendance (bao gồm cả khi Admin đã sửa hoặc đơn từ mới duyệt)
         if (att) {
           const notes = (att.notes || '').toUpperCase();
           if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) {
