@@ -1,12 +1,10 @@
 // client/src/pages/TtsSchedulePage.jsx
-// Bảng Lịch Hàng Tuần TTS (Thực Tập Sinh) & Phân Công Trực Nhật — Khớp 100% Bảng Excel Thực Tế
+// Bảng Lịch Hàng Tuần TTS & Phân Công Trực Nhật — Khớp 100% Bảng Excel Thực Tế 1 Khối Thống Nhất
 
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  CalendarDays, ChevronLeft, ChevronRight, Plus, Edit2, 
-  Trash2, Save, CheckCircle2, UserCheck, Sparkles, Clock, 
-  Phone, CreditCard, AlertCircle, RefreshCw, Printer, Download,
-  Check, X
+  ChevronLeft, ChevronRight, Plus, Edit2, 
+  Trash2, Save, RefreshCw, Printer, X, Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -188,8 +186,9 @@ export default function TtsSchedulePage() {
     }
   };
 
-  // Toggle trực tiếp 1 ô ca làm việc (Quick toggle)
+  // Toggle trực tiếp 1 ô ca làm việc (Quick toggle x)
   const handleToggleShiftDirect = async (intern, shiftKey) => {
+    if (!intern) return;
     const isOwner = user && (
       (intern.user_id && String(intern.user_id?._id || intern.user_id) === String(user._id || user.id)) ||
       (intern.full_name && intern.full_name.trim().toLowerCase() === user.full_name?.trim().toLowerCase())
@@ -327,13 +326,22 @@ export default function TtsSchedulePage() {
     return totals;
   }, [scheduleData]);
 
+  // Đảm bảo có tối thiểu 5 cột TTS để layout luôn cân đối đẹp mắt
+  const internColumns = useMemo(() => {
+    const list = [...(scheduleData?.registrations || [])];
+    while (list.length < 5) {
+      list.push(null);
+    }
+    return list;
+  }, [scheduleData]);
+
   // In lịch tuần
   const handlePrintSchedule = () => {
     window.print();
   };
 
-  const regs = scheduleData?.registrations || [];
   const dutyRoster = scheduleData?.duty_roster || {};
+  const totalCols = 2 + internColumns.length + 1 + 3; // TT/Thứ + S/C + N_Interns + SL + 3 cột trực nhật
 
   return (
     <div className="page">
@@ -363,7 +371,7 @@ export default function TtsSchedulePage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Week Stepper & Controls */}
+        {/* Week Stepper & Controls Bar */}
         <div className="card" style={{ padding: '12px 16px', marginBottom: '14px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
             
@@ -416,295 +424,403 @@ export default function TtsSchedulePage() {
                 className="btn btn--ghost" 
                 style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
               >
-                <Printer size={14} /> In Lịch
+                <Printer size={14} /> In Bảng Excel
               </button>
             </div>
 
           </div>
         </div>
 
-        {/* BẢNG 1: LỊCH HÀNG TUẦN TTS (THỰC TẬP SINH) */}
-        <div className="card" style={{ padding: '0', marginBottom: '18px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-          <div style={{ padding: '12px 16px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>📅 BẢNG ĐĂNG KÝ LỊCH HÀNG TUẦN TTS</span>
-              <span className="badge badge--primary" style={{ fontSize: '11px', fontWeight: 800 }}>• {regs.length} TTS</span>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-              💡 Bấm vào ô của bạn để bật/tắt ca <strong>[x]</strong>
-            </div>
-          </div>
+        {/* 🌟 MASTER UNIFIED TABLE — KHỚP 100% MẪU BẢNG EXCEL TRONG ẢNH */}
+        <div style={{
+          overflowX: 'auto',
+          background: '#ffffff',
+          borderRadius: '8px',
+          border: '2px solid #374151',
+          boxShadow: 'var(--shadow-md)',
+          color: '#111827',
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
+          marginBottom: '20px'
+        }}>
+          <table style={{
+            width: '100%',
+            minWidth: '980px',
+            borderCollapse: 'collapse',
+            fontSize: '13px',
+            textAlign: 'center'
+          }}>
+            {/* TOP TITLE BAR: Lịch hàng tuần TTS */}
+            <thead>
+              <tr style={{ background: '#374151', color: '#ffffff', fontWeight: 800, textAlign: 'left' }}>
+                <th 
+                  colSpan={totalCols} 
+                  style={{ 
+                    padding: '8px 14px', 
+                    fontSize: '14px', 
+                    letterSpacing: '0.4px', 
+                    border: '1px solid #374151' 
+                  }}
+                >
+                  Lịch hàng tuần TTS
+                </th>
+              </tr>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'center' }}>
-              <thead>
-                {/* Header Row 1: Thông tin TTS & Các cột T2..T7 & Cột SL */}
-                <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--border)', color: 'var(--text)' }}>
-                  <th colSpan="2" style={{ padding: '8px 10px', width: '90px', borderRight: '1px solid var(--border)', fontWeight: 800 }}>
-                    Lịch hàng tuần TTS
+              {/* ROW 1: TÊN TTS & LỊCH TRỰC NHẬT HEADER */}
+              <tr style={{ background: '#ffffff', borderBottom: '1px solid #9ca3af' }}>
+                {/* Cột TT (Span 3 hàng SĐT, STK) */}
+                <th rowSpan="3" style={{ width: '42px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '13px', verticalAlign: 'middle', background: '#f9fafb' }}>
+                  TT
+                </th>
+
+                {/* Ô header SĐT */}
+                <th style={{ width: '55px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', background: '#f9fafb' }}>
+                  SĐT
+                </th>
+
+                {/* Các cột TTS */}
+                {internColumns.map((intern, i) => (
+                  <th 
+                    key={intern?._id || `empty-${i}`} 
+                    style={{ 
+                      minWidth: '95px', 
+                      width: '105px', 
+                      border: '1px solid #9ca3af', 
+                      fontWeight: 800, 
+                      color: '#111827', 
+                      verticalAlign: 'middle', 
+                      padding: '6px 4px',
+                      background: '#f9fafb'
+                    }}
+                  >
+                    {intern ? (
+                      <div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 800 }}>{intern.full_name}</div>
+                        {isAdminOrLeader && (
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '2px' }}>
+                            <button 
+                              onClick={() => handleEditInternSchedule(intern)} 
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '1px' }} 
+                              title="Sửa thông tin"
+                            >
+                              <Edit2 size={11} />
+                            </button>
+                            <button 
+                              onClick={() => handleRemoveIntern(intern)} 
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '1px' }} 
+                              title="Xóa khỏi tuần"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ color: '#d1d5db' }}>—</span>
+                    )}
                   </th>
-                  {regs.map(intern => (
-                    <th 
-                      key={intern._id} 
+                ))}
+
+                {/* Cột SL tổng buổi (Span 3 hàng) */}
+                <th rowSpan="3" style={{ width: '45px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '13px', verticalAlign: 'middle', background: '#f9fafb' }}>
+                  SL
+                </th>
+
+                {/* Khối LỊCH TRỰC NHẬT Header */}
+                <th 
+                  colSpan="3" 
+                  style={{ 
+                    border: '1px solid #9ca3af', 
+                    fontWeight: 800, 
+                    fontSize: '14px', 
+                    padding: '8px', 
+                    background: '#ffffff',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  LỊCH TRỰC NHẬT
+                </th>
+              </tr>
+
+              {/* ROW 2: SĐT DATA & SUBHEADER TRỰC NHẬT */}
+              <tr style={{ background: '#ffffff', borderBottom: '1px solid #9ca3af' }}>
+                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', background: '#f9fafb' }}>
+                  STK
+                </th>
+
+                {internColumns.map((intern, i) => (
+                  <th 
+                    key={`phone-${i}`} 
+                    style={{ 
+                      border: '1px solid #9ca3af', 
+                      fontWeight: 500, 
+                      fontSize: '11px', 
+                      color: '#374151', 
+                      padding: '4px 2px',
+                      background: '#ffffff'
+                    }}
+                  >
+                    {intern?.phone || ''}
+                  </th>
+                ))}
+
+                {/* 3 Subheader cột trực nhật */}
+                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff' }}>
+                  DỌN VĂN PHÒNG
+                </th>
+                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', width: '130px', padding: '6px', background: '#ffffff' }}>
+                  DỌN NHÀ VỆ SINH
+                </th>
+                <th style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '12px', minWidth: '340px', padding: '6px', background: '#ffffff' }}>
+                  NỘI DUNG
+                </th>
+              </tr>
+
+              {/* ROW 3: STK DATA */}
+              <tr style={{ background: '#ffffff', borderBottom: '2px solid #374151' }}>
+                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#f9fafb' }}></th>
+
+                {internColumns.map((intern, i) => (
+                  <th 
+                    key={`bank-${i}`} 
+                    style={{ 
+                      border: '1px solid #9ca3af', 
+                      borderBottom: '2px solid #374151', 
+                      fontWeight: 500, 
+                      fontSize: '11px', 
+                      color: '#374151', 
+                      padding: '4px 2px',
+                      background: '#ffffff'
+                    }}
+                  >
+                    <div>{intern?.bank_account || ''}</div>
+                    {intern?.bank_name && <div style={{ fontSize: '10px', color: '#6b7280' }}>{intern.bank_name}</div>}
+                  </th>
+                ))}
+
+                {/* 3 cột trực nhật trống ở hàng STK */}
+                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
+                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
+                <th style={{ border: '1px solid #9ca3af', borderBottom: '2px solid #374151', background: '#ffffff' }}></th>
+              </tr>
+            </thead>
+
+            {/* TBODY: 12 ROWS (T2 S/C ... T7 S/C) */}
+            <tbody>
+              {DAYS.map((day, dayIdx) => (
+                SHIFTS.map((shift, shiftIdx) => {
+                  const shiftKey = `${day.key}_${shift.key}`;
+                  const isFirstShiftOfDay = shiftIdx === 0;
+                  const duty = dutyRoster[day.key] || {};
+                  const isSaturday = day.key === 't7';
+
+                  return (
+                    <tr 
+                      key={shiftKey} 
                       style={{ 
-                        padding: '8px 10px', minWidth: '100px', 
-                        borderRight: '1px solid var(--border)', 
-                        background: 'rgba(99, 102, 241, 0.08)',
-                        color: 'var(--primary)', fontWeight: 800
+                        height: '34px', 
+                        borderBottom: shiftIdx === 1 ? '1px solid #6b7280' : '1px solid #e5e7eb' 
                       }}
                     >
-                      <div style={{ fontSize: '13px' }}>{intern.full_name}</div>
-                      {isAdminOrLeader && (
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '2px' }}>
-                          <button 
-                            onClick={() => handleEditInternSchedule(intern)} 
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
-                            title="Sửa thông tin"
-                          >
-                            <Edit2 size={11} />
-                          </button>
-                          <button 
-                            onClick={() => handleRemoveIntern(intern)} 
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--red)', padding: '2px' }}
-                            title="Xóa khỏi tuần"
-                          >
-                            <Trash2 size={11} />
-                          </button>
-                        </div>
-                      )}
-                    </th>
-                  ))}
-                  {/* Cột SL tổng số lượng TTS có mặt từng buổi */}
-                  <th style={{ padding: '8px 10px', width: '50px', background: 'var(--bg-card)', fontWeight: 800, color: 'var(--text)' }}>
-                    SL
-                  </th>
-                </tr>
-
-                {/* Header Row 2: SĐT */}
-                <tr style={{ borderBottom: '1px solid var(--border-muted)', background: 'var(--bg-card)' }}>
-                  <th style={{ padding: '4px 6px', fontWeight: 700, color: 'var(--text-muted)', width: '35px', borderRight: '1px solid var(--border-muted)' }}>TT</th>
-                  <th style={{ padding: '4px 6px', fontWeight: 700, color: 'var(--text-muted)', width: '55px', borderRight: '1px solid var(--border)' }}>SĐT</th>
-                  {regs.map(intern => (
-                    <th key={`phone-${intern._id}`} style={{ padding: '4px 6px', fontWeight: 600, color: 'var(--text-secondary)', borderRight: '1px solid var(--border)', fontSize: '11px' }}>
-                      {intern.phone || '—'}
-                    </th>
-                  ))}
-                  <th style={{ padding: '4px 6px', background: 'var(--bg-card)' }}></th>
-                </tr>
-
-                {/* Header Row 3: STK */}
-                <tr style={{ borderBottom: '2px solid var(--primary)', background: 'var(--bg-card)' }}>
-                  <th style={{ padding: '4px 6px', fontWeight: 700, color: 'var(--text-muted)', borderRight: '1px solid var(--border-muted)' }}></th>
-                  <th style={{ padding: '4px 6px', fontWeight: 700, color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>STK</th>
-                  {regs.map(intern => (
-                    <th key={`bank-${intern._id}`} style={{ padding: '4px 6px', fontWeight: 600, color: 'var(--text-secondary)', borderRight: '1px solid var(--border)', fontSize: '11px' }}>
-                      <div>{intern.bank_account || '—'}</div>
-                      <div style={{ fontSize: '10px', color: 'var(--primary)' }}>{intern.bank_name || 'MB'}</div>
-                    </th>
-                  ))}
-                  <th style={{ padding: '4px 6px', background: 'var(--bg-card)' }}></th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {/* 6 Ngày (T2 -> T7), mỗi ngày 2 hàng (Sáng & Chiều) */}
-                {DAYS.map(day => (
-                  SHIFTS.map((shift, sIdx) => {
-                    const shiftKey = `${day.key}_${shift.key}`;
-                    const rowBg = day.key === 't7' ? 'rgba(239, 68, 68, 0.03)' : (sIdx === 0 ? 'var(--bg-card)' : 'rgba(255,255,255,0.015)');
-                    const borderBottom = sIdx === 1 ? '2px solid var(--border)' : '1px solid var(--border-muted)';
-
-                    return (
-                      <tr key={shiftKey} style={{ background: rowBg, borderBottom: borderBottom }}>
-                        {/* Cột Thứ (Gộp 2 dòng) */}
-                        {sIdx === 0 ? (
-                          <td 
-                            rowSpan="2" 
-                            style={{ 
-                              padding: '8px 6px', fontWeight: 800, 
-                              color: day.key === 't7' ? 'var(--red)' : 'var(--text)', 
-                              borderRight: '1px solid var(--border)',
-                              background: day.key === 't7' ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-input)'
-                            }}
-                          >
-                            {day.short}
-                          </td>
-                        ) : null}
-
-                        {/* Cột Buổi: S hoặc C */}
+                      {/* Cột Thứ: Gộp 2 hàng (S và C) */}
+                      {isFirstShiftOfDay && (
                         <td 
+                          rowSpan="2" 
                           style={{ 
-                            padding: '6px 4px', fontWeight: 800, 
-                            borderRight: '1px solid var(--border)', 
-                            color: shift.key === 'morning' ? '#3b82f6' : '#8b5cf6',
-                            background: shift.key === 'morning' ? 'rgba(59, 130, 246, 0.08)' : 'rgba(139, 92, 246, 0.08)'
+                            border: '1px solid #9ca3af', 
+                            fontWeight: 800, 
+                            fontSize: '13px', 
+                            background: '#ffffff' 
                           }}
-                          title={shift.time}
                         >
-                          {shift.key === 'morning' ? 'S' : 'C'}
+                          {day.short}
                         </td>
+                      )}
 
-                        {/* Các ô ca làm việc của từng TTS */}
-                        {regs.map(intern => {
-                          const isChecked = Boolean(intern.shifts?.[shiftKey]);
-                          const isMyCell = user && (
-                            (intern.user_id && String(intern.user_id?._id || intern.user_id) === String(user._id || user.id)) ||
-                            (intern.full_name && intern.full_name.trim().toLowerCase() === user.full_name?.trim().toLowerCase())
-                          );
+                      {/* Cột Buổi: S hoặc C */}
+                      <td 
+                        style={{ 
+                          border: '1px solid #9ca3af', 
+                          fontWeight: 700, 
+                          fontSize: '12px', 
+                          background: '#ffffff' 
+                        }}
+                      >
+                        {shift.key === 'morning' ? 'S' : 'C'}
+                      </td>
 
+                      {/* Các cột TTS */}
+                      {internColumns.map((intern, i) => {
+                        if (!intern) {
                           return (
                             <td 
-                              key={`${intern._id}-${shiftKey}`}
-                              onClick={() => handleToggleShiftDirect(intern, shiftKey)}
-                              style={{ 
-                                padding: '6px 4px', 
-                                borderRight: '1px solid var(--border)',
-                                cursor: (isAdminOrLeader || isMyCell) ? 'pointer' : 'default',
-                                background: isChecked ? 'rgba(16, 185, 129, 0.14)' : 'transparent',
-                                transition: 'all 0.15s ease'
-                              }}
-                              title={`${day.label} (${shift.label}: ${shift.time}) - ${intern.full_name}: ${isChecked ? 'Có đi làm [x]' : 'Nghỉ / bận học'}${isMyCell || isAdminOrLeader ? ' (Click để đổi)' : ''}`}
-                            >
-                              {isChecked ? (
-                                <span style={{ fontWeight: 900, color: 'var(--green)', fontSize: '14px' }}>x</span>
-                              ) : (
-                                <span style={{ opacity: 0.15 }}>—</span>
-                              )}
-                            </td>
+                              key={`empty-cell-${i}-${shiftKey}`} 
+                              style={{ border: '1px solid #9ca3af', background: '#ffffff' }}
+                            />
                           );
-                        })}
+                        }
 
-                        {/* Cột SL tổng buổi này */}
-                        <td style={{ padding: '6px 8px', fontWeight: 800, color: 'var(--primary)', background: 'rgba(99, 102, 241, 0.06)' }}>
-                          {shiftTotals[shiftKey] || 0}
+                        const isChecked = Boolean(intern.shifts?.[shiftKey]);
+                        const isMyCell = user && (
+                          (intern.user_id && String(intern.user_id?._id || intern.user_id) === String(user._id || user.id)) ||
+                          (intern.full_name && intern.full_name.trim().toLowerCase() === user.full_name?.trim().toLowerCase())
+                        );
+
+                        return (
+                          <td
+                            key={`${intern._id}-${shiftKey}`}
+                            onClick={() => handleToggleShiftDirect(intern, shiftKey)}
+                            style={{
+                              border: '1px solid #9ca3af',
+                              fontWeight: 800,
+                              fontSize: '15px',
+                              color: '#111827',
+                              cursor: (isAdminOrLeader || isMyCell) ? 'pointer' : 'default',
+                              background: isChecked ? '#e5e7eb' : '#ffffff',
+                              userSelect: 'none',
+                              transition: 'background 0.1s'
+                            }}
+                            title={`${day.label} (${shift.label}) - ${intern.full_name}: ${isChecked ? 'Có đi làm [x]' : 'Nghỉ'}`}
+                          >
+                            {isChecked ? 'x' : ''}
+                          </td>
+                        );
+                      })}
+
+                      {/* Cột SL tổng số lượng có mặt buổi này */}
+                      <td style={{ border: '1px solid #9ca3af', fontWeight: 800, fontSize: '13px', background: '#f9fafb' }}>
+                        {shiftTotals[shiftKey] || 0}
+                      </td>
+
+                      {/* Cột DỌN VĂN PHÒNG (Gộp 2 hàng mỗi thứ) */}
+                      {isFirstShiftOfDay && (
+                        <td 
+                          rowSpan="2" 
+                          onClick={() => isAdminOrLeader && handleOpenDutyModal()}
+                          style={{ 
+                            border: '1px solid #9ca3af', 
+                            fontWeight: 700, 
+                            fontSize: '13px', 
+                            color: '#111827', 
+                            background: '#ffffff', 
+                            cursor: isAdminOrLeader ? 'pointer' : 'default' 
+                          }}
+                          title={isAdminOrLeader ? 'Bấm để sửa phân công trực nhật' : ''}
+                        >
+                          {duty.office_cleaning || ''}
                         </td>
-                      </tr>
-                    );
-                  })
-                ))}
-              </tbody>
+                      )}
 
-              {/* Hàng tổng cộng số buổi đi làm của từng TTS trong tuần */}
-              <tfoot>
-                <tr style={{ background: 'var(--bg-raised)', borderTop: '2px solid var(--primary)', fontWeight: 800 }}>
-                  <td colSpan="2" style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text)', borderRight: '1px solid var(--border)' }}>
-                    SL
-                  </td>
-                  {regs.map(intern => {
-                    let totalShifts = 0;
-                    if (intern.shifts) {
-                      Object.values(intern.shifts).forEach(v => {
-                        if (v) totalShifts += 1;
-                      });
-                    }
-                    return (
-                      <td key={`total-${intern._id}`} style={{ padding: '8px 6px', borderRight: '1px solid var(--border)', color: 'var(--primary)', fontSize: '13px' }}>
-                        {totalShifts}
-                      </td>
-                    );
-                  })}
-                  <td style={{ padding: '8px 6px', color: 'var(--primary)', fontSize: '13px' }}>
-                    {Object.values(shiftTotals).reduce((a, b) => a + b, 0)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                      {/* Cột DỌN NHÀ VỆ SINH (Gộp 2 hàng mỗi thứ) */}
+                      {isFirstShiftOfDay && (
+                        <td 
+                          rowSpan="2" 
+                          onClick={() => isAdminOrLeader && handleOpenDutyModal()}
+                          style={{ 
+                            border: '1px solid #9ca3af', 
+                            fontWeight: 700, 
+                            fontSize: '13px',
+                            color: isSaturday ? '#9a3412' : '#111827',
+                            background: isSaturday ? '#fed7aa' : '#ffffff', // Highlight màu cam Thứ 7
+                            cursor: isAdminOrLeader ? 'pointer' : 'default'
+                          }}
+                          title={isAdminOrLeader ? 'Bấm để sửa phân công' : ''}
+                        >
+                          {duty.toilet_cleaning || (isSaturday ? 'A Minh' : '')}
+                        </td>
+                      )}
 
-          <div style={{ padding: '10px 16px', background: 'var(--bg-card)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', fontSize: '12px' }}>
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--green)' }} /> <strong>x</strong>: Có đi làm
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6' }} /> <strong>Sáng</strong>: 9h00 - 12h30
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#8b5cf6' }} /> <strong>Chiều</strong>: 14h00 - 18h30
-              </span>
-            </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-              * TTS phụ thuộc vào lịch học, chủ nhật hàng tuần đăng ký lịch tuần tiếp theo
-            </div>
-          </div>
-        </div>
-
-
-        {/* BẢNG 2: LỊCH TRỰC NHẬT & VỆ SINH VĂN PHÒNG */}
-        <div className="card" style={{ padding: '0', marginBottom: '18px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-          <div style={{ padding: '12px 16px', background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🧹 LỊCH TRỰC NHẬT & VỆ SINH VĂN PHÒNG</span>
-            </div>
-            {isAdminOrLeader && (
-              <button onClick={handleOpenDutyModal} className="btn btn--primary" style={{ padding: '4px 12px', fontSize: '12px', gap: '4px' }}>
-                <Edit2 size={13} /> Sửa phân công (Leader Ninh)
-              </button>
-            )}
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-input)', borderBottom: '2px solid var(--border)', color: 'var(--text)', textAlign: 'center' }}>
-                  <th style={{ padding: '8px 10px', width: '60px', borderRight: '1px solid var(--border)', fontWeight: 800 }}>THỨ</th>
-                  <th style={{ padding: '8px 14px', minWidth: '180px', borderRight: '1px solid var(--border)', fontWeight: 800, color: 'var(--primary)' }}>
-                    DỌN VĂN PHÒNG
-                  </th>
-                  <th style={{ padding: '8px 14px', minWidth: '160px', borderRight: '1px solid var(--border)', fontWeight: 800, color: 'var(--red)' }}>
-                    DỌN NHÀ VỆ SINH
-                  </th>
-                  <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 800, color: 'var(--text)' }}>
-                    NỘI DUNG TRỰC NHẬT & QUY ĐỊNH
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {DAYS.map((d, idx) => {
-                  const duty = dutyRoster[d.key] || {};
-                  return (
-                    <tr key={d.key} style={{ borderBottom: '1px solid var(--border-muted)', background: d.key === 't7' ? 'rgba(239, 68, 68, 0.03)' : (idx % 2 === 0 ? 'var(--bg-card)' : 'transparent') }}>
-                      <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 800, color: d.key === 't7' ? 'var(--red)' : 'var(--text)', borderRight: '1px solid var(--border)' }}>
-                        {d.short}
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: 'var(--text)', borderRight: '1px solid var(--border)' }}>
-                        {duty.office_cleaning || '—'}
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: d.key === 't7' ? 'var(--red)' : 'var(--text-secondary)', borderRight: '1px solid var(--border)' }}>
-                        {duty.toilet_cleaning || (d.key === 't7' ? 'A Minh' : '—')}
-                      </td>
-
-                      {/* Gộp cột nội dung quy định trực nhật ở hàng đầu tiên */}
-                      {idx === 0 ? (
-                        <td rowSpan="6" style={{ padding: '14px 18px', verticalAlign: 'top', background: 'var(--bg-card)', fontSize: '12px', lineHeight: 1.7 }}>
-                          <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '4px' }}>
-                            * Trước giờ làm:
+                      {/* Cột NỘI DUNG: Gộp tất cả 12 hàng (rowSpan="12") */}
+                      {dayIdx === 0 && shiftIdx === 0 && (
+                        <td 
+                          rowSpan="12" 
+                          style={{ 
+                            border: '1px solid #9ca3af', 
+                            textAlign: 'left', 
+                            verticalAlign: 'middle', 
+                            padding: '16px 22px', 
+                            fontSize: '12.5px', 
+                            lineHeight: 1.8, 
+                            background: '#ffffff', 
+                            color: '#111827'
+                          }}
+                        >
+                          <div style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px' }}>
+                            * Trước giờ làm
                           </div>
-                          <div style={{ color: 'var(--text-secondary)', paddingLeft: '10px', marginBottom: '8px' }}>
+                          <div style={{ paddingLeft: '8px', marginBottom: '8px' }}>
                             1. Quét nhà<br />
                             2. Dọn bàn chung<br />
                             3. Dọn bàn Máy in
                           </div>
 
-                          <div style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '4px' }}>
-                            * Giữa và cuối ngày:
+                          <div style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px' }}>
+                            * Giữa và cuối ngày
                           </div>
-                          <div style={{ color: 'var(--text-secondary)', paddingLeft: '10px', marginBottom: '8px' }}>
-                            1. Đồ dùng chung / đồ dùng cá nhân ➔ dọn, rửa và cất gọn sau khi dùng<br />
+                          <div style={{ paddingLeft: '8px', marginBottom: '8px' }}>
+                            1. Đồ dùng chung/ đồ dùng cá nhân ➔ dọn, rửa và cất gọn sau khi dùng<br />
                             2. Đổ rác cuối ngày
                           </div>
 
-                          <div style={{ fontWeight: 800, color: 'var(--red)', marginTop: '8px', padding: '6px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.08)' }}>
-                            🧹 Lịch dọn nhà vệ sinh 1 tuần/ lần, vào thứ 7 hàng tuần
+                          <div style={{ color: '#dc2626', fontWeight: 800, fontSize: '13px', marginTop: '6px' }}>
+                            * Lịch dọn nhà vệ sinh 1 tuần/ lần, vào thứ 7 hàng tuần
                           </div>
                         </td>
-                      ) : null}
+                      )}
                     </tr>
                   );
+                })
+              ))}
+            </tbody>
+
+            {/* TFOOT: BOTTOM SUMMARY & WORK HOURS BAR */}
+            <tfoot>
+              <tr style={{ background: '#374151', color: '#ffffff', fontWeight: 800, height: '40px' }}>
+                <td colSpan="2" style={{ border: '1px solid #374151', fontSize: '14px', letterSpacing: '1px' }}>
+                  SL
+                </td>
+
+                {internColumns.map((intern, i) => {
+                  if (!intern) {
+                    return (
+                      <td key={`total-empty-${i}`} style={{ border: '1px solid #4b5563', fontSize: '14px' }}>
+                        0
+                      </td>
+                    );
+                  }
+                  let count = 0;
+                  if (intern.shifts) {
+                    Object.values(intern.shifts).forEach(v => { if (v) count += 1; });
+                  }
+                  return (
+                    <td key={`total-${intern._id}`} style={{ border: '1px solid #4b5563', fontSize: '14px' }}>
+                      {count}
+                    </td>
+                  );
                 })}
-              </tbody>
-            </table>
+
+                {/* Cột SL tổng */}
+                <td style={{ border: '1px solid #4b5563', fontSize: '14px' }}>
+                  {Object.values(shiftTotals).reduce((a, b) => a + b, 0)}
+                </td>
+
+                {/* Khối khung giờ làm việc bên phải */}
+                <td colSpan="3" style={{ border: '1px solid #374151', padding: '6px 14px', textAlign: 'center', lineHeight: 1.4 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.5px' }}>SÁNG: 9H-12H30</div>
+                  <div style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.5px' }}>CHIỀU: 14H-18H30</div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* Hướng Dẫn & Ghi Chú Nhanh Dưới Bảng */}
+        <div className="card" style={{ padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: '4px' }}>
+            📌 Hướng Dẫn Đăng Ký & Phân Công:
           </div>
+          <div>• <strong>Thực tập sinh (TTS)</strong>: Phụ thuộc vào lịch học trên trường, mỗi Chủ nhật đăng ký lịch làm việc của tuần tiếp theo bằng cách click trực tiếp vào ô tương ứng hoặc bấm <strong>"✍️ Đăng ký lịch của tôi"</strong>. Hàng ngày đến công ty vẫn chấm công GPS + Selfie bình thường.</div>
+          <div>• <strong>Leader (Leader Ninh) & Admin</strong>: Phân công người trực nhật (Dọn văn phòng, Dọn nhà vệ sinh) qua nút <strong>"🧹 Phân công trực nhật"</strong> làm căn cứ sắp xếp và giao việc trong tuần.</div>
+          <div>• <strong>Minh bạch toàn công ty</strong>: Bảng này mở công khai để tất cả nhân sự đều xem và theo dõi lịch trực nhật.</div>
         </div>
 
       </div>
