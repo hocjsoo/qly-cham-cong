@@ -395,11 +395,10 @@ export default function TtsSchedulePage() {
             <div><dt>Email</dt><dd>{viewingPerson.email || 'Chưa cập nhật'}</dd></div>
             <div><dt>Số điện thoại</dt><dd>{viewingPerson.phone || 'Chưa cập nhật'}</dd></div>
             <div><dt>Trạng thái làm việc</dt><dd>{viewingPerson.employment_status || 'Đang làm việc'}</dd></div>
-            <div><dt>Chế độ chấm công</dt><dd>{viewingPerson.is_attendance_exempt ? 'Miễn chấm công' : 'Chấm công hằng ngày'}</dd></div>
             <div><dt>Địa điểm gửi xe</dt><dd>{viewingPerson.parking_location || 'Chưa cập nhật'}</dd></div>
             <div><dt>Xe & biển số</dt><dd>{viewingPerson.vehicle_info || viewingPerson.license_plate || 'Chưa cập nhật'}</dd></div>
           </dl>
-          {isAdmin && (viewingPerson.bank_name || viewingPerson.bank_account || viewingPerson.branch) && (
+          {isAdmin && (
             <section className="tts-profile-bank" aria-label="Thông tin tài khoản ngân hàng">
               <strong>🏦 Tài khoản ngân hàng</strong>
               <dl>
