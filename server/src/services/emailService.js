@@ -63,18 +63,18 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
 
   // Parse [button: Label | URL] or [button: Label, URL]
   cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
-    return '<div style="text-align: center; margin: 20px 0;"><a href="' + url.trim() + '" target="_blank" style="display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;">' + label.trim() + '</a></div>';
+    return '<div style="text-align: center; margin: 20px 0;"><a href="' + url.trim() + '" target="_blank" style="display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;">' + label.trim() + '</a></div>';
   });
 
   // Parse [link: Text | URL]
   cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
-    return '<a href="' + url.trim() + '" target="_blank" style="color: #4f46e5; text-decoration: underline; font-weight: 700;">' + text.trim() + '</a>';
+    return '<a href="' + url.trim() + '" target="_blank" style="color: #2563eb; text-decoration: underline; font-weight: 700;">' + text.trim() + '</a>';
   });
 
   let ctaSection = "";
   if (actionText && actionUrl) {
     ctaSection += '<div style="text-align: center; margin: 30px 0 18px;">' +
-      '<a href="' + actionUrl + '" target="_blank" style="display: inline-block; padding: 15px 36px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(99,102,241,0.38); letter-spacing: -0.01em;">' +
+      '<a href="' + actionUrl + '" target="_blank" style="display: inline-block; padding: 15px 36px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;">' +
         actionText +
       '</a>' +
     '</div>';
@@ -82,7 +82,7 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
 
   if (documentUrl) {
     ctaSection += '<div style="text-align: center; margin-top: 14px; margin-bottom: 22px;">' +
-      '<a href="' + documentUrl + '" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; color: #4f46e5; text-decoration: none; font-size: 13.5px; font-weight: 700; background: rgba(99,102,241,0.08); padding: 9px 18px; border-radius: 999px; border: 1px solid rgba(99,102,241,0.22);">' +
+      '<a href="' + documentUrl + '" target="_blank" style="display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-size: 13.5px; font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 9px 18px; border-radius: 999px; border: 1px solid rgba(37, 99, 235, 0.2);">' +
         '📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →' +
       '</a>' +
     '</div>';
@@ -94,13 +94,13 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
     '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
       '<!-- Official Company Logo & Header -->' +
       '<tr>' +
-        '<td style="background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 32px 28px; text-align: center; border-bottom: 3px solid #6366f1;">' +
+        '<td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 32px 28px; text-align: center; border-bottom: 3px solid #2563eb;">' +
           '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +
             '<tr>' +
               '<td style="text-align: center; vertical-align: middle;">' +
                 '<img src="' + logoSrc + '" alt="ET Architects" style="height: 56px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); border-radius: 8px;" />' +
                 '<div style="color: #ffffff; font-size: 21px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 10px;">ET ARCHITECTS</div>' +
-                '<div style="color: #a5b4fc; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
+                '<div style="color: #94a3b8; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
               '</td>' +
             '</tr>' +
           '</table>' +
@@ -148,10 +148,10 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
     '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
       '<!-- Header -->' +
       '<tr>' +
-        '<td style="background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 28px 24px; text-align: center; border-bottom: 3px solid #6366f1;">' +
+        '<td style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 24px; text-align: center; border-bottom: 3px solid #2563eb;">' +
           (logoPath ? '<img src="cid:company_logo" alt="ET Architects" style="height: 52px; max-width: 170px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 6px;" />' : "") +
           '<div style="color: #ffffff; font-size: 19px; font-weight: 900; letter-spacing: -0.02em; margin-top: 8px;">ET ARCHITECTS</div>' +
-          '<div style="color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
+          '<div style="color: #94a3b8; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
         '</td>' +
       '</tr>' +
 
@@ -165,7 +165,7 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
           '</p>' +
 
           '<div style="text-align: center; margin: 28px 0;">' +
-            '<div style="display: inline-block; padding: 16px 36px; background: #0f172a; color: #38bdf8; font-size: 32px; font-weight: 900; letter-spacing: 8px; border-radius: 14px; font-family: monospace; border: 2px solid #6366f1; box-shadow: 0 8px 24px rgba(99,102,241,0.28);">' +
+            '<div style="display: inline-block; padding: 16px 36px; background: #0f172a; color: #38bdf8; font-size: 32px; font-weight: 900; letter-spacing: 8px; border-radius: 14px; font-family: monospace; border: 2px solid #2563eb; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.25);">' +
               resetCode +
             '</div>' +
           '</div>' +

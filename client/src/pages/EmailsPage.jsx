@@ -250,24 +250,24 @@ export default function EmailsPage() {
 
     // Parse [button: Label | URL]
     cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
-      return "<div style=\"text-align: center; margin: 20px 0;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(99,102,241,0.35); letter-spacing: -0.01em;\">" + label.trim() + "</a></div>";
+      return "<div style=\"text-align: center; margin: 20px 0;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 13px 28px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 14.5px; font-weight: 800; border-radius: 10px; box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;\">" + label.trim() + "</a></div>";
     });
 
     // Parse [link: Text | URL]
     cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
-      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #4f46e5; text-decoration: underline; font-weight: 700;\">" + text.trim() + "</a>";
+      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #2563eb; text-decoration: underline; font-weight: 700;\">" + text.trim() + "</a>";
     });
 
     let ctaButtons = "";
     if (actionText && actionUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin: 28px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(99,102,241,0.38); letter-spacing: -0.01em;\">" + actionText + "</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin: 28px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35); letter-spacing: -0.01em;\">" + actionText + "</a></div>";
     }
 
     if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 22px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #4f46e5; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(99,102,241,0.08); padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(99,102,241,0.22);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
+      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 22px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-flex; align-items: center; gap: 6px; color: #2563eb; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(37, 99, 235, 0.08); padding: 8px 16px; border-radius: 999px; border: 1px solid rgba(37, 99, 235, 0.2);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
     }
 
-    return "<div style=\"background-color: #f5f4f0; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 16px 48px rgba(15,23,42,0.08);\"><div style=\"background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 28px 22px; text-align: center; border-bottom: 3px solid #6366f1;\"><div style=\"text-align: center;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px;\">ET ARCHITECTS</div><div style=\"color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #1e293b; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
+    return "<div style=\"background-color: #f5f4f0; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px;\"><div style=\"max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 18px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 16px 48px rgba(15,23,42,0.08);\"><div style=\"background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 28px 22px; text-align: center; border-bottom: 3px solid #2563eb;\"><div style=\"text-align: center;\"><img src=\"/logo.png\" alt=\"ET Architects\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 8px;\">ET ARCHITECTS</div><div style=\"color: #94a3b8; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; padding: 20px 24px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 11.5px; color: #64748b; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #1e293b; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong>Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #94a3b8; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
   }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
   const handleSendTestEmail = async () => {
@@ -429,7 +429,7 @@ export default function EmailsPage() {
                   type="button"
                   onClick={() => setBody(prev => prev + "\n\n[img: https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80]\n")}
                   className="btn btn--ghost"
-                  style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "#8b5cf6", fontWeight: 700 }}
+                  style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "#2563eb", fontWeight: 700 }}
                   title="Chèn ảnh minh họa / bản vẽ / poster"
                 >
                   + 🖼️ Thêm Ảnh
@@ -572,13 +572,14 @@ export default function EmailsPage() {
               </div>
             </div>
 
-            {/* Quick 1-Click Selection Shortcuts */}
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              <button type="button" onClick={() => selectOnlyType("TTS")} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn TTS</button>
-              <button type="button" onClick={() => selectOnlyType("TV")} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn Thử việc (TV)</button>
-              <button type="button" onClick={selectOnlyLeaders} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn Quản lý (Leader)</button>
-              <button type="button" onClick={selectAllEligibleDisplayed} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>Chọn tất cả ({displayedStaff.length})</button>
-              <button type="button" onClick={deselectAllDisplayed} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>Bỏ chọn</button>
+            {/* Selection Action Buttons */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="button" onClick={selectAllEligibleDisplayed} className="btn btn--ghost" style={{ fontSize: "12px", padding: "6px 14px", fontWeight: 600 }}>
+                Chọn tất cả ({displayedStaff.length})
+              </button>
+              <button type="button" onClick={deselectAllDisplayed} className="btn btn--ghost" style={{ fontSize: "12px", padding: "6px 14px", fontWeight: 600 }}>
+                Bỏ chọn
+              </button>
             </div>
           </div>
 
