@@ -12,6 +12,24 @@ const generateToken = (userId) => {
   );
 };
 
+const buildSelfProfile = (user) => {
+  const userObject = user.toObject();
+  delete userObject.password_hash;
+  delete userObject.reset_token;
+  delete userObject.reset_token_expires;
+  userObject.id = userObject._id;
+
+  const departmentNames = Array.isArray(userObject.department_ids)
+    ? userObject.department_ids.map(department => department?.name).filter(Boolean)
+    : [];
+  if (departmentNames.length === 0 && userObject.department_id?.name) {
+    departmentNames.push(userObject.department_id.name);
+  }
+  userObject.department_names = departmentNames;
+  userObject.department_name = departmentNames.join(', ') || null;
+  return userObject;
+};
+
 // POST /api/auth/login
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -21,8 +39,11 @@ const login = async (req, res) => {
 
   try {
     const user = await User.findOne({ email: email.toLowerCase().trim() })
-      .populate('department_id', 'name')
-      .populate('manager_id', 'full_name');
+      .populate([
+        { path: 'department_id', select: 'name' },
+        { path: 'department_ids', select: 'name' },
+        { path: 'manager_id', select: 'full_name' },
+      ]);
 
     if (!user) {
       return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng.' });
@@ -42,11 +63,7 @@ const login = async (req, res) => {
 
     const token = generateToken(user._id);
 
-    const userObject = user.toObject();
-    delete userObject.password_hash;
-    delete userObject.reset_token;
-    delete userObject.reset_token_expires;
-    userObject.id = userObject._id;
+    const userObject = buildSelfProfile(user);
 
     res.json({
       message: `Chào mừng, ${user.full_name}! 👋`,
@@ -188,11 +205,13 @@ const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
       .select('-password_hash -reset_token -reset_token_expires')
-      .populate('department_id', 'name')
-      .populate('manager_id', 'full_name');
+      .populate([
+        { path: 'department_id', select: 'name' },
+        { path: 'department_ids', select: 'name' },
+        { path: 'manager_id', select: 'full_name' },
+      ]);
 
-    const userObj = user.toObject();
-    userObj.id = userObj._id;
+    const userObj = buildSelfProfile(user);
     res.json({ user: userObj });
 
   } catch (error) {
@@ -256,11 +275,13 @@ const updateProfile = async (req, res) => {
       req.user._id,
       updateData,
       { new: true }
-    ).select('-password_hash -reset_token -reset_token_expires').populate('department_id', 'name');
+    ).select('-password_hash -reset_token -reset_token_expires')
+      .populate([
+        { path: 'department_id', select: 'name' },
+        { path: 'department_ids', select: 'name' },
+      ]);
 
-    const userObj = user.toObject();
-    userObj.id = userObj._id;
-    userObj.department_name = userObj.department_id?.name || null;
+    const userObj = buildSelfProfile(user);
 
     let message = 'Cập nhật thông tin thành công! ✅';
     if ((parking_location !== undefined || vehicle_info !== undefined) && req.user.role !== 'admin') {

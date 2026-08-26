@@ -88,6 +88,16 @@ export default function ProfilePage() {
     toast.success('Đã đăng xuất');
   };
 
+  const departmentLabel = (() => {
+    const names = Array.isArray(user?.department_names) && user.department_names.length > 0
+      ? user.department_names
+      : Array.isArray(user?.department_ids)
+        ? user.department_ids.map(department => department?.name).filter(Boolean)
+        : [];
+    if (names.length > 0) return names.join(', ');
+    return user?.department_name || user?.department_id?.name || 'Chưa phân';
+  })();
+
   const handleAvatarSelect = () => {
     if (fileInputRef.current) fileInputRef.current.click();
   };
@@ -232,11 +242,14 @@ export default function ProfilePage() {
   const infoItems = [
     { icon: <Mail size={16} />, label: 'Email', value: user?.email },
     { icon: <Phone size={16} />, label: 'Điện thoại', value: user?.phone || 'Chưa cập nhật' },
-    { icon: <Building2 size={16} />, label: 'Phòng ban', value: user?.department_name || 'Chưa phân' },
+    { icon: <Building2 size={16} />, label: 'Phòng ban', value: departmentLabel },
     { icon: <User size={16} />, label: 'Chức vụ', value: user?.position || 'Nhân viên' },
     { icon: <span style={{ fontSize: '14px' }}>📅</span>, label: 'Ngày vào công ty', value: user?.join_date || (user?.start_year ? `Năm ${user.start_year}` : 'Chưa cập nhật') },
     { icon: <span style={{ fontSize: '14px' }}>🏢</span>, label: 'Địa điểm gửi xe', value: user?.parking_location || 'Tòa 17T10 Nguyễn Thị Định' },
     { icon: <span style={{ fontSize: '14px' }}>🛵</span>, label: 'Mô tả xe & Biển số', value: user?.vehicle_info || user?.license_plate || 'Chưa cập nhật' },
+    { icon: <span style={{ fontSize: '14px' }}>🏦</span>, label: 'Ngân hàng', value: user?.bank_name || 'Chưa cập nhật' },
+    { icon: <span style={{ fontSize: '14px' }}>💳</span>, label: 'Số tài khoản', value: user?.bank_account || 'Chưa cập nhật' },
+    { icon: <span style={{ fontSize: '14px' }}>🏛️</span>, label: 'Chi nhánh ngân hàng', value: user?.branch || 'Chưa cập nhật' },
     { icon: <Shield size={16} />, label: 'Vai trò', value: ROLE_VI[user?.role] || user?.role },
   ];
 
