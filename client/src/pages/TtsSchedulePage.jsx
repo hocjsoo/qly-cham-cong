@@ -288,7 +288,7 @@ export default function TtsSchedulePage() {
         {loading ? <div className="tts-loading-skeleton" role="status" aria-label="Đang tải lịch tuần"><div className="tts-skeleton-heading" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /><div className="tts-skeleton-row" /></div> : (
           <>
             <section className="tts-board-card">
-              <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng đăng kí lịch tuần TTS</h2><p>Mỗi người một dòng · S là sáng, C là chiều</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Trống</span></div></div>
+              <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng đăng kí lịch tuần TTS</h2><p>Mỗi người một dòng · S là sáng, C là chiều · Bảng đăng kí tự động khóa vào Chủ nhật trước khi bắt đầu tuần mới</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Trống</span></div></div>
               {ttsUsers.length === 0 ? <div className="tts-empty"><UserRoundCheck size={28} /><strong>Chưa có tài khoản TTS đang hoạt động</strong><span>Admin có thể tạo tài khoản Employee và chọn loại nhân sự TTS.</span></div> : (
                 <><div className="tts-table-wrap">
                   <div className="tts-scroll-hint"><ChevronRight size={13} /> Vuốt ngang để xem các ngày</div>

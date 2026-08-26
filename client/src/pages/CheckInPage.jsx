@@ -29,6 +29,23 @@ const fmt = (iso) => {
   return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
+const entityId = value => String(value?._id || value?.id || value || '');
+
+const getCurrentWeekStart = () => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const date = new Date(`${today}T12:00:00.000Z`);
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - weekday + 1);
+  return date.toISOString().slice(0, 10);
+};
+
+const formatDutyDate = value => {
+  if (!value) return '';
+  return new Date(`${value}T12:00:00.000Z`).toLocaleDateString('vi-VN', {
+    weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh'
+  });
+};
+
 function getDistanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -52,6 +69,7 @@ export default function CheckInPage() {
   const [anniversaries, setAnniversaries] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [weeklyDutySchedule, setWeeklyDutySchedule] = useState(null);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
   const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
@@ -105,7 +123,7 @@ export default function CheckInPage() {
       const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
       const [yearVal, monthVal] = todayVN.split('-').map(Number);
 
-      const [todayRes, settingsRes, projRes, locRes, annRes, bdayRes, annivRes, holRes] = await Promise.all([
+      const [todayRes, settingsRes, projRes, locRes, annRes, bdayRes, annivRes, holRes, dutyRes] = await Promise.all([
         api.get('/attendance/today'),
         api.get('/settings'),
         api.get('/projects?active_only=true'),
@@ -114,12 +132,14 @@ export default function CheckInPage() {
         api.get(`/announcements/birthdays?month=${monthVal}`).catch(() => ({ data: { birthdays: [] } })),
         api.get(`/announcements/anniversaries?month=${monthVal}`).catch(() => ({ data: { anniversaries: [] } })),
         api.get(`/holidays?year=${yearVal}&month=${monthVal}`).catch(() => ({ data: [] })),
+        api.get(`/tts-schedules?week_start=${getCurrentWeekStart()}`).catch(() => ({ data: null })),
       ]);
       setToday(todayRes.data.attendance || null);
       setSettings(settingsRes.data?.settings || settingsRes.data || null);
       setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
       setBirthdays(bdayRes.data?.birthdays || []);
       setAnniversaries(annivRes.data?.anniversaries || []);
+      setWeeklyDutySchedule(dutyRes.data);
       
       const currentMonthStr = String(monthVal).padStart(2, '0');
       const rawHolidays = Array.isArray(holRes?.data) ? holRes.data : [];
@@ -409,6 +429,41 @@ export default function CheckInPage() {
   const isOtNow = isCheckedIn && !isCheckedOut && now.getHours() >= 18;
   const lateConfig = LATE_TIERS[att?.late_tier] || (att?.is_late ? LATE_TIERS.late_medium : LATE_TIERS.on_time);
 
+  const myDutyAssignments = useMemo(() => {
+    const currentUserId = entityId(user);
+    const duties = weeklyDutySchedule?.schedule?.duties || [];
+    if (!currentUserId) return [];
+
+    return duties.flatMap(duty => {
+      const groups = [];
+      const officeTeam = duty.office_cleaning_user_ids || [];
+      const restroomTeam = duty.restroom_cleaning_user_ids || [];
+
+      if (officeTeam.some(person => entityId(person) === currentUserId)) {
+        groups.push({
+          label: 'Dọn văn phòng',
+          companions: officeTeam.filter(person => entityId(person) !== currentUserId).map(person => person.full_name),
+        });
+      }
+      if (restroomTeam.some(person => entityId(person) === currentUserId)) {
+        groups.push({
+          label: 'Dọn nhà vệ sinh',
+          companions: restroomTeam.filter(person => entityId(person) !== currentUserId).map(person => person.full_name),
+        });
+      }
+
+      return groups.length ? [{ date: duty.date, groups }] : [];
+    });
+  }, [weeklyDutySchedule, user]);
+
+  const restroomAssignments = useMemo(() => {
+    const duties = weeklyDutySchedule?.schedule?.duties || [];
+    return duties.flatMap(duty => {
+      const names = (duty.restroom_cleaning_user_ids || []).map(person => person.full_name).filter(Boolean);
+      return names.length ? [{ date: duty.date, names }] : [];
+    });
+  }, [weeklyDutySchedule]);
+
   return (
     <div className="page">
       <div className="header">
@@ -460,6 +515,73 @@ export default function CheckInPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Weekly cleaning duty reminder */}
+        {weeklyDutySchedule && (
+          <section
+            className="card animate-fade-in"
+            aria-label="Lịch trực nhật tuần này"
+            style={{
+              marginBottom: '12px', padding: '12px 14px', borderLeft: '4px solid var(--yellow)',
+              background: 'color-mix(in srgb, var(--yellow) 7%, var(--bg-card))'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--text)', fontSize: '13px', fontWeight: 700 }}>
+                <Calendar size={16} color="var(--yellow)" /> Lịch trực tuần này
+              </div>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => navigate('/tts-schedule')}
+                style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}
+              >
+                Xem lịch <ChevronRight size={13} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px' }}>
+              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
+                <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--primary)', fontSize: '11px' }}>🧹 Phân công của bạn</strong>
+                {myDutyAssignments.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {myDutyAssignments.map(assignment => (
+                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
+                        {assignment.groups.map((group, index) => (
+                          <span key={group.label}>
+                            {index > 0 && ' · '}{group.label}
+                            {group.companions.length > 0
+                              ? <> cùng <strong style={{ color: 'var(--text)' }}>{group.companions.join(', ')}</strong></>
+                              : ' (thực hiện một mình)'}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tuần này bạn chưa được phân công trực nhật.</span>
+                )}
+              </article>
+
+              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
+                <strong style={{ display: 'block', marginBottom: '6px', color: '#0f766e', fontSize: '11px' }}>🧼 Người dọn nhà vệ sinh tuần này</strong>
+                {restroomAssignments.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {restroomAssignments.map(assignment => (
+                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
+                        {assignment.names.join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chưa có người được phân công.</span>
+                )}
+              </article>
+            </div>
+          </section>
         )}
 
         {/* Work Shift Info Badge */}
