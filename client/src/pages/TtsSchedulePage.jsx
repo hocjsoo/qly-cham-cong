@@ -3,6 +3,7 @@ import {
   CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, Edit3,
   Lock, LockOpen, Save, Users, X, Check, BriefcaseBusiness,
   SprayCan, Bath, Info, UserRoundCheck, ShieldCheck,
+  MessageSquareText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -98,6 +99,11 @@ export default function TtsSchedulePage() {
     (schedule?.registrations || []).forEach(reg => map.set(personId(reg.user_id), reg));
     return map;
   }, [schedule]);
+
+  const scheduleNotes = ttsUsers.map(person => ({
+    person,
+    note: String(registrations.get(personId(person))?.note || '').trim(),
+  })).filter(item => item.note);
 
   const duties = useMemo(() => {
     const map = new Map();
@@ -304,6 +310,7 @@ export default function TtsSchedulePage() {
                     <tfoot><tr><th className="tts-sticky-cell">Có mặt</th>{days.map(date => <td key={date}><div className="tts-count-summary"><span>S <b>{sessionCount(date, 'morning')}</b></span><span>C <b>{sessionCount(date, 'afternoon')}</b></span></div></td>)}<td className="tts-count-col">—</td></tr></tfoot>
                   </table>
                   </div>
+                  {scheduleNotes.length > 0 && <section className="tts-week-notes" aria-labelledby="tts-week-notes-title"><header><MessageSquareText size={17} /><div><strong id="tts-week-notes-title">Ghi chú lịch học</strong><span>{scheduleNotes.length} TTS có lưu ý trong tuần</span></div></header><div className="tts-week-notes__list">{scheduleNotes.map(({ person, note }) => <article key={personId(person)}><Avatar person={person} size={30} /><div><strong>{person.full_name}</strong><p>{note}</p></div></article>)}</div></section>}
                 </div>
               )}
             </section>
