@@ -224,8 +224,6 @@ export default function ReportPage() {
         user_id: selectedCell.user_id,
         date: selectedCell.dateStr,
         new_symbol: cellSymbol,
-        check_in_time: cellCheckIn,
-        check_out_time: cellCheckOut,
         reason: cellReason.trim(),
       });
       toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}] & lưu lịch sử! ✅`);
@@ -1601,47 +1599,19 @@ export default function ReportPage() {
             {isAdminOrManager ? (
               <div style={{ borderTop: '1px solid var(--border-muted)', paddingTop: '12px', marginTop: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu & Giờ Công (Admin / Leader)
-                </div>
-
-                {/* Sửa Giờ Check-in & Check-out */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} color="var(--primary)" /> Giờ Check-in
-                    </label>
-                    <input
-                      type="time"
-                      className="form-input"
-                      value={cellCheckIn}
-                      onChange={e => setCellCheckIn(e.target.value)}
-                      style={{ fontSize: '12.5px', padding: '6px 8px' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} color="var(--primary)" /> Giờ Check-out
-                    </label>
-                    <input
-                      type="time"
-                      className="form-input"
-                      value={cellCheckOut}
-                      onChange={e => setCellCheckOut(e.target.value)}
-                      style={{ fontSize: '12.5px', padding: '6px 8px' }}
-                    />
-                  </div>
+                  <Edit2 size={13} color="var(--primary)" /> Điều Chỉnh Ký Hiệu Công (Admin / Leader)
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '8px' }}>
                   <label className="form-label" style={{ fontSize: '11px' }}>Ký hiệu công mới *</label>
                   <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)} style={{ fontSize: '12.5px' }}>
-                    <option value="x">x : Đủ công (1.0)</option>
+                    <option value="x">x : Đủ 1 công (1.0)</option>
                     <option value="0,75x">0,75x : 3/4 công (0.75)</option>
                     <option value="0,5x">0,5x : 1/2 công (0.5)</option>
-                    <option value="CT1">CT1 : CT Trong nước</option>
-                    <option value="CT2">CT2 : CT Nước ngoài</option>
-                    <option value="WFH">WFH : Work from home</option>
-                    <option value="P">P : Nghỉ phép</option>
+                    <option value="CT1">CT1 : CT Trong nước (1.0)</option>
+                    <option value="CT2">CT2 : CT Nước ngoài (1.0)</option>
+                    <option value="WFH">WFH : Work from home (1.0)</option>
+                    <option value="P">P : Nghỉ phép năm</option>
                     <option value="O">O : Nghỉ ốm</option>
                     <option value="KL">KL : Nghỉ không lương</option>
                     <option value="L">L : Nghỉ Lễ công ty</option>
@@ -1656,9 +1626,12 @@ export default function ReportPage() {
                     rows={2}
                     value={cellReason}
                     onChange={e => setCellReason(e.target.value)}
-                    placeholder="Nhập lý do điều chỉnh ô công hoặc sửa giờ..."
+                    placeholder="Nhập lý do điều chỉnh ký hiệu công..."
                     style={{ fontSize: '12px' }}
                   />
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    💡 Hệ thống chỉ ghi nhận ký hiệu công & lý do để chốt công chuẩn xác, không bắt buộc nhập giờ vào/ra hay tính thêm OT.
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>

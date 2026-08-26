@@ -7,19 +7,21 @@ const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const SystemSetting = require('../models/SystemSetting');
 const Holiday = require('../models/Holiday');
 
-// Map symbol to status / check_in_type for override
+// Map symbol to status / check_in_type / work_units for override
 const SYMBOL_TO_STATUS_MAP = {
-  'x': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
-  '0,75x': { total_hours: 6, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
-  '0,5x': { total_hours: 4, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
-  'CT1': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác trong nước (CT1)' },
-  'CT2': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác nước ngoài (CT2)' },
-  'WFH': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'wfh', status: 'present', notes: 'Work from home (WFH)' },
-  'P': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'leave', notes: 'Nghỉ phép năm (P)' },
-  'O': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'leave', notes: 'Nghỉ ốm (O)' },
-  'KL': { total_hours: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Nghỉ không lương (KL)' },
-  'K': { total_hours: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Khác (K)' },
-  'L': { total_hours: 8, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
+  'x': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  '0,75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  '0.75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  '0,5x': { total_hours: 4, work_units: 0.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  '0.5x': { total_hours: 4, work_units: 0.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  'CT1': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác trong nước (CT1)' },
+  'CT2': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác nước ngoài (CT2)' },
+  'WFH': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'wfh', status: 'present', notes: 'Work from home (WFH)' },
+  'P': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'leave', notes: 'Nghỉ phép năm (P)' },
+  'O': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'leave', notes: 'Nghỉ ốm (O)' },
+  'KL': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Nghỉ không lương (KL)' },
+  'K': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Khác (K)' },
+  'L': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
 };
 
 // GET /api/timesheet-lock/full-matrix?month=7&year=2026
@@ -175,36 +177,36 @@ const getFullMatrix = async (req, res) => {
           }
 
           const notes = (att.notes || '').toUpperCase();
-          if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI')) {
+          if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) {
             symbol = 'CT2';
             ct_foreign += 1;
-          } else if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || (att.check_in_type === 'site')) {
+          } else if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || notes.includes('[CT1]') || (att.check_in_type === 'site')) {
             symbol = 'CT1';
             ct_domestic += 1;
-          } else if (att.check_in_type === 'wfh' || notes.includes('WFH')) {
+          } else if (att.check_in_type === 'wfh' || notes.includes('WFH') || notes.includes('[WFH]')) {
             symbol = 'WFH';
             wfh += 1;
-          } else if (att.status === 'leave' || notes.includes('NGHỈ PHÉP') || notes.includes('(P)')) {
+          } else if (att.status === 'leave' || notes.includes('NGHỈ PHÉP') || notes.includes('(P)') || notes.includes('[P]')) {
             symbol = 'P';
             annual_leave += 1;
-          } else if (notes.includes('NGHỈ ỐM') || notes.includes('(O)')) {
+          } else if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) {
             symbol = 'O';
             sick_leave += 1;
-          } else if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)')) {
+          } else if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) {
             symbol = 'KL';
             unpaid_leave += 1;
-          } else if (notes.includes('(K)') || notes.includes('KHÁC')) {
+          } else if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) {
             symbol = 'K';
             other_leave += 1;
-          } else if (att.status === 'holiday' || notes.includes('NGHỈ LỄ') || notes.includes('(L)')) {
+          } else if (att.status === 'holiday' || notes.includes('NGHỈ LỄ') || notes.includes('(L)') || notes.includes('[L]')) {
             symbol = 'L';
-          } else if (att.work_units === 0.75) {
+          } else if (att.work_units === 0.75 || notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) {
             symbol = '0,75x';
             nlv_office += 0.75;
-          } else if (att.work_units === 0.5 || att.status === 'half_day') {
+          } else if (att.work_units === 0.5 || att.status === 'half_day' || notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) {
             symbol = '0,5x';
             nlv_office += 0.5;
-          } else if (att.total_hours >= 7.5 || att.work_units === 1.0) {
+          } else if (notes.includes('[X]') || att.work_units === 1.0 || att.total_hours >= 7.5) {
             symbol = 'x';
             nlv_office += 1;
           } else if (att.total_hours >= 5.5) {
@@ -355,12 +357,12 @@ const toggleLock = async (req, res) => {
   }
 };
 
-// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công có lưu lý do, giờ vào/ra & thời gian
+// POST /api/timesheet-lock/override-cell - Chỉnh sửa ô công (Admin chỉ duyệt ký hiệu & lý do, không cần giờ vào/ra & không phình OT)
 const overrideCell = async (req, res) => {
-  const { user_id, date, new_symbol, reason, check_in_time, check_out_time, custom_notes } = req.body;
+  const { user_id, date, new_symbol, reason, custom_notes } = req.body;
 
   if (!user_id || !date || !new_symbol || !reason || !reason.trim()) {
-    return res.status(400).json({ error: 'Tất cả thông tin và Lý do chỉnh sửa là bắt buộc.' });
+    return res.status(400).json({ error: 'Ký hiệu công và Lý do chỉnh sửa là bắt buộc.' });
   }
 
   try {
@@ -368,19 +370,16 @@ const overrideCell = async (req, res) => {
     const oldSymbol = attendance ? (attendance.notes || '—') : '—';
     const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol] || SYMBOL_TO_STATUS_MAP['x'];
 
-    const checkInDate = check_in_time ? (check_in_time.includes('T') ? new Date(check_in_time) : new Date(`${date}T${check_in_time}:00+07:00`)) : (attendance?.check_in_time || null);
-    const checkOutDate = check_out_time ? (check_out_time.includes('T') ? new Date(check_out_time) : new Date(`${date}T${check_out_time}:00+07:00`)) : (attendance?.check_out_time || null);
-
     const noteContent = custom_notes ? `${custom_notes} | Sửa: ${reason.trim()}` : `Ký hiệu: [${new_symbol}] | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
 
     if (attendance) {
       attendance.total_hours = targetConfig.total_hours;
+      attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0;
+      attendance.ot_hours = 0; // Chỉnh sửa công theo ngày không tính thêm OT
       attendance.is_late = targetConfig.is_late;
       attendance.late_tier = targetConfig.late_tier;
       attendance.check_in_type = targetConfig.check_in_type;
       attendance.status = targetConfig.status;
-      if (check_in_time !== undefined) attendance.check_in_time = checkInDate;
-      if (check_out_time !== undefined) attendance.check_out_time = checkOutDate;
       attendance.notes = noteContent;
       await attendance.save();
     } else {
@@ -388,12 +387,12 @@ const overrideCell = async (req, res) => {
         user_id,
         date,
         total_hours: targetConfig.total_hours,
+        work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0,
+        ot_hours: 0,
         is_late: targetConfig.is_late,
         late_tier: targetConfig.late_tier,
         check_in_type: targetConfig.check_in_type,
         status: targetConfig.status,
-        check_in_time: checkInDate,
-        check_out_time: checkOutDate,
         notes: noteContent,
       });
     }
@@ -415,7 +414,7 @@ const overrideCell = async (req, res) => {
     });
 
     res.json({
-      message: `Đã chỉnh sửa ô công ngày ${date} thành [${new_symbol}] ✅`,
+      message: `Đã điều chỉnh ô công ngày ${date} thành [${new_symbol}] ✅`,
       attendance,
       audit_log: auditLog,
     });
