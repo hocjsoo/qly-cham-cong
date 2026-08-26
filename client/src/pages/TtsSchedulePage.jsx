@@ -1,10 +1,11 @@
 // client/src/pages/TtsSchedulePage.jsx
 // Bảng Lịch Hàng Tuần TTS & Phân Công Trực Nhật — Khớp 100% Bảng Excel Thực Tế 1 Khối Thống Nhất
+// Tự nhập dữ liệu, đồng bộ danh sách nhân sự thực tế & hiển thị ảnh đại diện (avatar)
 
 import { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Edit2, 
-  Trash2, Save, RefreshCw, Printer, X, Check
+  Trash2, Save, RefreshCw, Printer, X, Check, User
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -57,8 +58,9 @@ export default function TtsSchedulePage() {
   const [dutyRosterForm, setDutyRosterForm] = useState({});
   const [submittingDuty, setSubmittingDuty] = useState(false);
 
-  // Modal Thêm TTS mới vào bảng
+  // Modal Thêm TTS mới vào bảng (Chọn theo danh sách đồng bộ có ảnh)
   const [showAddInternModal, setShowAddInternModal] = useState(false);
+  const [selectedStaffUser, setSelectedStaffUser] = useState(null);
   const [newInternForm, setNewInternForm] = useState({
     user_id: '',
     full_name: '',
@@ -241,12 +243,12 @@ export default function TtsSchedulePage() {
   const handleOpenDutyModal = () => {
     const currentRoster = scheduleData?.duty_roster || {};
     setDutyRosterForm({
-      t2: { office_cleaning: currentRoster.t2?.office_cleaning || 'My, Ly', toilet_cleaning: currentRoster.t2?.toilet_cleaning || '' },
-      t3: { office_cleaning: currentRoster.t3?.office_cleaning || 'Ninh', toilet_cleaning: currentRoster.t3?.toilet_cleaning || '' },
-      t4: { office_cleaning: currentRoster.t4?.office_cleaning || 'Ngọc, Tiến', toilet_cleaning: currentRoster.t4?.toilet_cleaning || '' },
-      t5: { office_cleaning: currentRoster.t5?.office_cleaning || 'A Minh, Sơn', toilet_cleaning: currentRoster.t5?.toilet_cleaning || '' },
-      t6: { office_cleaning: currentRoster.t6?.office_cleaning || 'A Trường, Hoàng', toilet_cleaning: currentRoster.t6?.toilet_cleaning || '' },
-      t7: { office_cleaning: currentRoster.t7?.office_cleaning || 'A Long, Mến', toilet_cleaning: currentRoster.t7?.toilet_cleaning || 'A Minh' },
+      t2: { office_cleaning: currentRoster.t2?.office_cleaning || '', toilet_cleaning: currentRoster.t2?.toilet_cleaning || '' },
+      t3: { office_cleaning: currentRoster.t3?.office_cleaning || '', toilet_cleaning: currentRoster.t3?.toilet_cleaning || '' },
+      t4: { office_cleaning: currentRoster.t4?.office_cleaning || '', toilet_cleaning: currentRoster.t4?.toilet_cleaning || '' },
+      t5: { office_cleaning: currentRoster.t5?.office_cleaning || '', toilet_cleaning: currentRoster.t5?.toilet_cleaning || '' },
+      t6: { office_cleaning: currentRoster.t6?.office_cleaning || '', toilet_cleaning: currentRoster.t6?.toilet_cleaning || '' },
+      t7: { office_cleaning: currentRoster.t7?.office_cleaning || '', toilet_cleaning: currentRoster.t7?.toilet_cleaning || '' },
     });
     setShowDutyModal(true);
   };
@@ -270,10 +272,23 @@ export default function TtsSchedulePage() {
     }
   };
 
-  // Thêm TTS vào bảng
+  // Thêm TTS vào bảng (Đồng bộ từ tài khoản nhân sự có ảnh)
+  const handleSelectStaffUser = (staff) => {
+    setSelectedStaffUser(staff);
+    if (staff) {
+      setNewInternForm({
+        user_id: staff._id,
+        full_name: staff.full_name || '',
+        phone: staff.phone || '',
+        bank_account: staff.bank_account || '',
+        bank_name: staff.bank_name || 'MB'
+      });
+    }
+  };
+
   const handleSaveNewIntern = async () => {
     if (!newInternForm.full_name.trim()) {
-      toast.error('Vui lòng nhập tên Thực tập sinh');
+      toast.error('Vui lòng chọn hoặc nhập tên Thực tập sinh');
       return;
     }
 
@@ -286,6 +301,7 @@ export default function TtsSchedulePage() {
       });
       toast.success('Đã thêm TTS vào bảng thành công ✅');
       setShowAddInternModal(false);
+      setSelectedStaffUser(null);
       setNewInternForm({ user_id: '', full_name: '', phone: '', bank_account: '', bank_name: 'MB' });
       fetchSchedule(weekNumber, year);
     } catch (err) {
@@ -408,7 +424,7 @@ export default function TtsSchedulePage() {
                   className="btn btn--ghost" 
                   style={{ padding: '6px 12px', fontSize: '12px', gap: '4px' }}
                 >
-                  <Plus size={14} /> Thêm TTS
+                  <Plus size={14} /> Thêm TTS Vào Bảng
                 </button>
               )}
               <button 
@@ -475,48 +491,58 @@ export default function TtsSchedulePage() {
                 {/* Ô trống bên cạnh TT ở hàng Tên TTS */}
                 <th style={{ width: '55px', border: '1px solid #9ca3af', background: '#f9fafb' }}></th>
 
-                {/* Các cột Tên TTS */}
-                {internColumns.map((intern, i) => (
-                  <th 
-                    key={intern?._id || `empty-${i}`} 
-                    style={{ 
-                      minWidth: '95px', 
-                      width: '105px', 
-                      border: '1px solid #9ca3af', 
-                      fontWeight: 800, 
-                      color: '#111827', 
-                      verticalAlign: 'middle', 
-                      padding: '6px 4px',
-                      background: '#f9fafb'
-                    }}
-                  >
-                    {intern ? (
-                      <div>
-                        <div style={{ fontSize: '13.5px', fontWeight: 800 }}>{intern.full_name}</div>
-                        {isAdminOrLeader && (
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '2px' }}>
-                            <button 
-                              onClick={() => handleEditInternSchedule(intern)} 
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '1px' }} 
-                              title="Sửa thông tin"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                            <button 
-                              onClick={() => handleRemoveIntern(intern)} 
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '1px' }} 
-                              title="Xóa khỏi tuần"
-                            >
-                              <Trash2 size={11} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <span style={{ color: '#d1d5db' }}>—</span>
-                    )}
-                  </th>
-                ))}
+                {/* Các cột Tên TTS (kèm Ảnh Đại Diện avatar đồng bộ) */}
+                {internColumns.map((intern, i) => {
+                  const avatar = intern?.user_id?.avatar_url || intern?.avatar_url;
+                  return (
+                    <th 
+                      key={intern?._id || `empty-${i}`} 
+                      style={{ 
+                        minWidth: '100px', 
+                        width: '110px', 
+                        border: '1px solid #9ca3af', 
+                        fontWeight: 800, 
+                        color: '#111827', 
+                        verticalAlign: 'middle', 
+                        padding: '6px 4px',
+                        background: '#f9fafb'
+                      }}
+                    >
+                      {intern ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                          {avatar && avatar !== '/logo.png' ? (
+                            <img 
+                              src={avatar} 
+                              alt={intern.full_name} 
+                              style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #d1d5db' }} 
+                            />
+                          ) : null}
+                          <div style={{ fontSize: '13px', fontWeight: 800 }}>{intern.full_name}</div>
+                          {isAdminOrLeader && (
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '1px' }}>
+                              <button 
+                                onClick={() => handleEditInternSchedule(intern)} 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: '1px' }} 
+                                title="Sửa ca / thông tin"
+                              >
+                                <Edit2 size={11} />
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveIntern(intern)} 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '1px' }} 
+                                title="Xóa khỏi tuần"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#d1d5db' }}>—</span>
+                      )}
+                    </th>
+                  );
+                })}
 
                 {/* Cột SL tổng buổi (Span 3 hàng) */}
                 <th rowSpan="3" style={{ width: '45px', border: '1px solid #9ca3af', fontWeight: 800, fontSize: '13px', verticalAlign: 'middle', background: '#f9fafb' }}>
@@ -920,14 +946,14 @@ export default function TtsSchedulePage() {
       {/* MODAL 2: PHÂN CÔNG TRỰC NHẬT (LEADER NINH / ADMIN) */}
       {showDutyModal && (
         <div className="modal-overlay" onClick={() => setShowDutyModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '560px' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ fontWeight: 800, fontSize: '16px' }}>🧹 Phân Công Trực Nhật & Vệ Sinh Tuần {weekNumber}</div>
               <button onClick={() => setShowDutyModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
               {DAYS.map(d => (
                 <div key={d.key} style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   <div style={{ fontWeight: 800, fontSize: '13px', marginBottom: '8px', color: d.key === 't7' ? 'var(--red)' : 'var(--primary)' }}>
@@ -939,21 +965,43 @@ export default function TtsSchedulePage() {
                       <input
                         type="text"
                         className="form-input"
-                        style={{ fontSize: '12px', padding: '6px 10px' }}
+                        style={{ fontSize: '12px', padding: '6px 10px', marginBottom: '6px' }}
                         value={dutyRosterForm[d.key]?.office_cleaning || ''}
                         onChange={e => setDutyRosterForm(prev => ({
                           ...prev,
                           [d.key]: { ...(prev[d.key] || {}), office_cleaning: e.target.value }
                         }))}
-                        placeholder="Nhập tên (VD: My, Ly)..."
+                        placeholder="Nhập tên người trực..."
                       />
+                      {/* Chọn nhanh từ danh sách nhân sự */}
+                      <select
+                        className="form-input"
+                        style={{ fontSize: '11px', padding: '4px 6px' }}
+                        onChange={e => {
+                          if (e.target.value) {
+                            const cur = dutyRosterForm[d.key]?.office_cleaning || '';
+                            const next = cur ? `${cur}, ${e.target.value}` : e.target.value;
+                            setDutyRosterForm(prev => ({
+                              ...prev,
+                              [d.key]: { ...(prev[d.key] || {}), office_cleaning: next }
+                            }));
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="">+ Chọn nhanh nhân sự</option>
+                        {allStaff.map(s => (
+                          <option key={s._id} value={s.full_name}>{s.full_name} ({s.position || 'NS'})</option>
+                        ))}
+                      </select>
                     </div>
+
                     <div>
                       <label className="form-label" style={{ fontSize: '11px' }}>Dọn nhà vệ sinh</label>
                       <input
                         type="text"
                         className="form-input"
-                        style={{ fontSize: '12px', padding: '6px 10px' }}
+                        style={{ fontSize: '12px', padding: '6px 10px', marginBottom: '6px' }}
                         value={dutyRosterForm[d.key]?.toilet_cleaning || ''}
                         onChange={e => setDutyRosterForm(prev => ({
                           ...prev,
@@ -961,6 +1009,24 @@ export default function TtsSchedulePage() {
                         }))}
                         placeholder={d.key === 't7' ? 'VD: A Minh' : 'Để trống nếu không có'}
                       />
+                      <select
+                        className="form-input"
+                        style={{ fontSize: '11px', padding: '4px 6px' }}
+                        onChange={e => {
+                          if (e.target.value) {
+                            setDutyRosterForm(prev => ({
+                              ...prev,
+                              [d.key]: { ...(prev[d.key] || {}), toilet_cleaning: e.target.value }
+                            }));
+                            e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="">+ Chọn nhanh nhân sự</option>
+                        {allStaff.map(s => (
+                          <option key={s._id} value={s.full_name}>{s.full_name} ({s.position || 'NS'})</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -977,39 +1043,74 @@ export default function TtsSchedulePage() {
         </div>
       )}
 
-      {/* MODAL 3: THÊM TTS VÀO BẢNG */}
+      {/* MODAL 3: THÊM TTS VÀO BẢNG (Đồng bộ tài khoản & hiện ảnh đại diện) */}
       {showAddInternModal && (
         <div className="modal-overlay" onClick={() => setShowAddInternModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontWeight: 800, fontSize: '16px' }}>➕ Thêm TTS Vào Bảng Tuần</div>
+              <div style={{ fontWeight: 800, fontSize: '16px' }}>➕ Thêm TTS Vào Bảng Tuần (Đồng Bộ Nhân Sự)</div>
               <button onClick={() => setShowAddInternModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '14px' }}>
+              {/* Danh Sách Chọn Nhân Sự Đồng Bộ Có Ảnh */}
               <div>
-                <label className="form-label">Chọn nhân sự có sẵn (hoặc nhập tên bên dưới)</label>
-                <select
-                  className="form-input"
-                  onChange={e => {
-                    const selected = allStaff.find(s => String(s._id) === String(e.target.value));
-                    if (selected) {
-                      setNewInternForm({
-                        user_id: selected._id,
-                        full_name: selected.full_name,
-                        phone: selected.phone || '',
-                        bank_account: selected.bank_account || '',
-                        bank_name: selected.bank_name || 'MB'
-                      });
-                    }
-                  }}
-                >
-                  <option value="">-- Chọn từ danh sách nhân sự --</option>
-                  {allStaff.map(s => (
-                    <option key={s._id} value={s._id}>{s.full_name} ({s.position || 'Nhân sự'})</option>
-                  ))}
-                </select>
+                <label className="form-label">Chọn nhân sự từ hệ thống để đồng bộ tự động:</label>
+                <div style={{
+                  maxHeight: '160px',
+                  overflowY: 'auto',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  background: 'var(--bg-input)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  {allStaff.map(staff => {
+                    const isSelected = selectedStaffUser?._id === staff._id;
+                    const avatar = staff.avatar_url;
+                    return (
+                      <div
+                        key={staff._id}
+                        onClick={() => handleSelectStaffUser(staff)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '6px 10px',
+                          borderRadius: '6px',
+                          background: isSelected ? 'rgba(99, 102, 241, 0.18)' : 'var(--bg-card)',
+                          border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        {avatar && avatar !== '/logo.png' ? (
+                          <img 
+                            src={avatar} 
+                            alt={staff.full_name} 
+                            style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--bg-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px', color: 'var(--primary)' }}>
+                            {staff.full_name?.split(' ').slice(-1)[0]?.[0] || 'U'}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text)' }}>
+                            {staff.full_name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            {staff.position || 'Nhân sự'} {staff.phone ? `• ${staff.phone}` : ''}
+                          </div>
+                        </div>
+                        {isSelected && <Check size={16} color="var(--primary)" />}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
@@ -1019,7 +1120,7 @@ export default function TtsSchedulePage() {
                   className="form-input"
                   value={newInternForm.full_name}
                   onChange={e => setNewInternForm(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Nhập tên..."
+                  placeholder="Nhập họ và tên..."
                 />
               </div>
 
@@ -1035,7 +1136,7 @@ export default function TtsSchedulePage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">STK</label>
+                  <label className="form-label">STK & Ngân hàng</label>
                   <input
                     type="text"
                     className="form-input"

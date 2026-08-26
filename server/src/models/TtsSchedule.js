@@ -40,12 +40,12 @@ const TtsScheduleSchema = new mongoose.Schema({
   end_date: { type: String, required: true },   // YYYY-MM-DD (Chủ nhật hoặc Thứ 7)
   registrations: [RegistrationSchema],
   duty_roster: {
-    t2: { type: DailyDutySchema, default: () => ({ office_cleaning: 'My, Ly', toilet_cleaning: '' }) },
-    t3: { type: DailyDutySchema, default: () => ({ office_cleaning: 'Ninh', toilet_cleaning: '' }) },
-    t4: { type: DailyDutySchema, default: () => ({ office_cleaning: 'Ngọc, Tiến', toilet_cleaning: '' }) },
-    t5: { type: DailyDutySchema, default: () => ({ office_cleaning: 'A Minh, Sơn', toilet_cleaning: '' }) },
-    t6: { type: DailyDutySchema, default: () => ({ office_cleaning: 'A Trường, Hoàng', toilet_cleaning: '' }) },
-    t7: { type: DailyDutySchema, default: () => ({ office_cleaning: 'A Long, Mến', toilet_cleaning: 'A Minh' }) },
+    t2: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
+    t3: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
+    t4: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
+    t5: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
+    t6: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
+    t7: { type: DailyDutySchema, default: () => ({ office_cleaning: '', toilet_cleaning: '' }) },
   },
   duty_rules: {
     type: [String],

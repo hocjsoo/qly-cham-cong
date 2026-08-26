@@ -46,71 +46,21 @@ const getWeeklySchedule = async (req, res) => {
       .populate('registrations.user_id', 'full_name phone email bank_account bank_name position avatar_url employee_code')
       .populate('updated_by', 'full_name');
 
-    // Nếu tuần này chưa có bản ghi, tự động khởi tạo
+    // Nếu tuần này chưa có bản ghi, tự động khởi tạo bảng trống
     if (!schedule) {
-      // Tìm xem tuần trước đó có danh sách TTS nào không để kế thừa
-      const prevSchedule = await TtsSchedule.findOne({
-        year: week_number === 1 ? year - 1 : year,
-        week_number: week_number === 1 ? 52 : week_number - 1
-      });
-
-      // Lấy danh sách nhân viên là TTS hoặc Part-time từ bảng User
-      const internUsers = await User.find({
-        is_active: { $ne: false },
-        $or: [
-          { position: { $regex: 'thực tập|tts|intern|part-time|học việc', $options: 'i' } },
-          { role: { $regex: 'intern', $options: 'i' } }
-        ]
-      }).select('full_name phone bank_account bank_name position employee_code');
-
-      let initialRegistrations = [];
-
-      if (prevSchedule && prevSchedule.registrations?.length > 0) {
-        // Kế thừa danh sách TTS từ tuần trước nhưng reset ca đăng ký
-        initialRegistrations = prevSchedule.registrations.map(r => ({
-          user_id: r.user_id,
-          full_name: r.full_name,
-          phone: r.phone || '',
-          bank_account: r.bank_account || '',
-          bank_name: r.bank_name || '',
-          position: r.position || 'Thực tập sinh',
-          shifts: {},
-          note: ''
-        }));
-      } else if (internUsers.length > 0) {
-        initialRegistrations = internUsers.map(u => ({
-          user_id: u._id,
-          full_name: u.full_name,
-          phone: u.phone || '',
-          bank_account: u.bank_account || '',
-          bank_name: u.bank_name || 'MB',
-          position: u.position || 'Thực tập sinh',
-          shifts: {},
-          note: ''
-        }));
-      } else {
-        // Mẫu mặc định khớp bảng mẫu hình ảnh
-        initialRegistrations = [
-          { full_name: 'Tiến', phone: '0359412704', bank_account: '0396944647', bank_name: 'MB', position: 'Thực tập sinh', shifts: { t3_morning: true, t3_afternoon: true, t4_morning: true, t4_afternoon: true, t5_morning: true, t5_afternoon: true, t6_morning: true } },
-          { full_name: 'Sơn', phone: '0889326328', bank_account: '0889326328', bank_name: 'MB', position: 'Thực tập sinh', shifts: { t2_morning: true, t2_afternoon: true, t3_morning: true, t3_afternoon: true, t4_morning: true, t4_afternoon: true, t5_morning: true, t5_afternoon: true, t6_morning: true, t6_afternoon: true, t7_morning: true, t7_afternoon: true } },
-          { full_name: 'Hoàng', phone: '0394697998', bank_account: '0096811567998', bank_name: 'MB', position: 'Thực tập sinh', shifts: { t4_afternoon: true, t5_afternoon: true, t6_afternoon: true, t7_morning: true } },
-        ];
-      }
-
       // Tính start_date và end_date cho tuần được chọn
-      // Ước lượng ngày Thứ 2 của week_number
       const jan4 = new Date(year, 0, 4);
       const jan4Day = (jan4.getDay() + 6) % 7;
       const targetMonday = new Date(jan4.getTime() + ((week_number - 1) * 7 - jan4Day) * 86400000);
       const targetSunday = new Date(targetMonday.getTime() + 6 * 86400000);
 
-      const dutyRoster = prevSchedule?.duty_roster || {
-        t2: { office_cleaning: 'My, Ly', toilet_cleaning: '' },
-        t3: { office_cleaning: 'Ninh', toilet_cleaning: '' },
-        t4: { office_cleaning: 'Ngọc, Tiến', toilet_cleaning: '' },
-        t5: { office_cleaning: 'A Minh, Sơn', toilet_cleaning: '' },
-        t6: { office_cleaning: 'A Trường, Hoàng', toilet_cleaning: '' },
-        t7: { office_cleaning: 'A Long, Mến', toilet_cleaning: 'A Minh' },
+      const emptyDutyRoster = {
+        t2: { office_cleaning: '', toilet_cleaning: '' },
+        t3: { office_cleaning: '', toilet_cleaning: '' },
+        t4: { office_cleaning: '', toilet_cleaning: '' },
+        t5: { office_cleaning: '', toilet_cleaning: '' },
+        t6: { office_cleaning: '', toilet_cleaning: '' },
+        t7: { office_cleaning: '', toilet_cleaning: '' },
       };
 
       schedule = await TtsSchedule.create({
@@ -118,8 +68,8 @@ const getWeeklySchedule = async (req, res) => {
         year,
         start_date: targetMonday.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
         end_date: targetSunday.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-        registrations: initialRegistrations,
-        duty_roster: dutyRoster,
+        registrations: [],
+        duty_roster: emptyDutyRoster,
       });
 
       schedule = await TtsSchedule.findById(schedule._id)

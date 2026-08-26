@@ -97,6 +97,7 @@ const userSchema = new mongoose.Schema(
     address_current: { type: String, default: null }, // Địa chỉ HT
     hometown: { type: String, default: null },        // Quê quán
     cccd: { type: String, default: null },            // CCCD
+    bank_account: { type: String, default: null },    // Số tài khoản ngân hàng
     bank_name: { type: String, default: null },       // Ngân hàng
     license_plate: { type: String, default: null },   // Biển số xe (Legacy)
     parking_location: { type: String, default: 'Tòa 17T10 Nguyễn Thị Định' }, // Địa điểm gửi xe
