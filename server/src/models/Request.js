@@ -69,4 +69,8 @@ const requestSchema = new mongoose.Schema(
   }
 );
 
+
+requestSchema.index({ user_id: 1, status: 1, created_at: -1 });
+requestSchema.index({ status: 1, created_at: -1 });
+
 module.exports = mongoose.model('Request', requestSchema);

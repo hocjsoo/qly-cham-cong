@@ -17,4 +17,7 @@ const announcementSchema = new mongoose.Schema(
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );
 
+
+announcementSchema.index({ is_active: 1, created_at: -1 });
+
 module.exports = mongoose.model('Announcement', announcementSchema);
