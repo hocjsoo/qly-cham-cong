@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, Edit3,
-  Lock, LockOpen, Save, ShieldCheck, Sparkles, Users, X, Check, BriefcaseBusiness,
+  Lock, LockOpen, Save, Users, X, Check, BriefcaseBusiness,
   SprayCan, Bath, Info, UserRoundCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -193,10 +193,6 @@ export default function TtsSchedulePage() {
   };
 
   const myTtsPerson = ttsUsers.find(person => personId(person) === personId(user));
-  const deadlineText = schedule?.registration_deadline
-    ? new Date(schedule.registration_deadline).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-    : '';
-
   return (
     <main className="page tts-page">
       <header className="header">
@@ -207,29 +203,13 @@ export default function TtsSchedulePage() {
       </header>
 
       <div className="container tts-container">
-        <section className="tts-hero">
-          <div className="tts-hero__glow" aria-hidden="true" />
-          <div className="tts-hero__content">
-            <span className="tts-eyebrow"><Sparkles size={14} /> WEEKLY WORK RHYTHM</span>
-            <h1>Biết ai có mặt.<br /><span>Giao đúng việc.</span></h1>
-            <p>TTS đăng ký theo lịch học; lịch này chỉ phục vụ điều phối và không thay thế chấm công GPS/Selfie hằng ngày.</p>
-            <div className="tts-hero__meta">
-              <span><Clock3 size={15} /> Hạn đăng ký: {deadlineText || 'Chủ nhật'}</span>
-              <span className={locked ? 'is-locked' : 'is-open'}>{locked ? <Lock size={14} /> : <LockOpen size={14} />}{locked ? 'Đã khóa đăng ký' : 'Đang mở đăng ký'}</span>
-            </div>
-          </div>
-          <div className="tts-hero__metric">
-            <strong>{ttsUsers.length}</strong><span>Thực tập sinh</span>
-            <div>{schedule?.registrations?.length || 0} đã đăng ký tuần này</div>
-          </div>
-        </section>
-
         <section className="tts-toolbar" aria-label="Điều khiển tuần">
           <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, -1))} aria-label="Tuần trước"><ChevronLeft /></button>
           <div className="tts-week-title"><CalendarDays size={18} /><div><strong>{formatShortDate(weekStart)} — {formatShortDate(schedule?.week_end || toDateString(addDays(parseLocalDate(weekStart), 5)))}</strong><span>Thứ 2 đến Thứ 7</span></div></div>
           <button className="tts-icon-button" onClick={() => setWeekStart(shiftWeek(weekStart, 1))} aria-label="Tuần sau"><ChevronRight /></button>
           <button className="btn btn--ghost" onClick={() => setWeekStart(currentMonday())}>Tuần này</button>
           <button className="btn btn--ghost" onClick={() => setWeekStart(shiftWeek(currentMonday(), 1))}>Tuần tới</button>
+          <span className={`tts-lock-state ${locked ? 'is-locked' : 'is-open'}`}>{locked ? <Lock size={13} /> : <LockOpen size={13} />}{locked ? 'Đã khóa' : 'Đang mở'}</span>
           <div className="tts-toolbar__spacer" />
           {isTts && myTtsPerson && (!locked || canManage) && <button className="btn btn--primary" onClick={() => openRegistration(myTtsPerson)}><ClipboardCheck size={16} /> Đăng ký lịch của tôi</button>}
           {canManage && <button className="btn btn--ghost" onClick={openDuties}><SprayCan size={16} /> Phân công</button>}
