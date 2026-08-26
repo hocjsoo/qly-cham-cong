@@ -526,7 +526,7 @@ const broadcastCustomEmail = async (req, res) => {
   }
 
   try {
-    const users = await User.find({ _id: { $in: recipientIds } }).populate("department_id department_ids");
+    const users = await User.find({ _id: { $in: recipientIds }, is_active: { $ne: false }, employment_status: { $nin: ["Da nghi viec", "resigned", "inactive"] } }).populate("department_id department_ids");
     let sentCount = 0;
     let failedCount = 0;
 

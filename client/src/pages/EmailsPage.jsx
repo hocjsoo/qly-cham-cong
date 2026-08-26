@@ -56,8 +56,12 @@ export default function EmailsPage() {
   const [documentUrl, setDocumentUrl] = useState(PRESET_TEMPLATES[0].documentUrl);
   const [footerText, setFooterText] = useState(PRESET_TEMPLATES[0].footerText);
 
-  // Recipient Selection
-  const [recipientFilter, setRecipientFilter] = useState("all");
+  // Multi-Dimensional Recipient Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterDept, setFilterDept] = useState("all");
+  const [filterEmpType, setFilterEmpType] = useState("all");
+  const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("active");
   const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
 
   // Test & Broadcast State
@@ -80,7 +84,7 @@ export default function EmailsPage() {
       const list = uRes.data || [];
       setStaffList(list);
       setDepartments(dRes.data || []);
-      const activeIds = list.filter(s => s.is_active !== false && s.email && s.email.includes("@")).map(s => String(s._id || s.id));
+      const activeIds = list.filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@")).map(s => String(s._id || s.id));
       setSelectedRecipientIds(activeIds);
     } catch (err) {
       toast.error("Lỗi tải danh sách nhân sự");
@@ -110,28 +114,82 @@ export default function EmailsPage() {
     return staffList.filter(s => s.is_active !== false && s.email && s.email.includes("@"));
   }, [staffList]);
 
-  const displayedRecipients = useMemo(() => {
-    if (recipientFilter === "all") return eligibleStaff;
-    return eligibleStaff.filter(s => {
-      const deptIds = Array.isArray(s.department_ids) ? s.department_ids.map(String) : (s.department_id ? [String(s.department_id)] : []);
-      return deptIds.includes(String(recipientFilter));
-    });
-  }, [eligibleStaff, recipientFilter]);
+  const activeCount = useMemo(() => {
+    return staffList.filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@")).length;
+  }, [staffList]);
 
-  const toggleRecipient = (id) => {
+  const displayedStaff = useMemo(() => {
+    return staffList.filter(s => {
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = (s.full_name || "").toLowerCase().includes(q);
+        const matchEmail = (s.email || "").toLowerCase().includes(q);
+        const matchCode = (s.employee_code || "").toLowerCase().includes(q);
+        const matchPhone = (s.phone || "").toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchCode && !matchPhone) return false;
+      }
+      const isResigned = s.is_active === false || s.employment_status === "Da nghi viec";
+      if (filterStatus === "active" && isResigned) return false;
+      if (filterStatus === "resigned" && !isResigned) return false;
+
+      if (filterDept !== "all") {
+        const deptIds = Array.isArray(s.department_ids) ? s.department_ids.map(String) : (s.department_id ? [String(s.department_id)] : []);
+        if (!deptIds.includes(String(filterDept))) return false;
+      }
+      if (filterEmpType !== "all") {
+        const empType = s.employee_type || "NS";
+        if (empType !== filterEmpType) return false;
+      }
+      if (filterRole !== "all") {
+        if (filterRole === "leader" && !["admin", "leader", "manager"].includes(s.role)) return false;
+        if (filterRole === "employee" && ["admin", "leader", "manager"].includes(s.role)) return false;
+      }
+      return true;
+    });
+  }, [staffList, searchQuery, filterStatus, filterDept, filterEmpType, filterRole]);
+
+  const toggleRecipient = (staff) => {
+    const sid = String(staff._id || staff.id);
+    const isResigned = staff.is_active === false || staff.employment_status === "Da nghi viec";
+    if (isResigned) {
+      toast.error("Nhân sự này đã nghỉ việc — Tự động khóa không gửi email!", { icon: "🔒" });
+      return;
+    }
     setSelectedRecipientIds(prev => 
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid]
     );
   };
 
-  const selectAllDisplayed = () => {
-    const ids = displayedRecipients.map(s => String(s._id || s.id));
-    setSelectedRecipientIds(prev => Array.from(new Set([...prev, ...ids])));
+  const selectAllEligibleDisplayed = () => {
+    const validIds = displayedStaff
+      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
+      .map(s => String(s._id || s.id));
+    setSelectedRecipientIds(prev => Array.from(new Set([...prev, ...validIds])));
   };
 
   const deselectAllDisplayed = () => {
-    const ids = new Set(displayedRecipients.map(s => String(s._id || s.id)));
+    const ids = new Set(displayedStaff.map(s => String(s._id || s.id)));
     setSelectedRecipientIds(prev => prev.filter(x => !ids.has(x)));
+  };
+
+  const selectOnlyType = (type) => {
+    setFilterEmpType(type);
+    const validIds = staffList
+      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
+      .filter(s => (s.employee_type || "NS") === type)
+      .map(s => String(s._id || s.id));
+    setSelectedRecipientIds(validIds);
+    toast.success("Đã chọn " + validIds.length + " nhân sự loại " + type);
+  };
+
+  const selectOnlyLeaders = () => {
+    setFilterRole("leader");
+    const validIds = staffList
+      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
+      .filter(s => ["admin", "leader", "manager"].includes(s.role))
+      .map(s => String(s._id || s.id));
+    setSelectedRecipientIds(validIds);
+    toast.success("Đã chọn " + validIds.length + " Cấp Quản Lý (Admin & Leader)");
   };
 
   // Live HTML generation for preview (Architectural Frame)
@@ -415,71 +473,176 @@ export default function EmailsPage() {
           </div>
         </div>
 
-        {/* Recipient Picker & Dispatch Bar */}
+        {/* 4-Dimensional Smart Recipient Filter Section */}
         <div className="card" style={{ padding: "20px", background: "var(--bg-card)", border: "1px solid var(--border)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", marginBottom: "14px", paddingBottom: "12px", borderBottom: "1px solid var(--border)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
-                <Users size={18} />
+              <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                <Users size={20} />
               </div>
               <div>
                 <h3 style={{ fontSize: "16px", fontWeight: 800, margin: 0, color: "var(--text)" }}>
-                  Danh Sách Nhân Sự Nhận Email ({selectedRecipientIds.length}/{eligibleStaff.length} người)
+                  Bộ Lọc Người Nhận Thông Minh (Đang chọn <span style={{ color: "var(--primary)" }}>{selectedRecipientIds.length}/{activeCount}</span> nhân sự đang làm việc)
                 </h3>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Chọn phòng ban hoặc tích chọn nhân sự nhận thư chính thức</div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  🛡️ Hệ thống tự động khóa, tuyệt đối không gửi nhầm cho nhân sự đã nghỉ việc
+                </div>
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <select
-                className="form-select"
-                value={recipientFilter}
-                onChange={e => setRecipientFilter(e.target.value)}
-                style={{ width: "auto", fontSize: "12.5px", padding: "6px 12px", minHeight: "36px" }}
-              >
-                <option value="all">🏢 Toàn bộ công ty ({eligibleStaff.length})</option>
-                {departments.map(d => (
-                  <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
-                ))}
-              </select>
-              <button type="button" onClick={selectAllDisplayed} className="btn btn--ghost" style={{ fontSize: "12px", padding: "6px 12px" }}>Chọn tất cả ({displayedRecipients.length})</button>
-              <button type="button" onClick={deselectAllDisplayed} className="btn btn--ghost" style={{ fontSize: "12px", padding: "6px 12px" }}>Bỏ chọn</button>
+            {/* Quick 1-Click Selection Shortcuts */}
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => selectOnlyType("TTS")} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn TTS</button>
+              <button type="button" onClick={() => selectOnlyType("TV")} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn Thử việc (TV)</button>
+              <button type="button" onClick={selectOnlyLeaders} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>⚡ Chỉ chọn Quản lý (Leader)</button>
+              <button type="button" onClick={selectAllEligibleDisplayed} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>Chọn tất cả ({displayedStaff.length})</button>
+              <button type="button" onClick={deselectAllDisplayed} className="btn btn--ghost" style={{ fontSize: "11.5px", padding: "5px 10px" }}>Bỏ chọn</button>
             </div>
           </div>
 
-          {/* Recipient Checkbox Matrix */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "8px", maxHeight: "180px", overflowY: "auto", padding: "4px 0", marginBottom: "16px" }}>
-            {displayedRecipients.map(s => {
-              const sid = String(s._id || s.id);
-              const isSelected = selectedRecipientIds.includes(sid);
-              return (
-                <div
-                  key={sid}
-                  onClick={() => toggleRecipient(sid)}
-                  className="card card--interactive"
-                  style={{
-                    padding: "8px 12px", fontSize: "12px", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: "8px", borderRadius: "10px",
-                    border: isSelected ? "1.5px solid var(--primary)" : "1px solid var(--border)",
-                    background: isSelected ? "var(--primary-soft)" : "var(--bg-card)",
-                    color: isSelected ? "var(--primary)" : "var(--text)",
-                    fontWeight: isSelected ? 700 : 500,
-                  }}
-                >
-                  {isSelected ? <CheckSquare size={16} color="var(--primary)" /> : <Square size={16} color="var(--text-muted)" />}
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.full_name}</div>
-                    <small style={{ opacity: 0.65, fontSize: "10.5px", display: "block", overflow: "hidden", textOverflow: "ellipsis" }}>{s.email}</small>
-                  </div>
-                </div>
-              );
-            })}
+          {/* Filter Toolbar Controls */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginBottom: "14px" }}>
+            {/* Search */}
+            <div style={{ position: "relative" }}>
+              <Search size={14} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
+              <input
+                type="text"
+                className="form-input"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Tìm tên, mã NS, email..."
+                style={{ paddingLeft: "32px", fontSize: "12.5px", minHeight: "36px" }}
+              />
+            </div>
+
+            {/* Department */}
+            <select
+              className="form-select"
+              value={filterDept}
+              onChange={e => setFilterDept(e.target.value)}
+              style={{ fontSize: "12.5px", minHeight: "36px" }}
+            >
+              <option value="all">🏢 Tất cả phòng ban</option>
+              {departments.map(d => (
+                <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
+              ))}
+            </select>
+
+            {/* Employee Type (NS / TV / TTS) */}
+            <select
+              className="form-select"
+              value={filterEmpType}
+              onChange={e => setFilterEmpType(e.target.value)}
+              style={{ fontSize: "12.5px", minHeight: "36px" }}
+            >
+              <option value="all">🏷️ Tất cả loại nhân sự</option>
+              <option value="NS">Nhân sự chính thức (NS)</option>
+              <option value="TV">Thử việc (TV)</option>
+              <option value="TTS">Thực tập sinh (TTS)</option>
+            </select>
+
+            {/* Role Filter */}
+            <select
+              className="form-select"
+              value={filterRole}
+              onChange={e => setFilterRole(e.target.value)}
+              style={{ fontSize: "12.5px", minHeight: "36px" }}
+            >
+              <option value="all">👑 Tất cả vai trò</option>
+              <option value="leader">Cấp Quản Lý (Admin / Leader)</option>
+              <option value="employee">Nhân viên thông thường</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              className="form-select"
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              style={{ fontSize: "12.5px", minHeight: "36px", fontWeight: 750, color: filterStatus === "active" ? "var(--green)" : "var(--text)" }}
+            >
+              <option value="active">🟢 Đang làm việc (Mặc định)</option>
+              <option value="resigned">🔴 Đã nghỉ việc (Khóa)</option>
+              <option value="all">Tất cả trạng thái</option>
+            </select>
           </div>
 
-          {/* Broadcast Action Bottom Button */}
+          {/* Recipient Checkbox Cards Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "8px", maxHeight: "220px", overflowY: "auto", padding: "6px", background: "var(--bg-input)", borderRadius: "12px", border: "1px solid var(--border)", marginBottom: "16px" }}>
+            {displayedStaff.length === 0 ? (
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "20px", color: "var(--text-muted)", fontSize: "13px" }}>
+                Không tìm thấy nhân sự nào khớp với bộ lọc
+              </div>
+            ) : (
+              displayedStaff.map(s => {
+                const sid = String(s._id || s.id);
+                const isSelected = selectedRecipientIds.includes(sid);
+                const isResigned = s.is_active === false || s.employment_status === "Da nghi viec";
+                const empType = s.employee_type || "NS";
+                const isLeader = ["admin", "leader", "manager"].includes(s.role);
+
+                return (
+                  <div
+                    key={sid}
+                    onClick={() => toggleRecipient(s)}
+                    className={"card " + (!isResigned ? "card--interactive" : "")}
+                    style={{
+                      padding: "8px 12px", fontSize: "12px", cursor: isResigned ? "not-allowed" : "pointer",
+                      display: "flex", alignItems: "center", gap: "10px", borderRadius: "10px",
+                      border: isResigned ? "1px solid var(--border-muted)" : (isSelected ? "1.5px solid var(--primary)" : "1px solid var(--border)"),
+                      background: isResigned ? "var(--bg-raised)" : (isSelected ? "var(--primary-soft)" : "var(--bg-card)"),
+                      color: isResigned ? "var(--text-muted)" : (isSelected ? "var(--primary)" : "var(--text)"),
+                      opacity: isResigned ? 0.5 : 1,
+                      userSelect: "none"
+                    }}
+                    title={isResigned ? "Nhân sự đã nghỉ việc — Tự động loại khỏi danh sách gửi" : ""}
+                  >
+                    {isResigned ? (
+                      <Lock size={15} color="var(--red)" style={{ flexShrink: 0 }} />
+                    ) : isSelected ? (
+                      <CheckSquare size={16} color="var(--primary)" style={{ flexShrink: 0 }} />
+                    ) : (
+                      <Square size={16} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                    )}
+
+                    <img
+                      src={s.avatar_url || "/logo.png"}
+                      alt=""
+                      style={{ width: "32px", height: "32px", borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
+                      onError={e => { e.target.src = "/logo.png"; }}
+                    />
+
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "12.5px" }}>
+                          {s.full_name}
+                        </strong>
+                        {isLeader && <span style={{ fontSize: "10px", color: "var(--yellow)", fontWeight: 800 }}>👑</span>}
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                        <span className={"badge " + (empType === "TTS" ? "badge--info" : empType === "TV" ? "badge--warning" : "badge--neutral")} style={{ fontSize: "9.5px", padding: "1px 5px" }}>
+                          {empType}
+                        </span>
+                        {isResigned && (
+                          <span className="badge badge--danger" style={{ fontSize: "9.5px", padding: "1px 5px" }}>
+                            Đã nghỉ
+                          </span>
+                        )}
+                        <span style={{ fontSize: "10.5px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {s.email}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Broadcast Action Bottom Bar */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", paddingTop: "14px", borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
-              Sẵn sàng gửi tới <strong>{selectedRecipientIds.length} nhân sự</strong> qua Gmail SMTP
+            <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>
+              Sẵn sàng gửi tới <strong style={{ color: "var(--primary)" }}>{selectedRecipientIds.length} nhân sự</strong> hợp lệ qua Gmail SMTP
             </span>
             <button
               type="button"
