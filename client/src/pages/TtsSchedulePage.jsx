@@ -290,7 +290,7 @@ export default function TtsSchedulePage() {
             <section className="tts-board-card">
               <div className="tts-section-heading tts-board-heading"><div><span className="tts-section-icon"><Users size={18} /></span><div><h2>Bảng khả dụng tuần</h2><p>Mỗi người một dòng · S là sáng, C là chiều</p></div></div><div className="tts-board-legend" aria-label="Chú thích trạng thái"><span className="is-ready"><Check size={12} /> Có mặt</span><span className="is-empty"><i /> Trống</span></div></div>
               {ttsUsers.length === 0 ? <div className="tts-empty"><UserRoundCheck size={28} /><strong>Chưa có tài khoản TTS đang hoạt động</strong><span>Admin có thể tạo tài khoản Employee và chọn loại nhân sự TTS.</span></div> : (
-                <div className="tts-table-wrap">
+                <><div className="tts-table-wrap">
                   <div className="tts-scroll-hint"><ChevronRight size={13} /> Vuốt ngang để xem các ngày</div>
                   <div className="tts-table-scroll">
                   <table className="tts-grid-table">
@@ -312,6 +312,19 @@ export default function TtsSchedulePage() {
                   </div>
                   {scheduleNotes.length > 0 && <section className="tts-week-notes" aria-labelledby="tts-week-notes-title"><header><MessageSquareText size={17} /><div><strong id="tts-week-notes-title">Ghi chú lịch học</strong><span>{scheduleNotes.length} TTS có lưu ý trong tuần</span></div></header><div className="tts-week-notes__list">{scheduleNotes.map(({ person, note }) => <article key={personId(person)}><Avatar person={person} size={30} /><div><strong>{person.full_name}</strong><p>{note}</p></div></article>)}</div></section>}
                 </div>
+                <div className="tts-mobile-schedule">{ttsUsers.map(person => {
+                  const editable = canManage || (isTts && personId(person) === personId(user) && !locked);
+                  const note = String(registrations.get(personId(person))?.note || '').trim();
+                  return <article className="tts-mobile-person" key={personId(person)}>
+                    <header><button type="button" className="tts-mobile-person__identity" onClick={() => openRegistration(person)} disabled={!editable}><Avatar person={person} size={40} /><span><strong>{person.full_name}</strong><small>{person.employee_code || 'TTS'}</small></span></button><div className="tts-mobile-person__total"><strong>{totalSessions(personId(person))}</strong><span>buổi</span></div></header>
+                    <div className="tts-mobile-days">{days.map((date, dayIndex) => <div className="tts-mobile-day" key={date}><div><strong>{DAY_NAMES[dayIndex]}</strong><span>{formatShortDate(date)}</span></div><div className="tts-mobile-day__slots">{[['morning', 'Sáng'], ['afternoon', 'Chiều']].map(([session, label]) => {
+                      const active = Boolean(slotFor(personId(person), date)?.[session]);
+                      const cellKey = `${personId(person)}-${date}-${session}`;
+                      return <button type="button" key={session} className={`${active ? 'is-ready' : ''} ${editable ? 'is-editable' : ''}`} onClick={() => toggleAvailabilityCell(person, date, session)} disabled={!editable || Boolean(savingCell)} aria-label={`${person.full_name}, ${DAY_NAMES[dayIndex]} ${label}: ${active ? 'đã đăng ký' : 'chưa đăng ký'}`}>{savingCell === cellKey ? <span className="spinner" /> : <><span>{active ? <Check size={14} /> : null}</span>{label}</>}</button>;
+                    })}</div></div>)}</div>
+                    {note && <div className="tts-mobile-note"><MessageSquareText size={15} /><p>{note}</p></div>}
+                  </article>;
+                })}</div></>
               )}
             </section>
 
