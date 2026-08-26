@@ -39,6 +39,30 @@ const buildWeekMeta = (weekStartValue) => {
 const isScheduleAdmin = user => Boolean(user && user.role === 'admin');
 const canManageDuties = user => Boolean(isScheduleAdmin(user) || user?.can_manage_tts_schedule === true);
 
+const buildDutyRotationHistory = (schedules = []) => {
+  const history = new Map();
+  schedules.forEach((schedule) => {
+    (schedule?.duties || []).forEach((duty) => {
+      const assignedIds = [
+        ...(duty.office_cleaning_user_ids || []),
+        ...(duty.restroom_cleaning_user_ids || []),
+      ];
+      assignedIds.forEach((userId) => {
+        const id = String(userId?._id || userId || '');
+        if (!id) return;
+        const previous = history.get(id) || { assignment_count: 0, last_duty_date: null };
+        history.set(id, {
+          assignment_count: previous.assignment_count + 1,
+          last_duty_date: !previous.last_duty_date || duty.date > previous.last_duty_date
+            ? duty.date
+            : previous.last_duty_date,
+        });
+      });
+    });
+  });
+  return history;
+};
+
 const sanitizeSlots = (slots, allowedDates) => {
   if (!Array.isArray(slots)) return [];
   const byDate = new Map();
@@ -84,7 +108,7 @@ const getWeeklySchedule = async (req, res) => {
     const meta = buildWeekMeta(requested);
     if (!meta) return res.status(400).json({ error: 'week_start phải là ngày Thứ 2 hợp lệ (YYYY-MM-DD).' });
 
-    const [schedule, ttsCandidates, peopleCandidates] = await Promise.all([
+    const [schedule, ttsCandidates, peopleCandidates, previousSchedules] = await Promise.all([
       populateSchedule(TtsWeeklySchedule.findOne({ week_start: meta.week_start })),
       User.find(getActiveEmploymentFilter({ employee_type: 'TTS' }))
         .select('full_name employee_code employee_type avatar_url position employment_status email phone role department_id join_date is_attendance_exempt is_duty_exempt parking_location vehicle_info license_plate bank_name bank_account branch')
@@ -93,6 +117,11 @@ const getWeeklySchedule = async (req, res) => {
       User.find(getActiveEmploymentFilter())
         .select('full_name employee_code employee_type avatar_url position role can_manage_tts_schedule is_duty_exempt employment_status')
         .sort({ employee_code: 1, full_name: 1 }),
+      TtsWeeklySchedule.find({ week_start: { $lt: meta.week_start }, 'duties.0': { $exists: true } })
+        .select('duties')
+        .sort({ week_start: -1 })
+        .limit(12)
+        .lean(),
     ]);
     const ttsUsers = ttsCandidates
       .filter(user => !isInactiveEmploymentStatus(user.employment_status))
@@ -105,7 +134,17 @@ const getWeeklySchedule = async (req, res) => {
         }
         return profile;
       });
-    const people = peopleCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
+    const dutyRotationHistory = buildDutyRotationHistory(previousSchedules);
+    const people = peopleCandidates
+      .filter(user => !isInactiveEmploymentStatus(user.employment_status))
+      .map((user) => {
+        const person = user.toObject();
+        person.duty_rotation = dutyRotationHistory.get(String(person._id)) || {
+          assignment_count: 0,
+          last_duty_date: null,
+        };
+        return person;
+      });
 
     const deadlinePassed = new Date() > meta.registration_deadline;
     res.json({
@@ -293,5 +332,5 @@ module.exports = {
   updateDuties,
   updateInstructions,
   toggleLock,
-  __test: { buildWeekMeta, sanitizeSlots, isScheduleAdmin, canManageDuties, getMonday },
+  __test: { buildWeekMeta, sanitizeSlots, isScheduleAdmin, canManageDuties, getMonday, buildDutyRotationHistory },
 };

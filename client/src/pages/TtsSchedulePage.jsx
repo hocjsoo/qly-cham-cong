@@ -280,6 +280,15 @@ export default function TtsSchedulePage() {
       if (exemptDiff) return exemptDiff;
       const countDiff = (dutyAssignmentCounts.get(aId) || 0) - (dutyAssignmentCounts.get(bId) || 0);
       if (countDiff) return countDiff;
+      const historyCountDiff = (a.duty_rotation?.assignment_count || 0) - (b.duty_rotation?.assignment_count || 0);
+      if (historyCountDiff) return historyCountDiff;
+      const aLastDuty = a.duty_rotation?.last_duty_date || '';
+      const bLastDuty = b.duty_rotation?.last_duty_date || '';
+      if (aLastDuty !== bLastDuty) {
+        if (!aLastDuty) return -1;
+        if (!bLastDuty) return 1;
+        return aLastDuty.localeCompare(bLastDuty);
+      }
       return String(a.full_name || '').localeCompare(String(b.full_name || ''), 'vi');
     });
 
@@ -435,15 +444,20 @@ export default function TtsSchedulePage() {
             </div>
             <div className="tts-assignee-panel">
               <div className="tts-assignee-panel__heading">
-                <div><strong>Chọn nhân sự</strong><span>Người chưa có lịch được xếp trước</span></div>
+                <div><strong>Chọn nhân sự</strong><span>Ưu tiên người chưa trực hoặc đã lâu chưa được phân công</span></div>
                 {people.some(person => person.is_duty_exempt) && <button type="button" className="tts-exempt-toggle" onClick={() => setShowDutyExempt(current => !current)}>{showDutyExempt ? 'Ẩn người miễn trực' : `Hiện người miễn trực (${people.filter(person => person.is_duty_exempt).length})`}</button>}
               </div>
               <div className="tts-assignee-grid">{visibleDutyPeople.map(person => {
                 const id = personId(person);
                 const selected = Boolean(activeDuty?.[activeDutyField]?.includes(id));
                 const assignedCount = dutyAssignmentCounts.get(id) || 0;
+                const previousCount = person.duty_rotation?.assignment_count || 0;
+                const lastDutyDate = person.duty_rotation?.last_duty_date;
                 const exempt = Boolean(person.is_duty_exempt);
-                return <button type="button" className={`${selected ? 'is-selected' : ''} ${assignedCount > 0 && !selected ? 'is-assigned' : ''} ${exempt ? 'is-exempt' : ''}`} onClick={() => toggleDutyPerson(activeDutyDate, activeDutyField, id)} disabled={exempt && !selected} title={exempt ? 'Nhân sự được miễn trực nhật' : assignedCount > 0 ? `Đã được phân ${assignedCount} hạng mục trong tuần` : 'Chưa được phân trong tuần'} key={id}><Avatar person={person} size={28} /><span>{person.full_name}</span>{selected ? <Check size={13} /> : assignedCount > 0 ? <small>Đã trực {assignedCount}</small> : null}{exempt && <small>Miễn trực</small>}</button>;
+                const rotationLabel = lastDutyDate
+                  ? `Lần cuối ${formatShortDate(lastDutyDate)}`
+                  : previousCount > 0 ? `${previousCount} lượt trước` : 'Chưa từng trực';
+                return <button type="button" className={`${selected ? 'is-selected' : ''} ${assignedCount > 0 && !selected ? 'is-assigned' : ''} ${exempt ? 'is-exempt' : ''}`} onClick={() => toggleDutyPerson(activeDutyDate, activeDutyField, id)} disabled={exempt && !selected} title={exempt ? 'Nhân sự được miễn trực nhật' : assignedCount > 0 ? `Đã được phân ${assignedCount} hạng mục trong tuần` : rotationLabel} key={id}><Avatar person={person} size={28} /><span>{person.full_name}</span>{selected ? <Check size={13} /> : assignedCount > 0 ? <small>Đã trực {assignedCount}</small> : <small>{rotationLabel}</small>}{exempt && <small>Miễn trực</small>}</button>;
               })}</div>
             </div>
           </div>

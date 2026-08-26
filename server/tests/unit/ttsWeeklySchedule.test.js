@@ -34,6 +34,14 @@ function runTtsWeeklyScheduleTests(assert) {
   const activeFilter = getActiveEmploymentFilter({ employee_type: 'TTS' });
   assert(activeFilter.employee_type === 'TTS' && activeFilter.is_active.$ne === false && activeFilter.employment_status.$nin.includes('Da nghi viec'),
     'TC-TTS-11: Truy vấn Lịch TTS loại nhân sự đã nghỉ ngay từ database');
+  const rotationHistory = __test.buildDutyRotationHistory([
+    { duties: [{ date: '2026-08-10', office_cleaning_user_ids: ['u1', 'u2'], restroom_cleaning_user_ids: [] }] },
+    { duties: [{ date: '2026-08-17', office_cleaning_user_ids: ['u1'], restroom_cleaning_user_ids: ['u3'] }] },
+  ]);
+  assert(rotationHistory.get('u1')?.assignment_count === 2 && rotationHistory.get('u1')?.last_duty_date === '2026-08-17',
+    'TC-TTS-12: Tổng hợp đúng số lượt và ngày trực gần nhất từ các tuần trước');
+  assert(!rotationHistory.has('u4'),
+    'TC-TTS-13: Người chưa từng trực không bị tạo lịch sử giả và được ưu tiên luân phiên');
 }
 
 module.exports = runTtsWeeklyScheduleTests;
