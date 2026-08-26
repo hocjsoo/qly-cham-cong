@@ -1,7 +1,9 @@
 // server/src/services/emailService.js
-// Dịch Vụ Gửi Email Chuẩn Thương Hiệu ET Architects qua Gmail SMTP (Nodemailer) — Zero-Impact Test Isolated
+// Dịch Vụ Gửi Email Chuẩn Logo & Thương Hiệu ET Architects qua Gmail SMTP (Nodemailer) — Zero-Impact Test Isolated
 
 const nodemailer = require("nodemailer");
+const path = require("path");
+const fs = require("fs");
 
 let transporter = null;
 
@@ -27,9 +29,14 @@ function getTransporter() {
   return transporter;
 }
 
-/**
- * Hàm thay thế các biến mẫu thông minh
- */
+function getLogoPath() {
+  const p1 = path.resolve(__dirname, "../../../client/public/logo.png");
+  const p2 = path.resolve(__dirname, "../../../293413875_460767742721671_8147407730308205969_n.png");
+  if (fs.existsSync(p1)) return p1;
+  if (fs.existsSync(p2)) return p2;
+  return null;
+}
+
 function renderTemplateVariables(templateStr, vars = {}) {
   if (!templateStr || typeof templateStr !== "string") return "";
   let result = templateStr;
@@ -41,9 +48,9 @@ function renderTemplateVariables(templateStr, vars = {}) {
 }
 
 /**
- * Xây dựng khung giao diện Email HTML phong cách Kiến trúc Cao cấp chuẩn Logo & Branding ET Architects
+ * Xây dựng khung giao diện Email HTML phong cách Kiến trúc Cao cấp chuẩn Logo ET Architects thật
  */
-function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText }) {
+function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText, useInlineDataUri = false }) {
   const cleanBody = (body || "")
     .replace(/\\n/g, "<br>")
     .replace(/\n/g, "<br>")
@@ -66,19 +73,18 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
     '</div>';
   }
 
+  const logoSrc = useInlineDataUri ? "' + logoDataUri + '" : "cid:company_logo";
+
   return '<div style="background-color: #f5f4f0; padding: 36px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; min-height: 100%;">' +
     '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
-      '<!-- ET Architects Brand Header -->' +
+      '<!-- Official Company Logo & Header -->' +
       '<tr>' +
         '<td style="background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 32px 28px; text-align: center; border-bottom: 3px solid #6366f1;">' +
           '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +
             '<tr>' +
-              '<td style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); width: 50px; height: 50px; border-radius: 14px; text-align: center; vertical-align: middle; box-shadow: 0 6px 20px rgba(99,102,241,0.45); border: 1px solid rgba(255,255,255,0.25);">' +
-                '<span style="color: #ffffff; font-size: 21px; font-weight: 900; letter-spacing: -0.5px;">ET</span>' +
-                '<span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; vertical-align: super; margin-left: -2px;"></span>' +
-              '</td>' +
-              '<td style="padding-left: 16px; text-align: left;">' +
-                '<div style="color: #ffffff; font-size: 21px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1;">ET ARCHITECTS</div>' +
+              '<td style="text-align: center; vertical-align: middle;">' +
+                '<img src="' + logoSrc + '" alt="ET Architects" style="height: 56px; max-width: 180px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); border-radius: 8px;" />' +
+                '<div style="color: #ffffff; font-size: 21px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin-top: 10px;">ET ARCHITECTS</div>' +
                 '<div style="color: #a5b4fc; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
               '</td>' +
             '</tr>' +
@@ -120,24 +126,17 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
   }
 
   const from = process.env.EMAIL_FROM || ('"ET Office Portal" <' + (process.env.SMTP_USER || process.env.GMAIL_USER) + '>');
+  const logoPath = getLogoPath();
+  const attachments = logoPath ? [{ filename: "logo.png", path: logoPath, cid: "company_logo" }] : [];
 
   const html = '<div style="background-color: #f5f4f0; padding: 36px 12px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;">' +
     '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #dcd8cf; box-shadow: 0 18px 50px rgba(15,23,42,0.08);">' +
       '<!-- Header -->' +
       '<tr>' +
         '<td style="background: linear-gradient(135deg, #0b0f17 0%, #1e1b4b 50%, #0f172a 100%); padding: 28px 24px; text-align: center; border-bottom: 3px solid #6366f1;">' +
-          '<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center">' +
-            '<tr>' +
-              '<td style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%); width: 44px; height: 44px; border-radius: 12px; text-align: center; vertical-align: middle; box-shadow: 0 4px 16px rgba(99,102,241,0.4);">' +
-                '<span style="color: #ffffff; font-size: 19px; font-weight: 900;">ET</span>' +
-                '<span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #38bdf8; vertical-align: super;"></span>' +
-              '</td>' +
-              '<td style="padding-left: 14px; text-align: left;">' +
-                '<div style="color: #ffffff; font-size: 19px; font-weight: 900; letter-spacing: -0.02em;">ET ARCHITECTS</div>' +
-                '<div style="color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
-              '</td>' +
-            '</tr>' +
-          '</table>' +
+          (logoPath ? '<img src="cid:company_logo" alt="ET Architects" style="height: 52px; max-width: 170px; object-fit: contain; display: inline-block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); border-radius: 6px;" />' : "") +
+          '<div style="color: #ffffff; font-size: 19px; font-weight: 900; letter-spacing: -0.02em; margin-top: 8px;">ET ARCHITECTS</div>' +
+          '<div style="color: #a5b4fc; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 3px;">XÁC THỰC KHÔI PHỤC MẬT KHẨU</div>' +
         '</td>' +
       '</tr>' +
 
@@ -151,7 +150,7 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
           '</p>' +
 
           '<div style="text-align: center; margin: 28px 0;">' +
-            '<div style="display: inline-block; padding: 16px 36px; background: #0f172a; color: #38bdf8; font-size: 32px; font-weight: 900; letter-spacing: 8px; border-radius: 14px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border: 2px solid #6366f1; box-shadow: 0 8px 24px rgba(99,102,241,0.28);">' +
+            '<div style="display: inline-block; padding: 16px 36px; background: #0f172a; color: #38bdf8; font-size: 32px; font-weight: 900; letter-spacing: 8px; border-radius: 14px; font-family: monospace; border: 2px solid #6366f1; box-shadow: 0 8px 24px rgba(99,102,241,0.28);">' +
               resetCode +
             '</div>' +
           '</div>' +
@@ -176,6 +175,7 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
       to: toEmail,
       subject: "[ET Office Portal] Mã xác thực khôi phục mật khẩu: " + resetCode,
       html,
+      attachments,
     });
     console.log("✅ [SMTP GMAIL] Đã gửi mã OTP tới: " + toEmail);
     return { sent: true };
@@ -196,6 +196,8 @@ async function sendCustomEmail({ toEmail, subject, htmlContent }) {
   }
 
   const from = process.env.EMAIL_FROM || ('"ET Office Portal" <' + (process.env.SMTP_USER || process.env.GMAIL_USER) + '>');
+  const logoPath = getLogoPath();
+  const attachments = logoPath ? [{ filename: "logo.png", path: logoPath, cid: "company_logo" }] : [];
 
   try {
     await mailer.sendMail({
@@ -203,6 +205,7 @@ async function sendCustomEmail({ toEmail, subject, htmlContent }) {
       to: toEmail,
       subject,
       html: htmlContent,
+      attachments,
     });
     console.log("✅ [SMTP GMAIL] Đã gửi email tùy chỉnh thành công tới: " + toEmail);
     return { sent: true };
