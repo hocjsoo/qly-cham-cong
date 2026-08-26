@@ -1391,7 +1391,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   min-height: 74px;
   padding: 14px 16px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--bg-card);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
@@ -1435,10 +1435,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .timesheet-stat small {
-  margin-left: 5px;
-  color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 700;
+  display: none;
 }
 
 .timesheet-stat--amber strong { color: #d97706; }
@@ -1488,8 +1485,45 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .timesheet-table-shell tbody tr {
-  height: 46px;
+  height: 54px;
   transition: background-color 0.15s ease;
+}
+
+.timesheet-matrix th,
+.timesheet-matrix td {
+  height: 54px;
+  border-right: 1px solid var(--border-muted);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.timesheet-matrix thead th {
+  padding: 6px 7px;
+  background: var(--bg-raised);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.timesheet-matrix .timesheet-attention-col {
+  background: var(--yellow-soft);
+}
+
+.timesheet-day-symbol {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 5px;
+  place-items: center;
+  border-radius: 7px;
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.timesheet-day-cell {
+  box-sizing: border-box;
 }
 
 .timesheet-table-shell tbody tr:hover {
@@ -1714,13 +1748,20 @@ tr:hover .table-sticky-col-2 {
 
   .timesheet-mobile-day > b {
     display: grid;
-    height: 32px;
+    height: 34px;
     min-width: 0;
     place-items: center;
     overflow: hidden;
     border: 1px solid var(--border);
     border-radius: 7px;
     background: var(--bg-raised);
+  }
+
+  .timesheet-mobile-day .timesheet-day-symbol {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 3px;
+    font-size: 8px;
   }
 
   .timesheet-mobile-day.is-sunday > b {
@@ -1733,7 +1774,7 @@ tr:hover .table-sticky-col-2 {
   }
 
   .timesheet-card-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 4px !important;
     padding: 6px !important;
     margin-bottom: 8px !important;

@@ -278,6 +278,7 @@ const getFullMatrix = async (req, res) => {
         code: u.employee_code || `NS ${String(idx + 1).padStart(2, '0')}`,
         full_name: u.full_name,
         avatar_url: u.avatar_url || null,
+        employee_type: u.employee_type || 'NS',
         role_label: u.position || u.department_id?.name || (u.role === 'admin' ? 'Quản trị' : (u.role === 'leader' || u.role === 'manager') ? 'Trưởng nhóm' : 'Nhân sự'),
         department_name: u.department_id?.name || 'KTS',
         nlv_office: parseFloat(nlv_office.toFixed(2)),

@@ -2,7 +2,7 @@
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar, LayoutGrid, Table as TableIcon, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -70,6 +70,7 @@ export default function ReportPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [attendanceFilter, setAttendanceFilter] = useState('');
+  const [staffTypeFilter, setStaffTypeFilter] = useState('');
 
   // Lock Confirm State
   const [lockConfirm, setLockConfirm] = useState(null); // { userId, currentLocked, actionText, targetText }
@@ -109,6 +110,13 @@ export default function ReportPage() {
 
   // Departments from Database API
   const [dbDepartments, setDbDepartments] = useState([]);
+
+  useEffect(() => {
+    const syncResponsiveView = () => setViewMode(window.innerWidth < 768 ? 'cards' : 'table');
+    syncResponsiveView();
+    window.addEventListener('resize', syncResponsiveView);
+    return () => window.removeEventListener('resize', syncResponsiveView);
+  }, []);
 
   useEffect(() => {
     api.get('/departments').then(res => {
@@ -155,10 +163,11 @@ export default function ReportPage() {
         (attendanceFilter === 'late' && Number(r.late_count || 0) > 0) ||
         (attendanceFilter === 'early' && Number(r.early_count || 0) > 0) ||
         (attendanceFilter === 'ot' && Number(r.total_ot_hours || 0) > 0);
+      const matchStaffType = !staffTypeFilter || r.employee_type === staffTypeFilter;
 
-      return matchSearch && matchDept && matchAttendance;
+      return matchSearch && matchDept && matchAttendance && matchStaffType;
     });
-  }, [matrixData, searchQuery, deptFilter, attendanceFilter]);
+  }, [matrixData, searchQuery, deptFilter, attendanceFilter, staffTypeFilter]);
 
   useEffect(() => {
     // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
@@ -519,9 +528,22 @@ export default function ReportPage() {
                     <option value="ot">Có tăng ca OT</option>
                   </select>
 
-                  {(searchQuery || deptFilter || attendanceFilter) && (
+                  <select
+                    className="form-input"
+                    style={{ width: 'auto', padding: '6px 10px', fontSize: '12px', minWidth: '130px' }}
+                    value={staffTypeFilter}
+                    onChange={e => setStaffTypeFilter(e.target.value)}
+                    aria-label="Lọc loại nhân sự"
+                  >
+                    <option value="">Tất cả nhân sự</option>
+                    <option value="NS">Nhân sự chính thức</option>
+                    <option value="TV">Thử việc</option>
+                    <option value="TTS">Thực tập sinh</option>
+                  </select>
+
+                  {(searchQuery || deptFilter || attendanceFilter || staffTypeFilter) && (
                     <button
-                      onClick={() => { setSearchQuery(''); setDeptFilter(''); setAttendanceFilter(''); }}
+                      onClick={() => { setSearchQuery(''); setDeptFilter(''); setAttendanceFilter(''); setStaffTypeFilter(''); }}
                       className="btn btn--ghost"
                       style={{ padding: '4px 8px', fontSize: '11px' }}
                     >
@@ -530,25 +552,6 @@ export default function ReportPage() {
                   )}
                 </div>
 
-                {/* View Mode Toggle: Cards vs Table */}
-                <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-raised)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  <button
-                    onClick={() => setViewMode('cards')}
-                    className={`chip ${viewMode === 'cards' ? 'active' : ''}`}
-                    style={{ padding: '4px 10px', fontSize: '11px', margin: 0, gap: '4px' }}
-                    title="Chế độ thẻ gọn (tối ưu cho điện thoại)"
-                  >
-                    <LayoutGrid size={13} /> Thẻ
-                  </button>
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className={`chip ${viewMode === 'table' ? 'active' : ''}`}
-                    style={{ padding: '4px 10px', fontSize: '11px', margin: 0, gap: '4px' }}
-                    title="Chế độ bảng ngang đầy đủ 31 ngày"
-                  >
-                    <TableIcon size={13} /> Bảng 31 ngày
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -562,10 +565,10 @@ export default function ReportPage() {
               const stats = [
                 { label: 'Nhân sự hiển thị', value: displayedStaffRows.length, unit: 'người', tone: 'blue', icon: '👥' },
                 { label: 'Ngày công chuẩn', value: standardDays, unit: 'ngày', tone: 'slate', icon: '▦' },
-                { label: 'Công văn phòng', value: totalOffice.toFixed(2), unit: 'công', tone: 'green', icon: '🏢' },
-                { label: 'Tăng ca', value: `${totalOt.toFixed(1)}h`, unit: 'OT', tone: 'purple', icon: '↗' },
-                { label: 'Đi muộn', value: totalLate, unit: 'lượt', tone: 'amber', icon: '⏱' },
-                { label: 'Về sớm', value: totalEarly, unit: 'lượt', tone: 'red', icon: '↙' },
+                { label: 'Tổng công văn phòng', value: totalOffice.toFixed(2), unit: '', tone: 'green', icon: '🏢' },
+                { label: 'Tổng giờ OT', value: `${totalOt.toFixed(1)}h`, unit: '', tone: 'purple', icon: '↗' },
+                { label: 'Lượt đi muộn', value: totalLate, unit: '', tone: 'amber', icon: '⏱' },
+                { label: 'Lượt về sớm', value: totalEarly, unit: '', tone: 'red', icon: '↙' },
               ];
               return (
                 <div className="timesheet-stats" aria-label="Tổng quan bảng chấm công">
@@ -627,12 +630,7 @@ export default function ReportPage() {
                 }
 
                 return (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '1px 3px', borderRadius: '4px',
-                    background: bg, color: color, fontWeight: 800, fontSize: '9.5px',
-                    letterSpacing: '-0.3px', whiteSpace: 'nowrap', maxWidth: '100%', boxSizing: 'border-box'
-                  }}>
+                  <span className="timesheet-day-symbol" style={{ background: bg, color }}>
                     {symbol}
                   </span>
                 );
@@ -708,7 +706,6 @@ export default function ReportPage() {
                       {/* Staff Cards List */}
                       <div className="timesheet-staff-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
                         {displayedStaffRows.map((r) => {
-                          const totalMonthWork = (r.nlv_office || 0) + (r.ct_domestic || 0) + (r.ct_foreign || 0) + (r.wfh || 0);
                           const isExpanded = expandedStaffIds.has(r.id);
 
                           return (
@@ -743,10 +740,10 @@ export default function ReportPage() {
                                 {/* Main Work Metric */}
                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                   <div style={{ fontSize: '18px', fontWeight: 900, color: 'var(--green)' }}>
-                                    {totalMonthWork.toFixed(2)}
+                                    {(r.nlv_office || 0).toFixed(2)}
                                     <span style={{ fontSize: '11px', fontWeight: 600, marginLeft: '3px' }}>công</span>
                                   </div>
-                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tổng công làm</div>
+                                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Công VP</div>
                                 </div>
                               </div>
 
@@ -790,32 +787,30 @@ export default function ReportPage() {
                               </div>
 
                               {/* Metric Pills Grid */}
-                              <div className="timesheet-card-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '10px', textAlign: 'center' }}>
+                              <div className="timesheet-card-metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', padding: '8px', background: 'var(--bg-raised)', borderRadius: '8px', marginBottom: '10px', textAlign: 'center' }}>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Tại VP</div>
-                                  <div style={{ fontWeight: 800, color: '#10b981', fontSize: '12px', marginTop: '2px' }}>{r.nlv_office || 0}</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>CT1</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.ct_domestic || 0}</div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Công tác & WFH</div>
-                                  <div style={{ fontWeight: 800, color: '#3b82f6', fontSize: '12px', marginTop: '2px' }}>{((r.ct_domestic || 0) + (r.ct_foreign || 0) + (r.wfh || 0)).toFixed(2)}</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>CT2</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.ct_foreign || 0}</div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Nghỉ phép</div>
-                                  <div style={{ fontWeight: 800, color: '#8b5cf6', fontSize: '12px', marginTop: '2px' }}>{((r.annual_leave || 0) + (r.sick_leave || 0) + (r.unpaid_leave || 0) + (r.other_leave || 0)).toFixed(2)}</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>WFH</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.wfh || 0}</div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Đi muộn</div>
-                                  <div style={{ fontWeight: 800, color: r.late_count > 0 ? '#d97706' : 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>{r.late_count || 0} lần</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Phép</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.annual_leave || 0}</div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Về sớm</div>
-                                  <div style={{ fontWeight: 800, color: r.early_count > 0 ? '#ef4444' : 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>{r.early_count || 0} lần</div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Ốm</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.sick_leave || 0}</div>
                                 </div>
                                 <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>🔥 Giờ OT</div>
-                                  <div style={{ fontWeight: 800, color: (r.total_ot_hours > 0 ? '#8b5cf6' : 'var(--text-muted)'), fontSize: '12px', marginTop: '2px' }}>
-                                    {r.total_ot_hours > 0 ? `${r.total_ot_hours}h` : '0h'}
-                                  </div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>KL / K</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.unpaid_leave || 0} / {r.other_leave || 0}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Muộn / Sớm</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.late_count || 0} / {r.early_count || 0}</div>
+                                </div>
+                                <div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>OT</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.total_ot_hours || 0}h</div>
                                 </div>
                               </div>
 
@@ -1058,7 +1053,7 @@ export default function ReportPage() {
                         </div>
                       </div>
 
-                      <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <table className="timesheet-matrix" style={{ width: 'max-content', minWidth: '100%', fontSize: '11px', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <thead>
                           {/* Row 1 Header: Titles & Weekdays with Sticky Columns */}
                           <tr style={{ background: 'var(--bg-raised)', color: 'var(--text)', fontWeight: 800 }}>
@@ -1068,17 +1063,17 @@ export default function ReportPage() {
 
                             {/* Summary Columns Header */}
                             {showSummaryColumns && <>
-                              <th style={{ padding: '5px 6px', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)' }} title="Ngày làm việc tại Văn phòng">🏢 NLV VP</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(59, 130, 246, 0.08)', color: '#3b82f6', borderBottom: '1px solid var(--border)' }} title="Công tác trong nước (CT1)">🚗 CT Nội địa</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.08)', color: '#8b5cf6', borderBottom: '1px solid var(--border)' }} title="Công tác nước ngoài (CT2)">✈️ CT Quốc tế</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(6, 182, 212, 0.08)', color: '#06b6d4', borderBottom: '1px solid var(--border)' }} title="Làm việc tại nhà (WFH)">🏠 WFH</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(16, 185, 129, 0.08)', color: '#10b981', borderBottom: '1px solid var(--border)' }} title="Nghỉ phép năm có lương (P)">🏖️ Phép</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }} title="Nghỉ ốm (O)">🏥 Ốm</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(100, 116, 139, 0.08)', color: '#64748b', borderBottom: '1px solid var(--border)' }} title="Nghỉ không lương (KL)">⏸️ Không lương</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(148, 163, 184, 0.08)', color: '#94a3b8', borderBottom: '1px solid var(--border)' }} title="Khác (K)">Khác</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(245, 158, 11, 0.10)', color: '#d97706', borderBottom: '1px solid var(--border)' }} title="Số lần đi muộn">⏱️ Muộn</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderBottom: '1px solid var(--border)' }} title="Số lần về sớm">↙ Về sớm</th>
-                              <th style={{ padding: '5px 6px', background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderBottom: '1px solid var(--border)', fontWeight: 800 }} title="Tổng giờ tăng ca OT (Không cộng vào công, phục vụ đánh giá)">🔥 Giờ OT</th>
+                              <th title="Công tại văn phòng">VP</th>
+                              <th title="Công tác trong nước">CT1</th>
+                              <th title="Công tác nước ngoài">CT2</th>
+                              <th title="Làm việc tại nhà">WFH</th>
+                              <th title="Nghỉ phép">P</th>
+                              <th title="Nghỉ ốm">O</th>
+                              <th title="Nghỉ không lương">KL</th>
+                              <th title="Nghỉ khác">K</th>
+                              <th className="timesheet-attention-col" title="Số lượt đi muộn">Muộn</th>
+                              <th className="timesheet-attention-col" title="Số lượt về sớm">Sớm</th>
+                              <th title="Tổng giờ tăng ca">OT</th>
                             </>}
 
                             {/* Day and weekday in one compact header, matching preview */}
@@ -1090,7 +1085,7 @@ export default function ReportPage() {
                                   padding: '3px 1px',
                                   background: isHol ? 'rgba(236, 72, 153, 0.18)' : isSun ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-raised)',
                                   color: isHol ? '#db2777' : isSun ? '#ef4444' : 'var(--text-muted)',
-                                  minWidth: '38px', width: '38px',
+                                  minWidth: '42px', width: '42px',
                                   fontSize: '10px', fontWeight: isHol || isSun ? 800 : 600,
                                   borderBottom: '2px solid var(--primary)', borderLeft: '1px solid var(--border-muted)'
                                 }} title={isHol ? `🏖️ Nghỉ Lễ: ${hd.holidayName || 'Ngày lễ'}` : isSun ? 'Chủ Nhật' : hd.weekday}>
@@ -1150,6 +1145,7 @@ export default function ReportPage() {
                                 const isHol = hdObj?.isHoliday;
                                 return (
                                   <td
+                                    className="timesheet-day-cell"
                                     key={d.day}
                                     onClick={() => {
                                       if (isSun) return;
@@ -1182,8 +1178,8 @@ export default function ReportPage() {
                                       setCellReason('');
                                     }}
                                     style={{
-                                      padding: '4px 1px',
-                                      minWidth: '38px', width: '38px',
+                                      padding: '6px 7px',
+                                      minWidth: '42px', width: '42px',
                                       cursor: !isSun ? 'pointer' : 'default',
                                       background: isHol ? 'rgba(236, 72, 153, 0.05)' : isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
@@ -1234,7 +1230,7 @@ export default function ReportPage() {
                               </td>
                             </>}
                             {showDayColumns && matrixData.header_days.map(hd => (
-                              <td key={hd.day} style={{ padding: '4px 1px', minWidth: '38px', width: '38px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>{hd.isSunday || hd.weekday === 'CN' ? '' : '—'}</td>
+                              <td key={hd.day} className="timesheet-day-cell" style={{ padding: '6px 7px', minWidth: '42px', width: '42px', fontSize: '9px', color: 'var(--text-muted)', opacity: 0.2 }}>{hd.isSunday || hd.weekday === 'CN' ? '' : '—'}</td>
                             ))}
                             {isAdmin && <td />}
                           </tr>
