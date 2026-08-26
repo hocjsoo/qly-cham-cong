@@ -139,6 +139,18 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy tài khoản với email này.' });
     }
 
+    // Chống spam: Kiểm tra thời gian gửi gần nhất (cooldown 60s)
+    if (user.reset_token_expires) {
+      const remainingTime = new Date(user.reset_token_expires).getTime() - Date.now();
+      const timeSinceLastSent = 30 * 60 * 1000 - remainingTime;
+      if (timeSinceLastSent > 0 && timeSinceLastSent < 60 * 1000) {
+        const waitSeconds = Math.ceil((60 * 1000 - timeSinceLastSent) / 1000);
+        return res.status(429).json({
+          error: "Vui lòng chờ " + waitSeconds + " giây trước khi yêu cầu gửi lại mã xác thực."
+        });
+      }
+    }
+
     // Tạo mã reset 6 chữ số
     const resetCode = crypto.randomInt(100000, 999999).toString();
     user.reset_token = await bcrypt.hash(resetCode, 10);

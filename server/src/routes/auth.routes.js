@@ -44,6 +44,6 @@ router.patch('/profile', authMiddleware, updateProfile);
 
 // Admin/Manager only
 router.post('/register', authMiddleware, requireRole('admin', 'manager'), register);
-router.post('/forgot-password', authMiddleware, requireRole('admin', 'manager'), forgotPassLimiter, forgotPassword);
+router.post('/forgot-password', forgotPassLimiter, forgotPassword);
 
 module.exports = router;
