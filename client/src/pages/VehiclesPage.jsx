@@ -209,8 +209,8 @@ export default function VehiclesPage() {
             }}
           >
             <div className="stat-card-modern__value" style={{ color: "var(--green)" }}>{count17T10}</div>
-            <div className="stat-card-modern__label">🏢 Gửi Hầm 17T10</div>
-            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Hầm tòa nhà</div>
+            <div className="stat-card-modern__label">🏢 Gửi Tòa 17T10</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Bãi xe tòa nhà</div>
           </div>
 
           <div
