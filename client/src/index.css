@@ -1562,19 +1562,6 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 .timesheet-legend__item.is-purple { color: #8b5cf6; }
 .timesheet-legend__item.is-red { color: #ef4444; }
 
-.timesheet-dept-pill {
-  display: inline-block;
-  max-width: 98px;
-  overflow: hidden;
-  padding: 4px 7px;
-  color: var(--primary);
-  border-radius: 999px;
-  background: var(--primary-soft);
-  font-size: 9px;
-  font-weight: 800;
-  text-overflow: ellipsis;
-}
-
 .timesheet-person-button {
   display: flex;
   align-items: center;

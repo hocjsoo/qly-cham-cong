@@ -1182,8 +1182,8 @@ export default function ReportPage() {
                                   </div>
                                 </button>
                               </td>
-                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left' }}>
-                                <span className="timesheet-dept-pill">{r.department_name || 'Chưa phân'}</span>
+                              <td className="table-sticky-col-2" style={{ padding: '5px 8px', textAlign: 'left', color: 'var(--text-secondary)', fontSize: '11px' }}>
+                                {r.department_name || 'Chưa phân'}
                               </td>
                               <td style={{ padding: '5px 6px', color: 'var(--text-secondary)', fontSize: '11px' }}>{r.role_label}</td>
 
