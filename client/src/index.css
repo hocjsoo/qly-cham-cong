@@ -2872,8 +2872,6 @@ table button{font-family:inherit!important}
 [data-theme="light"] .timesheet-stat,[data-theme="light"] .timesheet-mobile-week-nav{background:#fffefa!important}
 [data-theme="light"] .timesheet-mobile-day{background:#f6f5f0!important}
 [data-theme="light"] .timesheet-matrix tbody tr:nth-child(even){background:rgba(242,241,237,.55)!important}
-[data-theme="light"] 
-[data-theme="light"] 
 [data-theme="light"] .et-review-top-scroll{background:#eae8e2!important;border-color:#d0cec6!important}
 [data-theme="light"] .skeleton-card{background:linear-gradient(100deg,#eeece7 20%,#faf9f5 40%,#eeece7 60%)!important;background-size:220% 100%!important}
 /* Final polish: layered motion, contrast preferences and print resilience */
