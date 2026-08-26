@@ -1828,16 +1828,6 @@ export default function StaffPage() {
 
       {/* Fullsize Avatar Lightbox Modal */}
       <ImageLightbox image={fullAvatarImage} onClose={() => setFullAvatarImage(null)} />
-
-      {/* Custom Email Dispatcher Modal */}
-      {showEmailModal && (
-        <CustomEmailModal
-          staffList={staff}
-          departments={depts}
-          currentUser={currentUser}
-          onClose={() => setShowEmailModal(false)}
-        />
-      )}
     </div>
   );
 }

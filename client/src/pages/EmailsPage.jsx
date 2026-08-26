@@ -1,7 +1,7 @@
 // client/src/pages/EmailsPage.jsx
 // Trang Soạn & Gửi Email Tùy Chỉnh Toàn Màn Hình (2 Cột Soạn Thảo & Live Preview Song Song) — Admin Only
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Mail, Send, Eye, Edit3, Check, Users, ShieldAlert, Sparkles, FileText, CheckSquare, Square, RefreshCw, Link as LinkIcon, ExternalLink, ArrowRight, Info, ShieldCheck, Search, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
