@@ -3266,7 +3266,7 @@ div:has(> svg) > input[type="search"],
   }
 }
 
-/* MOBILE & TABLET (< 1024px): Sidebar is hidden, Premium Bottom Bar is active */
+/* MOBILE & TABLET (< 1024px): Sidebar is hidden, Balanced & Sleek Bottom Bar */
 @media (max-width: 1023px) {
   .desktop-sidebar {
     display: none !important;
@@ -3276,7 +3276,7 @@ div:has(> svg) > input[type="search"],
     width: 100% !important;
   }
   .page {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 16px)) !important;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 12px)) !important;
   }
 
   .bottom-nav {
@@ -3284,15 +3284,15 @@ div:has(> svg) > input[type="search"],
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    min-height: 72px !important;
-    height: calc(72px + env(safe-area-inset-bottom, 14px)) !important;
-    padding: 6px max(8px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom, 14px)) !important;
-    gap: 4px !important;
-    background: color-mix(in srgb, var(--nav-bg) 96%, transparent) !important;
-    backdrop-filter: blur(20px) !important;
-    -webkit-backdrop-filter: blur(20px) !important;
+    min-height: 60px !important;
+    height: calc(60px + env(safe-area-inset-bottom, 8px)) !important;
+    padding: 3px max(6px, env(safe-area-inset-left)) calc(5px + env(safe-area-inset-bottom, 8px)) !important;
+    gap: 2px !important;
+    background: color-mix(in srgb, var(--nav-bg) 95%, transparent) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
     border-top: 1px solid var(--nav-border) !important;
-    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12) !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08) !important;
     display: flex !important;
     align-items: center !important;
     z-index: 1000 !important;
@@ -3308,16 +3308,17 @@ div:has(> svg) > input[type="search"],
 
   .bottom-nav__item {
     position: relative !important;
-    flex: 1 0 74px !important;
-    min-width: 74px !important;
-    min-height: 58px !important;
-    padding: 5px 6px !important;
+    flex: 1 0 auto !important;
+    min-width: 64px !important;
+    min-height: 52px !important;
+    padding: 4px 6px !important;
     border: none !important;
-    border-radius: 14px !important;
-    color: var(--text-muted) !important;
-    font-size: 12px !important;
-    font-weight: 750 !important;
+    border-radius: 10px !important;
+    color: var(--text-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
     letter-spacing: -0.01em !important;
+    white-space: nowrap !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
@@ -3325,35 +3326,35 @@ div:has(> svg) > input[type="search"],
     gap: 3px !important;
     text-decoration: none !important;
     user-select: none !important;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
     background: transparent !important;
     box-shadow: none !important;
   }
 
   .bottom-nav__item:active {
-    transform: scale(0.94) !important;
+    transform: scale(0.95) !important;
   }
 
   .bottom-nav__icon {
-    width: 44px !important;
-    height: 30px !important;
+    padding: 3px 10px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border-radius: 15px !important;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    border-radius: 12px !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
     background: transparent !important;
   }
 
   .bottom-nav__icon svg {
-    width: 24px !important;
-    height: 24px !important;
-    stroke-width: 2.2 !important;
-    transition: transform 0.2s ease !important;
+    width: 20px !important;
+    height: 20px !important;
+    stroke-width: 1.8 !important;
+    transition: transform 0.18s ease !important;
   }
 
   .bottom-nav__item.active {
     color: var(--primary) !important;
+    font-weight: 700 !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
@@ -3362,43 +3363,43 @@ div:has(> svg) > input[type="search"],
   .bottom-nav__item.active .bottom-nav__icon {
     background: var(--primary-soft) !important;
     color: var(--primary) !important;
-    transform: translateY(-1px) scale(1.05) !important;
+    transform: translateY(-1px) !important;
   }
 
   [data-theme="light"] .bottom-nav {
-    background: rgba(255, 255, 255, 0.96) !important;
-    border-top-color: #d5d8dc !important;
-    box-shadow: 0 -8px 28px rgba(35, 39, 41, 0.08) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-top-color: #e2e4e8 !important;
+    box-shadow: 0 -4px 18px rgba(35, 39, 41, 0.06) !important;
   }
 
   [data-theme="light"] .bottom-nav__item {
-    color: #525b62 !important;
+    color: #475569 !important;
   }
 
   [data-theme="light"] .bottom-nav__item.active {
-    color: #1d4ed8 !important;
+    color: #2563eb !important;
   }
 
   [data-theme="light"] .bottom-nav__item.active .bottom-nav__icon {
-    background: rgba(37, 99, 235, 0.13) !important;
-    color: #1d4ed8 !important;
+    background: rgba(37, 99, 235, 0.11) !important;
+    color: #2563eb !important;
   }
 
   [data-theme="dark"] .bottom-nav {
-    background: rgba(22, 25, 27, 0.96) !important;
-    border-top-color: var(--border) !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border-top-color: #334155 !important;
   }
 
   [data-theme="dark"] .bottom-nav__item {
-    color: var(--text-muted) !important;
+    color: #94a3b8 !important;
   }
 
   [data-theme="dark"] .bottom-nav__item.active {
-    color: var(--primary-light) !important;
+    color: #818cf8 !important;
   }
 
   [data-theme="dark"] .bottom-nav__item.active .bottom-nav__icon {
-    background: var(--primary-soft) !important;
-    color: var(--primary-light) !important;
+    background: rgba(99, 102, 241, 0.18) !important;
+    color: #818cf8 !important;
   }
 }
