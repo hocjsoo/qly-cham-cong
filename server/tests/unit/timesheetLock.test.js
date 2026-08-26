@@ -36,7 +36,7 @@ function validateOverrideRequest(new_symbol, ot_hours, reason) {
   return { valid: true };
 }
 
-function resolveMatrixSymbol(att, latestAudit, isHoliday) {
+function resolveMatrixSymbol(att, isHoliday) {
   // Source of Truth: Attendance record
   if (att) {
     const notes = (att.notes || '').toUpperCase();
@@ -54,8 +54,6 @@ function resolveMatrixSymbol(att, latestAudit, isHoliday) {
     if (att.total_hours >= 5.5) return '0,75x';
     if (att.total_hours >= 3.5) return '0,5x';
     if (att.total_hours > 0) return '0,5x';
-  } else if (latestAudit?.new_symbol) {
-    return latestAudit.new_symbol.split(' ')[0].trim();
   } else if (isHoliday) {
     return 'L';
   }
@@ -164,7 +162,7 @@ function runTimesheetTests(assert) {
   assert(validateOverrideRequest('x', 2.5, 'Lý do').valid === true,
     'TC-TIME-06.5: Chấp nhận số giờ OT hợp lệ 2.5h');
 
-  // TC-TIME-07: Attendance là Source of Truth; Đơn từ mới duyệt không bị Audit cũ ghi đè (Codex Review)
+  // TC-TIME-07: Attendance là Source of Truth; Đơn từ mới duyệt và xóa ca phản ánh đúng (Codex Review)
   const attAfterRequestApproved = {
     check_in_type: 'site',
     status: 'present',
@@ -172,10 +170,19 @@ function runTimesheetTests(assert) {
     work_units: 1.0,
     total_hours: 8,
   };
-  const oldAudit = { new_symbol: '0,5x', modified_at: new Date('2026-08-01') };
-  const resolved = resolveMatrixSymbol(attAfterRequestApproved, oldAudit, false);
-  assert(resolved === 'CT1',
-    'TC-TIME-07.1: Đơn công tác CT1 mới duyệt hiển thị đúng "CT1", không bị audit cũ "0,5x" ghi đè');
+  const resolvedPresent = resolveMatrixSymbol(attAfterRequestApproved, false);
+  assert(resolvedPresent === 'CT1',
+    'TC-TIME-07.1: Đơn công tác CT1 mới duyệt hiển thị đúng "CT1"');
+
+  // Khi Admin xóa ca (att = null), ma trận trả về ô trống '', không dùng audit cũ làm fallback
+  const resolvedDeleted = resolveMatrixSymbol(null, false);
+  assert(resolvedDeleted === '',
+    'TC-TIME-07.2: Khi ca bị xóa (att=null), ma trận hiển thị ô trống "" (Audit Log được giữ nguyên trong DB để tra cứu lịch sử)');
+
+  // Khi att = null nhưng là ngày lễ
+  const resolvedHoliday = resolveMatrixSymbol(null, true);
+  assert(resolvedHoliday === 'L',
+    'TC-TIME-07.3: Khi không có chấm công vào ngày lễ (isHoliday=true), ma trận hiển thị ký hiệu "L"');
 }
 
 module.exports = runTimesheetTests;

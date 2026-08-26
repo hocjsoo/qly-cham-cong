@@ -226,45 +226,6 @@ const getFullMatrix = async (req, res) => {
             symbol = '0,5x';
             nlv_office += 0.5;
           }
-        } else if (latestAudit?.new_symbol) {
-          // ƯU TIÊN 2 (Fallback): Bản ghi Audit Log khi dữ liệu cũ chưa có bản ghi Attendance đầy đủ
-          const s = latestAudit.new_symbol.split(' ')[0].trim();
-          if (s === '0,75x' || s === '0.75x') {
-            symbol = '0,75x';
-            nlv_office += 0.75;
-          } else if (s === '0,5x' || s === '0.5x') {
-            symbol = '0,5x';
-            nlv_office += 0.5;
-          } else if (s === 'x' || s === '1.0x') {
-            symbol = 'x';
-            nlv_office += 1;
-          } else if (s === 'CT1') {
-            symbol = 'CT1';
-            ct_domestic += 1;
-          } else if (s === 'CT2') {
-            symbol = 'CT2';
-            ct_foreign += 1;
-          } else if (s === 'WFH') {
-            symbol = 'WFH';
-            wfh += 1;
-          } else if (s === 'P') {
-            symbol = 'P';
-            annual_leave += 1;
-          } else if (s === 'O') {
-            symbol = 'O';
-            sick_leave += 1;
-          } else if (s === 'KL') {
-            symbol = 'KL';
-            unpaid_leave += 1;
-          } else if (s === 'K') {
-            symbol = 'K';
-            other_leave += 1;
-          } else if (s === 'L') {
-            symbol = 'L';
-          } else {
-            symbol = s;
-            nlv_office += 1;
-          }
         } else if (hd.isHoliday) {
           // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
           symbol = 'L';

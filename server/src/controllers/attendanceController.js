@@ -790,10 +790,28 @@ const deleteAttendance = async (req, res) => {
     // 1. Xóa bản ghi chấm công
     await Attendance.findByIdAndDelete(id);
 
-    // 2. Xóa dữ liệu thiết bị đăng ký & Lịch sử audit log của ngày đó để cho phép chấm lại hoàn toàn sạch sẽ
+    // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại
     if (user_id && date) {
       await DeviceRegistry.deleteMany({ user_id, date });
-      await AttendanceAuditLog.deleteMany({ user_id, date });
+    }
+
+    // 3. Ghi nhận lịch sử Audit Log về hành động xóa ca chấm công (Bảo toàn lịch sử minh bạch 100%)
+    try {
+      const user = await User.findById(user_id);
+      await AttendanceAuditLog.create({
+        attendance_id: id,
+        user_id,
+        user_name: user ? user.full_name : 'Nhân viên',
+        date,
+        old_symbol: attendance.notes || '—',
+        new_symbol: '— (Đã xóa ca)',
+        reason: 'Admin xóa bản ghi để nhân viên thực hiện chấm công lại',
+        modified_by: req.user._id,
+        modified_by_name: req.user.full_name,
+        modified_at: new Date(),
+      });
+    } catch (auditErr) {
+      console.warn('Lỗi ghi audit log khi xóa ca:', auditErr);
     }
 
     res.json({ message: 'Đã xóa bản ghi chấm công thành công! Nhân viên có thể thực hiện chấm công lại.', id });
@@ -935,11 +953,10 @@ const verifyFlaggedAttendance = async (req, res) => {
       const { user_id, date } = attendance;
 
       if (allowReset) {
-        // Xóa bản ghi chấm công, DeviceRegistry & AuditLog trong ngày để nhân viên được phép chấm lại
+        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại (giữ nguyên AuditLog lịch sử)
         await Attendance.findByIdAndDelete(id);
         if (user_id && date) {
           await DeviceRegistry.deleteMany({ user_id, date });
-          await AttendanceAuditLog.deleteMany({ user_id, date });
         }
         return res.json({ message: 'Đã từ chối & xóa bản ghi thành công. Nhân viên đã có thể chấm công lại! 🗑️', id });
       } else {
@@ -976,7 +993,6 @@ const verifyFlaggedAttendance = async (req, res) => {
       await Attendance.findByIdAndDelete(id);
       if (user_id && date) {
         await DeviceRegistry.deleteMany({ user_id, date });
-        await AttendanceAuditLog.deleteMany({ user_id, date });
       }
       return res.json({ message: 'Đã xóa ca chấm công thành công! 🗑️', id });
     } else {
