@@ -435,37 +435,41 @@ export default function RequestsPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '14px' }}>
-        {/* KPI Stat Cards Header */}
-        <div style={{ display: 'grid', gridTemplateColumns: isManager ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>⏳ CHỜ DUYỆT</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--yellow)' }}>{pendingCount}</div>
+        {/* Modern Top KPI Stat Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: isManager ? "repeat(auto-fit, minmax(140px, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginBottom: "16px" }}>
+          <div className="stat-card-modern card--interactive" onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")} style={{ cursor: "pointer", border: statusFilter === "pending" ? "2px solid var(--yellow)" : "1px solid var(--border)", background: statusFilter === "pending" ? "var(--yellow-soft)" : "var(--bg-card)" }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--yellow)" }}>{pendingCount}</div>
+            <div className="stat-card-modern__label">⏳ Chờ Duyệt</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Đơn cần xem xét</div>
           </div>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>✅ ĐÃ DUYỆT</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--green)' }}>{approvedCount}</div>
+
+          <div className="stat-card-modern card--interactive" onClick={() => setStatusFilter(statusFilter === "approved" ? "all" : "approved")} style={{ cursor: "pointer", border: statusFilter === "approved" ? "2px solid var(--green)" : "1px solid var(--border)", background: statusFilter === "approved" ? "var(--green-soft)" : "var(--bg-card)" }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--green)" }}>{approvedCount}</div>
+            <div className="stat-card-modern__label">✅ Đã Phê Duyệt</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Đã tính vào công</div>
           </div>
-          <div className="card" style={{ padding: '10px 12px', textAlign: 'center' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>❌ TỪ CHỐI</div>
-            <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--red)' }}>{rejectedCount}</div>
+
+          <div className="stat-card-modern card--interactive" onClick={() => setStatusFilter(statusFilter === "rejected" ? "all" : "rejected")} style={{ cursor: "pointer", border: statusFilter === "rejected" ? "2px solid var(--red)" : "1px solid var(--border)", background: statusFilter === "rejected" ? "var(--red-soft)" : "var(--bg-card)" }}>
+            <div className="stat-card-modern__value" style={{ color: "var(--red)" }}>{rejectedCount}</div>
+            <div className="stat-card-modern__label">❌ Bị Từ Chối</div>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Không được duyệt</div>
           </div>
+
           {isManager && (
             <div
-              className="card"
-              onClick={() => { setTab('flagged'); fetchFlagged(); }}
+              className="stat-card-modern card--interactive"
+              onClick={() => { setTab("flagged"); fetchFlagged(); }}
               style={{
-                padding: '10px 12px', textAlign: 'center', cursor: 'pointer',
-                background: flaggedCounts.pending > 0 ? 'var(--yellow-soft)' : 'var(--bg-card)',
-                border: flaggedCounts.pending > 0 ? '1px solid var(--yellow)' : '1px solid var(--border)',
-                transition: 'all 0.15s'
+                cursor: "pointer",
+                border: tab === "flagged" ? "2px solid var(--primary)" : (flaggedCounts.pending > 0 ? "1.5px solid var(--yellow)" : "1px solid var(--border)"),
+                background: tab === "flagged" ? "var(--primary-soft)" : (flaggedCounts.pending > 0 ? "var(--yellow-soft)" : "var(--bg-card)")
               }}
             >
-              <div style={{ fontSize: '11px', color: flaggedCounts.pending > 0 ? 'var(--yellow)' : 'var(--text-muted)', marginBottom: '2px', fontWeight: 700 }}>
-                🛡️ CẢNH BÁO / ẢNH
-              </div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: flaggedCounts.pending > 0 ? 'var(--yellow)' : 'var(--primary)' }}>
+              <div className="stat-card-modern__value" style={{ color: flaggedCounts.pending > 0 ? "var(--yellow)" : "var(--primary)" }}>
                 {flaggedCounts.pending}
               </div>
+              <div className="stat-card-modern__label">🛡️ Cảnh Báo & Ảnh</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Ca nghi vấn / Selfie</div>
             </div>
           )}
         </div>
@@ -834,10 +838,17 @@ export default function RequestsPage() {
                 {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '96px', borderRadius: '12px' }} />)}
               </div>
             ) : list.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state__icon">📄</div>
-                <div className="empty-state__title">Không tìm thấy đơn từ</div>
-                <div className="empty-state__desc">Bấm "Tạo đơn mới" để gửi yêu cầu xin nghỉ phép, giải trình đi muộn hoặc tăng ca</div>
+              <div className="empty-state" style={{ padding: "36px 20px", borderRadius: "16px", background: "var(--bg-card)", border: "1px solid var(--border)", textAlign: "center", boxShadow: "var(--shadow-xs)" }}>
+                <div style={{ width: "54px", height: "54px", borderRadius: "14px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center", margin: "0 auto 12px" }}>
+                  <FileText size={28} />
+                </div>
+                <div style={{ fontSize: "16px", fontWeight: 800, color: "var(--text)", marginBottom: "6px" }}>Chưa có đơn từ nào phù hợp</div>
+                <div style={{ fontSize: "13px", color: "var(--text-muted)", maxWidth: "420px", margin: "0 auto 16px", lineHeight: 1.5 }}>
+                  Bấm "Tạo đơn mới" để gửi yêu cầu xin nghỉ phép, giải trình đi muộn, làm việc tại nhà (WFH) hoặc tăng ca (OT).
+                </div>
+                <button type="button" onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: "8px 18px", fontSize: "13px" }}>
+                  <Plus size={15} /> Tạo đơn mới ngay
+                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
