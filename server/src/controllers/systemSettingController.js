@@ -27,6 +27,7 @@ const updateSettings = async (req, res) => {
       'working_days', 'holidays', 'makeup_days',
       'company_name', 'company_logo_url',
       'announcement_display_days', 'anniversary_display_mode', 'anniversary_display_days',
+      'request_guidelines',
     ];
 
     for (const field of fields) {

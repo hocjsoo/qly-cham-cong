@@ -2,7 +2,7 @@ import ImageLightbox from "../components/ImageLightbox";
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2,
+  Plus, Edit2, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2,
   Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight,
   Search, Camera, AlertTriangle, Phone, Mail, MapPin, Bike, RotateCcw,
   Trash2, Undo2, Filter, ChevronRight, UserCheck, RefreshCw, ZoomIn, Info
@@ -47,7 +47,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
   );
 }
 
-const REQUEST_GUIDELINES = {
+const DEFAULT_REQUEST_GUIDELINES = {
   annual_leave: {
     label: "🏖️ Nghỉ phép năm (P)",
     desc: "01 Ngày/tháng; nghỉ phép có hưởng lương",
@@ -198,6 +198,46 @@ export default function RequestsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showGuidelineModal, setShowGuidelineModal] = useState(false);
   const [showGuidelinesCard, setShowGuidelinesCard] = useState(false);
+  const [showEditGuidelinesModal, setShowEditGuidelinesModal] = useState(false);
+  const [guidelines, setGuidelines] = useState(DEFAULT_REQUEST_GUIDELINES);
+  const [editingTypeKey, setEditingTypeKey] = useState("annual_leave");
+  const [draftGuidelines, setDraftGuidelines] = useState(DEFAULT_REQUEST_GUIDELINES);
+  const [savingGuidelines, setSavingGuidelines] = useState(false);
+
+  const loadSystemGuidelines = async () => {
+    try {
+      const { data } = await api.get("/settings");
+      if (data && data.request_guidelines && typeof data.request_guidelines === "object") {
+        setGuidelines({ ...DEFAULT_REQUEST_GUIDELINES, ...data.request_guidelines });
+        setDraftGuidelines({ ...DEFAULT_REQUEST_GUIDELINES, ...data.request_guidelines });
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    loadSystemGuidelines();
+  }, []);
+
+  const handleSaveGuidelines = async () => {
+    setSavingGuidelines(true);
+    try {
+      await api.put("/settings", { request_guidelines: draftGuidelines });
+      setGuidelines(draftGuidelines);
+      toast.success("Đã cập nhật quy định đơn từ thành công! 💾");
+      setShowEditGuidelinesModal(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Lỗi lưu quy định đơn từ");
+    } finally {
+      setSavingGuidelines(false);
+    }
+  };
+
+  const handleResetDefaultGuidelines = () => {
+    if (!window.confirm("Bạn có chắc muốn đặt lại toàn bộ quy định 11 loại đơn từ về mặc định ban đầu?")) return;
+    setDraftGuidelines(DEFAULT_REQUEST_GUIDELINES);
+    toast.success("Đã nạp lại bảng quy định mặc định");
+  };
+
 
   // Safe Confirmation State
   const [confirm, setConfirm] = useState(null);
@@ -601,6 +641,21 @@ export default function RequestsPage() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDraftGuidelines(guidelines);
+                    setShowEditGuidelinesModal(true);
+                  }}
+                  className="btn btn--ghost"
+                  style={{ padding: "4px 9px", fontSize: "11.5px", color: "var(--primary)", display: "flex", alignItems: "center", gap: "4px" }}
+                  title="Chỉnh sửa nội dung mô tả, thời hạn nộp và yêu cầu của 11 loại đơn từ"
+                >
+                  <Edit2 size={13} /> Sửa quy định
+                </button>
+              )}
               <span style={{ fontSize: "12px", color: "var(--primary)", fontWeight: 700 }}>
                 {showGuidelinesCard ? "Thu gọn ▲" : "Mở rộng ▼"}
               </span>
@@ -620,7 +675,7 @@ export default function RequestsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(REQUEST_GUIDELINES).map(([key, g], idx) => (
+                  {Object.entries(guidelines).map(([key, g], idx) => (
                     <tr key={key} style={{ borderBottom: "1px solid var(--border-muted)", background: idx % 2 === 0 ? "transparent" : "var(--bg-raised)" }}>
                       <td style={{ padding: "10px 14px", verticalAlign: "middle" }}>
                         <span style={{ fontSize: "12px", fontWeight: 800, color: g.color, background: g.bg, padding: "3px 8px", borderRadius: "6px", display: "inline-block", border: "1px solid " + g.color + "33" }}>
@@ -1310,7 +1365,7 @@ export default function RequestsPage() {
 
             {/* Detailed Guideline Information Card matching company standard */}
             {(() => {
-              const g = REQUEST_GUIDELINES[type] || REQUEST_GUIDELINES.other;
+              const g = guidelines[type] || REQUEST_GUIDELINES.other;
               return (
                 <div style={{
                   background: "var(--bg-input)",
@@ -1757,7 +1812,7 @@ export default function RequestsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(REQUEST_GUIDELINES).map(([key, g], idx) => (
+                  {Object.entries(guidelines).map(([key, g], idx) => (
                     <tr key={key} style={{ borderBottom: "1px solid var(--border-muted)", background: idx % 2 === 0 ? "transparent" : "var(--bg-raised)" }}>
                       <td style={{ padding: "10px 12px", verticalAlign: "top" }}>
                         <span style={{ fontSize: "12px", fontWeight: 800, color: g.color, background: g.bg, padding: "3px 8px", borderRadius: "6px", display: "inline-block" }}>
@@ -1786,6 +1841,125 @@ export default function RequestsPage() {
               <button type="button" onClick={() => setShowGuidelineModal(false)} className="btn btn--primary" style={{ padding: "8px 24px" }}>
                 Đã hiểu ✓
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Edit Guidelines Modal Sheet */}
+      {showEditGuidelinesModal && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: "16px" }} onClick={() => setShowEditGuidelinesModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: "640px", width: "100%", margin: "auto", padding: "22px 24px", maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column" }}>
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                  <Edit2 size={18} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "17px", fontWeight: 800, margin: 0, color: "var(--text)" }}>Chỉnh Sửa Quy Định Đơn Từ</h3>
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Thay đổi mô tả, thời hạn nộp và yêu cầu báo cáo cho từng loại đơn</div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowEditGuidelinesModal(false)} className="btn btn--ghost" style={{ padding: "4px 8px" }}><X size={18} /></button>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: "14px" }}>
+              <label className="form-label" style={{ fontWeight: 700 }}>Chọn loại đơn cần chỉnh sửa:</label>
+              <select
+                className="form-select"
+                value={editingTypeKey}
+                onChange={e => setEditingTypeKey(e.target.value)}
+                style={{ fontWeight: 700, color: "var(--primary)" }}
+              >
+                {Object.entries(draftGuidelines).map(([k, g]) => (
+                  <option key={k} value={k}>{g.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px", paddingRight: "4px" }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Mô tả loại đơn</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  value={draftGuidelines[editingTypeKey]?.desc || ""}
+                  onChange={e => setDraftGuidelines({
+                    ...draftGuidelines,
+                    [editingTypeKey]: { ...draftGuidelines[editingTypeKey], desc: e.target.value }
+                  })}
+                  placeholder="Mô tả mục đích sử dụng loại đơn..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">⏰ Thời điểm báo cáo (Quy định hạn nộp)</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  value={draftGuidelines[editingTypeKey]?.timing || ""}
+                  onChange={e => setDraftGuidelines({
+                    ...draftGuidelines,
+                    [editingTypeKey]: { ...draftGuidelines[editingTypeKey], timing: e.target.value }
+                  })}
+                  placeholder="VD: Trước ít nhất 03 ngày làm việc / Lý do phù hợp..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">📌 Yêu cầu báo cáo & Xác nhận</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  value={draftGuidelines[editingTypeKey]?.requirement || ""}
+                  onChange={e => setDraftGuidelines({
+                    ...draftGuidelines,
+                    [editingTypeKey]: { ...draftGuidelines[editingTypeKey], requirement: e.target.value }
+                  })}
+                  placeholder="VD: Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận..."
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">⚡ Tác động hệ thống (Tính công / Trừ phép)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={draftGuidelines[editingTypeKey]?.impact || ""}
+                  onChange={e => setDraftGuidelines({
+                    ...draftGuidelines,
+                    [editingTypeKey]: { ...draftGuidelines[editingTypeKey], impact: e.target.value }
+                  })}
+                  placeholder="VD: Trừ vào quỹ phép năm & tính đủ 1.0 công..."
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+              <button
+                type="button"
+                onClick={handleResetDefaultGuidelines}
+                className="btn btn--ghost"
+                style={{ fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px" }}
+                title="Khôi phục toàn bộ bảng quy định 11 loại đơn về mặc định ban đầu"
+              >
+                <RefreshCw size={13} /> Đặt lại mặc định
+              </button>
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button type="button" onClick={() => setShowEditGuidelinesModal(false)} className="btn btn--ghost">Hủy</button>
+                <button
+                  type="button"
+                  onClick={handleSaveGuidelines}
+                  disabled={savingGuidelines}
+                  className="btn btn--primary"
+                  style={{ fontWeight: 800, padding: "0 22px" }}
+                >
+                  {savingGuidelines ? <span className="spinner" /> : "Lưu quy định 💾"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

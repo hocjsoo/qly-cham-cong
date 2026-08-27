@@ -31,6 +31,7 @@ const systemSettingSchema = new mongoose.Schema(
     },
     anniversary_display_days: { type: Number, default: 7 }, // Số ngày hiển thị xung quanh ngày kỷ niệm
     holidays: [{ date: String, name: String }],               // Ngày lễ nghỉ
+    request_guidelines: { type: mongoose.Schema.Types.Mixed, default: null }, // Bảng quy định 11 loại đơn từ tùy chỉnh
     makeup_days: [{ date: String, name: String }],            // Ngày làm bù
   },
   { timestamps: true }
