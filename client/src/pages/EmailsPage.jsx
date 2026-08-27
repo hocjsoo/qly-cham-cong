@@ -13,7 +13,7 @@ const PRESET_TEMPLATES = [
     id: "onboarding",
     name: "🚀 Bàn giao tài khoản & HDSD",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🚀 Đăng Nhập Hệ Thống Ngay | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://drive.google.com]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút đăng nhập phía trên để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đầu đăng nhập.\n3. Tham khảo tài liệu hướng dẫn để nắm rõ các quy định.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🚀 Đăng Nhập Hệ Thống Ngay | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút đăng nhập phía trên để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đầu đăng nhập.\n3. Tham khảo tài liệu hướng dẫn để nắm rõ các quy định.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "",
     actionUrl: "",
     documentUrl: "",
@@ -270,7 +270,7 @@ export default function EmailsPage() {
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       mat_khau: "ET@2026#8492",
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
-      link_tai_lieu: documentUrl || "https://drive.google.com",
+      link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
 
     let renderedBody = body || "";
@@ -476,7 +476,7 @@ export default function EmailsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBody(prev => prev + " [link: Xem chi tiết tại đây | https://drive.google.com] ")}
+                  onClick={() => setBody(prev => prev + " [link: Xem chi tiết tại đây | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing] ")}
                   className="btn btn--ghost"
                   style={{ padding: "4px 9px", fontSize: "11.5px", borderRadius: "8px", color: "var(--primary)", fontWeight: 700 }}
                   title="Chèn đường link liên kết văn bản"
@@ -531,7 +531,7 @@ export default function EmailsPage() {
                   className="form-input"
                   value={documentUrl}
                   onChange={e => setDocumentUrl(e.target.value)}
-                  placeholder="https://drive.google.com/file/..."
+                  placeholder="https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing"
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>

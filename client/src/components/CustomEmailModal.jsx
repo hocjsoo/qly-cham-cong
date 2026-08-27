@@ -15,7 +15,7 @@ const PRESET_TEMPLATES = [
     body: "Xin chào **{ho_ten}**,\n\nKiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm vào nút **Đăng Nhập Hệ Thống** bên dưới để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đăng nhập đầu tiên.\n3. Xem tài liệu hướng dẫn sử dụng chi tiết để nắm rõ các quy định chấm công và nộp đơn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "🚀 Đăng Nhập Hệ Thống Ngay",
     actionUrl: "https://qly-cham-cong.vercel.app",
-    documentUrl: "https://drive.google.com",
+    documentUrl: "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     footerText: "Ban Giám Đốc & Phòng Hành Chính Nhân Sự ET Architects",
   },
   {
@@ -151,7 +151,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       mat_khau: "ET@2026#8492",
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
-      link_tai_lieu: documentUrl || "https://drive.google.com",
+      link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
 
     let renderedBody = body || "";
@@ -387,7 +387,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
                   className="form-input"
                   value={documentUrl}
                   onChange={e => setDocumentUrl(e.target.value)}
-                  placeholder="https://drive.google.com/file/..."
+                  placeholder="https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing"
                 />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>

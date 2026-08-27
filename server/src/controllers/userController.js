@@ -476,7 +476,7 @@ const sendTestEmail = async (req, res) => {
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       mat_khau: "ET@2026#8492",
       link_he_thong: actionUrl || process.env.FRONTEND_URL || "https://qly-cham-cong.vercel.app",
-      link_tai_lieu: documentUrl || "https://drive.google.com",
+      link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
 
     const renderedTitle = renderTemplateVariables(title || "Thông báo từ ET Architects", mockVars);
