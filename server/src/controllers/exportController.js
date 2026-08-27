@@ -96,18 +96,31 @@ const exportAttendanceExcel = async (req, res) => {
         else if (sym === '0,5x') nlv_office += 0.5;
       }
 
+      let lateCount = 0;
+      let earlyCount = 0;
+      let totalOtHours = 0;
+
+      recs.forEach(a => {
+        if (a.is_late) lateCount += 1;
+        if (a.is_early_leave) earlyCount += 1;
+        if (a.ot_hours) totalOtHours += a.ot_hours;
+      });
+
       return {
-        'ID': u.employee_code || `NS ${String(index + 1).padStart(2, '0')}`,
-        'NHÂN SỰ': u.full_name,
-        'NV': u.position || (u.role === 'admin' ? 'KTS-PGD' : u.role === 'manager' ? 'KTS NT - QL' : 'KTS'),
-        'NLV tại VP': parseFloat(nlv_office.toFixed(2)),
-        'CT Trong nước': parseFloat(ct_domestic.toFixed(2)),
-        'CT Nước ngoài': parseFloat(ct_foreign.toFixed(2)),
-        'Work form home': parseFloat(wfh.toFixed(2)),
-        'Nghỉ phép': parseFloat(annual_leave.toFixed(2)),
-        'Nghỉ ốm': parseFloat(sick_leave.toFixed(2)),
-        'Nghỉ không lương': parseFloat(unpaid_leave.toFixed(2)),
-        'Khác': parseFloat(other_leave.toFixed(2)),
+        "ID": u.employee_code || ("NS " + String(index + 1).padStart(2, "0")),
+        "NHÂN SỰ": u.full_name,
+        "CHỨC VỤ": u.position || (u.role === "admin" ? "KTS-PGD" : u.role === "manager" ? "KTS NT - QL" : "KTS"),
+        "NLV tại VP": parseFloat(nlv_office.toFixed(2)),
+        "CT Trong nước": parseFloat(ct_domestic.toFixed(2)),
+        "CT Nước ngoài": parseFloat(ct_foreign.toFixed(2)),
+        "Work form home": parseFloat(wfh.toFixed(2)),
+        "Nghỉ phép": parseFloat(annual_leave.toFixed(2)),
+        "Nghỉ ốm": parseFloat(sick_leave.toFixed(2)),
+        "Nghỉ không lương": parseFloat(unpaid_leave.toFixed(2)),
+        "Khác": parseFloat(other_leave.toFixed(2)),
+        "Muộn (lượt)": lateCount,
+        "Sớm (lượt)": earlyCount,
+        "Tổng giờ OT": parseFloat(totalOtHours.toFixed(1)),
         ...daySymbols,
       };
     });
@@ -168,6 +181,9 @@ const exportAttendanceExcel = async (req, res) => {
       { wch: 10 }, // Nghỉ ốm
       { wch: 16 }, // Nghỉ không lương
       { wch: 10 }, // Khác
+      { wch: 12 }, // Muộn
+      { wch: 12 }, // Sớm
+      { wch: 12 }, // OT
     ];
     for (let d = 1; d <= daysInMonth; d++) {
       summaryColWidths.push({ wch: 6 });

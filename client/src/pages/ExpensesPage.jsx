@@ -220,42 +220,77 @@ export default function ExpensesPage() {
 
   const handleExportCSV = () => {
     if (expenses.length === 0) {
-      toast.error('Không có dữ liệu để xuất file');
+      toast.error("Không có dữ liệu để xuất file");
       return;
     }
 
-    const headers = ['STT', 'Ngày giao dịch', 'Mô tả', 'Người chi', 'Số tiền (VNĐ)', 'Trạng thái duyệt', 'Trạng thái trả', 'Hóa đơn VAT', 'Ghi chú'];
-    const rows = filteredExpenses.map((exp, idx) => {
-      const spenderName = exp.user_id?.full_name || '—';
-      const approvalVi = exp.approval_status === 'approved' ? 'Đã duyệt' : exp.approval_status === 'rejected' ? 'Từ chối' : 'Chưa duyệt';
-      const paymentVi = exp.payment_status === 'paid' ? 'Đã trả' : 'Chưa trả';
-      const vatVi = exp.has_vat_invoice ? 'Có VAT' : 'Không VAT';
+    const headers = [
+      "STT",
+      "Ngày giao dịch",
+      "Mô tả khoản chi",
+      "Người chi",
+      "Số tiền (VNĐ)",
+      "Trạng thái duyệt",
+      "Trạng thái hoàn tiền",
+      "Hóa đơn VAT",
+      "Ngân hàng",
+      "Số tài khoản nhận tiền",
+      "Chi nhánh",
+      "Ghi chú"
+    ];
+
+    const escapeCsv = (str) => "\"" + String(str || "").replace(/"/g, "''") + "\"";
+
+    const rows = filteredExpenses.map((expItem, idx) => {
+      const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
+      const spenderName = expItem.user_id?.full_name || expItem.user_name || spenderUser.full_name || "—";
+      const approvalVi = expItem.approval_status === "approved" ? "Đã duyệt" : expItem.approval_status === "rejected" ? "Từ chối" : "Chờ duyệt";
+      const paymentVi = expItem.payment_status === "paid" ? "Đã trả" : "Chưa trả";
+      const vatVi = expItem.has_vat_invoice ? "Có VAT" : "Không VAT";
 
       return [
         idx + 1,
-        formatDate(exp.date),
-        `"${(exp.description || '').replace(/"/g, '""')}"`,
-        `"${spenderName.replace(/"/g, '""')}"`,
-        exp.amount,
-        `"${approvalVi}"`,
-        `"${paymentVi}"`,
-        `"${vatVi}"`,
-        `"${(exp.notes || '').replace(/"/g, '""')}"`
+        formatDate(expItem.date),
+        escapeCsv(expItem.description),
+        escapeCsv(spenderName),
+        expItem.amount,
+        escapeCsv(approvalVi),
+        escapeCsv(paymentVi),
+        escapeCsv(vatVi),
+        escapeCsv(spenderUser.bank_name),
+        escapeCsv(spenderUser.bank_account),
+        escapeCsv(spenderUser.branch),
+        escapeCsv(expItem.notes)
       ];
     });
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const totalRow = [
+      "TỔNG CỘNG",
+      "",
+      "Tổng các khoản chi",
+      "",
+      summary.totalApprovedAmount || 0,
+      escapeCsv("Chờ duyệt: " + (summary.totalPendingCount || 0) + " khoản"),
+      escapeCsv("Chưa hoàn tiền: " + formatVND(summary.totalUnpaidAmount || 0)),
+      "",
+      "",
+      "",
+      "",
+      ""
+    ];
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `Bang_Tong_Hop_Chi_Tieu_Hoan_Ung_Cty_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = "Bang_Ke_Chi_Tieu_Hoan_Ung_ET_" + new Date().toISOString().slice(0, 10) + ".csv";
     link.click();
     URL.revokeObjectURL(url);
-    toast.success('Đã xuất bảng chi tiêu thành công! 📄');
+    toast.success("Đã xuất bảng chi tiêu hoàn ứng thành công! 📄");
   };
 
-  // Filter list by search locally if needed
+    // Filter list by search locally if needed
   const filteredExpenses = expenses.filter(exp => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
