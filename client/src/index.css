@@ -3410,3 +3410,41 @@ div:has(> svg) > input[type="search"],
     box-shadow: 0 0 14px rgba(255, 255, 255, 0.08) !important;
   }
 }
+
+
+/* ==========================================================================
+   TIMESHEET EVALUATION COLUMNS (Muộn, Sớm, OT - Distinct Disciplinary Styling)
+   ========================================================================== */
+.timesheet-eval-col-late {
+  border-left: 2px solid var(--border) !important;
+}
+
+[data-theme="light"] .timesheet-eval-col-late {
+  background: rgba(217, 119, 6, 0.12) !important;
+  color: #b45309 !important;
+}
+
+[data-theme="light"] .timesheet-eval-col-early {
+  background: rgba(225, 29, 72, 0.11) !important;
+  color: #be123c !important;
+}
+
+[data-theme="light"] .timesheet-eval-col-ot {
+  background: rgba(99, 102, 241, 0.12) !important;
+  color: #4f46e5 !important;
+}
+
+[data-theme="dark"] .timesheet-eval-col-late {
+  background: rgba(245, 158, 11, 0.14) !important;
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .timesheet-eval-col-early {
+  background: rgba(244, 63, 94, 0.14) !important;
+  color: #fb7185 !important;
+}
+
+[data-theme="dark"] .timesheet-eval-col-ot {
+  background: rgba(99, 102, 241, 0.16) !important;
+  color: #a5b4fc !important;
+}

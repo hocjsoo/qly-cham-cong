@@ -1227,9 +1227,9 @@ export default function ReportPage() {
                               <th title="Nghỉ ốm">O</th>
                               <th title="Nghỉ không lương">KL</th>
                               <th title="Nghỉ khác">K</th>
-                              <th className="timesheet-attention-col" title="Số lượt đi muộn">Muộn</th>
-                              <th className="timesheet-attention-col" title="Số lượt về sớm">Sớm</th>
-                              <th title="Tổng giờ tăng ca">OT</th>
+                              <th className="timesheet-attention-col timesheet-eval-col-late" title="Số lượt đi muộn (Đánh giá chuyên cần)" style={{ borderLeft: "2px solid var(--border)", background: "rgba(217, 119, 6, 0.12)", color: "#d97706", fontWeight: 800 }}>Muộn</th>
+                              <th className="timesheet-attention-col timesheet-eval-col-early" title="Số lượt về sớm (Đánh giá chuyên cần)" style={{ background: "rgba(225, 29, 72, 0.12)", color: "#e11d48", fontWeight: 800 }}>Sớm</th>
+                              <th className="timesheet-eval-col-ot" title="Tổng số giờ tăng ca OT" style={{ background: "rgba(99, 102, 241, 0.12)", color: "#6366f1", fontWeight: 800 }}>OT</th>
                             </>}
 
                             {/* Day and weekday in one compact header, matching preview */}
@@ -1281,13 +1281,23 @@ export default function ReportPage() {
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
-                                <td style={{ padding: '4px 3px', background: r.late_count > 0 ? 'rgba(245, 158, 11, 0.06)' : 'transparent' }}>{renderSummaryVal(r.late_count, '#d97706')}</td>
-                                <td style={{ padding: '4px 3px', background: r.early_count > 0 ? 'rgba(239, 68, 68, 0.05)' : 'transparent' }}>{renderSummaryVal(r.early_count, '#ef4444')}</td>
-
-                                {/* GIỜ OT */}
-                                <td style={{ padding: '4px 3px', fontWeight: (r.total_ot_hours > 0 ? 800 : 500), color: (r.total_ot_hours > 0 ? '#8b5cf6' : 'var(--text-muted)') }}>
+                                <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: r.late_count > 0 ? "rgba(217, 119, 6, 0.1)" : "transparent" }}>
+                                  {r.late_count > 0 ? (
+                                    <span style={{ color: "#d97706", fontWeight: 800, background: "rgba(217, 119, 6, 0.14)", padding: "2px 5px", borderRadius: "5px", fontSize: "11px" }}>
+                                      {r.late_count}
+                                    </span>
+                                  ) : <span style={{ opacity: 0.18 }}>—</span>}
+                                </td>
+                                <td style={{ padding: "4px 3px", background: r.early_count > 0 ? "rgba(225, 29, 72, 0.1)" : "transparent" }}>
+                                  {r.early_count > 0 ? (
+                                    <span style={{ color: "#e11d48", fontWeight: 800, background: "rgba(225, 29, 72, 0.14)", padding: "2px 5px", borderRadius: "5px", fontSize: "11px" }}>
+                                      {r.early_count}
+                                    </span>
+                                  ) : <span style={{ opacity: 0.18 }}>—</span>}
+                                </td>
+                                <td style={{ padding: "4px 3px", background: r.total_ot_hours > 0 ? "rgba(99, 102, 241, 0.1)" : "transparent" }}>
                                   {r.total_ot_hours > 0 ? (
-                                    <span style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '2px 5px', borderRadius: '4px', fontSize: '10.5px' }}>
+                                    <span style={{ color: "#6366f1", fontWeight: 800, background: "rgba(99, 102, 241, 0.16)", padding: "2px 6px", borderRadius: "5px", fontSize: "11px" }}>
                                       {r.total_ot_hours}h
                                     </span>
                                   ) : <span style={{ opacity: 0.18 }}>—</span>}
@@ -1380,10 +1390,14 @@ export default function ReportPage() {
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
-                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), '#d97706')}</td>
-                              <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0), '#ef4444')}</td>
-                              <td style={{ padding: '4px 3px', color: '#8b5cf6', fontWeight: 800 }}>
-                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), '#8b5cf6')}
+                              <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: "rgba(217, 119, 6, 0.09)" }}>
+                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), "#d97706")}
+                              </td>
+                              <td style={{ padding: "4px 3px", background: "rgba(225, 29, 72, 0.09)" }}>
+                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0), "#e11d48")}
+                              </td>
+                              <td style={{ padding: "4px 3px", background: "rgba(99, 102, 241, 0.09)", color: "#6366f1", fontWeight: 800 }}>
+                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), "#6366f1")}
                               </td>
                             </>}
                             {showDayColumns && matrixData.header_days.map(hd => (
