@@ -50,7 +50,6 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
   const [documentUrl, setDocumentUrl] = useState(PRESET_TEMPLATES[0].documentUrl);
   const [footerText, setFooterText] = useState(PRESET_TEMPLATES[0].footerText);
 
-  const [recipientFilter, setRecipientFilter] = useState("all");
   const [selectedRecipientIds, setSelectedRecipientIds] = useState(() => 
     staffList.filter(s => s.is_active !== false).map(s => String(s._id || s.id))
   );
@@ -423,17 +422,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
             </div>
 
             <div style={{ display: "flex", gap: "6px" }}>
-              <select
-                className="form-select"
-                value={recipientFilter}
-                onChange={e => setRecipientFilter(e.target.value)}
-                style={{ width: "auto", fontSize: "12px", padding: "4px 8px", minHeight: "32px" }}
-              >
-                <option value="all">🏢 Toàn bộ công ty ({eligibleStaff.length})</option>
-                {departments.map(d => (
-                  <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
-                ))}
-              </select>
+
               <button type="button" onClick={selectAllDisplayed} className="btn btn--ghost" style={{ padding: "4px 8px", fontSize: "11.5px" }}>Chọn tất cả</button>
               <button type="button" onClick={deselectAllDisplayed} className="btn btn--ghost" style={{ padding: "4px 8px", fontSize: "11.5px" }}>Bỏ chọn</button>
             </div>

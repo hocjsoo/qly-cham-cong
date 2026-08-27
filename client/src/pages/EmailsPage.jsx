@@ -88,7 +88,6 @@ export default function EmailsPage() {
 
   // Multi-Dimensional Recipient Filter State
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterDept, setFilterDept] = useState("all");
   const [filterEmpType, setFilterEmpType] = useState("all");
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("active");
@@ -206,10 +205,6 @@ export default function EmailsPage() {
       if (filterStatus === "active" && isResigned) return false;
       if (filterStatus === "resigned" && !isResigned) return false;
 
-      if (filterDept !== "all") {
-        const deptIds = Array.isArray(s.department_ids) ? s.department_ids.map(String) : (s.department_id ? [String(s.department_id)] : []);
-        if (!deptIds.includes(String(filterDept))) return false;
-      }
       if (filterEmpType !== "all") {
         const empType = s.employee_type || "NS";
         if (empType !== filterEmpType) return false;
@@ -220,7 +215,7 @@ export default function EmailsPage() {
       }
       return true;
     });
-  }, [staffList, searchQuery, filterStatus, filterDept, filterEmpType, filterRole]);
+  }, [staffList, searchQuery, filterStatus, filterEmpType, filterRole]);
 
   const toggleRecipient = (staff) => {
     const sid = String(staff._id || staff.id);
@@ -643,18 +638,7 @@ export default function EmailsPage() {
               />
             </div>
 
-            {/* Department */}
-            <select
-              className="form-select"
-              value={filterDept}
-              onChange={e => setFilterDept(e.target.value)}
-              style={{ fontSize: "12.5px", minHeight: "36px" }}
-            >
-              <option value="all">🏢 Tất cả phòng ban</option>
-              {departments.map(d => (
-                <option key={d._id || d.id} value={d._id || d.id}>{d.name}</option>
-              ))}
-            </select>
+
 
             {/* Employee Type (NS / TV / TTS) */}
             <select
