@@ -194,10 +194,10 @@ export default function RequestsPage() {
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showGuidelineModal, setShowGuidelineModal] = useState(false);
-  const [showGuidelinesCard, setShowGuidelinesCard] = useState(true);
+  const [showGuidelinesCard, setShowGuidelinesCard] = useState(false);
 
   // Safe Confirmation State
   const [confirm, setConfirm] = useState(null);

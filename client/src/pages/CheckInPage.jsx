@@ -478,102 +478,6 @@ export default function CheckInPage() {
       </div>
 
       <div className="container" style={{ paddingTop: '16px' }}>
-        {/* Pinned Announcements */}
-        {announcements.length > 0 && (
-          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Megaphone size={16} /> Thông báo & Sự kiện nổi bật ({announcements.length})
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {announcements.map(ann => (
-                <div
-                  key={ann._id}
-                  onClick={() => setSelectedAnnouncement(ann)}
-                  style={{
-                    fontSize: '12px', color: 'var(--text)', cursor: 'pointer',
-                    padding: '7px 9px', borderRadius: '8px', background: 'var(--bg-card)',
-                    border: '1px solid var(--border)', transition: 'all 0.15s'
-                  }}
-                  className="card--interactive"
-                >
-                  <div style={{ fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📌 {ann.title}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {ann.expires_at && (
-                        <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                          ⏳ Hiện đến: {new Date(ann.expires_at).toLocaleDateString('vi-VN')}
-                        </span>
-                      )}
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                        Xem chi tiết →
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Weekly cleaning duty reminder */}
-        {weeklyDutySchedule && (
-          <section
-            className="card animate-fade-in"
-            aria-label="Lịch trực nhật tuần này"
-            style={{
-              marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--yellow)',
-              background: 'color-mix(in srgb, var(--yellow) 7%, var(--bg-card))'
-            }}
-          >
-            <div style={{ minHeight: '30px', display: 'flex', alignItems: 'center', color: 'var(--text)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
-                <Calendar size={16} color="var(--yellow)" /> Lịch trực tuần này
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px', marginTop: '10px' }}>
-              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
-                <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--primary)', fontSize: '11px' }}>🧹 Phân công của bạn</strong>
-                {myDutyAssignments.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {myDutyAssignments.map(assignment => (
-                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
-                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
-                        {assignment.groups.map((group, index) => (
-                          <span key={group.label}>
-                            {index > 0 && ' · '}{group.label}
-                            {group.companions.length > 0
-                              ? <> cùng <strong style={{ color: 'var(--text)' }}>{group.companions.join(', ')}</strong></>
-                              : ' (thực hiện một mình)'}
-                          </span>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tuần này bạn chưa được phân công trực nhật.</span>
-                )}
-              </article>
-
-              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
-                <strong style={{ display: 'block', marginBottom: '6px', color: '#0f766e', fontSize: '11px' }}>🧼 Người dọn nhà vệ sinh tuần này</strong>
-                {restroomAssignments.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {restroomAssignments.map(assignment => (
-                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
-                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
-                        {assignment.names.join(', ')}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chưa có người được phân công.</span>
-                )}
-              </article>
-            </div><div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}><button type="button" className="btn btn--ghost" onClick={() => navigate('/tts-schedule')} style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}>Xem toàn bộ lịch <ChevronRight size={13} /></button></div>
-          </section>
-        )}
-
         {/* Work Shift Info Badge */}
         {(() => {
           const shiftStart = settings?.work_start_time || '09:00';
@@ -1185,6 +1089,102 @@ export default function CheckInPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Pinned Announcements */}
+        {announcements.length > 0 && (
+          <div className="card animate-fade-in" style={{ marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--primary)', background: 'var(--primary-soft)' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Megaphone size={16} /> Thông báo & Sự kiện nổi bật ({announcements.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {announcements.map(ann => (
+                <div
+                  key={ann._id}
+                  onClick={() => setSelectedAnnouncement(ann)}
+                  style={{
+                    fontSize: '12px', color: 'var(--text)', cursor: 'pointer',
+                    padding: '7px 9px', borderRadius: '8px', background: 'var(--bg-card)',
+                    border: '1px solid var(--border)', transition: 'all 0.15s'
+                  }}
+                  className="card--interactive"
+                >
+                  <div style={{ fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>📌 {ann.title}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {ann.expires_at && (
+                        <span style={{ fontSize: '10px', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--primary)', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          ⏳ Hiện đến: {new Date(ann.expires_at).toLocaleDateString('vi-VN')}
+                        </span>
+                      )}
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                        Xem chi tiết →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Weekly cleaning duty reminder */}
+        {weeklyDutySchedule && (
+          <section
+            className="card animate-fade-in"
+            aria-label="Lịch trực nhật tuần này"
+            style={{
+              marginBottom: '12px', padding: '10px 12px', borderLeft: '4px solid var(--yellow)',
+              background: 'color-mix(in srgb, var(--yellow) 7%, var(--bg-card))'
+            }}
+          >
+            <div style={{ minHeight: '30px', display: 'flex', alignItems: 'center', color: 'var(--text)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700 }}>
+                <Calendar size={16} color="var(--yellow)" /> Lịch trực tuần này
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 270px), 1fr))', gap: '8px', marginTop: '10px' }}>
+              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
+                <strong style={{ display: 'block', marginBottom: '6px', color: 'var(--primary)', fontSize: '11px' }}>🧹 Phân công của bạn</strong>
+                {myDutyAssignments.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {myDutyAssignments.map(assignment => (
+                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
+                        {assignment.groups.map((group, index) => (
+                          <span key={group.label}>
+                            {index > 0 && ' · '}{group.label}
+                            {group.companions.length > 0
+                              ? <> cùng <strong style={{ color: 'var(--text)' }}>{group.companions.join(', ')}</strong></>
+                              : ' (thực hiện một mình)'}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Tuần này bạn chưa được phân công trực nhật.</span>
+                )}
+              </article>
+
+              <article style={{ padding: '10px 11px', border: '1px solid var(--border)', borderRadius: '9px', background: 'var(--bg-card)' }}>
+                <strong style={{ display: 'block', marginBottom: '6px', color: '#0f766e', fontSize: '11px' }}>🧼 Người dọn nhà vệ sinh tuần này</strong>
+                {restroomAssignments.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {restroomAssignments.map(assignment => (
+                      <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
+                        <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
+                        {assignment.names.join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chưa có người được phân công.</span>
+                )}
+              </article>
+            </div><div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}><button type="button" className="btn btn--ghost" onClick={() => navigate('/tts-schedule')} style={{ minHeight: '30px', padding: '4px 8px', fontSize: '10px' }}>Xem toàn bộ lịch <ChevronRight size={13} /></button></div>
+          </section>
         )}
       </div>
 
