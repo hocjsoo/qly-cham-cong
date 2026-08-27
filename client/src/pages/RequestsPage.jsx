@@ -197,6 +197,7 @@ export default function RequestsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showGuidelineModal, setShowGuidelineModal] = useState(false);
+  const [showGuidelinesCard, setShowGuidelinesCard] = useState(true);
 
   // Safe Confirmation State
   const [confirm, setConfirm] = useState(null);
@@ -573,6 +574,86 @@ export default function RequestsPage() {
               </div>
               <div className="stat-card-modern__label">🛡️ Cảnh Báo & Ảnh</div>
               <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Ca nghi vấn / Selfie</div>
+            </div>
+          )}
+        </div>
+
+        
+        {/* Full In-Page Reference Table for 11 Request Types */}
+        <div className="card animate-fade-in" style={{ marginBottom: "16px", padding: 0, overflow: "hidden", borderRadius: "16px", border: "1px solid var(--border)", boxShadow: "var(--shadow-xs)" }}>
+          <div
+            onClick={() => setShowGuidelinesCard(!showGuidelinesCard)}
+            style={{
+              padding: "14px 18px", background: "var(--bg-raised)",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              cursor: "pointer", borderBottom: showGuidelinesCard ? "1px solid var(--border)" : "none",
+              userSelect: "none"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                <FileText size={18} />
+              </div>
+              <div>
+                <strong style={{ fontSize: "14.5px", color: "var(--text)" }}>Bảng Quy Định & Thời Hạn Nộp 11 Loại Đơn Từ</strong>
+                <div style={{ fontSize: "11.5px", color: "var(--text-muted)", marginTop: "1px" }}>Quy chế nghỉ phép, công tác, WFH, giải trình đi muộn/về sớm và đổi xe</div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "12px", color: "var(--primary)", fontWeight: 700 }}>
+                {showGuidelinesCard ? "Thu gọn ▲" : "Mở rộng ▼"}
+              </span>
+            </div>
+          </div>
+
+          {showGuidelinesCard && (
+            <div style={{ overflowX: "auto", background: "var(--bg-card)" }}>
+              <table style={{ width: "100%", minWidth: "780px", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ background: "var(--bg-raised)", borderBottom: "2px solid var(--primary)", color: "var(--text)", fontWeight: 800 }}>
+                    <th style={{ padding: "10px 14px", width: "170px" }}>LOẠI ĐƠN</th>
+                    <th style={{ padding: "10px 14px", minWidth: "190px" }}>MÔ TẢ</th>
+                    <th style={{ padding: "10px 14px", minWidth: "180px" }}>THỜI ĐIỂM BÁO CÁO</th>
+                    <th style={{ padding: "10px 14px", minWidth: "190px" }}>YÊU CẦU BÁO CÁO</th>
+                    <th style={{ padding: "10px 14px", width: "100px", textAlign: "center" }}>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(REQUEST_GUIDELINES).map(([key, g], idx) => (
+                    <tr key={key} style={{ borderBottom: "1px solid var(--border-muted)", background: idx % 2 === 0 ? "transparent" : "var(--bg-raised)" }}>
+                      <td style={{ padding: "10px 14px", verticalAlign: "middle" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 800, color: g.color, background: g.bg, padding: "3px 8px", borderRadius: "6px", display: "inline-block", border: "1px solid " + g.color + "33" }}>
+                          {g.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 14px", verticalAlign: "middle", color: "var(--text)", lineHeight: 1.5 }}>
+                        {g.desc}
+                      </td>
+                      <td style={{ padding: "10px 14px", verticalAlign: "middle", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                        <strong style={{ color: "var(--text)" }}>{g.timing}</strong>
+                      </td>
+                      <td style={{ padding: "10px 14px", verticalAlign: "middle", color: "var(--text-muted)", lineHeight: 1.5, fontSize: "12px" }}>
+                        {g.requirement}
+                      </td>
+                      <td style={{ padding: "10px 14px", verticalAlign: "middle", textAlign: "center" }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setType(key);
+                            setShowForm(true);
+                          }}
+                          className="btn btn--ghost"
+                          style={{ padding: "4px 8px", fontSize: "11.5px", color: "var(--primary)", whiteSpace: "nowrap" }}
+                        >
+                          + Tạo đơn
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
