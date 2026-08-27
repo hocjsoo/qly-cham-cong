@@ -47,6 +47,108 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
   );
 }
 
+const REQUEST_GUIDELINES = {
+  annual_leave: {
+    label: "🏖️ Nghỉ phép năm (P)",
+    desc: "01 Ngày/tháng; nghỉ phép có hưởng lương",
+    timing: "Trước ít nhất 03 ngày làm việc / Lý do phù hợp",
+    requirement: "Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận và bàn giao công việc",
+    impact: "Trừ vào quỹ phép năm & tính đủ 1.0 công hưởng lương",
+    color: "var(--green)",
+    bg: "var(--green-soft)",
+  },
+  sick_leave: {
+    label: "🏥 Nghỉ ốm (O)",
+    desc: "Sử dụng khi ốm, sức khỏe không đảm bảo để làm việc",
+    timing: "Nộp ngay khi phát sinh. Trường hợp đột xuất không thể báo trước thì nộp/bổ sung khi có thể",
+    requirement: "Admin trực tiếp/Zalo để xác nhận tình trạng nghỉ",
+    impact: "Trừ vào quỹ ngày nghỉ ốm & hưởng chế độ trợ cấp nghỉ ốm",
+    color: "var(--yellow)",
+    bg: "var(--yellow-soft)",
+  },
+  unpaid_leave: {
+    label: "⚪ Nghỉ không lương (KL)",
+    desc: "Sử dụng khi nghỉ vì lý do cá nhân nhưng không hưởng lương, không thuộc phép",
+    timing: "Trước ít nhất 03 ngày làm việc / Lý do phù hợp",
+    requirement: "Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận và bàn giao công việc",
+    impact: "Tính 0 công và không tính lương cho các ngày nghỉ",
+    color: "var(--text-muted)",
+    bg: "var(--bg-raised)",
+  },
+  business_trip: {
+    label: "💼 CT trong nước (CT1)",
+    desc: "Sử dụng khi đi công tác trong nước ngoại thành HN theo yêu cầu của công việc/dự án",
+    timing: "Trước ít nhất 01 ngày làm việc, hoặc sớm hơn tùy lịch công tác",
+    requirement: "Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận và bàn giao công việc",
+    impact: "Xác nhận công tác ngoại thành & tính đủ 1.0 công / ngày",
+    color: "var(--primary)",
+    bg: "var(--primary-soft)",
+  },
+  foreign_trip: {
+    label: "✈️ CT nước ngoài (CT2)",
+    desc: "Sử dụng khi đi công tác nước ngoài theo yêu cầu dự án",
+    timing: "Trước ít nhất 01 ngày làm việc, hoặc sớm hơn tùy lịch công tác",
+    requirement: "Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận và bàn giao công việc",
+    impact: "Xác nhận công tác quốc tế & tính công tác đặc biệt",
+    color: "#8b5cf6",
+    bg: "rgba(139, 92, 246, 0.12)",
+  },
+  wfh: {
+    label: "🏠 Work from home (WFH)",
+    desc: "Sử dụng khi được phép làm việc tại nhà",
+    timing: "Trước ngày làm việc phát sinh",
+    requirement: "Báo cáo công việc và tiến độ hàng ngày cho Quản lý",
+    impact: "Xác nhận làm việc tại nhà & tính đủ 1.0 công",
+    color: "var(--blue)",
+    bg: "var(--blue-soft)",
+  },
+  late: {
+    label: "⏰ Giải trình đi muộn",
+    desc: "Sử dụng khi nhân sự đến sau giờ làm việc quy định (08:30)",
+    timing: "Nộp trong ngày phát sinh",
+    requirement: "Ghi rõ lý do đi muộn và thời gian dự kiến đến văn phòng",
+    impact: "Gỡ bỏ phạt muộn & khôi phục đủ công sau khi quản lý duyệt",
+    color: "var(--yellow)",
+    bg: "var(--yellow-soft)",
+  },
+  early_leave: {
+    label: "🏃 Giải trình về sớm",
+    desc: "Sử dụng khi nhân sự rời công ty trước giờ kết thúc làm việc (17:30)",
+    timing: "Nộp trước thời điểm về sớm / Trường hợp đột xuất báo cáo sau",
+    requirement: "Ghi rõ lý do và bàn giao công việc còn dở",
+    impact: "Ghi nhận về sớm hợp lệ sau khi được phê duyệt",
+    color: "var(--yellow)",
+    bg: "var(--yellow-soft)",
+  },
+  overtime: {
+    label: "⏱️ Tăng ca (OT)",
+    desc: "Sử dụng khi làm việc ngoài thời gian làm việc quy định, theo yêu cầu hoặc được công ty/Quản lý phê duyệt",
+    timing: "Nộp trước khi thực hiện OT",
+    requirement: "Admin trực tiếp/Zalo sau khi gửi đơn để xác nhận",
+    impact: "Ghi nhận số giờ OT vào Bảng tính lương & Báo cáo tổng hợp",
+    color: "var(--primary)",
+    bg: "var(--primary-soft)",
+  },
+  vehicle_update: {
+    label: "🛵 Đổi thông tin gửi xe",
+    desc: "Sử dụng khi thay đổi biển số xe, phương tiện, thông tin đăng ký gửi xe",
+    timing: "02 Đợt: Ngày 10 hoặc 25 hàng tháng",
+    requirement: "Ghi rõ loại xe, màu sắc và biển số xe chính xác để nộp BQL Tòa 17T10",
+    impact: "Tự động cập nhật biển số & vị trí gửi xe vào hồ sơ sau khi Admin duyệt",
+    color: "var(--primary)",
+    bg: "var(--primary-soft)",
+  },
+  other: {
+    label: "📌 Khác (K)",
+    desc: "Sử dụng cho các trường hợp phát sinh không thuộc các loại đơn trên",
+    timing: "Nộp trước hoặc ngay khi phát sinh",
+    requirement: "Ghi rõ chi tiết lý do và đề xuất giải quyết",
+    impact: "Lưu nhật ký giải trình & gửi thông báo đến quản lý",
+    color: "var(--text-secondary)",
+    bg: "var(--bg-raised)",
+  },
+};
+
 const TYPE_CONFIG = {
   annual_leave:   { label: '🏖️ Nghỉ phép năm (P)',     color: 'var(--green)', bg: 'var(--green-soft)' },
   sick_leave:     { label: '🏥 Nghỉ ốm (O)',            color: 'var(--yellow)', bg: 'var(--yellow-soft)' },
@@ -94,6 +196,7 @@ export default function RequestsPage() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showGuidelineModal, setShowGuidelineModal] = useState(false);
 
   // Safe Confirmation State
   const [confirm, setConfirm] = useState(null);
@@ -1124,14 +1227,46 @@ export default function RequestsPage() {
               </select>
             </div>
 
-            {/* Dynamic Impact Preview Banner */}
-            <div style={{
-              fontSize: '12px', color: 'var(--primary)', background: 'var(--primary-soft)',
-              padding: '10px 14px', borderRadius: '10px', marginBottom: '14px', lineHeight: 1.4,
-              border: '1px solid var(--primary-soft)', fontWeight: 500
-            }}>
-              {getWorkflowImpactText(type)}
-            </div>
+            {/* Detailed Guideline Information Card matching company standard */}
+            {(() => {
+              const g = REQUEST_GUIDELINES[type] || REQUEST_GUIDELINES.other;
+              return (
+                <div style={{
+                  background: "var(--bg-input)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "12px",
+                  padding: "14px 16px",
+                  marginBottom: "14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 800, color: g.color, background: g.bg, padding: "3px 8px", borderRadius: "6px", border: "1px solid " + g.color + "33" }}>
+                      {g.label}
+                    </span>
+                    <span style={{ fontSize: "12.5px", color: "var(--text)", fontWeight: 600 }}>
+                      {g.desc}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "8px", fontSize: "11.5px", paddingTop: "6px", borderTop: "1px solid var(--border-muted)" }}>
+                    <div>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>⏰ Thời điểm báo cáo: </span>
+                      <strong style={{ color: "var(--text)" }}>{g.timing}</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "var(--text-muted)", fontWeight: 700 }}>📌 Yêu cầu: </span>
+                      <strong style={{ color: "var(--text)" }}>{g.requirement}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: "11.5px", color: "var(--primary)", fontWeight: 600, background: "var(--primary-soft)", padding: "6px 10px", borderRadius: "6px" }}>
+                    ⚡ Tác động hệ thống: {g.impact}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               <div className="form-group" style={{ margin: 0 }}>
@@ -1510,6 +1645,70 @@ export default function RequestsPage() {
           </div>
         </div>
       )}
-    </div>
+    
+      {/* Full Guideline Table Modal Sheet */}
+      {showGuidelineModal && (
+        <div className="modal-overlay" style={{ zIndex: 999999, padding: "16px" }} onClick={() => setShowGuidelineModal(false)}>
+          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: "860px", width: "100%", margin: "auto", padding: "22px 24px", maxHeight: "calc(100dvh - 40px)", display: "flex", flexDirection: "column" }}>
+            <div className="modal-sheet__handle" />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "17px", fontWeight: 800, margin: 0, color: "var(--text)" }}>Bảng Quy Định Các Loại Đơn Từ</h3>
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Quy chế nghỉ phép, công tác, WFH, giải trình và đổi thông tin xe</div>
+                </div>
+              </div>
+              <button type="button" onClick={() => setShowGuidelineModal(false)} className="btn btn--ghost" style={{ padding: "4px 8px" }}><X size={18} /></button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", borderRadius: "12px", border: "1px solid var(--border)", background: "var(--bg-card)" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px", textAlign: "left" }}>
+                <thead>
+                  <tr style={{ background: "var(--bg-raised)", borderBottom: "2px solid var(--primary)", color: "var(--text)", fontWeight: 800 }}>
+                    <th style={{ padding: "10px 12px", width: "160px" }}>LOẠI ĐƠN</th>
+                    <th style={{ padding: "10px 12px", minWidth: "180px" }}>MÔ TẢ</th>
+                    <th style={{ padding: "10px 12px", minWidth: "170px" }}>THỜI ĐIỂM BÁO CÁO</th>
+                    <th style={{ padding: "10px 12px", minWidth: "180px" }}>YÊU CẦU BÁO CÁO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(REQUEST_GUIDELINES).map(([key, g], idx) => (
+                    <tr key={key} style={{ borderBottom: "1px solid var(--border-muted)", background: idx % 2 === 0 ? "transparent" : "var(--bg-raised)" }}>
+                      <td style={{ padding: "10px 12px", verticalAlign: "top" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 800, color: g.color, background: g.bg, padding: "3px 8px", borderRadius: "6px", display: "inline-block" }}>
+                          {g.label}
+                        </span>
+                      </td>
+                      <td style={{ padding: "10px 12px", verticalAlign: "top", color: "var(--text)", lineHeight: 1.5 }}>
+                        {g.desc}
+                      </td>
+                      <td style={{ padding: "10px 12px", verticalAlign: "top", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                        <strong>{g.timing}</strong>
+                      </td>
+                      <td style={{ padding: "10px 12px", verticalAlign: "top", color: "var(--text-muted)", lineHeight: 1.5, fontSize: "12px" }}>
+                        {g.requirement}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ marginTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                💡 Vui lòng tuân thủ đúng thời hạn và yêu cầu để được phê duyệt kịp thời
+              </span>
+              <button type="button" onClick={() => setShowGuidelineModal(false)} className="btn btn--primary" style={{ padding: "8px 24px" }}>
+                Đã hiểu ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }
