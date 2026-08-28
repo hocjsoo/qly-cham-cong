@@ -3,6 +3,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // Quản lý Bảng Tổng Hợp Chi Tiêu & Hoàn Ứng Cty — Chuẩn theo mẫu Google Sheets
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
   Trash2, Camera, LayoutList, LayoutGrid

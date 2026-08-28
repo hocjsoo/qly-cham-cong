@@ -3,6 +3,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // Dashboard — Stat cards, attendance ratio bar, search+filter, CSV export
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,

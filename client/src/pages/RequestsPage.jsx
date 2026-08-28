@@ -1345,7 +1345,7 @@ export default function RequestsPage() {
 
             {/* Detailed Guideline Information Card matching company standard */}
             {(() => {
-              const g = guidelines[type] || REQUEST_GUIDELINES.other;
+              const g = guidelines[type] || DEFAULT_REQUEST_GUIDELINES.other;
               return (
                 <div style={{
                   background: "var(--bg-input)",

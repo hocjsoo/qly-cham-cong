@@ -42,7 +42,7 @@ function normalizeMatrixData(data) {
   const staffRows = Array.isArray(data?.staff_rows) ? data.staff_rows : [];
 
   return {
-    ...(data || {}),
+    ...data,
     header_days: Array.isArray(data?.header_days) ? data.header_days : [],
     staff_rows: staffRows.map(row => ({
       ...row,
