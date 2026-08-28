@@ -33,8 +33,16 @@ const getAllUsers = async (req, res) => {
     const isAdmin = req.user?.role === 'admin';
     const isLeader = ['leader', 'manager'].includes(req.user?.role);
     
-    // Admin lấy toàn bộ trường quản trị; Leader và Employee lấy trường có chọn lọc
-    const selectFields = '-password_hash -reset_token -reset_token_expires';
+    // Không tải trường nhạy cảm từ DB nếu người gọi không phải Admin.
+    const publicUserFields = [
+      'employee_code', 'employee_type', 'full_name', 'email', 'phone', 'position', 'role',
+      'department_id', 'department_ids', 'manager_id', 'avatar_url', 'join_date', 'start_year',
+      'is_active', 'is_attendance_exempt', 'is_duty_exempt', 'employment_status',
+      'parking_location', 'vehicle_info', 'license_plate',
+    ].join(' ');
+    const selectFields = isAdmin
+      ? '-password_hash -reset_token -reset_token_expires'
+      : publicUserFields;
 
     const users = await User.find(queryFilter)
       .select(selectFields)
@@ -519,7 +527,7 @@ const sendTestEmail = async (req, res) => {
     });
   } catch (err) {
     console.error("SendTestEmail error:", err);
-    res.status(500).json({ error: "Lỗi gửi email thử nghiệm: " + err.message });
+    res.status(500).json({ error: 'Lỗi gửi email thử nghiệm. Vui lòng thử lại sau.' });
   }
 };
 
@@ -574,7 +582,7 @@ const broadcastCustomEmail = async (req, res) => {
         link_tai_lieu: documentUrl || "",
       };
 
-      const renderedTitle = renderTemplateVariables(title || "Thông báo từ ET Architects", userVars);
+      const renderedTitle = renderTemplateVariables(title || "Thông báo từ Kiến trúc ET", userVars);
       const renderedBody = renderTemplateVariables(body || "", userVars);
       const html = buildCustomHtmlEmail({
         title: renderedTitle,
@@ -619,7 +627,7 @@ const broadcastCustomEmail = async (req, res) => {
     });
   } catch (err) {
     console.error("BroadcastCustomEmail error:", err);
-    res.status(500).json({ error: "Lỗi gửi email hàng loạt: " + err.message });
+    res.status(500).json({ error: 'Lỗi gửi email hàng loạt. Vui lòng thử lại sau.' });
   }
 };
 

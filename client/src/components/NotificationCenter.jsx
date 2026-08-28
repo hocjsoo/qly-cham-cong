@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, X, Megaphone, CheckCircle2, Clock, AlertTriangle, Send, MoreHorizontal, Sparkles, Trash2 } from 'lucide-react';
+import { Bell, CheckCheck, X, Megaphone, AlertTriangle, Send, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -64,7 +64,7 @@ export default function NotificationCenter() {
       const { data } = await api.get('/notifications');
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
-    } catch (err) {
+    } catch {
       // Silent error
     }
   };

@@ -1,21 +1,14 @@
 // src/pages/CheckInPage.jsx
 // GPS bắt buộc — Auto-acquire GPS khi mở trang, Hiển thị khoảng cách văn phòng, Block check-in nếu thiếu GPS
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, Wifi, WifiOff, Building2, X, Megaphone, Calendar, HeartPulse, Send, FileText, Sparkles, Briefcase, Shield, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, ChevronRight, Crosshair, X, Megaphone, Calendar, HeartPulse, Sparkles, Briefcase, Shield, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
-
-const LOCATION_TYPES = [
-  { value: 'office',  label: '🏢 Văn phòng',       desc: 'Trong bán kính GPS' },
-  { value: 'site',    label: '🏗️ Công trình',       desc: 'Chọn dự án đang chạy' },
-  { value: 'client',  label: '👔 Gặp Khách hàng',  desc: 'GPS ghi nhận vị trí' },
-  { value: 'wfh',     label: '🏠 Làm việc tại nhà', desc: 'WFH với GPS xác nhận' },
-];
 
 const LATE_TIERS = {
   on_time:     { label: 'Đúng giờ',                    cls: 'badge--success', icon: '✅' },
@@ -77,12 +70,10 @@ export default function CheckInPage() {
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
-  const [selected, setSelected] = useState('office');
   const [isOutsideOffice, setIsOutsideOffice] = useState(false);
   const [outsideType, setOutsideType] = useState('wfh'); // 'wfh' | 'client' | 'site'
   const [selectedProject, setSelectedProject] = useState('');
   const [note, setNote] = useState('');
-  const [checkoutNote, setCheckoutNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(new Date());
 
@@ -112,13 +103,7 @@ export default function CheckInPage() {
     return () => clearInterval(t);
   }, []);
 
-  // Auto-acquire GPS on mount
-  useEffect(() => {
-    acquireGPS();
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -191,9 +176,9 @@ export default function CheckInPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const acquireGPS = () => {
+  const acquireGPS = useCallback(() => {
     if (!navigator.geolocation) {
       setGpsError('Trình duyệt không hỗ trợ GPS Geolocation.');
       toast.error('Trình duyệt không hỗ trợ GPS Geolocation.');
@@ -222,7 +207,12 @@ export default function CheckInPage() {
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
-  };
+  }, []);
+
+  useEffect(() => {
+    acquireGPS();
+    loadData();
+  }, [acquireGPS, loadData]);
 
   const handleSelfieFileSelect = (e) => {
     const file = e.target.files[0];
@@ -317,7 +307,7 @@ export default function CheckInPage() {
                   📸 Chụp ảnh Selfie xác thực
                 </button>
                 <button className="btn btn--ghost" style={{ flex: 1, fontSize: '11px', padding: '6px' }}
-                  onClick={() => { toast.dismiss(t.id); setSelected('wfh'); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>
+                  onClick={() => { toast.dismiss(t.id); setTimeout(() => handleCheckIn(null, 'wfh'), 100); }}>
                   🏠 Chấm WFH
                 </button>
               </div>
@@ -343,7 +333,7 @@ export default function CheckInPage() {
       const { data } = await api.post('/attendance/checkout', {
         lat: gpsPosition.lat,
         lng: gpsPosition.lng,
-        note: checkoutNote.trim() || null,
+        note: null,
       });
       toast.success(data.message);
       setToday(data.attendance);
@@ -470,7 +460,7 @@ export default function CheckInPage() {
       <div className="header">
         <div className="header__inner">
           <div>
-            <div className="header__title">ET Office Portal</div>
+            <div className="header__title">Kiến trúc ET</div>
             <div className="header__subtitle">Xin chào, {user?.full_name}</div>
           </div>
           <HeaderActions />
@@ -1364,7 +1354,7 @@ export default function CheckInPage() {
               border: '1px dashed rgba(245, 158, 11, 0.4)', fontSize: '13px', color: 'var(--text)',
               lineHeight: 1.6, marginBottom: '20px'
             }}>
-              ✨ <strong>ET Architects kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
+              ✨ <strong>Kiến trúc ET kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
             </div>
 
             <button

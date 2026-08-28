@@ -3,9 +3,11 @@
 
 import { useState, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import DOMPurify from "dompurify";
 import { Mail, Send, Eye, Edit3, X, Users, ShieldAlert, CheckSquare, Square } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
+import { renderEmailPreviewHtml } from "../utils/emailPreview";
 
 const normalizeEmploymentStatus = value => String(value || "")
   .normalize("NFD")
@@ -37,12 +39,12 @@ const PRESET_TEMPLATES = [
   {
     id: "announcement",
     name: "📢 Thông báo chính thức từ Ban Giám Đốc",
-    subject: "Thông báo chính thức từ Ban Giám Đốc ET Architects",
-    body: "Kính gửi toàn thể cán bộ nhân viên **ET Architects**,\n\nBan Giám Đốc xin gửi tới anh/chị/em thông báo quan trọng về kế hoạch công việc và các lưu ý trong thời gian tới:\n\n[ Nhập nội dung thông báo chi tiết tại đây... ]\n\nĐề nghị các phòng ban và từng cá nhân nghiêm túc phối hợp thực hiện.",
+    subject: "Thông báo chính thức từ Ban Giám Đốc Kiến trúc ET",
+    body: "Kính gửi toàn thể cán bộ nhân viên **Kiến trúc ET**,\n\nBan Giám Đốc xin gửi tới anh/chị/em thông báo quan trọng về kế hoạch công việc và các lưu ý trong thời gian tới:\n\n[ Nhập nội dung thông báo chi tiết tại đây... ]\n\nĐề nghị các phòng ban và từng cá nhân nghiêm túc phối hợp thực hiện.",
     actionText: "Mở Hệ Thống ET Portal",
     actionUrl: "https://qly-cham-cong.vercel.app",
     documentUrl: "",
-    footerText: "Ban Giám Đốc ET Architects",
+    footerText: "Ban Giám Đốc Kiến trúc ET",
   },
   {
     id: "custom",
@@ -56,7 +58,7 @@ const PRESET_TEMPLATES = [
   },
 ];
 
-export default function CustomEmailModal({ staffList = [], departments = [], currentUser, onClose }) {
+export default function CustomEmailModal({ staffList = [], currentUser, onClose }) {
   const [selectedTemplate, setSelectedTemplate] = useState("onboarding");
   const [activeTab, setActiveTab] = useState("editor");
   const [subject, setSubject] = useState(PRESET_TEMPLATES[0].subject);
@@ -135,13 +137,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
     return staffList.filter(isEligibleRecipient);
   }, [staffList]);
 
-  const displayedRecipients = useMemo(() => {
-    if (recipientFilter === "all") return eligibleStaff;
-    return eligibleStaff.filter(s => {
-      const deptIds = Array.isArray(s.department_ids) ? s.department_ids.map(String) : (s.department_id ? [String(s.department_id)] : []);
-      return deptIds.includes(String(recipientFilter));
-    });
-  }, [eligibleStaff, recipientFilter]);
+  const displayedRecipients = eligibleStaff;
 
   const toggleRecipient = (id) => {
     setSelectedRecipientIds(prev => 
@@ -159,35 +155,29 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
     setSelectedRecipientIds(prev => prev.filter(x => !ids.has(x)));
   };
 
-  const livePreviewHtml = useMemo(() => {
-    const mockVars = {
+  const livePreviewHtml = useMemo(() => renderEmailPreviewHtml({
+    subject,
+    body,
+    actionText,
+    actionUrl,
+    documentUrl,
+    footerText,
+    variables: {
       ho_ten: "Nguyễn Văn A",
       email: "nguyenvana@et-arc.com",
       chuc_vu: "Kiến trúc sư",
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
-    };
+    },
+  }), [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
-    let renderedBody = body || "";
-    for (const [k, v] of Object.entries(mockVars)) {
-      renderedBody = renderedBody.replace(new RegExp("\\{" + k + "\\}", "gi"), v);
-    }
-    const cleanBody = renderedBody
-      .replace(/\n/g, "<br>")
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-
-    let ctaButtons = "";
-    if (actionText && actionUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin: 24px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 28px; background: #2563eb; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(37,99,235,0.3);\">" + actionText + "</a></div>";
-    }
-
-    if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-bottom: 20px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"color: #2563eb; text-decoration: underline; font-size: 13.5px; font-weight: 600;\">📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Chi Tiết →</a></div>";
-    }
-
-    return "<div style=\"font-family: -apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 20px 14px; background: #f4f3ef; color: #171a1d;\"><div style=\"background: #ffffff; border-radius: 16px; border: 1px solid #d5d8dc; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.06);\"><div style=\"background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 24px 20px; text-align: center; color: #ffffff;\"><div style=\"display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; background: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px; margin-bottom: 8px;\">ET</div><h1 style=\"margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: #ffffff;\">ET ARCHITECTS</h1><div style=\"color: #94a3b8; font-size: 11.5px; margin-top: 4px; font-weight: 500;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ DOANH NGHIỆP</div></div><div style=\"padding: 26px 20px;\">" + (subject ? "<h2 style=\"font-size: 17px; font-weight: 800; color: #171a1d; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14px; line-height: 1.75; color: #334155;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 20px; font-size: 11px; color: #64748b; line-height: 1.6; text-align: center;\">" + (footerText ? "<p style=\"margin: 0 0 4px;\">" + footerText + "</p>" : "") + "<p style=\"margin: 0;\"><strong>ET Architects JSC</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</p><p style=\"margin: 3px 0 0; color: #94a3b8;\">Email được gửi tự động từ hệ thống ET Office Portal.</p></div></div></div>";
-  }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
+  const safePreviewHtml = useMemo(() => DOMPurify.sanitize(livePreviewHtml, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ["target", "rel"],
+    ADD_DATA_URI_TAGS: ["img"],
+    FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
+  }), [livePreviewHtml]);
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes("@")) {
@@ -420,7 +410,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
                   className="form-input"
                   value={footerText}
                   onChange={e => setFooterText(e.target.value)}
-                  placeholder="VD: Ban Giám Đốc ET Architects"
+                  placeholder="VD: Ban Giám Đốc Kiến trúc ET"
                 />
               </div>
             </div>
@@ -430,7 +420,7 @@ export default function CustomEmailModal({ staffList = [], departments = [], cur
             <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "8px", textAlign: "center" }}>
               📱 Xem trước giao diện hiển thị trên ứng dụng Gmail (Đã thay thế biến mẫu ví dụ: <em>Nguyễn Văn A</em>)
             </div>
-            <div dangerouslySetInnerHTML={{ __html: livePreviewHtml }} />
+            <div dangerouslySetInnerHTML={{ __html: safePreviewHtml }} />
           </div>
         )}
 

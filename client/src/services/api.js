@@ -37,7 +37,7 @@ api.interceptors.response.use(
             data = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
           }
           return await mockRequest(method, url, data);
-        } catch (mockErr) {
+        } catch {
           return response;
         }
       }

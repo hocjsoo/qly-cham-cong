@@ -43,7 +43,7 @@ router.get('/me', authMiddleware, getMe);
 router.post('/change-password', authMiddleware, changePassword);
 router.patch('/profile', authMiddleware, updateProfile);
 
-// Admin/Manager only
-router.post('/register', authMiddleware, requireRole('admin', 'manager'), register);
+// Admin only
+router.post('/register', authMiddleware, requireRole('admin'), register);
 
 module.exports = router;

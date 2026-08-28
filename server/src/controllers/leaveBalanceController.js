@@ -1,6 +1,11 @@
 // controllers/leaveBalanceController.js - Quản lý số ngày phép
 const LeaveBalance = require('../models/LeaveBalance');
 const User = require('../models/User');
+const {
+  isLeaderRole,
+  buildLeaderUserScope,
+  combineUserFilters,
+} = require('../utils/roleScope');
 
 // Lấy hoặc tạo balance cho user trong năm hiện tại
 const getOrCreateBalance = async (userId, year) => {
@@ -41,10 +46,15 @@ const getMyBalance = async (req, res) => {
 const getAllBalances = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
-    const users = await User.find({
+    const activeUserFilter = {
       is_active: { $ne: false },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    }).select('full_name email department_id');
+    };
+    const userFilter = combineUserFilters(
+      activeUserFilter,
+      isLeaderRole(req.user) ? buildLeaderUserScope(req.user, { includeSelf: true }) : {}
+    );
+    const users = await User.find(userFilter).select('full_name email department_id');
     
     const results = await Promise.all(users.map(async (u) => {
       const bal = await getOrCreateBalance(u._id, year);

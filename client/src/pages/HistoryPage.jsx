@@ -1,12 +1,13 @@
 // src/pages/HistoryPage.jsx
 // Lịch sử chấm công — Xem theo Tuần / Tháng / Năm, Chế độ Lịch Ô (Calendar Grid View), Xem Chi Tiết Ngày, Admin Override
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, MapPin, Building, CheckCircle2, Info, ChevronDown, ChevronUp, FileText, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, Info, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+import { downloadBlob } from '../utils/downloadBlob';
 
 const fmt = (iso) => {
   if (!iso) return '—';
@@ -71,7 +72,6 @@ export default function HistoryPage() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' (Lịch ô) | 'list' | 'table'
 
   // Selected Day Detail Modal
-  const [selectedDayRecord, setSelectedDayRecord] = useState(null);
   const [selectedDayDate, setSelectedDayDate] = useState('');
 
   // Admin Override Modal
@@ -103,8 +103,6 @@ export default function HistoryPage() {
   const startTime = settings?.work_start_time || '09:00';
   const endTime = settings?.work_end_time || '18:30';
   const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
-  const mediumLateTime = addMinsToTime(startTime, settings?.medium_late_mins ?? 60);
-
   useEffect(() => {
     api.get('/settings').then(r => {
       if (r.data) {
@@ -118,13 +116,13 @@ export default function HistoryPage() {
     }).catch(() => {});
   }, []);
 
-  const fetchHolidays = () => {
+  const fetchHolidays = useCallback(() => {
     api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-  };
+  }, [year]);
 
   useEffect(() => {
     fetchHolidays();
-  }, [year]);
+  }, [fetchHolidays]);
 
   const handleOpenCreateHoliday = (dateStr) => {
     setHolidayForm({ id: null, name: '', date: dateStr, end_date: dateStr, note: '' });
@@ -183,9 +181,7 @@ export default function HistoryPage() {
     }
   }, [isAdminOrManager]);
 
-  useEffect(() => { load(); }, [month, year, timeMode, selectedUserId]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const userParam = selectedUserId ? `&user_id=${selectedUserId}` : '';
@@ -193,7 +189,9 @@ export default function HistoryPage() {
       setData(d);
     } catch { toast.error('Lỗi tải lịch sử'); }
     finally { setLoading(false); }
-  };
+  }, [month, selectedUserId, timeMode, year]);
+
+  useEffect(() => { load(); }, [load]);
 
   const prev = () => {
     if (month === 1) { setMonth(12); setYear(y => y - 1); }
@@ -221,12 +219,7 @@ export default function HistoryPage() {
     ];
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `cham-cong-${year}-${String(month).padStart(2,'0')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `cham-cong-${year}-${String(month).padStart(2,'0')}.csv`);
     toast.success('Đã xuất CSV!');
   };
 
@@ -293,7 +286,6 @@ export default function HistoryPage() {
       await api.put(`/attendance/override/${overrideRecord._id}`, overrideForm);
       toast.success('Đã điều chỉnh bản ghi chấm công thành công! ✅');
       setOverrideRecord(null);
-      setSelectedDayRecord(null);
       load();
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi điều chỉnh bản ghi');
@@ -452,7 +444,7 @@ export default function HistoryPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Info size={18} color="var(--primary)" />
               <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text)' }}>
-                📌 Quy định tính công & Đi muộn (ET Architects)
+                📌 Quy định tính công & Đi muộn (Kiến trúc ET)
               </span>
             </div>
             <button className="btn btn--ghost" style={{ padding: '2px 6px', fontSize: '11px', gap: '4px', color: 'var(--primary)' }}>

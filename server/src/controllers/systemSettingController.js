@@ -4,11 +4,12 @@ const SystemSetting = require('../models/SystemSetting');
 // GET /api/settings
 const getSettings = async (req, res) => {
   try {
-    let settings = await SystemSetting.findOne({ key: 'global' });
-    if (!settings) {
-      settings = await SystemSetting.create({ key: 'global' });
-    }
-    res.json(settings);
+    const settings = await SystemSetting.findOne({ key: 'global' });
+    if (settings) return res.json(settings);
+
+    const defaults = new SystemSetting({ key: 'global' }).toObject();
+    delete defaults._id;
+    return res.json(defaults);
   } catch (error) {
     console.error('GetSettings error:', error);
     res.status(500).json({ error: 'Loi lay cai dat he thong.' });

@@ -3,9 +3,34 @@
 
 import { create } from 'zustand';
 
+const normalizeTheme = (theme) => theme === 'light' ? 'light' : 'dark';
+
 const getInitialTheme = () => {
-  const saved = localStorage.getItem('theme');
-  return saved || 'dark';
+  try {
+    const saved = localStorage.getItem('theme') || localStorage.getItem('et-theme');
+    return normalizeTheme(saved);
+  } catch {
+    return 'dark';
+  }
+};
+
+const applyTheme = (theme) => {
+  const resolvedTheme = normalizeTheme(theme);
+  document.documentElement.setAttribute('data-theme', resolvedTheme);
+
+  const themeColorMeta = document.querySelector("meta[name='theme-color']");
+  if (themeColorMeta) {
+    themeColorMeta.content = resolvedTheme === 'light' ? '#f4f3ef' : '#17191b';
+  }
+
+  return resolvedTheme;
+};
+
+const persistTheme = (theme) => {
+  try {
+    localStorage.setItem('theme', theme);
+    localStorage.removeItem('et-theme');
+  } catch {}
 };
 
 const useThemeStore = create((set, get) => ({
@@ -13,19 +38,20 @@ const useThemeStore = create((set, get) => ({
 
   toggleTheme: () => {
     const nextTheme = get().theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('theme', nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme);
+    persistTheme(nextTheme);
+    applyTheme(nextTheme);
     set({ theme: nextTheme });
   },
 
   setTheme: (theme) => {
-    localStorage.setItem('theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    set({ theme });
+    const resolvedTheme = normalizeTheme(theme);
+    persistTheme(resolvedTheme);
+    applyTheme(resolvedTheme);
+    set({ theme: resolvedTheme });
   },
 }));
 
 // Set attribute ban đầu khi load script
-document.documentElement.setAttribute('data-theme', getInitialTheme());
+applyTheme(getInitialTheme());
 
 export default useThemeStore;

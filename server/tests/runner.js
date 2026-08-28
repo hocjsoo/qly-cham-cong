@@ -11,6 +11,7 @@ delete process.env.DATABASE_URL;
 const runHaversineTests = require('./unit/haversine.test');
 const runAttendanceTests = require('./unit/attendance.test');
 const runRoleTests = require('./unit/roleMiddleware.test');
+const runAuthorizationScopeTests = require('./unit/authorizationScope.test');
 const runTimesheetTests = require('./unit/timesheetLock.test');
 const runRequestTests = require('./unit/requestWorkflow.test');
 const runDeviceFraudTests = require('./unit/deviceFingerprint.test');
@@ -33,6 +34,7 @@ const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
 const runTtsScheduleHttpTests = require('./integration/ttsScheduleHttp.test');
+const runServerSecurityMiddlewareTests = require('./integration/serverSecurityMiddleware.test');
 
 // Expert QA & Process Validation Suites
 const runExpertRequestApprovalTests = require('./unit/expertRequestApproval.test');
@@ -96,6 +98,7 @@ async function runAllTests() {
     runHaversineTests(assert);
     runAttendanceTests(assert);
     runRoleTests(assert);
+    runAuthorizationScopeTests(assert);
     runTimesheetTests(assert);
     runRequestTests(assert);
     runDeviceFraudTests(assert);
@@ -105,7 +108,7 @@ async function runAllTests() {
     runProjectSiteTests(assert);
     runNotificationTests(assert);
     runDashboardStatsTests(assert);
-    runExportTests(assert);
+    await runExportTests(assert);
     await runPasswordAuthTests(assert);
     runEmailSecurityTests(assert);
     runMultiOfficeTests(assert);
@@ -130,6 +133,7 @@ async function runAllTests() {
     runExpertTimeDateAdjusterTests(assert);
     await runControllerIntegrationTests(assert);
     await runTtsScheduleHttpTests(assert);
+    await runServerSecurityMiddlewareTests(assert);
 
     // === PHẦN 4: KIỂM THỬ HIỆU NĂNG & BENCHMARK ===
     runPerformanceTests(assert);

@@ -77,17 +77,7 @@ const getProjects = async (req, res) => {
         .sort(sortOption);
     };
 
-    let projects = await findProjects();
-
-    // Seeding dự án mẫu nếu trống (chỉ khi là admin)
-    if (projects.length === 0 && req.user?.role === 'admin' && !active_only && !search && (!category || category === 'all')) {
-      projects = await Project.insertMany([
-        { name: 'Văn phòng ET Architects Hà Nội', code: 'DA-ETHN', category: 'Kiến trúc', client_name: 'ET Group', address: 'Tầng 5, Hà Nội', status: 'Đang tiến hành', pm_name: 'KTS. Nguyễn Hoàng', progress: 75, deadline: '2026-12-31' },
-        { name: 'Biệt thự Palm City', code: 'DA-PALM', category: 'Nội thất', client_name: 'Anh Minh', address: 'Quận 2, TP.HCM', status: 'Đang tiến hành', pm_name: 'KTS. Trần Nam', progress: 40, deadline: '2026-10-15' },
-        { name: 'Khu đô thị Sol Forest', code: 'DA-SOL', category: 'Quy hoạch&Kiến trúc', client_name: 'Ecopark', address: 'Hưng Yên', status: 'Cần thực hiện', pm_name: 'KTS. Lê Anh', progress: 15, deadline: '2026-11-30' },
-      ]);
-      projects = await findProjects();
-    }
+    const projects = await findProjects();
 
     res.json(projects);
   } catch (error) {

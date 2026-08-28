@@ -2,43 +2,14 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/StaffPage.jsx
 // Quản lý nhân viên — Safe ConfirmDialog, modal chống bấm ngoài đóng, CRUD đầy đủ
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, X, Search, Edit2, Trash2, Shield, UserCheck, Building2, Phone, AlertTriangle, UserX, Download, UserPlus, Clock, Bike, Mail, Calendar, MapPin } from 'lucide-react';
+import { Plus, X, Search, Edit2, Trash2, UserCheck, AlertTriangle, UserX, Download, UserPlus, Clock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
-
-const adjustTimeString = (timeStr, deltaMinutes) => {
-  if (!timeStr) timeStr = '08:30';
-  const parts = timeStr.split(':').map(Number);
-  let totalMins = (parts[0] || 0) * 60 + (parts[1] || 0) + deltaMinutes;
-  if (totalMins < 0) totalMins = 0;
-  if (totalMins > 23 * 60 + 59) totalMins = 23 * 60 + 59;
-  const hh = String(Math.floor(totalMins / 60)).padStart(2, '0');
-  const mm = String(totalMins % 60).padStart(2, '0');
-  return `${hh}:${mm}`;
-};
-
-const computeLiveSummary = (inTime, outTime, workEndTime = '18:30') => {
-  if (!inTime || !outTime) return null;
-  const [inH, inM] = inTime.split(':').map(Number);
-  const [outH, outM] = outTime.split(':').map(Number);
-  const inMins = (inH || 0) * 60 + (inM || 0);
-  const outMins = (outH || 0) * 60 + (outM || 0);
-  if (outMins <= inMins) return { totalHours: 0, otHours: 0 };
-  const diffMins = outMins - inMins;
-  const totalHours = parseFloat((diffMins / 60).toFixed(1));
-
-  const [endH, endM] = (workEndTime || '18:30').split(':').map(Number);
-  const endMins = (endH || 0) * 60 + (endM || 0);
-  let otHours = 0;
-  if (outMins > endMins) {
-    otHours = parseFloat(((outMins - endMins) / 60).toFixed(1));
-  }
-  return { totalHours, otHours };
-};
+import { downloadBlob } from '../utils/downloadBlob';
 
 const ROLE_LABELS = {
   admin: { label: 'Admin', cls: 'badge--danger' },
@@ -83,7 +54,6 @@ export default function StaffPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterEmpType, setFilterEmpType] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [showEmailModal, setShowEmailModal] = useState(false);
   const [editing, setEditing] = useState(null);
 
   const [form, setForm] = useState({
@@ -100,7 +70,7 @@ export default function StaffPage() {
   const [userDevices, setUserDevices] = useState(null);
   const [loadingDevices, setLoadingDevices] = useState(false);
 
-  const loadUserDevices = async (userId) => {
+  const loadUserDevices = useCallback(async (userId) => {
     if (!isAdmin) return;
     try {
       setLoadingDevices(true);
@@ -108,7 +78,7 @@ export default function StaffPage() {
       setUserDevices(data);
     } catch { setUserDevices(null); }
     finally { setLoadingDevices(false); }
-  };
+  }, [isAdmin]);
 
   const handleSetTrustDevice = async (userId, sessionId) => {
     try {
@@ -153,7 +123,7 @@ export default function StaffPage() {
     } else {
       setUserDevices(null);
     }
-  }, [viewingStaffDetail]);
+  }, [loadUserDevices, viewingStaffDetail]);
 
   const loadData = async () => {
     setLoading(true);
@@ -514,12 +484,7 @@ export default function StaffPage() {
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Danh_Sach_Xe_Gui_Toa_Nha_17T10_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `Danh_Sach_Xe_Gui_Toa_Nha_17T10_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success('Đã tải xuống danh sách gửi xe tòa 17T10 thành công! 📄');
   };
 
@@ -557,7 +522,7 @@ export default function StaffPage() {
               {activeCount} đang làm việc · {resignedCount > 0 ? `${resignedCount} đã nghỉ · ` : ''}{depts.length} phòng ban
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button
               onClick={handleExportVehicleList}
               className="btn btn--ghost"
@@ -745,7 +710,6 @@ export default function StaffPage() {
             {filtered.map(u => {
               const roleCfg = ROLE_LABELS[u.role] || ROLE_LABELS.staff;
               const deptName = u.department_id?.name || depts.find(d => d._id === u.department_id)?.name || '—';
-              const initials = (u.full_name || '?').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
               const isInactive = u.is_active === false;
               const empStatusColor = { 'Dang lam viec': 'badge--success', 'Da nghi viec': 'badge--neutral', 'Nghi om': 'badge--warning', 'Nghi thai san': 'badge--info', 'Khac': 'badge--neutral' }[u.employment_status] || 'badge--neutral';
 

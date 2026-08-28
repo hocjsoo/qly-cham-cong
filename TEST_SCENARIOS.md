@@ -1,6 +1,6 @@
 # 🧪 TÀI LIỆU KỊCH BẢN KIỂM THỬ HỆ THỐNG TOÀN DIỆN (TEST SCENARIOS)
 **Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh
-**Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Supertest HTTP Pipeline & Security Hardening — 32 Test Suites / 235 Test Cases)
+**Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Supertest HTTP Pipeline & Security Hardening — 40 Test Suites / 309 Test Cases)
 **Tác giả:** [hocjsoo](https://github.com/hocjsoo)
 
 ---
@@ -31,7 +31,7 @@ npm test
 
 ---
 
-## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (32 Suites / 235 Test Cases)
+## 3. Danh mục Chi tiết Toàn bộ Các Phân hệ Kiểm thử (40 Suites / 309 Test Cases)
 
 ### PHẦN A: KIỂM THỬ BACKEND & THUẬT TOÁN NGHIỆP VỤ (16 Suites)
 Bao gồm GPS Haversine, 4 mức đi muộn, tăng ca OT, phân quyền RBAC, chốt công ma trận, đơn từ, phép năm, chống gian lận phần cứng, đa phòng ban, đính chính giờ, ngày lễ, công trình, thông báo, thống kê dashboard, xuất Excel, xác thực mật khẩu, đa chi nhánh, ca làm việc.
@@ -131,7 +131,7 @@ Bao gồm tính 10,000 tọa độ GPS (< 50ms), ma trận 3,100 ngày công (< 
 ```
 server/
 ├── tests/
-│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (32 Suites / 235 Test Cases)
+│   ├── runner.js                      # Bộ điều phối chạy test toàn diện (40 Suites / 309 Test Cases)
 │   ├── unit/                          # 18 Backend Unit & Expert Suites
 │   │   ├── attendance.test.js
 │   │   ├── clientAuthStore.test.js

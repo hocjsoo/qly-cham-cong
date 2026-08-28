@@ -1,8 +1,8 @@
 // client/src/components/MapGpsPicker.jsx
 // Bản đồ tương tác chọn vị trí GPS Văn Phòng / Công Trình (OpenStreetMap / Leaflet)
 
-import { useEffect, useRef, useState } from 'react';
-import { Search, MapPin, Navigation, Compass, CheckCircle2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Search, MapPin, Navigation } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function loadLeafletStylesheet(timeoutMs = 12000) {
@@ -95,6 +95,9 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
 
   const defaultLat = parseFloat(lat) || 21.028511; // Mặc định Hà Nội
   const defaultLng = parseFloat(lng) || 105.804817;
+  const onSelectLocationRef = useRef(onSelectLocation);
+  const initialPositionRef = useRef({ lat: defaultLat, lng: defaultLng });
+  const radiusRef = useRef(radius);
 
   const [currentLat, setCurrentLat] = useState(defaultLat);
   const [currentLng, setCurrentLng] = useState(defaultLng);
@@ -104,6 +107,29 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState(null);
   const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    onSelectLocationRef.current = onSelectLocation;
+  }, [onSelectLocation]);
+
+  useEffect(() => {
+    initialPositionRef.current = { lat: defaultLat, lng: defaultLng };
+    radiusRef.current = radius;
+  }, [defaultLat, defaultLng, radius]);
+
+  const updateLocation = useCallback((newLat, newLng) => {
+    const formattedLat = parseFloat(newLat.toFixed(6));
+    const formattedLng = parseFloat(newLng.toFixed(6));
+
+    setCurrentLat(formattedLat);
+    setCurrentLng(formattedLng);
+
+    if (markerRef.current) markerRef.current.setLatLng([formattedLat, formattedLng]);
+    if (circleRef.current) circleRef.current.setLatLng([formattedLat, formattedLng]);
+    if (mapInstanceRef.current) mapInstanceRef.current.panTo([formattedLat, formattedLng]);
+
+    onSelectLocationRef.current?.(formattedLat, formattedLng);
+  }, []);
 
   // Khởi tạo bản đồ Leaflet theo nhu cầu
   useEffect(() => {
@@ -117,8 +143,9 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
         setMapLoading(false);
 
         if (!mapInstanceRef.current) {
+          const initialPosition = initialPositionRef.current;
           const map = L.map(mapContainerRef.current, {
-            center: [defaultLat, defaultLng],
+            center: [initialPosition.lat, initialPosition.lng],
             zoom: 16,
             zoomControl: true,
           });
@@ -143,17 +170,17 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
           });
 
           // Marker
-          const marker = L.marker([defaultLat, defaultLng], {
+          const marker = L.marker([initialPosition.lat, initialPosition.lng], {
             draggable: true,
             icon: customIcon,
           }).addTo(map);
 
           // Bán kính vùng cho phép (Circle overlay)
-          const circle = L.circle([defaultLat, defaultLng], {
+          const circle = L.circle([initialPosition.lat, initialPosition.lng], {
             color: '#2563eb',
             fillColor: '#3b82f6',
             fillOpacity: 0.18,
-            radius: parseInt(radius, 10) || 100,
+            radius: parseInt(radiusRef.current, 10) || 100,
           }).addTo(map);
 
           markerRef.current = marker;
@@ -186,7 +213,7 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
         mapInstanceRef.current = null;
       }
     };
-  }, [retryKey]);
+  }, [retryKey, updateLocation]);
 
   // Cập nhật marker & circle khi prop lat/lng/radius thay đổi
   useEffect(() => {
@@ -204,22 +231,6 @@ export default function MapGpsPicker({ lat, lng, radius = 100, onSelectLocation 
       }
     }
   }, [lat, lng, radius]);
-
-  const updateLocation = (newLat, newLng) => {
-    const formattedLat = parseFloat(newLat.toFixed(6));
-    const formattedLng = parseFloat(newLng.toFixed(6));
-
-    setCurrentLat(formattedLat);
-    setCurrentLng(formattedLng);
-
-    if (markerRef.current) markerRef.current.setLatLng([formattedLat, formattedLng]);
-    if (circleRef.current) circleRef.current.setLatLng([formattedLat, formattedLng]);
-    if (mapInstanceRef.current) mapInstanceRef.current.panTo([formattedLat, formattedLng]);
-
-    if (onSelectLocation) {
-      onSelectLocation(formattedLat, formattedLng);
-    }
-  };
 
   // Lấy GPS hiện tại từ thiết bị
   const handleGetCurrentGps = () => {

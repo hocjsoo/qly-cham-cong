@@ -9,7 +9,7 @@ const SystemSetting = require('../models/SystemSetting');
 
 const seedInitialData = async () => {
   try {
-    // 1. Tạo phòng ban mặc định cho công ty kiến trúc ET Architects
+    // 1. Tạo phòng ban mặc định cho Kiến trúc ET
     const deptCount = await Department.countDocuments();
     if (deptCount === 0) {
       await Department.insertMany([
@@ -19,7 +19,7 @@ const seedInitialData = async () => {
         { name: 'Dự án', description: 'Phòng quản lý dự án & giám sát công trình' },
         { name: 'Hành chính', description: 'Phòng hành chính nhân sự & kế toán' },
       ]);
-      console.log('🌱 Seeded default departments (ET Architects)');
+      console.log('🌱 Seeded default departments (Kiến trúc ET)');
     }
 
     // 2. Tạo vị trí văn phòng mặc định
@@ -28,7 +28,7 @@ const seedInitialData = async () => {
       const officeLat = parseFloat(process.env.OFFICE_LAT || '10.7769');
       const officeLng = parseFloat(process.env.OFFICE_LNG || '106.7009');
       await OfficeLocation.create({
-        name: 'Văn phòng chính ET Architects',
+        name: 'Văn phòng chính Kiến trúc ET',
         address: 'Thành phố Hồ Chí Minh',
         lat: officeLat,
         lng: officeLng,
@@ -43,7 +43,8 @@ const seedInitialData = async () => {
     if (settingCount === 0) {
       await SystemSetting.create({
         key: 'global',
-        company_name: 'ET Architects',
+        company_name: 'Kiến trúc ET',
+        company_logo_url: '/logo.png',
         work_start_time: '08:30',
         work_end_time: '17:30',
         lunch_break_start: '12:00',
@@ -61,7 +62,7 @@ const seedInitialData = async () => {
       if (existing && (!existing.working_days || existing.working_days.length <= 5)) {
         existing.working_days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         if (!existing.ot_mode) existing.ot_mode = 'manual';
-        if (!existing.company_name) existing.company_name = 'ET Architects';
+        if (!existing.company_name) existing.company_name = 'Kiến trúc ET';
         await existing.save();
         console.log('🌱 Updated working_days to include Saturday');
       }

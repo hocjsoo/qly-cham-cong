@@ -2890,6 +2890,12 @@ body::before{animation:etAmbient 18s cubic-bezier(.45,0,.55,1) infinite!importan
 @media print{.desktop-sidebar,.bottom-nav,.header,.app-main{margin:0!important}.page{padding:0!important}.container{max-width:none!important;padding:0!important}body{background:#fff!important;color:#111!important}body::before{display:none!important}.card,.timesheet-table-shell,.table-responsive-container{break-inside:avoid;box-shadow:none!important}}
 @media(max-width:680px){}
 @media(max-width:899px){.app-main{margin-left:0!important}.header{top:0!important}.header__inner{min-height:58px!important;padding:9px 12px!important}.container{padding-inline:10px!important}.bottom-nav{background:color-mix(in srgb,var(--nav-bg) 94%,transparent)!important;border-top:1px solid var(--nav-border)!important;box-shadow:0 -12px 34px rgba(0,0,0,.12)!important;backdrop-filter:blur(18px)!important}.bottom-nav__item{border-radius:8px!important}.bottom-nav__item.active{color:var(--primary-light)!important}.tts-toolbar{top:66px!important}.modal-sheet,.tts-modal{border-radius:18px 18px 0 0!important}:where(html[data-page="dashboard"], html[data-review-page="dashboard"]) .grid-desktop-4,:where(html[data-page="expenses"], html[data-review-page="expenses"]) .kpi-grid-4,:where(html[data-page="vehicles"], html[data-review-page="vehicles"]) .kpi-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}:where(html[data-page="checkin"], html[data-review-page="checkin"]) .checkin-hero{min-height:190px!important}:where(html[data-page="checkin"], html[data-review-page="checkin"]) .checkin-hero__time{font-size:clamp(44px,12vw,68px)!important}table th,table td{padding:9px 10px!important}}
+
+.email-workspace-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:20px;align-items:start;margin-bottom:20px}
+.email-preview-column{display:flex;flex-direction:column;gap:14px;position:sticky;top:80px;min-width:0}
+.email-preview-scroll{max-height:500px;overflow-y:auto;border-radius:14px;border:1px solid var(--border);background:#0b0d0e;padding:12px}
+.email-test-row{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:767px){.email-workspace-grid{grid-template-columns:minmax(0,1fr);gap:14px}.email-preview-column{position:static}.email-preview-scroll{max-height:none;overflow:visible;padding:8px}.email-test-row>.btn{min-height:42px}}
 @media(max-width:480px){html,body,#root{max-width:100vw!important;overflow-x:clip!important}body::before{width:76vw;right:-18vw;bottom:12vh;opacity:.018}.card{padding:13px!important;border-radius:10px!important}.tts-section-heading{padding:13px 12px!important}.btn{min-height:40px!important}.timesheet-stat{min-width:132px!important}:where(html[data-page="dashboard"], html[data-review-page="dashboard"]) .grid-desktop-4,:where(html[data-page="expenses"], html[data-review-page="expenses"]) .kpi-grid-4,:where(html[data-page="vehicles"], html[data-review-page="vehicles"]) .kpi-grid-4{gap:8px!important}:where(html[data-page="dashboard"], html[data-review-page="dashboard"]) .stat-card{min-height:112px!important}:where(html[data-page="profile"], html[data-review-page="profile"]) .container{padding-inline:8px!important}.modal-overlay{padding:0!important}.modal-sheet{width:100%!important;max-height:94dvh!important;padding:16px!important}table th,table td{padding:8px 9px!important}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}body::before,.desktop-sidebar,:where(html[data-page], html[data-review-page]) .page>.container{animation:none!important}}
 
@@ -3516,6 +3522,76 @@ div:has(> svg) > input[type="search"],
 /* ==========================================================================
    TIMESHEET EVALUATION COLUMNS (Muộn, Sớm, OT - Distinct Disciplinary Styling)
    ========================================================================== */
+
+/* Mobile header controls and collapsible policy cards */
+.bottom-nav {
+  scroll-padding-inline: calc(50vw - 34px) !important;
+}
+
+.bottom-nav__item {
+  scroll-snap-align: center;
+}
+
+@media (max-width: 600px) {
+  .page-header-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+  }
+
+  .page-header-actions > .btn {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+  }
+
+  .page-header-actions > .header-actions-cluster {
+    margin-left: auto !important;
+  }
+
+  .request-guidelines-toggle {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    padding: 14px !important;
+  }
+
+  .request-guidelines-summary {
+    align-items: flex-start !important;
+    min-width: 0 !important;
+  }
+
+  .request-guidelines-summary > div:last-child {
+    min-width: 0 !important;
+  }
+
+  .request-guidelines-summary strong {
+    display: block !important;
+    line-height: 1.35 !important;
+  }
+
+  .request-guidelines-actions {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    justify-content: space-between !important;
+    padding-left: 44px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .page-header-actions > .btn {
+    flex-basis: calc(50% - 4px) !important;
+    padding-inline: 9px !important;
+    font-size: 11.5px !important;
+  }
+
+  .request-guidelines-actions {
+    padding-left: 0 !important;
+  }
+}
+
 .timesheet-eval-col-late {
   border-left: 2px solid var(--border) !important;
 }

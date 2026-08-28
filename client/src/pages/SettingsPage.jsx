@@ -9,6 +9,7 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import MapGpsPicker from '../components/MapGpsPicker';
 import useSettingsStore from '../stores/settingsStore';
+import { DEFAULT_COMPANY_LOGO_URL, DEFAULT_COMPANY_NAME, normalizeCompanyName } from '../utils/dynamicBranding';
 
 const WORKING_DAYS_OPTIONS = [
   { key: 'Mon', label: 'T2' }, { key: 'Tue', label: 'T3' }, { key: 'Wed', label: 'T4' },
@@ -40,7 +41,6 @@ export default function SettingsPage() {
   const [tab, setTab] = useState('depts');
   const [depts, setDepts] = useState([]);
   const [locations, setLocations] = useState([]);
-  const [projects, setProjects] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [shiftForm, setShiftForm] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,8 +83,8 @@ export default function SettingsPage() {
           ot_start_time: data.ot_start_time || '18:00',
           ot_mode: data.ot_mode || 'manual',
           working_days: data.working_days || ['Mon','Tue','Wed','Thu','Fri','Sat'],
-          company_name: data.company_name || 'ET Architects',
-          company_logo_url: data.company_logo_url || '',
+          company_name: normalizeCompanyName(data.company_name),
+          company_logo_url: data.company_logo_url || DEFAULT_COMPANY_LOGO_URL,
           announcement_display_days: data.announcement_display_days ?? 7,
           anniversary_display_mode: data.anniversary_display_mode || 'month',
           anniversary_display_days: data.anniversary_display_days ?? 7,
@@ -216,10 +216,10 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { key: 'depts', label: '🏢 Phong ban', count: depts.length },
-    { key: 'locations', label: '📍 Vi tri GPS', count: locations.length },
-    { key: 'shift', label: '⚙️ Ca lam & Quy tac' },
-    { key: 'holidays', label: '🎌 Ngay le', count: holidays.length },
+    { key: 'depts', label: '🏢 Phòng ban', count: depts.length },
+    { key: 'locations', label: '📍 Vị trí GPS', count: locations.length },
+    { key: 'shift', label: '⚙️ Ca làm & Quy tắc' },
+    { key: 'holidays', label: '🎌 Ngày lễ', count: holidays.length },
   ];
 
   const rowStyle = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-raised)', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '6px' };
@@ -290,7 +290,7 @@ export default function SettingsPage() {
         ) : tab === 'locations' ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Vi tri van phong (Geofencing GPS)</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Vị trí văn phòng (Geofencing GPS)</span>
               {isAdmin && <button onClick={() => setShowLocModal(true)} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '12px' }}><Plus size={14} /> Them</button>}
             </div>
             {locations.length === 0
@@ -300,7 +300,7 @@ export default function SettingsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>{l.name}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{l.address || 'Chua ghi dia chi'}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{l.address || 'Chưa ghi địa chỉ'}</div>
                     </div>
                     {isAdmin && (
                       <div style={{ display: 'flex', gap: '4px' }}>
@@ -318,7 +318,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', fontSize: '11px', flexWrap: 'wrap' }}>
-                    <span className="badge badge--info">Ban kinh: {l.radius_m}m</span>
+                    <span className="badge badge--info">Bán kính: {l.radius_m}m</span>
                     {l.lat && <span className="badge badge--neutral">GPS: {parseFloat(l.lat).toFixed(4)}, {parseFloat(l.lng).toFixed(4)}</span>}
                   </div>
                   {l.lat && l.lng && (
@@ -335,13 +335,13 @@ export default function SettingsPage() {
           <div>
             <div className="card" style={{ padding: '16px', marginBottom: '12px' }}>
               <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Globe size={16} color="var(--primary)" /> Thong tin cong ty
+                <Globe size={16} color="var(--primary)" /> Thông tin công ty
               </div>
               {shiftForm ? (
                 <>
                   <div className="form-group">
-                    <label className="form-label">Ten cong ty</label>
-                    <input type="text" className="form-input" value={shiftForm.company_name} onChange={e => setShiftForm(p => ({...p, company_name: e.target.value}))} placeholder="ET Architects" />
+                    <label className="form-label">Tên công ty</label>
+                    <input type="text" className="form-input" value={shiftForm.company_name} onChange={e => setShiftForm(p => ({...p, company_name: e.target.value}))} placeholder={DEFAULT_COMPANY_NAME} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Logo công ty</label>
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                   </div>
 
                   <div style={{ background: 'var(--bg-raised)', borderRadius: '8px', padding: '10px', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>Quy tac dang ap dung:</div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary)', marginBottom: '4px' }}>Quy tắc đang áp dụng:</div>
                     <ul style={{ fontSize: '11px', color: 'var(--text-secondary)', paddingLeft: '14px', margin: 0, lineHeight: 1.8 }}>
                       <li>Dung gio: vao truoc {shiftForm.work_start_time}</li>
                       <li>Muon nhe: {shiftForm.work_start_time} + {shiftForm.minor_late_mins} phut dau</li>
@@ -654,7 +654,7 @@ export default function SettingsPage() {
               <input type="text" className="form-input" value={deptName} onChange={e => setDeptName(e.target.value)} placeholder="VD: Phong Kien Truc" autoFocus />
             </div>
             <div className="form-group">
-              <label className="form-label">Mo ta / Vi tri</label>
+              <label className="form-label">Mô tả / Vị trí</label>
               <input type="text" className="form-input" value={deptDesc} onChange={e => setDeptDesc(e.target.value)} placeholder="Tang 5, 123 Nguyen Hue..." />
             </div>
             <button onClick={handleAddDept} disabled={submitting} className="btn btn--primary btn--full btn--lg" style={{ marginTop: '8px' }}>

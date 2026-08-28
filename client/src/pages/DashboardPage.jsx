@@ -2,12 +2,12 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/DashboardPage.jsx
 // Dashboard — Stat cards, attendance ratio bar, search+filter, CSV export
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   RefreshCw, Users, UserCheck, Clock, UserX, Download,
   MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone,
-  Calendar, Edit3, Save, Trash2, Settings
+  Edit3, Save, Trash2, Settings
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import toast from 'react-hot-toast';
@@ -128,16 +128,16 @@ export default function DashboardPage() {
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
-  const [flaggedList, setFlaggedList] = useState([]);
+  const [, setFlaggedList] = useState([]);
   const [verifyingId, setVerifyingId] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [allowRecheckin, setAllowRecheckin] = useState(true);
-  const [flaggedTab, setFlaggedTab] = useState('pending'); // 'pending' | 'all' | 'approved' | 'rejected' | 'photo'
+  const [flaggedTab] = useState('pending'); // 'pending' | 'all' | 'approved' | 'rejected' | 'photo'
   const [flaggedCounts, setFlaggedCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, with_photo: 0 });
 
-  const fetchFlagged = async (targetTab = flaggedTab) => {
+  const fetchFlagged = useCallback(async (targetTab = flaggedTab) => {
     if (user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager') {
       try {
         const queryStatus = targetTab === 'photo' ? 'all' : targetTab;
@@ -153,21 +153,7 @@ export default function DashboardPage() {
     } else {
       setFlaggedList([]);
     }
-  };
-
-  const handleVerifyAttendance = async (id, action) => {
-    setVerifyingId(id);
-    try {
-      const { data } = await api.put(`/attendance/approve-flagged/${id}`, { action });
-      toast.success(data.message || 'Đã duyệt ca chấm công thành công! ✅');
-      fetchFlagged();
-      fetchData();
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi xử lý xác minh');
-    } finally {
-      setVerifyingId(null);
-    }
-  };
+  }, [flaggedTab, user?.role]);
 
   const handleConfirmReject = async () => {
     if (!rejectTarget) return;
@@ -190,7 +176,7 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       if (!isAdminOrLeader) {
@@ -229,13 +215,13 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchFlagged, isAdminOrLeader]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     const i = setInterval(fetchData, 120000);
     return () => clearInterval(i);
-  }, []);
+  }, [fetchData]);
 
   // Load birthdays, anniversaries, holidays and announcements
   useEffect(() => {
@@ -363,8 +349,6 @@ export default function DashboardPage() {
     return matchFilter && matchSearch;
   });
 
-  const initials = user?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?';
-
   if (loading && !data) {
     return (
       <div className="page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
@@ -454,7 +438,7 @@ export default function DashboardPage() {
                   <span className="badge badge--info" style={{ fontSize: '11px', fontWeight: 700 }}>#{user?.employee_code || 'NS'}</span>
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  🏢 {user?.department_name || 'ET Architects'} · {user?.position || 'Nhân viên'}
+                  🏢 {user?.department_name || 'Kiến trúc ET'} · {user?.position || 'Nhân viên'}
                 </div>
               </div>
             </div>
@@ -657,7 +641,6 @@ export default function DashboardPage() {
         {(() => {
           const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
           const [yearStr, monthStrNum] = todayVN.split('-');
-          const monthNum = parseInt(monthStrNum, 10);
           const monthStr = `${yearStr}-${monthStrNum}`;
           const currentMonthHolidays = holidays.filter(h =>
             (h.date && h.date.startsWith(monthStr)) || (h.end_date && h.end_date.startsWith(monthStr))
@@ -1475,7 +1458,7 @@ export default function DashboardPage() {
               border: '1px dashed rgba(245, 158, 11, 0.4)', fontSize: '13px', color: 'var(--text)',
               lineHeight: 1.6, marginBottom: '20px'
             }}>
-              ✨ <strong>ET Architects kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
+              ✨ <strong>Kiến trúc ET kính chúc</strong> {selectedBirthday.full_name} một sinh nhật thật nhiều niềm vui, sức khỏe dồi dào, hạnh phúc và gặt hái thêm nhiều thành công rực rỡ cùng đại gia đình công ty! 🎁🥂
             </div>
 
             {user?.role === 'admin' && (

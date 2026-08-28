@@ -3,6 +3,12 @@ const Correction = require('../models/Correction');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const { logAction } = require('../utils/auditLogger');
+const {
+  isLeaderRole,
+  isEmployeeRole,
+  buildLeaderUserScope,
+  canManageUserId,
+} = require('../utils/roleScope');
 
 // POST /api/corrections - Tạo yêu cầu đính chính
 const createCorrection = async (req, res) => {
@@ -43,11 +49,13 @@ const getCorrections = async (req, res) => {
   try {
     let query = {};
 
-    if (req.user.role === 'staff') {
+    if (isEmployeeRole(req.user)) {
       query.user_id = req.user._id;
-    } else if (req.user.role === 'manager') {
-      const staffIds = await User.find({ manager_id: req.user._id }).distinct('_id');
-      query.user_id = { $in: [...staffIds, req.user._id] };
+    } else if (isLeaderRole(req.user)) {
+      const teamUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: true })
+      ).distinct('_id');
+      query.user_id = { $in: teamUserIds };
     }
 
     const corrections = await Correction.find(query)
@@ -71,6 +79,10 @@ const approveCorrection = async (req, res) => {
     const corr = await Correction.findOne({ _id: id, status: 'pending' });
     if (!corr) {
       return res.status(404).json({ error: 'Không tìm thấy yêu cầu hoặc đã được xử lý.' });
+    }
+
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, corr.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được duyệt đính chính của nhân sự thuộc nhóm mình quản lý.' });
     }
 
     corr.status = 'approved';
@@ -139,6 +151,10 @@ const rejectCorrection = async (req, res) => {
     const corr = await Correction.findOne({ _id: id, status: 'pending' });
     if (!corr) {
       return res.status(404).json({ error: 'Không tìm thấy yêu cầu hoặc đã được xử lý.' });
+    }
+
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, corr.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được từ chối đính chính của nhân sự thuộc nhóm mình quản lý.' });
     }
 
     corr.status = 'rejected';

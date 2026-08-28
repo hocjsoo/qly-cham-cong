@@ -3,7 +3,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // Trang cá nhân — Xem thông tin, Quản lý ngày phép tồn, Đổi mật khẩu, Gửi yêu cầu đổi thông tin xe duyệt bởi Admin
 
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera, Bike, AlertCircle, Clock, CheckCircle2, CreditCard } from 'lucide-react';
+import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera, Bike, Clock, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -59,7 +59,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (fetchMe) fetchMe();
     checkPendingVehicleRequest();
-  }, []);
+  }, [fetchMe]);
 
   // Sync state with user data
   useEffect(() => {
@@ -87,8 +87,6 @@ export default function ProfilePage() {
       }
     } catch {}
   };
-
-  const initials = user?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?';
 
   const handleLogout = () => {
     logout();

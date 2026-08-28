@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4f46e5" />
-      <stop offset="50%" stop-color="#6366f1" />
-      <stop offset="100%" stop-color="#7c3aed" />
+      <stop offset="0%" stop-color="#111315" />
+      <stop offset="50%" stop-color="#272b2e" />
+      <stop offset="100%" stop-color="#4b5156" />
     </linearGradient>
     <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22" />
@@ -31,7 +31,7 @@
     <!-- Architectural Monogram T -->
     <path d="M 276 160 L 404 160 C 415 160 422 167 422 178 C 422 189 415 196 404 196 L 368 196 L 368 334 C 368 345 361 352 350 352 C 339 352 332 345 332 334 L 332 196 L 276 196 C 265 196 258 189 258 178 C 258 167 265 160 276 160 Z" fill="#ffffff" />
     
-    <!-- Modern Cyan Portal Dot Accent -->
-    <circle cx="396" cy="336" r="16" fill="#38bdf8" />
+    <!-- Neutral architectural accent -->
+    <circle cx="396" cy="336" r="16" fill="#d7dadd" />
   </g>
 </svg>

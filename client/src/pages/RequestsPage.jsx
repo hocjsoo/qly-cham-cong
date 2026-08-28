@@ -1,11 +1,11 @@
 import ImageLightbox from "../components/ImageLightbox";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Plus, Edit2, X, Check, FileText, Clock, CheckCircle2, XCircle, Building2,
-  Calendar, Shield, Sparkles, MessageSquare, AlertCircle, ArrowUpRight,
+  Plus, Edit2, X, Check, FileText, Clock, CheckCircle2, XCircle,
+  Calendar, Sparkles,
   Search, Camera, AlertTriangle, Phone, Mail, MapPin, Bike, RotateCcw,
-  Trash2, Undo2, Filter, ChevronRight, UserCheck, RefreshCw, ZoomIn, Info
+  Trash2, RefreshCw, ZoomIn
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -183,7 +183,7 @@ const REJECT_REASONS_SUGGESTIONS = [
 ];
 
 export default function RequestsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'mine';
 
   const { user } = useAuthStore();
@@ -277,14 +277,6 @@ export default function RequestsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadData();
-    api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    if (isManager) {
-      fetchFlagged();
-    }
-  }, [tab]);
-
-  useEffect(() => {
     const queryType = searchParams.get('type');
     const queryCreate = searchParams.get('create');
     if (queryType) {
@@ -297,7 +289,7 @@ export default function RequestsPage() {
     }
   }, [searchParams]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       if (tab === 'mine') {
@@ -312,7 +304,7 @@ export default function RequestsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tab]);
 
   const handleImagePick = (e) => {
     const file = e.target.files?.[0];
@@ -433,7 +425,7 @@ export default function RequestsPage() {
   // ==========================================
   // FLAGGED ATTENDANCE & PHOTO VERIFICATION
   // ==========================================
-  const fetchFlagged = async (targetStatus) => {
+  const fetchFlagged = useCallback(async (targetStatus) => {
     try {
       setFlaggedLoading(true);
       const st = targetStatus || flaggedTab;
@@ -449,7 +441,16 @@ export default function RequestsPage() {
     } finally {
       setFlaggedLoading(false);
     }
-  };
+  }, [flaggedTab]);
+
+  useEffect(() => {
+    loadData();
+    api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+  }, [loadData]);
+
+  useEffect(() => {
+    if (isManager) fetchFlagged();
+  }, [fetchFlagged, isManager]);
 
   const handleVerifyFlagged = async (recordId, action, reviewerNote = '') => {
     try {
@@ -543,33 +544,13 @@ export default function RequestsPage() {
   const approvedCount = rawList.filter(r => r.status === 'approved').length;
   const rejectedCount = rawList.filter(r => r.status === 'rejected').length;
 
-  const getWorkflowImpactText = (reqType) => {
-    switch (reqType) {
-      case 'late':
-        return '⚡ Tác động tự động: Gỡ bỏ phạt đi muộn & khôi phục công đủ 1.0 cho ngày đã chọn.';
-      case 'overtime':
-        return '⚡ Tác động tự động: Ghi nhận giờ OT vào Bảng tính lương & Báo cáo tổng hợp.';
-      case 'wfh':
-      case 'business_trip':
-        return '⚡ Tác động tự động: Xác nhận vị trí làm việc hợp lệ ngoài văn phòng & tính đủ công.';
-      case 'annual_leave':
-        return '⚡ Tác động tự động: Trừ vào quỹ phép năm & tính nghỉ phép được hưởng lương.';
-      case 'sick_leave':
-        return '⚡ Tác động tự động: Trừ vào quỹ ngày nghỉ ốm & tính trợ cấp/chế độ nghỉ ốm hợp lệ.';
-      case 'vehicle_update':
-        return '⚡ Tác động tự động: Tự động cập nhật biển số & nơi gửi xe mới vào hồ sơ nhân sự ngay sau khi duyệt.';
-      default:
-        return '⚡ Tác động tự động: Lưu nhật ký giải trình & gửi thông báo đến quản lý.';
-    }
-  };
-
   return (
     <div className="page">
       {/* Top Header */}
       <div className="header">
         <div className="header__inner">
           <div className="header__title">Portal Phê Duyệt & Đơn Từ</div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={() => setShowForm(true)} className="btn btn--primary" style={{ padding: '7px 16px', fontSize: '13px', fontWeight: 800 }}>
               <Plus size={16} /> Tạo đơn mới
             </button>
@@ -622,6 +603,7 @@ export default function RequestsPage() {
         {/* Full In-Page Reference Table for 11 Request Types */}
         <div className="card animate-fade-in" style={{ marginBottom: "16px", padding: 0, overflow: "hidden", borderRadius: "16px", border: "1px solid var(--border)", boxShadow: "var(--shadow-xs)" }}>
           <div
+            className="request-guidelines-toggle"
             onClick={() => setShowGuidelinesCard(!showGuidelinesCard)}
             style={{
               padding: "14px 18px", background: "var(--bg-raised)",
@@ -630,7 +612,7 @@ export default function RequestsPage() {
               userSelect: "none"
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="request-guidelines-summary" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "var(--primary-soft)", color: "var(--primary)", display: "grid", placeItems: "center" }}>
                 <FileText size={18} />
               </div>
@@ -640,7 +622,7 @@ export default function RequestsPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <div className="request-guidelines-actions" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {isAdmin && (
                 <button
                   type="button"
@@ -1096,8 +1078,6 @@ export default function RequestsPage() {
                   const statusCfg = STATUS_CONFIG[r.status] || STATUS_CONFIG.pending;
                   const displayName = r.user_name || (tab === 'mine' ? user?.full_name : 'Nhân viên');
                   const avatarUrl = r.user_avatar || r.user_id?.avatar_url || (tab === 'mine' ? user?.avatar_url : null);
-                  const initials = displayName.split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
-
                   const isOwner = r.user_id === user?._id || r.user_id?._id === user?._id || tab === 'mine';
                   const canManage = isManager && (isAdmin || r.user_id?.role !== 'admin');
 

@@ -2,6 +2,30 @@
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const Request = require('../models/Request');
+const {
+  isLeaderRole,
+  isEmployeeRole,
+  buildLeaderUserScope,
+  combineUserFilters,
+  canManageUserId,
+} = require('../utils/roleScope');
+
+const buildActiveAttendanceUserFilter = () => ({
+  is_active: { $ne: false },
+  is_attendance_exempt: { $ne: true },
+  employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] },
+});
+
+const buildDepartmentFilter = departmentId => (
+  departmentId && departmentId !== 'all'
+    ? {
+        $or: [
+          { department_ids: departmentId },
+          { department_id: departmentId },
+        ],
+      }
+    : {}
+);
 
 // GET /api/reports/monthly?month=7&year=2026&department_id=...
 const getMonthlyReport = async (req, res) => {
@@ -12,25 +36,11 @@ const getMonthlyReport = async (req, res) => {
     const y = parseInt(year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = {
-      is_active: { $ne: false },
-      is_attendance_exempt: { $ne: true },
-      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    };
-    if (['manager', 'leader'].includes(req.user.role)) {
-      const leaderDeptIds = req.user.department_ids && req.user.department_ids.length > 0 ? req.user.department_ids : (req.user.department_id ? [req.user.department_id] : []);
-      userFilter.$or = [
-        { manager_id: req.user._id },
-        { department_ids: { $in: leaderDeptIds } },
-        { department_id: { $in: leaderDeptIds } }
-      ];
-    }
-    if (department_id) {
-      userFilter.$or = [
-        { department_ids: department_id },
-        { department_id: department_id }
-      ];
-    }
+    const userFilter = combineUserFilters(
+      buildActiveAttendanceUserFilter(),
+      isLeaderRole(req.user) ? buildLeaderUserScope(req.user, { includeSelf: true }) : {},
+      buildDepartmentFilter(department_id)
+    );
 
     const users = await User.find(userFilter)
       .select('full_name email department_id department_ids')
@@ -114,48 +124,57 @@ const getMonthlyReport = async (req, res) => {
 
 // GET /api/reports/trend?months=6 — Dữ liệu 6 tháng gần nhất cho Line/Bar Chart
 const getTrend = async (req, res) => {
-  const months = parseInt(req.query.months) || 6;
+  const requestedMonths = parseInt(req.query.months, 10);
+  const months = Number.isFinite(requestedMonths)
+    ? Math.min(24, Math.max(1, requestedMonths))
+    : 6;
 
   try {
-    let userFilter = {
-      is_active: { $ne: false },
-      is_attendance_exempt: { $ne: true },
-      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    };
-    if (req.user.role === 'manager') {
-      userFilter.manager_id = req.user._id;
-    }
+    const userFilter = combineUserFilters(
+      buildActiveAttendanceUserFilter(),
+      isLeaderRole(req.user) ? buildLeaderUserScope(req.user, { includeSelf: true }) : {}
+    );
     const userIds = await User.find(userFilter).distinct('_id');
 
     const now = new Date();
-    const trendData = [];
+    const monthBuckets = [];
 
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('vi-VN', { month: 'short', year: '2-digit' });
 
-      const records = await Attendance.find({
-        user_id: { $in: userIds },
-        date: { $regex: `^${monthStr}` }
-      });
+      monthBuckets.push({ month: monthStr, label });
+    }
 
-      const presentCount = records.filter(r => !r.is_late).length;
-      const lateCount = records.filter(r => r.is_late).length;
-      const totalHours = parseFloat(records.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+    const firstMonth = monthBuckets[0]?.month;
+    const lastMonth = monthBuckets[monthBuckets.length - 1]?.month;
+    const records = firstMonth && lastMonth
+      ? await Attendance.find({
+          user_id: { $in: userIds },
+          date: { $gte: `${firstMonth}-01`, $lte: `${lastMonth}-31` },
+        })
+      : [];
+
+    const trendData = monthBuckets.map(({ month, label }) => {
+      const monthRecords = records.filter(record => record.date?.startsWith(month));
+
+      const presentCount = monthRecords.filter(r => !r.is_late).length;
+      const lateCount = monthRecords.filter(r => r.is_late).length;
+      const totalHours = parseFloat(monthRecords.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
       const attendanceRate = userIds.length > 0
-        ? Math.round((records.length / (userIds.length * 22)) * 100)
+        ? Math.round((monthRecords.length / (userIds.length * 22)) * 100)
         : 0;
 
-      trendData.push({
-        month: monthStr,
+      return {
+        month,
         label,
         present: presentCount,
         late: lateCount,
         total_hours: totalHours,
         attendance_rate: Math.min(100, attendanceRate),
-      });
-    }
+      };
+    });
 
     res.json({ months: trendData });
 
@@ -172,25 +191,21 @@ const getAttendanceStats = async (req, res) => {
     const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    let userFilter = {
-      is_active: { $ne: false },
-      is_attendance_exempt: { $ne: true },
-      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    };
-    if (req.user.role === 'manager') {
-      userFilter.manager_id = req.user._id;
-    }
+    const roleScope = isLeaderRole(req.user)
+      ? buildLeaderUserScope(req.user, { includeSelf: true })
+      : (isEmployeeRole(req.user) ? { _id: req.user._id } : {});
+    const userFilter = combineUserFilters(buildActiveAttendanceUserFilter(), roleScope);
 
-    const [userIds, todayRecords, monthRecords] = await Promise.all([
-      User.find(userFilter).distinct('_id'),
-      Attendance.find({ user_id: { $exists: true }, date: today }),
-      Attendance.find({ date: { $regex: `^${monthStr}` } }),
+    const userIds = await User.find(userFilter).distinct('_id');
+    const [todayRecords, monthRecords] = await Promise.all([
+      Attendance.find({ user_id: { $in: userIds }, date: today }),
+      Attendance.find({ user_id: { $in: userIds }, date: { $regex: `^${monthStr}` } }),
     ]);
 
     const totalEmployees = userIds.length;
     const presentToday = todayRecords.filter(r => r.check_in_time).length;
     const lateToday = todayRecords.filter(r => r.is_late).length;
-    const absentToday = totalEmployees - presentToday;
+    const absentToday = Math.max(0, totalEmployees - presentToday);
     const avgHoursThisMonth = monthRecords.length > 0
       ? parseFloat((monthRecords.reduce((s, r) => s + (r.total_hours || 0), 0) / monthRecords.length).toFixed(1))
       : 0;
@@ -220,12 +235,10 @@ const getRanking = async (req, res) => {
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
 
-    let userFilter = {
-      is_active: { $ne: false },
-      is_attendance_exempt: { $ne: true },
-      employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
-    };
-    if (req.user.role === 'manager') userFilter.manager_id = req.user._id;
+    const userFilter = combineUserFilters(
+      buildActiveAttendanceUserFilter(),
+      isLeaderRole(req.user) ? buildLeaderUserScope(req.user, { includeSelf: true }) : {}
+    );
 
     const users = await User.find(userFilter).select('full_name email department_id').populate('department_id', 'name');
     const userIds = users.map(u => u._id);
@@ -358,6 +371,14 @@ const getIndividualDetailReport = async (req, res) => {
     const m = parseInt(req.query.month) || (new Date().getMonth() + 1);
     const y = parseInt(req.query.year) || new Date().getFullYear();
     const userId = req.query.user_id || req.user._id;
+
+    const isSelf = String(userId) === String(req.user._id);
+    if (!isSelf && req.user.role !== 'admin') {
+      const canView = isLeaderRole(req.user) && await canManageUserId(req.user, userId, { allowSelf: true });
+      if (!canView) {
+        return res.status(403).json({ error: 'Bạn không có quyền xem phiếu chấm công của nhân sự này.' });
+      }
+    }
 
     const userObj = await User.findById(userId)
       .select('employee_code full_name position department_id')
@@ -803,6 +824,4 @@ module.exports = {
   getIndividualDetailReport,
   getLeaderboard,
 };
-
-
 

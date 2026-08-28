@@ -1,8 +1,8 @@
 // src/components/Layout.jsx
 // Layout wrapper — Responsive Desktop Sidebar & Mobile Bottom Navigation
 
-import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Mail, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import api from '../services/api';
@@ -11,15 +11,13 @@ import useSettingsStore from '../stores/settingsStore';
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
-  const { company_name, company_logo_url, fetchSettings } = useSettingsStore();
+  const { company_name, company_logo_url } = useSettingsStore();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const bottomNavRef = useRef(null);
   const isStaff = user?.role === 'staff' || user?.role === 'employee';
   const isAdmin = user?.role === 'admin';
   const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
 
   useEffect(() => {
     if (!isStaff) {
@@ -27,7 +25,7 @@ export default function Layout() {
       const interval = setInterval(fetchPendingCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [isStaff, user]);
 
   const fetchPendingCount = async () => {
     try {
@@ -55,7 +53,17 @@ export default function Layout() {
     { to: '/profile', icon: User, label: 'Cá nhân' },
   ];
 
-  const initials = user?.full_name?.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() || '?';
+  useEffect(() => {
+    const nav = bottomNavRef.current;
+    const activeItem = nav?.querySelector('.bottom-nav__item.active');
+    if (!activeItem) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      activeItem.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [pathname, tabs.length]);
 
   return (
     <div className="app-shell">
@@ -124,7 +132,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile Bottom Navigation (visible < 1024px) */}
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" ref={bottomNavRef} aria-label="Điều hướng chính trên điện thoại">
         {tabs.map(t => (
           <NavLink
             key={t.to}

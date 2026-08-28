@@ -1,7 +1,7 @@
 {
-  "short_name": "ET Portal",
-  "name": "ET Office Portal — Chấm Công Thông Minh",
-  "description": "Hệ thống quản lý chấm công và nhân sự thông minh ET Architects",
+  "short_name": "Kiến trúc ET",
+  "name": "Kiến trúc ET — Chấm Công Thông Minh",
+  "description": "Hệ thống quản lý chấm công và nhân sự thông minh Kiến trúc ET",
   "icons": [
     {
       "src": "/logo.png",
@@ -17,8 +17,8 @@
     }
   ],
   "start_url": "/checkin",
-  "background_color": "#0f172a",
-  "theme_color": "#6366f1",
+  "background_color": "#101214",
+  "theme_color": "#17191b",
   "display": "standalone",
   "orientation": "portrait"
 }

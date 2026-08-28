@@ -315,8 +315,8 @@ export async function mockRequest(method, url, data = {}) {
   // === SYSTEM SETTINGS ===
   if (url.includes('/settings')) {
     let systemSettings = getMockStorage('system_settings', {
-      company_name: 'ET Architects',
-      company_logo_url: '',
+      company_name: 'Kiến trúc ET',
+      company_logo_url: '/logo.png',
       work_start_time: '08:30',
       work_end_time: '17:30',
       minor_late_mins: 10,

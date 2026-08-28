@@ -80,9 +80,23 @@ function runEmailSecurityTests(assert) {
   );
 
   const forgotSource = String(authController.forgotPassword);
+  const emailServiceSource = fs.readFileSync(
+    path.resolve(__dirname, '../../src/services/emailService.js'),
+    'utf8'
+  );
+  const safeSmtpFailure = emailService.__test.buildEmailErrorResult({
+    code: 'EAUTH',
+    responseCode: 535,
+    message: 'SMTP secret detail must never reach the browser',
+  });
   assert(
-    !/reset_code\s*:/.test(forgotSource) && !/user_name\s*:/.test(forgotSource),
-    'TC-EMAIL-09: Luồng quên mật khẩu không làm lộ OTP trong response'
+    !/reset_code\s*:/.test(forgotSource) &&
+      !/user_name\s*:/.test(forgotSource) &&
+      !emailServiceSource.includes('Mã reset mật khẩu cho') &&
+      !emailServiceSource.includes('khôi phục mật khẩu: " + resetCode') &&
+      safeSmtpFailure.error.includes('App Password') &&
+      !safeSmtpFailure.error.includes('secret detail'),
+    'TC-EMAIL-09: Luồng quên mật khẩu không làm lộ OTP hoặc chi tiết SMTP'
   );
 
   const emailsPageSource = fs.readFileSync(
@@ -109,6 +123,61 @@ function runEmailSecurityTests(assert) {
     !seedSource.includes("INITIAL_ADMIN_PASSWORD ||") &&
       seedSource.includes('Thiếu INITIAL_ADMIN_EMAIL hoặc INITIAL_ADMIN_PASSWORD'),
     'TC-EMAIL-11: Production không còn mật khẩu Admin mặc định dự phòng'
+  );
+
+  const hostileHtml = emailService.buildCustomHtmlEmail({
+    title: '<img src=x onerror=alert(1)>',
+    body: '<script>alert(1)</script> [button: Bấm vào | javascript:alert(1)] [link: Tài liệu | https://example.com/docs]',
+    actionText: '<b>Mở hệ thống</b>',
+    actionUrl: 'javascript:alert(1)',
+    documentUrl: 'https://example.com/guide',
+    footerText: '<svg onload=alert(1)>',
+  });
+  assert(
+    !hostileHtml.includes('<script>') &&
+      !hostileHtml.includes('javascript:') &&
+      hostileHtml.includes('&lt;script&gt;') &&
+      hostileHtml.includes('https://example.com/docs') &&
+      hostileHtml.includes('https://example.com/guide'),
+    'TC-EMAIL-12: Nội dung mail escape HTML và loại bỏ link javascript nguy hiểm'
+  );
+
+  const inlineImage = 'data:image/png;base64,' + Buffer.from('safe-image').toString('base64');
+  const extracted = emailService.__test.extractInlineDataImages(`<img src="${inlineImage}">`);
+  assert(
+    extracted.html.includes('cid:inline_image_0@etoffice') &&
+      extracted.attachments.length === 1 &&
+      extracted.attachments[0].content.toString() === 'safe-image',
+    'TC-EMAIL-13: Ảnh chọn từ thiết bị được chuyển thành CID attachment khi gửi Gmail'
+  );
+
+  assert(
+    emailService.__test.sanitizeEmailSubject('Thông báo\r\nBcc: attacker@example.com') === 'Thông báo Bcc: attacker@example.com',
+    'TC-EMAIL-14: Tiêu đề email loại bỏ CRLF chống chèn header'
+  );
+
+  const customModalSource = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/components/CustomEmailModal.jsx'),
+    'utf8'
+  );
+  assert(
+    emailsPageSource.includes('DOMPurify.sanitize') &&
+      emailsPageSource.includes('__html: safePreviewHtml') &&
+      customModalSource.includes('DOMPurify.sanitize') &&
+      customModalSource.includes('__html: safePreviewHtml'),
+    'TC-EMAIL-15: Cả hai màn hình xem trước email đều sanitize HTML trước khi render'
+  );
+
+  const brandedHtml = emailService.buildCustomHtmlEmail({
+    title: 'Thông báo',
+    body: '[button: Mở hệ thống | https://example.com]',
+  });
+  assert(
+    brandedHtml.includes('Kiến trúc ET') &&
+      brandedHtml.includes('#596168') &&
+      !brandedHtml.includes('#6366f1') &&
+      !brandedHtml.includes('#4f46e5'),
+    'TC-EMAIL-16: Mẫu email đồng bộ graphite và không còn màu tím cũ'
   );
 }
 

@@ -9,7 +9,10 @@ function getVisibleNotificationsForUser(allNotifications, userId) {
 
 function markAllNotificationsAsRead(notifications, userId) {
   return notifications.map(n => {
-    if (n.user_id === null || n.user_id === userId) {
+    if (n.user_id === null) {
+      return { ...n, read_by: [...new Set([...(n.read_by || []), userId])] };
+    }
+    if (n.user_id === userId) {
       return { ...n, is_read: true };
     }
     return n;
@@ -20,7 +23,7 @@ function runNotificationTests(assert) {
   console.log('\n🔔 [TEST SUITE: NOTIFICATIONS & BROADCAST]');
 
   const mockNotifications = [
-    { _id: 'n1', user_id: null, title: 'Thông báo nghỉ lễ', is_read: false },
+    { _id: 'n1', user_id: null, title: 'Thông báo nghỉ lễ', is_read: false, read_by: [] },
     { _id: 'n2', user_id: 'u_emp1', title: 'Đơn phép của bạn đã được duyệt', is_read: false },
     { _id: 'n3', user_id: 'u_emp2', title: 'Đơn OT của bạn đã được duyệt', is_read: false },
   ];
@@ -36,9 +39,14 @@ function runNotificationTests(assert) {
 
   // TC-NOTI-03: Đánh dấu tất cả đã đọc
   const updatedNotifs = markAllNotificationsAsRead(emp1Notifs, 'u_emp1');
-  const allRead = updatedNotifs.every(n => n.is_read === true);
+  const allRead = updatedNotifs.every(n => n.user_id === null ? n.read_by.includes('u_emp1') : n.is_read === true);
   assert(allRead === true,
-    'TC-NOTI-03: Đánh dấu tất cả thông báo của user thành đã đọc (is_read = true)');
+    'TC-NOTI-03: Đánh dấu tất cả thông báo theo từng user, không sửa trạng thái broadcast toàn cục');
+
+  assert(
+    !updatedNotifs.find(n => n._id === 'n1').read_by.includes('u_emp2'),
+    'TC-NOTI-04: User khác vẫn thấy broadcast chưa đọc cho đến khi tự mở'
+  );
 }
 
 module.exports = runNotificationTests;

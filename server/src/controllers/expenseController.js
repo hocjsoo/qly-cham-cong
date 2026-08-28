@@ -5,6 +5,13 @@ const Expense = require('../models/Expense');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
+const {
+  isLeaderRole,
+  getDepartmentIds,
+  buildLeaderUserScope,
+  combineUserFilters,
+  canManageUserId,
+} = require('../utils/roleScope');
 
 const formatVND = (num) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num || 0);
@@ -14,35 +21,47 @@ const formatVND = (num) => {
 const getExpenses = async (req, res) => {
   try {
     const { user_id, approval_status, payment_status, has_vat, month, year, search } = req.query;
-    const filter = {};
+    const requestedFilter = {};
 
     if (user_id && user_id !== 'all') {
-      filter.user_id = user_id;
+      requestedFilter.user_id = user_id;
     }
 
     if (approval_status && approval_status !== 'all') {
-      filter.approval_status = approval_status;
+      requestedFilter.approval_status = approval_status;
     }
 
     if (payment_status && payment_status !== 'all') {
-      filter.payment_status = payment_status;
+      requestedFilter.payment_status = payment_status;
     }
 
     if (has_vat !== undefined && has_vat !== 'all') {
-      filter.has_vat_invoice = has_vat === 'true' || has_vat === true;
+      requestedFilter.has_vat_invoice = has_vat === 'true' || has_vat === true;
     }
 
     if (month && month !== 'all') {
       const targetYear = year || new Date().getFullYear();
       const monthStr = String(month).padStart(2, '0');
-      filter.date = { $regex: `^${targetYear}-${monthStr}` };
+      requestedFilter.date = { $regex: `^${targetYear}-${monthStr}` };
     } else if (year && year !== 'all') {
-      filter.date = { $regex: `^${year}-` };
+      requestedFilter.date = { $regex: `^${year}-` };
     }
 
     if (search && search.trim()) {
-      filter.description = { $regex: search.trim(), $options: 'i' };
+      requestedFilter.description = { $regex: search.trim(), $options: 'i' };
     }
+
+    let accessFilter = {};
+    if (isLeaderRole(req.user)) {
+      const visibleUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: true })
+      ).distinct('_id');
+      accessFilter = { user_id: { $in: visibleUserIds } };
+    } else if (req.user.role !== 'admin') {
+      accessFilter = { user_id: req.user._id };
+    }
+
+    const filter = combineUserFilters(accessFilter, requestedFilter);
 
     const expenses = await Expense.find(filter)
       .populate('user_id', 'full_name employee_code department_name department_id avatar_url phone email')
@@ -51,7 +70,10 @@ const getExpenses = async (req, res) => {
       .sort({ date: -1, created_at: -1 });
 
     // Tính toán KPIs trên toàn bộ tập dữ liệu (không bị ảnh hưởng bởi pagination)
-    const allExpenses = await Expense.find(year ? { date: { $regex: `^${year}-` } } : {}).lean();
+    const summaryDateFilter = year && year !== 'all' ? { date: { $regex: `^${year}-` } } : {};
+    const allExpenses = await Expense.find(
+      combineUserFilters(accessFilter, summaryDateFilter)
+    ).lean();
     
     let totalApprovedAmount = 0;
     let totalPendingAmount = 0;
@@ -131,8 +153,27 @@ const createExpense = async (req, res) => {
       payment_status: 'unpaid',
     });
 
-    // Thông báo chuông cho Quản trị viên
-    const admins = await User.find({ role: { $in: ['admin', 'manager', 'leader'] } }).select('_id');
+    // Thông báo cho Admin và Leader trực tiếp quản lý người gửi.
+    const employeeDepartmentIds = getDepartmentIds(req.user);
+    const leaderRelationships = [];
+    if (req.user.manager_id) leaderRelationships.push({ _id: req.user.manager_id });
+    if (employeeDepartmentIds.length > 0) {
+      leaderRelationships.push(
+        { department_ids: { $in: employeeDepartmentIds } },
+        { department_id: { $in: employeeDepartmentIds } }
+      );
+    }
+    const reviewerConditions = [{ role: 'admin' }];
+    if (leaderRelationships.length > 0) {
+      reviewerConditions.push({
+        role: { $in: ['leader', 'manager'] },
+        $or: leaderRelationships,
+      });
+    }
+    const admins = await User.find({
+      is_active: { $ne: false },
+      $or: reviewerConditions,
+    }).select('_id');
     for (const admin of admins) {
       if (String(admin._id) !== String(req.user._id)) {
         await Notification.create({
@@ -173,15 +214,18 @@ const updateExpense = async (req, res) => {
     const expense = await Expense.findById(id);
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
 
-    const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(req.user.role);
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
     const isOwner = String(expense.user_id) === String(req.user._id);
 
-    if (!isAdminOrLeader && !isOwner) {
-      return res.status(403).json({ error: 'Bạn không có quyền sửa khoản chi này.' });
-    }
-
-    if (!isAdminOrLeader && expense.approval_status !== 'pending') {
+    if (!isAdmin && expense.approval_status !== 'pending') {
       return res.status(400).json({ error: 'Không thể sửa khoản chi đã được phê duyệt hoặc thanh toán.' });
+    }
+    if (!isOwner && !isAdmin) {
+      const canManage = isLeader && await canManageUserId(req.user, expense.user_id);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Bạn không có quyền sửa khoản chi này.' });
+      }
     }
 
     if (date !== undefined) expense.date = date.trim();
@@ -213,15 +257,18 @@ const deleteExpense = async (req, res) => {
     const expense = await Expense.findById(id);
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
 
-    const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(req.user.role);
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
     const isOwner = String(expense.user_id) === String(req.user._id);
 
-    if (!isAdminOrLeader && !isOwner) {
-      return res.status(403).json({ error: 'Bạn không có quyền xóa khoản chi này.' });
-    }
-
-    if (!isAdminOrLeader && expense.approval_status !== 'pending') {
+    if (!isAdmin && expense.approval_status !== 'pending') {
       return res.status(400).json({ error: 'Không thể xóa khoản chi đã được phê duyệt hoặc thanh toán.' });
+    }
+    if (!isOwner && !isAdmin) {
+      const canManage = isLeader && await canManageUserId(req.user, expense.user_id);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Bạn không có quyền xóa khoản chi này.' });
+      }
     }
 
     await Expense.findByIdAndDelete(id);
@@ -245,6 +292,13 @@ const approveExpense = async (req, res) => {
 
     const expense = await Expense.findById(id).populate('user_id', 'full_name');
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
+    if (expense.payment_status === 'paid') {
+      return res.status(400).json({ error: 'Khoản chi đã hoàn ứng. Hãy chuyển về chưa hoàn ứng trước khi thay đổi kết quả duyệt.' });
+    }
+
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, expense.user_id?._id || expense.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được duyệt khoản chi của nhân sự thuộc nhóm mình quản lý.' });
+    }
 
     expense.approval_status = status;
     expense.approved_by = req.user._id;
@@ -290,11 +344,21 @@ const approveExpense = async (req, res) => {
 // PUT /api/expenses/:id/pay — Xác nhận đã chi trả / hoàn ứng tiền cho nhân viên (Admin only)
 const markAsPaid = async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ Admin mới có quyền xác nhận hoàn ứng.' });
+    }
+
     const { id } = req.params;
     const { payment_status = 'paid', payment_note } = req.body; // 'paid' | 'unpaid'
+    if (!['paid', 'unpaid'].includes(payment_status)) {
+      return res.status(400).json({ error: 'Trạng thái hoàn ứng không hợp lệ.' });
+    }
 
     const expense = await Expense.findById(id).populate('user_id', 'full_name');
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
+    if (payment_status === 'paid' && expense.approval_status !== 'approved') {
+      return res.status(400).json({ error: 'Chỉ được hoàn ứng sau khi khoản chi đã được phê duyệt.' });
+    }
 
     expense.payment_status = payment_status;
     if (payment_status === 'paid') {
@@ -345,6 +409,20 @@ const toggleVat = async (req, res) => {
     const { id } = req.params;
     const expense = await Expense.findById(id);
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
+
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
+    const isOwner = String(expense.user_id) === String(req.user._id);
+
+    if (!isAdmin && expense.approval_status !== 'pending') {
+      return res.status(400).json({ error: 'Không thể đổi trạng thái VAT của khoản chi đã được duyệt.' });
+    }
+    if (!isOwner && !isAdmin) {
+      const canManage = isLeader && await canManageUserId(req.user, expense.user_id);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Bạn không có quyền cập nhật hóa đơn VAT của khoản chi này.' });
+      }
+    }
 
     expense.has_vat_invoice = !expense.has_vat_invoice;
     await expense.save();

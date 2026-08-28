@@ -6,7 +6,7 @@ import ThemeToggle from './ThemeToggle';
 
 export default function HeaderActions() {
   return (
-    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+    <div className="header-actions-cluster" style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
       <NotificationCenter />
       <ThemeToggle />
     </div>

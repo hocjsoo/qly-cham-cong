@@ -1,9 +1,9 @@
 // src/pages/ReportPage.jsx
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, BarChart3, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, FileType, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -11,11 +11,10 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+import { downloadBlob } from '../utils/downloadBlob';
 
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
-
-const RANK_MEDALS = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 // Confirm Dialog Component
 function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = true, onConfirm, onCancel }) {
@@ -39,6 +38,19 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
   );
 }
 
+function normalizeMatrixData(data) {
+  const staffRows = Array.isArray(data?.staff_rows) ? data.staff_rows : [];
+
+  return {
+    ...(data || {}),
+    header_days: Array.isArray(data?.header_days) ? data.header_days : [],
+    staff_rows: staffRows.map(row => ({
+      ...row,
+      days: Array.isArray(row?.days) ? row.days : [],
+    })),
+  };
+}
+
 export default function ReportPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -60,11 +72,11 @@ export default function ReportPage() {
   // Data states
   const [report, setReport] = useState(null);
   const [trend, setTrend] = useState(null);
-  const [payroll, setPayroll] = useState(null);
-  const [ranking, setRanking] = useState(null);
+  const [, setPayroll] = useState(null);
+  const [, setRanking] = useState(null);
   const [matrixData, setMatrixData] = useState(null);
   const [individualDetail, setIndividualDetail] = useState(null);
-  const [selectedDetailUserId, setSelectedDetailUserId] = useState('');
+  const [selectedDetailUserId] = useState('');
   const [loading, setLoading] = useState(true);
 
   // Search & Filter state for Matrix View
@@ -80,19 +92,15 @@ export default function ReportPage() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [cellSymbol, setCellSymbol] = useState('x');
   const [cellOtHours, setCellOtHours] = useState(0);
-  const [cellCheckIn, setCellCheckIn] = useState('08:30');
-  const [cellCheckOut, setCellCheckOut] = useState('17:30');
   const [cellReason, setCellReason] = useState('');
   const [submittingCell, setSubmittingCell] = useState(false);
 
   // Audit Logs Modal State
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [, setLoadingLogs] = useState(false);
 
   // Unified Export Modal State
-  const timesheetRef = useRef(null);
-  const individualRef = useRef(null);
   const pdfMatrixPrintRef = useRef(null);
   const pdfIndividualPrintRef = useRef(null);
   const matrixTableScrollRef = useRef(null);
@@ -272,19 +280,12 @@ export default function ReportPage() {
     }
   }, [matrixScrollMetrics.showFloating]);
 
-  useEffect(() => {
-    // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
-    if (isAdmin || tab === 'timesheet_lock') {
-      loadTab();
-    }
-  }, [isAdmin, month, year, tab, selectedDetailUserId]);
-
-  const loadTab = async () => {
+  const loadTab = useCallback(async () => {
     setLoading(true);
     try {
       if (tab === 'timesheet_lock') {
         const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
-        setMatrixData(data);
+        setMatrixData(normalizeMatrixData(data));
       } else if (tab === 'overview' && isAdmin) {
         const [rRes, tRes] = await Promise.all([
           api.get(`/reports/monthly?month=${month}&year=${year}`),
@@ -305,7 +306,14 @@ export default function ReportPage() {
       }
     } catch { toast.error('Lỗi tải dữ liệu'); }
     finally { setLoading(false); }
-  };
+  }, [isAdmin, month, selectedDetailUserId, tab, year]);
+
+  useEffect(() => {
+    // Chỉ Admin mới xem các tab 2-5; Leader & Employee chỉ xem tab timesheet_lock
+    if (isAdmin || tab === 'timesheet_lock') {
+      loadTab();
+    }
+  }, [isAdmin, loadTab, tab]);
 
   const prevMonth = () => {
     setMobileWeekIndex(0);
@@ -398,14 +406,10 @@ export default function ReportPage() {
 
       toast.loading(`Đang tạo file Excel mẫu ET_Staff ${year}...`, { id: 'excel' });
       const response = await api.get(`/export/excel?month=${month}&year=${year}${queryUser ? `&user_id=${queryUser}` : ''}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      downloadBlob(
+        new Blob([response.data]),
+        `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}.xlsx`,
+      );
       toast.success('Đã tải file Excel Bảng Chấm Công thành công! 📊', { id: 'excel' });
       setShowExportModal(false);
     } catch {
@@ -533,11 +537,6 @@ export default function ReportPage() {
     toast.success('Đã tải file PDF bảng công về máy thành công! 📥');
   };
 
-  // In Bảng Chi Tiết Cá Nhân
-  const handlePrintIndividual = () => {
-    window.print();
-  };
-
   const indUser = individualDetail?.user || {};
   const indSum = individualDetail?.summary || {};
   const indLogs = individualDetail?.daily_logs || [];
@@ -554,7 +553,7 @@ export default function ReportPage() {
             <div className="header__title">Bảng chấm công nhân sự</div>
             <div className="header__subtitle">Theo dõi công, chuyên cần và OT toàn công ty · Tháng {month}/{year}</div>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             {isAdmin && (
               <button onClick={openExportDialog} disabled={generatingPdf} className="btn btn--primary" style={{ padding: '8px 16px', fontSize: '13px', gap: '6px' }}>
                 {generatingPdf ? <span className="spinner" /> : <><Download size={16} /> 📥 Xuất Bảng Công (PDF/Excel)</>}

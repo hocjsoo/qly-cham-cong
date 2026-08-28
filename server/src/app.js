@@ -5,6 +5,8 @@
 
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
@@ -17,9 +19,35 @@ app.set('trust proxy', 1);
 // ==============================================
 // MIDDLEWARE CƠ BẢN
 // ==============================================
+app.disable('x-powered-by');
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+app.use(compression());
+
+const normalizeOrigin = value => String(value || '').trim().replace(/\/$/, '');
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  ...(process.env.CORS_ORIGINS || '').split(','),
+  'https://qly-cham-cong.vercel.app',
+].map(normalizeOrigin).filter(Boolean);
+const allowedOrigins = new Set(configuredOrigins);
+
 app.use(cors({
-  origin: true,
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const normalized = normalizeOrigin(origin);
+    const isLocalDevelopment = process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalized);
+    if (allowedOrigins.has(normalized) || isLocalDevelopment) return callback(null, true);
+
+    const error = new Error('Nguồn truy cập không được phép bởi CORS.');
+    error.status = 403;
+    return callback(error);
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.use(express.json({ limit: '10mb' }));
@@ -39,12 +67,6 @@ const generalLimiter = rateLimit({
     req.ip === '::ffff:127.0.0.1' ||
     process.env.NODE_ENV !== 'production',
   message: { error: 'Quá nhiều yêu cầu từ IP này, thử lại sau 15 phút.' }
-});
-
-const checkInLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  message: { error: 'Thao tác quá nhanh, vui lòng chờ 1 phút.' }
 });
 
 app.use('/api', generalLimiter);
@@ -73,7 +95,7 @@ const expenseRoutes       = require('./routes/expense.routes');
 const ttsScheduleRoutes   = require('./routes/ttsSchedule.routes');
 
 app.use('/api/auth',          authRoutes);
-app.use('/api/attendance',    checkInLimiter, attendanceRoutes);
+app.use('/api/attendance',    attendanceRoutes);
 app.use('/api/requests',      requestRoutes);
 app.use('/api/dashboard',     dashboardRoutes);
 app.use('/api/users',         userRoutes);
@@ -137,8 +159,12 @@ if (fs.existsSync(indexPath)) {
 // ERROR HANDLER
 app.use((err, req, res, next) => {
   console.error('Lỗi server:', err.stack);
-  res.status(err.status || 500).json({
-    error: err.message || 'Lỗi server nội bộ',
+  const status = err.status || 500;
+  const publicMessage = status >= 500 && process.env.NODE_ENV === 'production'
+    ? 'Lỗi server nội bộ.'
+    : (err.message || 'Lỗi server nội bộ.');
+  res.status(status).json({
+    error: publicMessage,
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });

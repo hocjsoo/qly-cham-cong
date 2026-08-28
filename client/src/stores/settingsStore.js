@@ -3,11 +3,16 @@
 
 import { create } from 'zustand';
 import api from '../services/api';
-import { applyDynamicBranding } from '../utils/dynamicBranding';
+import {
+  applyDynamicBranding,
+  DEFAULT_COMPANY_LOGO_URL,
+  DEFAULT_COMPANY_NAME,
+  normalizeCompanyName,
+} from '../utils/dynamicBranding';
 
 const useSettingsStore = create((set, get) => ({
-  company_name: 'ET Architects',
-  company_logo_url: '',
+  company_name: DEFAULT_COMPANY_NAME,
+  company_logo_url: DEFAULT_COMPANY_LOGO_URL,
   settings: null,
   loading: false,
 
@@ -16,13 +21,13 @@ const useSettingsStore = create((set, get) => ({
       set({ loading: true });
       const { data } = await api.get('/settings');
       if (data) {
-        const companyName = data.company_name || 'ET Architects';
-        const logoUrl = data.company_logo_url || '';
+        const companyName = normalizeCompanyName(data.company_name);
+        const logoUrl = data.company_logo_url || DEFAULT_COMPANY_LOGO_URL;
 
         set({
           company_name: companyName,
           company_logo_url: logoUrl,
-          settings: data,
+          settings: { ...data, company_name: companyName, company_logo_url: logoUrl },
           loading: false,
         });
 
@@ -45,13 +50,13 @@ const useSettingsStore = create((set, get) => ({
   },
 
   updateSettingsState: (newSettings) => {
-    const companyName = newSettings.company_name || 'ET Architects';
-    const logoUrl = newSettings.company_logo_url || '';
+    const companyName = normalizeCompanyName(newSettings.company_name);
+    const logoUrl = newSettings.company_logo_url || DEFAULT_COMPANY_LOGO_URL;
 
     set({
       company_name: companyName,
       company_logo_url: logoUrl,
-      settings: newSettings,
+      settings: { ...newSettings, company_name: companyName, company_logo_url: logoUrl },
     });
 
     applyDynamicBranding(companyName, logoUrl);

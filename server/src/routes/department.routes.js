@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Department = require('../models/Department');
 const authMiddleware = require('../middlewares/authMiddleware');
+const { isLeaderRole, getDepartmentIds } = require('../utils/roleScope');
 
 router.use(authMiddleware);
 
@@ -48,6 +49,9 @@ router.put('/:id', async (req, res) => {
   }
   try {
     const { name, description } = req.body;
+    if (isLeaderRole(req.user) && !getDepartmentIds(req.user).includes(String(req.params.id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được sửa phòng ban mình quản lý.' });
+    }
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description.trim();

@@ -4,6 +4,10 @@ const Announcement = require('../models/Announcement');
 const User = require('../models/User');
 const Request = require('../models/Request');
 const Holiday = require('../models/Holiday');
+const {
+  isLeaderRole,
+  buildLeaderUserScope,
+} = require('../utils/roleScope');
 
 const TYPE_LABELS = {
   late: 'Đi muộn', early_leave: 'Về sớm', overtime: 'Tăng ca',
@@ -15,10 +19,21 @@ const getNotifications = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Tự động kiểm tra & đồng bộ đơn từ chưa có thông báo cho người dùng
-    const userRequests = await Request.find({
-      $or: [{ user_id: userId }, { status: 'pending' }]
-    }).populate('user_id', 'full_name').limit(20);
+    // Tự động đồng bộ đơn của chính người dùng và đơn chờ duyệt đúng phạm vi quản lý.
+    const requestConditions = [{ user_id: userId }];
+    if (req.user.role === 'admin') {
+      requestConditions.push({ status: 'pending' });
+    } else if (isLeaderRole(req.user)) {
+      const teamUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: false })
+      ).distinct('_id');
+      requestConditions.push({ status: 'pending', user_id: { $in: teamUserIds } });
+    }
+
+    const userRequests = await Request.find({ $or: requestConditions })
+      .populate('user_id', 'full_name')
+      .sort({ created_at: -1 })
+      .limit(30);
 
     for (const r of userRequests) {
       const typeLabel = TYPE_LABELS[r.type] || 'Đơn từ';
@@ -38,7 +53,7 @@ const getNotifications = async (req, res) => {
           { $setOnInsert: { user_id: userId, title: notifTitle, message: notifMsg, type: 'request', link: '/requests', is_read: false, created_at: r.created_at || new Date() } },
           { upsert: true }
         );
-      } else if (['admin', 'manager'].includes(req.user.role) && r.status === 'pending') {
+      } else if ((req.user.role === 'admin' || isLeaderRole(req.user)) && r.status === 'pending') {
         // Nếu user là Admin/Manager và có đơn chờ duyệt
         const senderName = r.user_id?.full_name || 'Nhân viên';
         const notifTitle = `📝 Đơn từ mới cần duyệt: ${senderName}`;
@@ -53,11 +68,15 @@ const getNotifications = async (req, res) => {
     }
 
     // Fetch notifications for user or broadcast (user_id = null)
-    let notifications = await Notification.find({
-      $or: [{ user_id: userId }, { user_id: null }],
+    const notifications = await Notification.find({
+      $and: [
+        { $or: [{ user_id: userId }, { user_id: null }] },
+        { $or: [{ expires_at: null }, { expires_at: { $gt: new Date() } }] },
+      ],
     })
       .sort({ created_at: -1 })
-      .limit(30);
+      .limit(30)
+      .lean();
 
     // Auto-enrich holiday announcement notifications with full Holiday note if missing
     try {
@@ -87,9 +106,17 @@ const getNotifications = async (req, res) => {
       // Non-blocking enrichment
     }
 
-    const unreadCount = notifications.filter(n => !n.is_read).length;
+    const formattedNotifications = notifications.map(notification => {
+      const isBroadcast = !notification.user_id;
+      const isRead = isBroadcast
+        ? (notification.read_by || []).some(readerId => String(readerId) === String(userId))
+        : Boolean(notification.is_read);
+      const { read_by, ...safeNotification } = notification;
+      return { ...safeNotification, is_read: isRead };
+    });
+    const unreadCount = formattedNotifications.filter(notification => !notification.is_read).length;
 
-    res.json({ notifications, unread_count: unreadCount });
+    res.json({ notifications: formattedNotifications, unread_count: unreadCount });
   } catch (error) {
     console.error('GetNotifications error:', error);
     res.status(500).json({ error: 'Lỗi lấy thông báo.' });
@@ -100,7 +127,23 @@ const getNotifications = async (req, res) => {
 const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-    await Notification.findByIdAndUpdate(id, { is_read: true });
+    const notification = await Notification.findOne({
+      _id: id,
+      $or: [{ user_id: req.user._id }, { user_id: null }],
+    });
+    if (!notification) {
+      return res.status(404).json({ error: 'Không tìm thấy thông báo.' });
+    }
+
+    if (notification.user_id) {
+      notification.is_read = true;
+      await notification.save();
+    } else {
+      await Notification.updateOne(
+        { _id: id, user_id: null },
+        { $addToSet: { read_by: req.user._id } }
+      );
+    }
     res.json({ message: 'Đã đánh dấu đã đọc' });
   } catch (error) {
     res.status(500).json({ error: 'Lỗi cập nhật thông báo.' });
@@ -111,10 +154,10 @@ const markAsRead = async (req, res) => {
 const markAllAsRead = async (req, res) => {
   try {
     const userId = req.user._id;
-    await Notification.updateMany(
-      { $or: [{ user_id: userId }, { user_id: null }], is_read: false },
-      { is_read: true }
-    );
+    await Promise.all([
+      Notification.updateMany({ user_id: userId, is_read: false }, { is_read: true }),
+      Notification.updateMany({ user_id: null }, { $addToSet: { read_by: userId } }),
+    ]);
     res.json({ message: 'Đã đánh dấu tất cả là đã đọc' });
   } catch (error) {
     res.status(500).json({ error: 'Lỗi cập nhật thông báo.' });
@@ -123,6 +166,10 @@ const markAllAsRead = async (req, res) => {
 
 // POST /api/notifications/broadcast — Admin phát thông báo cho toàn công ty
 const broadcastAnnouncement = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Admin mới có quyền phát thông báo toàn công ty.' });
+  }
+
   const { title, message, duration_days, expires_at } = req.body;
   if (!title || !message) {
     return res.status(400).json({ error: 'Tiêu đề và nội dung là bắt buộc.' });
@@ -162,6 +209,10 @@ const broadcastAnnouncement = async (req, res) => {
 // DELETE /api/notifications/:id - Xóa thông báo
 const deleteNotification = async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ Admin mới có quyền xóa thông báo hệ thống.' });
+    }
+
     const { id } = req.params;
     await Notification.findByIdAndDelete(id);
     res.json({ message: 'Đã xóa thông báo thành công' });

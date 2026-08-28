@@ -1,28 +1,15 @@
 // src/components/ThemeToggle.jsx
-// Nút chuyển Dark/Light mode — Lưu vào localStorage
+// Nút chuyển Dark/Light mode — dùng chung nguồn trạng thái toàn ứng dụng
 
-import { useState, useEffect } from 'react';
 import { Sun, Moon } from 'lucide-react';
-
-function getInitialTheme() {
-  const saved = localStorage.getItem('et-theme');
-  if (saved) return saved;
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
+import useThemeStore from '../stores/themeStore';
 
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState(getInitialTheme);
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('et-theme', theme);
-  }, [theme]);
-
-  const toggle = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+  const { theme, toggleTheme } = useThemeStore();
 
   return (
     <button
-      onClick={toggle}
+      onClick={toggleTheme}
       className="theme-toggle-btn"
       aria-label="Đổi giao diện sáng/tối"
       title={theme === 'dark' ? 'Chuyển sang sáng' : 'Chuyển sang tối'}

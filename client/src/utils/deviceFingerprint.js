@@ -46,10 +46,6 @@ export async function getDeviceFingerprint() {
   // 2. Persistent Device Identifier (Liên kết bổ sung qua Cookie/LocalStorage)
   const deviceId = getPersistentDeviceId();
 
-  const fullComponents = [`dev_id:${deviceId}`, ...pureComponents];
-  const fullRaw = fullComponents.join('|');
-  const hardware_uuid = simpleHash(fullRaw);
-
   return {
     fingerprint: pure_hardware_uuid,
     hardware_uuid: pure_hardware_uuid,

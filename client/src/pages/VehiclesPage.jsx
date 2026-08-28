@@ -3,11 +3,12 @@ import ImageLightbox from "../components/ImageLightbox";
 // Trang Quản Lý Phương Tiện & Gửi Xe (Tòa 17T10) — Chuyên Biệt Cho Admin & Leader
 
 import { useState, useEffect } from 'react';
-import { Search, Edit2, Download, Bike, Car, Building2, Phone, X, LayoutList, LayoutGrid, CheckCircle2, AlertCircle, Mail, Calendar, MapPin } from 'lucide-react';
+import { Search, Edit2, Download, Bike, Phone, X, LayoutList, LayoutGrid, Mail, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+import { downloadBlob } from '../utils/downloadBlob';
 
 const isCurrentlyWorking = (s) => {
   if (!s) return false;
@@ -38,7 +39,6 @@ const isCurrentlyWorking = (s) => {
 export default function VehiclesPage() {
   const { user: currentUser } = useAuthStore();
   const isAdmin = currentUser?.role === 'admin';
-  const isAdminOrManager = ['admin', 'leader', 'manager'].includes(currentUser?.role);
   const [staff, setStaff] = useState([]);
   const [depts, setDepts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,12 +129,7 @@ export default function VehiclesPage() {
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `DS_Gui_Xe_Toa_Nha_17T10_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `DS_Gui_Xe_Toa_Nha_17T10_${new Date().toISOString().slice(0, 10)}.csv`);
     toast.success('Đã xuất file nộp BQL Tòa 17T10 thành công! 📄');
   };
 
@@ -445,7 +440,6 @@ export default function VehiclesPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
             {filteredStaff.map(s => {
               const hasVehicle = Boolean(s.vehicle_info || s.license_plate);
-              const is17T10 = (s.parking_location || '').includes('17T10');
               const isNoVehicle = (s.parking_location || '').toLowerCase().includes('không');
               const isMine = String(s._id || s.id) === String(currentUser?._id);
 

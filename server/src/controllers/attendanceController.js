@@ -7,6 +7,11 @@ const DeviceSession = require('../models/DeviceSession');
 const DeviceRegistry = require('../models/DeviceRegistry');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const User = require('../models/User');
+const {
+  isLeaderRole,
+  buildLeaderUserScope,
+  canManageUserId,
+} = require('../utils/roleScope');
 
 // Helper tính khoảng cách GPS (Haversine)
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
@@ -567,27 +572,20 @@ const getHistory = async (req, res) => {
     const mode = req.query.mode || 'month';
 
     let userQueryFilter = { user_id: req.user._id };
-    const isLeaderOrAdmin = ['admin', 'leader', 'manager'].includes(req.user.role);
+    const isLeaderOrAdmin = req.user.role === 'admin' || isLeaderRole(req.user);
 
     if (isLeaderOrAdmin) {
       if (req.query.user_id && req.query.user_id !== 'all') {
+        if (isLeaderRole(req.user) && !(await canManageUserId(req.user, req.query.user_id, { allowSelf: true }))) {
+          return res.status(403).json({ error: 'Bạn chỉ được xem lịch sử chấm công của nhân sự thuộc nhóm mình quản lý.' });
+        }
         userQueryFilter = { user_id: req.query.user_id };
       } else {
         // Nếu là Leader / Manager và user_id là 'all' hoặc không truyền -> lấy toàn bộ nhân viên thuộc phòng ban
-        if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
-          const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
-            ? req.user.department_ids
-            : (req.user.department_id ? [req.user.department_id] : []);
-
-          const deptUsers = await User.find({
-            $or: [
-              { _id: req.user._id },
-              { department_ids: { $in: leaderDeptIds } },
-              { department_id: { $in: leaderDeptIds } }
-            ]
-          }).select('_id');
-
-          const userIds = deptUsers.map(u => u._id);
+        if (isLeaderRole(req.user)) {
+          const userIds = await User.find(
+            buildLeaderUserScope(req.user, { includeSelf: true })
+          ).distinct('_id');
           userQueryFilter = { user_id: { $in: userIds } };
         } else if (req.query.user_id === 'all') {
           // Admin xem tất cả nhân viên hệ thống
@@ -666,7 +664,20 @@ const getHistory = async (req, res) => {
 const getRecordByUserAndDate = async (req, res) => {
   const { user_id, date } = req.query;
   try {
-    const attendance = await Attendance.findOne({ user_id, date }).populate('user_id', 'full_name email');
+    if (!date) {
+      return res.status(400).json({ error: 'Ngày chấm công là bắt buộc.' });
+    }
+
+    const targetUserId = user_id || req.user._id;
+    const isSelf = String(targetUserId) === String(req.user._id);
+    if (!isSelf && req.user.role !== 'admin') {
+      const canView = isLeaderRole(req.user) && await canManageUserId(req.user, targetUserId);
+      if (!canView) {
+        return res.status(403).json({ error: 'Bạn không có quyền xem bản ghi chấm công này.' });
+      }
+    }
+
+    const attendance = await Attendance.findOne({ user_id: targetUserId, date }).populate('user_id', 'full_name email');
     res.json({ attendance });
   } catch (error) {
     res.status(500).json({ error: 'Lỗi tìm bản ghi chấm công.' });
@@ -838,18 +849,11 @@ const getFlaggedAttendance = async (req, res) => {
     let filter = {};
 
     // Phân quyền cho Leader: chỉ thấy nhân sự cùng phòng ban nếu không phải Admin
-    if (req.user.role === 'leader' || req.user.role === 'manager') {
-      const managedDeptIds = req.user.department_ids?.length ? req.user.department_ids : (req.user.department_id ? [req.user.department_id] : []);
-      if (managedDeptIds.length > 0) {
-        const teamUsers = await User.find({
-          $or: [
-            { department_id: { $in: managedDeptIds } },
-            { department_ids: { $in: managedDeptIds } }
-          ]
-        }).select('_id');
-        const teamUserIds = teamUsers.map(u => u._id);
-        filter.user_id = { $in: teamUserIds };
-      }
+    if (isLeaderRole(req.user)) {
+      const teamUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: false })
+      ).distinct('_id');
+      filter.user_id = { $in: teamUserIds };
     }
 
     if (status === 'pending_review' || status === 'pending') {
@@ -931,6 +935,10 @@ const verifyFlaggedAttendance = async (req, res) => {
     const attendance = await Attendance.findById(id);
     if (!attendance) {
       return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
+    }
+
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, attendance.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được xử lý ca cảnh báo của nhân sự thuộc nhóm mình quản lý.' });
     }
 
     if (action === 'approve') {

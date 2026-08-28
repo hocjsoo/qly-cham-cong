@@ -3,11 +3,13 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Send, Eye, Edit3, Users, ShieldAlert, Sparkles, CheckSquare, Square, Info, ShieldCheck, Search, Lock } from "lucide-react";
+import DOMPurify from "dompurify";
+import { Send, Eye, Edit3, Users, ShieldAlert, Sparkles, CheckSquare, Square, ShieldCheck, Search, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
 import useAuthStore from "../stores/authStore";
 import HeaderActions from "../components/HeaderActions";
+import { renderEmailPreviewHtml } from "../utils/emailPreview";
 
 const normalizeEmploymentStatus = value => String(value || "")
   .normalize("NFD")
@@ -272,52 +274,29 @@ export default function EmailsPage() {
     setSelectedRecipientIds(prev => prev.filter(x => !ids.has(x)));
   };
 
-  // Live HTML generation for preview (Architectural Frame)
-  const livePreviewHtml = useMemo(() => {
-    const mockVars = {
+  const livePreviewHtml = useMemo(() => renderEmailPreviewHtml({
+    subject,
+    body,
+    actionText,
+    actionUrl,
+    documentUrl,
+    footerText,
+    variables: {
       ho_ten: "Nguyễn Văn A",
       email: "nguyenvana@et-arc.com",
       chuc_vu: "Kiến trúc sư",
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
-    };
+    },
+  }), [subject, body, actionText, actionUrl, documentUrl, footerText]);
 
-    let renderedBody = body || "";
-    for (const [k, v] of Object.entries(mockVars)) {
-      renderedBody = renderedBody.replace(new RegExp("\\{" + k + "\\}", "gi"), v);
-    }
-    let cleanBody = renderedBody
-      .replace(/\\n/g, "<br>")
-      .replace(/\n/g, "<br>")
-      .replace(/\*\*(.*?)\*\*/g, "<strong style=\"color: #ffffff; font-weight: 800;\">$1</strong>");
-
-    // Parse [img: URL]
-    cleanBody = cleanBody.replace(/\[img:\s*([^\]]+)\]/gi, (match, url) => {
-      return "<div style=\"text-align: center; margin: 18px 0;\"><img src=\"" + url.trim() + "\" alt=\"Hình ảnh\" style=\"max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: inline-block; border: 1px solid #30353a;\" /></div>";
-    });
-
-    // Parse [button: Label | URL]
-    cleanBody = cleanBody.replace(/\[button:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, label, url) => {
-      return "<div style=\"text-align: center; margin: 24px 0 16px;\"><a href=\"" + url.trim() + "\" target=\"_blank\" style=\"display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(99,102,241,0.4); letter-spacing: -0.01em;\">" + label.trim() + "</a></div>";
-    });
-
-    // Parse [link: Text | URL]
-    cleanBody = cleanBody.replace(/\[link:\s*([^\|\]]+)(?:\||,)\s*([^\]]+)\]/gi, (match, text, url) => {
-      return "<a href=\"" + url.trim() + "\" target=\"_blank\" style=\"color: #818cf8; text-decoration: underline; font-weight: 700;\">" + text.trim() + "</a>";
-    });
-
-    let ctaButtons = "";
-    if (actionText && actionUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin: 28px 0 16px;\"><a href=\"" + actionUrl + "\" target=\"_blank\" style=\"display: inline-block; padding: 15px 36px; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: #ffffff !important; text-decoration: none; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 8px 24px rgba(99,102,241,0.4); letter-spacing: -0.01em;\">" + actionText + "</a></div>";
-    }
-
-    if (documentUrl) {
-      ctaButtons += "<div style=\"text-align: center; margin-top: 14px; margin-bottom: 20px;\"><a href=\"" + documentUrl + "\" target=\"_blank\" style=\"display: inline-block; color: #818cf8; text-decoration: none; font-size: 13px; font-weight: 700; background: rgba(99,102,241,0.12); padding: 9px 18px; border-radius: 10px; border: 1px solid rgba(99,102,241,0.28);\">📖 Xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết →</a></div>";
-    }
-
-    return "<div style=\"background-color: #0b0d0e; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px; color: #f2f3f3;\"><div style=\"max-width: 560px; margin: 0 auto; background: #16191c; border-radius: 18px; overflow: hidden; border: 1px solid #2d3238; box-shadow: 0 20px 60px rgba(0,0,0,0.65);\"><div style=\"background: linear-gradient(180deg, #181b1e 0%, #131618 100%); padding: 28px 22px 22px; text-align: center; border-bottom: 1px solid #282d33;\"><img src=\"/logo.png\" alt=\"Kiến trúc ET\" style=\"height: 54px; max-width: 180px; object-fit: contain; display: inline-block; margin-bottom: 8px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8)); border-radius: 8px;\" /><div style=\"color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;\">Kiến trúc ET</div><div style=\"color: #81888e; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;\">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div></div><div style=\"padding: 28px 24px;\">" + (subject ? "<h2 style=\"font-size: 18px; font-weight: 800; color: #f8fafc; margin: 0 0 18px; border-bottom: 1px solid #282d33; padding-bottom: 12px; line-height: 1.35;\">" + subject + "</h2>" : "") + "<div style=\"font-size: 14.5px; line-height: 1.85; color: #cbd5e1;\">" + cleanBody + "</div>" + ctaButtons + "</div><div style=\"background: #111315; padding: 18px 24px; border-top: 1px solid #24282c; text-align: center; font-size: 11.5px; color: #81888e; line-height: 1.6;\">" + (footerText ? "<div style=\"font-weight: 800; color: #e2e8f0; margin-bottom: 4px; font-size: 12.5px;\">" + footerText + "</div>" : "") + "<div><strong style=\"color: #cbd5e1;\">Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div><div style=\"margin-top: 4px; color: #64748b; font-size: 10.5px;\">Thư được gửi tự động từ hệ thống ET Office Portal.</div></div></div></div>";
-  }, [subject, body, actionText, actionUrl, documentUrl, footerText]);
+  const safePreviewHtml = useMemo(() => DOMPurify.sanitize(livePreviewHtml, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ["target", "rel"],
+    ADD_DATA_URI_TAGS: ["img"],
+    FORBID_TAGS: ["script", "iframe", "object", "embed", "form"],
+  }), [livePreviewHtml]);
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes("@")) {
@@ -403,7 +382,7 @@ export default function EmailsPage() {
               Quản lý truyền thông nội bộ · Bàn giao tài khoản & Thông báo chính thức qua Gmail SMTP
             </div>
           </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <div className="page-header-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <HeaderActions />
           </div>
         </div>
@@ -430,12 +409,12 @@ export default function EmailsPage() {
           </div>
 
           <div style={{ fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
-            <ShieldCheck size={14} color="var(--green)" /> Tự động thay đổi tên, chức vụ, mật khẩu theo từng nhân sự
+            <ShieldCheck size={14} color="var(--green)" /> Tự động cá nhân hóa tên, email, chức vụ và phòng ban theo từng nhân sự
           </div>
         </div>
 
         {/* 2-Column Split Workspace (Desktop: Side-by-Side | Mobile: Stacked) */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px", alignItems: "start", marginBottom: "20px" }}>
+        <div className="email-workspace-grid">
           {/* Column 1: Editor */}
           <div className="card" style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "12px", borderBottom: "1px solid var(--border)" }}>
@@ -573,14 +552,14 @@ export default function EmailsPage() {
                   className="form-input"
                   value={footerText}
                   onChange={e => setFooterText(e.target.value)}
-                  placeholder="VD: Ban Giám Đốc ET Architects"
+                  placeholder="VD: Ban Giám Đốc Kiến trúc ET"
                 />
               </div>
             </div>
           </div>
 
           {/* Column 2: Live Preview & Test Dispatch */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px", position: "sticky", top: "80px" }}>
+          <div className="email-preview-column">
             <div className="card" style={{ padding: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "10px", borderBottom: "1px solid var(--border)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -591,8 +570,8 @@ export default function EmailsPage() {
               </div>
 
               {/* Rendered HTML Container */}
-              <div style={{ maxHeight: "500px", overflowY: "auto", borderRadius: "14px", border: "1px solid var(--border)", background: "#f1f0eb", padding: "12px" }}>
-                <div dangerouslySetInnerHTML={{ __html: livePreviewHtml }} />
+              <div className="email-preview-scroll">
+                <div dangerouslySetInnerHTML={{ __html: safePreviewHtml }} />
               </div>
             </div>
 
@@ -601,21 +580,21 @@ export default function EmailsPage() {
               <div style={{ fontSize: "12.5px", fontWeight: 700, color: "var(--text)", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
                 <Send size={15} color="var(--primary)" /> Gửi Thử Nghiệm Trước Khi Gửi Thật (Test First):
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div className="email-test-row">
                 <input
                   type="email"
                   className="form-input"
                   value={testEmail}
                   onChange={e => setTestEmail(e.target.value)}
                   placeholder="Nhập Gmail bất kỳ để nhận thử..."
-                  style={{ fontSize: "13px" }}
+                  style={{ fontSize: "13px", minWidth: 0, flex: "1 1 180px" }}
                 />
                 <button
                   type="button"
                   onClick={handleSendTestEmail}
                   disabled={sendingTest || !testEmail}
                   className="btn btn--ghost"
-                  style={{ fontSize: "12.5px", whiteSpace: "nowrap", flexShrink: 0, fontWeight: 700, padding: "0 16px" }}
+                  style={{ fontSize: "12.5px", whiteSpace: "nowrap", flex: "1 1 140px", fontWeight: 700, padding: "0 16px" }}
                 >
                   {sendingTest ? <span className="spinner" /> : <><Send size={14} /> Gửi Thử Ngay</>}
                 </button>

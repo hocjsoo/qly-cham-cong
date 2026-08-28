@@ -2,9 +2,8 @@ import ImageLightbox from "../components/ImageLightbox";
 // client/src/pages/ProjectsPage.jsx
 // Quản Lý Dự Án / Công Trình — Khớp 100% Mẫu Bảng Excel THÔNG TIN NS+DA
 
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, Search, Edit2, Trash2, FolderKanban, Table2, LayoutList, LayoutGrid, X, Phone, Mail, Calendar, MapPin, Bike, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Edit2, Trash2, FolderKanban, LayoutList, LayoutGrid, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -840,8 +839,6 @@ export default function ProjectsPage() {
                           const foundPm = (p.pm_id && p.pm_id.full_name)
                             ? p.pm_id
                             : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'PM' });
-                          const pmInitials = (foundPm.full_name || 'PM').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
-
                           return (
                             <div
                               onClick={(e) => {
@@ -1062,8 +1059,6 @@ export default function ProjectsPage() {
                         const foundPm = (p.pm_id && p.pm_id.full_name)
                           ? p.pm_id
                           : (staffList.find(s => s.full_name === p.pm_name) || { full_name: p.pm_name, position: 'PM' });
-                        const pmInitials = (foundPm.full_name || 'PM').split(' ').slice(-2).map(n => n[0]).join('').toUpperCase();
-
                         return (
                           <div
                             onClick={(e) => {

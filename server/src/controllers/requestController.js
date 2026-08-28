@@ -5,6 +5,12 @@ const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval, revertLeaveOnUndo } = require('./leaveBalanceController');
+const {
+  isLeaderRole,
+  getDepartmentIds,
+  buildLeaderUserScope,
+  canManageUserId,
+} = require('../utils/roleScope');
 
 const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'];
 
@@ -113,8 +119,29 @@ const createRequest = async (req, res) => {
       attachment_url: attachment_url || null,
     });
 
-    // Gửi thông báo đến tất cả Admin & Trưởng phòng để duyệt đơn
-    const managers = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id');
+    // Chỉ gửi đến Admin và Leader trực tiếp quản lý nhân sự này.
+    const employeeDepartmentIds = getDepartmentIds(req.user);
+    const leaderRelationships = [];
+    if (req.user.manager_id) leaderRelationships.push({ _id: req.user.manager_id });
+    if (employeeDepartmentIds.length > 0) {
+      leaderRelationships.push(
+        { department_ids: { $in: employeeDepartmentIds } },
+        { department_id: { $in: employeeDepartmentIds } }
+      );
+    }
+
+    const reviewerConditions = [{ role: 'admin' }];
+    if (leaderRelationships.length > 0) {
+      reviewerConditions.push({
+        role: { $in: ['leader', 'manager'] },
+        $or: leaderRelationships,
+      });
+    }
+
+    const managers = await User.find({
+      is_active: { $ne: false },
+      $or: reviewerConditions,
+    }).select('_id');
     const senderName = req.user.full_name || 'Nhân viên';
     
     for (const m of managers) {
@@ -123,8 +150,8 @@ const createRequest = async (req, res) => {
           ? `🛵 Yêu cầu đổi thông tin xe: ${senderName}`
           : `📝 Đơn từ mới cần duyệt: ${senderName}`;
         const notifMsg = type === 'vehicle_update'
-          ? `${senderName} đề xuất đổi thông tin xe sang: [${proposed_vehicle_info || 'Không xe'} - ${proposed_parking_location || '17T10'}]. Lý do: "${reason.trim()}"`
-          : `${senderName} vừa gửi đơn "${TYPE_LABELS[type]}" ngày ${start_date}. Lý do: "${reason.trim()}"`;
+          ? `${senderName} đề xuất đổi thông tin xe sang: [${proposed_vehicle_info || 'Không xe'} - ${proposed_parking_location || '17T10'}]. Lý do: "${finalReason}"`
+          : `${senderName} vừa gửi đơn "${TYPE_LABELS[type]}" ngày ${start_date}. Lý do: "${finalReason}"`;
 
         await Notification.create({
           user_id: m._id,
@@ -201,17 +228,9 @@ const getPendingRequests = async (req, res) => {
         .populate(userPopulateConfig)
         .sort({ created_at: -1 });
     } else {
-      const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
-        ? req.user.department_ids
-        : (req.user.department_id ? [req.user.department_id] : []);
-
-      const teamUserIds = await User.find({
-        $or: [
-          { manager_id: req.user._id },
-          { department_ids: { $in: leaderDeptIds } },
-          { department_id: { $in: leaderDeptIds } }
-        ]
-      }).distinct('_id');
+      const teamUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: false })
+      ).distinct('_id');
 
       requests = await Request.find({ ...filter, user_id: { $in: teamUserIds } })
         .populate(userPopulateConfig)
@@ -254,9 +273,8 @@ const approveRequest = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy đơn hoặc đơn đã được xử lý.' });
     }
 
-    const requestUser = await User.findById(request.user_id);
-    if (['leader', 'manager'].includes(req.user.role) && requestUser?.role === 'admin') {
-      return res.status(403).json({ error: 'Leader không có quyền duyệt đơn của Admin.' });
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, request.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được duyệt đơn của nhân sự thuộc nhóm mình quản lý.' });
     }
 
     request.status = 'approved';
@@ -465,9 +483,8 @@ const rejectRequest = async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy đơn hoặc đơn đã được xử lý.' });
     }
 
-    const requestUser = await User.findById(request.user_id);
-    if (['leader', 'manager'].includes(req.user.role) && requestUser?.role === 'admin') {
-      return res.status(403).json({ error: 'Leader không có quyền từ chối đơn của Admin.' });
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, request.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được từ chối đơn của nhân sự thuộc nhóm mình quản lý.' });
     }
 
     request.status = 'rejected';
@@ -513,10 +530,12 @@ const revertRequest = async (req, res) => {
     }
 
     const isOwner = request.user_id.toString() === req.user._id.toString();
-    const isAdminOrLeader = ['admin', 'manager', 'leader'].includes(req.user.role);
-
-    if (!isOwner && !isAdminOrLeader) {
-      return res.status(403).json({ error: 'Bạn không có quyền hoàn tác đơn này.' });
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      const canManage = isLeaderRole(req.user) && await canManageUserId(req.user, request.user_id);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Bạn không có quyền hoàn tác đơn này.' });
+      }
     }
 
     // Nếu đơn trước đó đã được approved: hoàn nguyên ngày phép và điểm danh
@@ -618,15 +637,18 @@ const deleteRequest = async (req, res) => {
 
     const isOwner = request.user_id.toString() === req.user._id.toString();
     const isAdmin = req.user.role === 'admin';
-    const isLeader = ['manager', 'leader'].includes(req.user.role);
+    const isLeader = isLeaderRole(req.user);
 
     // Nhân viên chỉ được xóa đơn của mình khi chưa duyệt (pending hoặc cancelled)
     if (isOwner && !isAdmin && !isLeader && request.status === 'approved') {
       return res.status(403).json({ error: 'Không thể xóa đơn đã được duyệt. Vui lòng liên hệ Quản lý để hoàn tác trước.' });
     }
 
-    if (!isOwner && !isAdmin && !isLeader) {
-      return res.status(403).json({ error: 'Bạn không có quyền xóa đơn này.' });
+    if (!isOwner && !isAdmin) {
+      const canManage = isLeader && await canManageUserId(req.user, request.user_id);
+      if (!canManage) {
+        return res.status(403).json({ error: 'Bạn không có quyền xóa đơn này.' });
+      }
     }
 
     // Nếu đơn đang approved bị xóa bởi Admin/Leader: Hoàn nguyên ngày phép và attendance

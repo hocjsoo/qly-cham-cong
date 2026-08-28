@@ -3,6 +3,11 @@ const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const Request = require('../models/Request');
 const Project = require('../models/Project');
+const {
+  isLeaderRole,
+  buildLeaderUserScope,
+  combineUserFilters,
+} = require('../utils/roleScope');
 
 // GET /api/dashboard/today
 const getTodaySummary = async (req, res) => {
@@ -10,21 +15,14 @@ const getTodaySummary = async (req, res) => {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
     // Filter users (Chỉ lấy nhân viên cần điểm danh đang làm việc, bỏ qua người miễn chấm công / đã nghỉ việc / nghỉ thai sản / nghỉ ốm / khác)
-    let userFilter = {
+    const activeUserFilter = {
       is_active: { $ne: false },
       is_attendance_exempt: { $ne: true },
       employment_status: { $nin: ['Đã nghỉ việc', 'Da nghi viec', 'Nghỉ ốm', 'Nghỉ thai sản', 'Khác'] }
     };
-    if (['leader', 'manager'].includes(req.user.role) && req.user.role !== 'admin') {
-      const leaderDeptIds = (req.user.department_ids && req.user.department_ids.length > 0)
-        ? req.user.department_ids
-        : (req.user.department_id ? [req.user.department_id] : []);
-      userFilter.$or = [
-        { manager_id: req.user._id },
-        { department_ids: { $in: leaderDeptIds } },
-        { department_id: { $in: leaderDeptIds } }
-      ];
-    }
+    const userFilter = isLeaderRole(req.user)
+      ? combineUserFilters(activeUserFilter, buildLeaderUserScope(req.user, { includeSelf: true }))
+      : activeUserFilter;
 
     const users = await User.find(userFilter)
       .select('full_name email role department_id department_ids avatar_url employee_code phone')
@@ -136,8 +134,10 @@ const getPendingCount = async (req, res) => {
     let pendingCount = 0;
     if (req.user.role === 'admin') {
       pendingCount = await Request.countDocuments({ status: 'pending' });
-    } else {
-      const teamUserIds = await User.find({ manager_id: req.user._id }).distinct('_id');
+    } else if (isLeaderRole(req.user)) {
+      const teamUserIds = await User.find(
+        buildLeaderUserScope(req.user, { includeSelf: false })
+      ).distinct('_id');
       pendingCount = await Request.countDocuments({ status: 'pending', user_id: { $in: teamUserIds } });
     }
 

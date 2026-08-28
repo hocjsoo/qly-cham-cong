@@ -1,4 +1,7 @@
 // ==============================================
+
+const ExcelJS = require('exceljs');
+const exportController = require('../../src/controllers/exportController');
 // tests/unit/exportCalculations.test.js
 // Kiểm thử Công cụ Xuất Báo cáo Excel & Ánh xạ Ký hiệu Bảng công
 // ==============================================
@@ -59,7 +62,7 @@ function aggregateMonthlyStaffTimesheet(dailyRecords) {
   };
 }
 
-function runExportTests(assert) {
+async function runExportTests(assert) {
   console.log('\n📑 [TEST SUITE: EXCEL EXPORT & SUMMARY CALCULATIONS]');
 
   // TC-EXP-01: Ánh xạ ký hiệu theo số giờ công làm việc
@@ -92,6 +95,60 @@ function runExportTests(assert) {
   assert(summary.wfh === 1 && summary.ct_domestic === 1 && summary.annual_leave === 1 && summary.unpaid_leave === 1,
     'TC-EXP-03.2: Đúng 1 ngày WFH, 1 CT1, 1 phép năm (P), 1 nghỉ không lương (KL)');
   assert(summary.totalWorkingDays === 5.5, 'TC-EXP-03.3: Tổng công hưởng lương tính cả phép & WFH = 5.5 ngày công');
+
+  const workbookInput = {
+    users: [{
+      _id: 'u1',
+      employee_code: 'NS-001',
+      full_name: 'Nhân viên Test',
+      position: 'KTS',
+      role: 'employee',
+      email: 'test@example.com',
+      phone: '0900000000',
+      department_id: { name: 'Thiết kế' },
+      cccd: '012345678901',
+      bank_account: '123456789',
+      bhxh_code: 'BHXH-001',
+    }],
+    attendances: [{ user_id: 'u1', date: '2026-08-01', total_hours: 8, work_units: 1 }],
+    month: 8,
+    year: 2026,
+  };
+
+  const leaderWorkbook = exportController.__test.buildAttendanceWorkbook({
+    ...workbookInput,
+    includeSensitive: false,
+  });
+  const leaderDirectory = leaderWorkbook.getWorksheet('Danh Bạ Nhóm');
+  const leaderHeaders = leaderDirectory.getRow(1).values.map(String);
+  assert(
+    leaderWorkbook.worksheets.length === 2 &&
+      leaderDirectory &&
+      !leaderHeaders.includes('CCCD') &&
+      !leaderHeaders.includes('STK') &&
+      !leaderHeaders.includes('MÃ BHXH'),
+    'TC-EXP-04: File Leader chỉ có danh bạ nhóm, không chứa CCCD/ngân hàng/BHXH'
+  );
+
+  const buffer = Buffer.from(await leaderWorkbook.xlsx.writeBuffer());
+  const loadedWorkbook = new ExcelJS.Workbook();
+  await loadedWorkbook.xlsx.load(buffer);
+  assert(
+    buffer.subarray(0, 2).toString() === 'PK' &&
+      loadedWorkbook.worksheets.length === 2 &&
+      loadedWorkbook.getWorksheet('Chấm Công ET_Staff'),
+    'TC-EXP-05: Workbook ExcelJS tạo file XLSX ZIP hợp lệ và đọc lại được'
+  );
+
+  const adminWorkbook = exportController.__test.buildAttendanceWorkbook({
+    ...workbookInput,
+    includeSensitive: true,
+  });
+  const adminHeaders = adminWorkbook.getWorksheet('Thông Tin Nhân Sự').getRow(1).values.map(String);
+  assert(
+    adminHeaders.includes('CCCD') && adminHeaders.includes('STK') && adminHeaders.includes('MÃ BHXH'),
+    'TC-EXP-06: File Admin giữ đúng sheet nhân sự nhạy cảm theo quyền quản trị'
+  );
 }
 
 module.exports = runExportTests;

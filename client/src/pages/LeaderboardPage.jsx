@@ -2,15 +2,14 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/LeaderboardPage.jsx
 // Bảng Xếp Hạng & Vinh Danh Đa Chiều — Podium Top 3, Bảng danh sách 100% nhân sự, Sticky My Rank, Lọc Ngày/Tháng/Năm/All
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Trophy, Flame, Clock, Zap, Calendar, User, Sparkles,
-  ChevronRight, Award, Crown, Medal, Search, Filter, ArrowUp,
-  X, Phone, Mail, Building2, ShieldCheck, MapPin, Bike
+  Trophy, Flame, Clock, Zap, Calendar,
+  ChevronRight, Crown, Search,
+  X, Phone, Mail, MapPin, Bike
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 
 const TIMEFRAMES = [
@@ -65,7 +64,6 @@ const getWeekRange = (baseDateStr) => {
 };
 
 export default function LeaderboardPage() {
-  const { user } = useAuthStore();
   const [timeframe, setTimeframe] = useState('today');
   const [category, setCategory] = useState('early_bird');
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
@@ -82,22 +80,14 @@ export default function LeaderboardPage() {
 
   const myRowRef = useRef(null);
 
-  useEffect(() => {
-    loadDepartments();
-  }, []);
-
-  useEffect(() => {
-    loadLeaderboard();
-  }, [timeframe, category, selectedDate, selectedWeekDate, month, year, departmentId]);
-
-  const loadDepartments = async () => {
+  const loadDepartments = useCallback(async () => {
     try {
       const { data: deptList } = await api.get('/departments');
       if (Array.isArray(deptList)) setDepartments(deptList);
     } catch {}
-  };
+  }, []);
 
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -126,7 +116,15 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category, departmentId, month, selectedDate, selectedWeekDate, timeframe, year]);
+
+  useEffect(() => {
+    loadDepartments();
+  }, [loadDepartments]);
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, [loadLeaderboard]);
 
   const scrollToMyRank = () => {
     if (myRowRef.current) {

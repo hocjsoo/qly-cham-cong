@@ -30,6 +30,10 @@ const notificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    read_by: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
     expires_at: {
       type: Date,
       default: null,

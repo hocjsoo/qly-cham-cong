@@ -2,16 +2,16 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/ExpensesPage.jsx
 // Quản lý Bảng Tổng Hợp Chi Tiêu & Hoàn Ứng Cty — Chuẩn theo mẫu Google Sheets
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Plus, Search, Download, Check, X, Clock, CheckCircle2, XCircle, CreditCard,
-  Receipt, DollarSign, Calendar, User, Eye, Edit2, Trash2, Camera, AlertCircle,
-  LayoutList, LayoutGrid, Filter, ArrowUpRight, ShieldCheck, RefreshCw
+  Plus, Search, Download, Check, X, CreditCard,
+  Trash2, Camera, LayoutList, LayoutGrid
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+import { downloadBlob } from '../utils/downloadBlob';
 
 const formatVND = (amount) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -26,6 +26,7 @@ const formatDate = (isoDate) => {
 
 export default function ExpensesPage() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const [expenses, setExpenses] = useState([]);
@@ -69,12 +70,7 @@ export default function ExpensesPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    loadData();
-    loadStaffList();
-  }, [filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -94,14 +90,24 @@ export default function ExpensesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search]);
 
-  const loadStaffList = async () => {
+  const loadStaffList = useCallback(async () => {
     try {
       const { data } = await api.get('/users');
       if (Array.isArray(data)) setStaffList(data);
     } catch {}
-  };
+  }, []);
+
+  useEffect(() => {
+    const delay = search.trim() ? 300 : 0;
+    const timer = window.setTimeout(loadData, delay);
+    return () => window.clearTimeout(timer);
+  }, [loadData, search]);
+
+  useEffect(() => {
+    loadStaffList();
+  }, [loadStaffList]);
 
   const handleImageCapture = (e) => {
     const file = e.target.files?.[0];
@@ -185,6 +191,10 @@ export default function ExpensesPage() {
   };
 
   const handleMarkPaid = async (expenseId, currentStatus) => {
+    if (!isAdmin) {
+      toast.error('Chỉ Admin mới có quyền xác nhận hoàn ứng');
+      return;
+    }
     const nextStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
     try {
       await api.put(`/expenses/${expenseId}/pay`, {
@@ -281,12 +291,7 @@ export default function ExpensesPage() {
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "Bang_Ke_Chi_Tieu_Hoan_Ung_ET_" + new Date().toISOString().slice(0, 10) + ".csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, "Bang_Ke_Chi_Tieu_Hoan_Ung_ET_" + new Date().toISOString().slice(0, 10) + ".csv");
     toast.success("Đã xuất bảng chi tiêu hoàn ứng thành công! 📄");
   };
 
@@ -309,7 +314,7 @@ export default function ExpensesPage() {
             <div className="header__title">Bảng Tổng Hợp Chi Tiêu & Hoàn Ứng</div>
             <div className="header__subtitle">Theo dõi & thanh toán các khoản chi hộ công ty</div>
           </div>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <div className="page-header-actions" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button
               onClick={() => setShowCreateModal(true)}
               className="btn btn--primary"
@@ -665,7 +670,7 @@ export default function ExpensesPage() {
                               </>
                             )}
 
-                            {isApproved && (
+                            {isApproved && isAdmin && (
                               <button
                                 onClick={() => handleMarkPaid(exp._id, exp.payment_status)}
                                 className="btn btn--ghost"
@@ -759,7 +764,7 @@ export default function ExpensesPage() {
                           </button>
                         </>
                       )}
-                      {isApproved && (
+                      {isApproved && isAdmin && (
                         <button
                           onClick={() => handleMarkPaid(exp._id, exp.payment_status)}
                           className="btn btn--ghost btn--full"

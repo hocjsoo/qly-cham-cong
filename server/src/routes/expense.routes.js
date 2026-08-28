@@ -33,7 +33,7 @@ router.delete('/:id', deleteExpense);
 router.put('/:id/approve', requireRole('admin', 'manager'), approveExpense);
 
 // Xác nhận đã chuyển khoản hoàn ứng (Admin only)
-router.put('/:id/pay', requireRole('admin', 'manager'), markAsPaid);
+router.put('/:id/pay', requireRole('admin'), markAsPaid);
 
 // Đổi trạng thái hóa đơn VAT (Admin hoặc Chủ khoản chi)
 router.put('/:id/vat', toggleVat);

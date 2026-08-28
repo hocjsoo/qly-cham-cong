@@ -1,5 +1,6 @@
 // routes/attendance.routes.js
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const {
   checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
@@ -8,14 +9,23 @@ const {
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
 
+const attendanceActionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: req => process.env.NODE_ENV !== 'production' || ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.ip),
+  message: { error: 'Thao tác chấm công quá nhanh, vui lòng chờ 1 phút.' },
+});
+
 // Tất cả routes cần authMiddleware
 router.use(authMiddleware);
 
 // POST /api/attendance/checkin
-router.post('/checkin', checkIn);
+router.post('/checkin', attendanceActionLimiter, checkIn);
 
 // POST /api/attendance/checkout
-router.post('/checkout', checkOut);
+router.post('/checkout', attendanceActionLimiter, checkOut);
 
 // GET /api/attendance/today
 router.get('/today', getTodayStatus);

@@ -12,7 +12,7 @@ router.use(authMiddleware);
 router.get('/', getNotifications);
 router.put('/:id/read', markAsRead);
 router.post('/read-all', markAllAsRead);
-router.post('/broadcast', requireRole('admin', 'manager'), broadcastAnnouncement);
-router.delete('/:id', requireRole('admin', 'manager'), deleteNotification);
+router.post('/broadcast', requireRole('admin'), broadcastAnnouncement);
+router.delete('/:id', requireRole('admin'), deleteNotification);
 
 module.exports = router;

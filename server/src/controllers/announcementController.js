@@ -188,8 +188,11 @@ const updateAnnouncement = async (req, res) => {
     if (expires_at !== undefined) updateData.expires_at = expires_at ? new Date(expires_at) : null;
     if (is_active !== undefined) updateData.is_active = is_active;
 
-    let ann = await Announcement.findByIdAndUpdate(req.params.id, updateData, { new: true });
-    if (!ann) {
+    const announcementFilter = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, created_by: req.user._id };
+    let ann = await Announcement.findOneAndUpdate(announcementFilter, updateData, { new: true });
+    if (!ann && req.user.role === 'admin') {
       // Thử cập nhật trong bảng Notification nếu là Broadcast notification
       const notif = await Notification.findByIdAndUpdate(req.params.id, {
         ...(title !== undefined && { title }),
@@ -319,9 +322,15 @@ const getAnniversaries = async (req, res) => {
 // DELETE /api/announcements/:id
 const deleteAnnouncement = async (req, res) => {
   try {
-    let ann = await Announcement.findByIdAndDelete(req.params.id);
-    if (!ann) {
+    const announcementFilter = req.user.role === 'admin'
+      ? { _id: req.params.id }
+      : { _id: req.params.id, created_by: req.user._id };
+    const ann = await Announcement.findOneAndDelete(announcementFilter);
+    if (!ann && req.user.role === 'admin') {
       await Notification.findByIdAndDelete(req.params.id);
+    }
+    if (!ann && req.user.role !== 'admin') {
+      return res.status(404).json({ error: 'Không tìm thấy thông báo do bạn tạo.' });
     }
     res.json({ message: 'Đã xóa / gỡ thông báo thành công! ✅' });
   } catch (error) {

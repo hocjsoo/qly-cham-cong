@@ -5,9 +5,9 @@ const systemSettingSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, unique: true, default: 'global' },
     // Thông tin công ty
-    company_name: { type: String, default: 'ET Architects' },
-    company_logo_url: { type: String, default: null },
-    // Ca làm việc chuẩn ET Architects (09:00 - 18:30)
+    company_name: { type: String, default: 'Kiến trúc ET' },
+    company_logo_url: { type: String, default: '/logo.png' },
+    // Ca làm việc chuẩn Kiến trúc ET (09:00 - 18:30)
     work_start_time: { type: String, default: '09:00' },       // Giờ vào chuẩn
     work_end_time: { type: String, default: '18:30' },         // Giờ về chuẩn
     lunch_break_start: { type: String, default: '12:00' },     // Giờ nghỉ trưa

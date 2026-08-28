@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight, Lock } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import useAuthStore from '../stores/authStore';
 import useSettingsStore from '../stores/settingsStore';
@@ -16,7 +16,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [fetchSettings]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
