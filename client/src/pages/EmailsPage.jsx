@@ -2,6 +2,7 @@
 // Trang Soạn & Gửi Email Tùy Chỉnh Toàn Màn Hình (2 Cột Soạn Thảo & Live Preview Song Song) — Admin Only
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Mail, Send, Eye, Edit3, Check, Users, ShieldAlert, Sparkles, FileText, CheckSquare, Square, RefreshCw, Link as LinkIcon, ExternalLink, ArrowRight, Info, ShieldCheck, Search, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
@@ -100,6 +101,7 @@ export default function EmailsPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const imageInputRef = useRef(null);
+  const confirmDialogRef = useRef(null);
 
   const handleSelectImageFile = (e) => {
     const file = e.target.files?.[0];
@@ -146,6 +148,27 @@ export default function EmailsPage() {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!showConfirmModal) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowConfirmModal(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    requestAnimationFrame(() => {
+      confirmDialogRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      confirmDialogRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showConfirmModal]);
 
   const fetchInitialData = async () => {
     try {
@@ -783,27 +806,36 @@ export default function EmailsPage() {
         </div>
 
         {/* Confirmation Modal */}
-        {showConfirmModal && (
-          <div className="modal-overlay" style={{ zIndex: 1000003 }} onClick={() => setShowConfirmModal(false)}>
-            <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: "440px", margin: "auto", padding: "24px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+        {showConfirmModal && createPortal(
+          <div className="email-confirm-overlay" onClick={() => setShowConfirmModal(false)}>
+            <div
+              ref={confirmDialogRef}
+              className="email-confirm-dialog animate-slide-up"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="email-confirm-title"
+              tabIndex={-1}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="email-confirm-dialog__header">
                 <ShieldAlert size={28} color="var(--primary)" />
-                <h3 style={{ fontSize: "17px", fontWeight: 800, margin: 0 }}>Xác nhận gửi Email hàng loạt</h3>
+                <h3 id="email-confirm-title">Xác nhận gửi Email hàng loạt</h3>
               </div>
-              <p style={{ fontSize: "13.5px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "18px" }}>
+              <div className="email-confirm-dialog__message">
                 Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua Gmail SMTP (giãn cách 1s/email an toàn).
                 {body.includes("{mat_khau}") && (
-                  <span style={{ display: "block", color: "var(--yellow)", marginTop: "8px", fontWeight: 600, background: "var(--yellow-soft)", padding: "8px 10px", borderRadius: "8px" }}>
+                  <div className="email-confirm-dialog__warning">
                     ⚠️ Thư có chứa biến mật khẩu tạm, hệ thống sẽ tự động cấp mật khẩu mới và yêu cầu nhân viên đổi mật khẩu khi đăng nhập.
-                  </span>
+                  </div>
                 )}
-              </p>
-              <div style={{ display: "flex", gap: "10px" }}>
+              </div>
+              <div className="email-confirm-dialog__actions">
                 <button type="button" onClick={() => setShowConfirmModal(false)} className="btn btn--ghost btn--full">Hủy</button>
                 <button type="button" onClick={handleConfirmBroadcast} className="btn btn--primary btn--full" style={{ fontWeight: 800 }}>Xác nhận gửi ngay 🚀</button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>
