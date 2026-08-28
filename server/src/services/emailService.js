@@ -7,24 +7,60 @@ const fs = require("fs");
 
 let transporter = null;
 
+function normalizeSmtpPassword(pass, host) {
+  const value = String(pass || '');
+  return String(host || '').toLowerCase().includes('gmail.com')
+    ? value.replace(/\s+/g, '')
+    : value;
+}
+
+function buildEmailErrorResult(error) {
+  transporter = null;
+  return {
+    sent: false,
+    error: error?.message || 'SMTP error',
+    code: error?.code || null,
+    responseCode: error?.responseCode || null,
+  };
+}
+
+function buildTransportOptions(user, pass, env = process.env) {
+  const port = Number(env.SMTP_PORT || 587);
+  const secure = env.SMTP_SECURE === undefined
+    ? port === 465
+    : env.SMTP_SECURE === "true";
+
+  return {
+    host: env.SMTP_HOST || "smtp.gmail.com",
+    port,
+    secure,
+    requireTLS: !secure && port === 587,
+    family: Number(env.SMTP_FAMILY || 4),
+    connectionTimeout: Number(env.SMTP_CONNECTION_TIMEOUT_MS || 15000),
+    greetingTimeout: Number(env.SMTP_GREETING_TIMEOUT_MS || 15000),
+    socketTimeout: Number(env.SMTP_SOCKET_TIMEOUT_MS || 30000),
+    auth: { user, pass },
+    tls: { rejectUnauthorized: env.SMTP_TLS_REJECT_UNAUTHORIZED !== "false" },
+  };
+}
+
 function getTransporter() {
   if (process.env.NODE_ENV === "test") return null;
 
   if (!transporter) {
     const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-    const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const rawPass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
+    const pass = normalizeSmtpPassword(rawPass, host);
 
     if (!user || !pass) {
       return null;
     }
 
-    transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.gmail.com",
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-    });
+    transporter = nodemailer.createTransport(buildTransportOptions(user, pass, {
+      ...process.env,
+      SMTP_HOST: host,
+    }));
   }
   return transporter;
 }
@@ -190,7 +226,7 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
     return { sent: true };
   } catch (error) {
     console.error("❌ [SMTP ERROR] Gửi mã OTP thất bại tới " + toEmail + ":", error.message);
-    return { sent: false, error: error.message };
+    return buildEmailErrorResult(error);
   }
 }
 
@@ -220,7 +256,7 @@ async function sendCustomEmail({ toEmail, subject, htmlContent }) {
     return { sent: true };
   } catch (error) {
     console.error("❌ [SMTP ERROR] Gửi mail thất bại tới " + toEmail + ":", error.message);
-    return { sent: false, error: error.message };
+    return buildEmailErrorResult(error);
   }
 }
 
@@ -230,4 +266,5 @@ module.exports = {
   buildCustomHtmlEmail,
   sendCustomEmail,
   sendPasswordResetEmail,
+  __test: { buildTransportOptions, normalizeSmtpPassword, buildEmailErrorResult },
 };

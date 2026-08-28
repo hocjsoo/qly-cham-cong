@@ -1,5 +1,5 @@
 // src/pages/ForgotPasswordPage.jsx
-// Trang Đặt lại mật khẩu — Dành cho nhân viên sử dụng Mã Reset do Admin/Manager cấp
+// Trang Đặt lại mật khẩu — Nhận OTP bảo mật qua Gmail
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -28,11 +28,18 @@ export default function ForgotPasswordPage() {
     }
     setSendingOtp(true);
     try {
-      const { data } = await api.post("/auth/forgot-password", { email: email.trim() });
+      const { data } = await api.post(
+        "/auth/forgot-password",
+        { email: email.trim() },
+        { timeout: 45000 }
+      );
       toast.success(data.message || "Đã gửi mã xác thực tới email của bạn!");
       setOtpSent(true);
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Không thể gửi mã. Vui lòng kiểm tra lại email.");
+      const message = err?.code === 'ECONNABORTED'
+        ? 'Máy chủ gửi OTP phản hồi chậm. Vui lòng chờ ít phút và kiểm tra Gmail trước khi gửi lại.'
+        : (err?.response?.data?.error || "Không thể gửi mã. Vui lòng kiểm tra lại email.");
+      toast.error(message);
     } finally {
       setSendingOtp(false);
     }
@@ -114,7 +121,7 @@ export default function ForgotPasswordPage() {
             Đặt lại mật khẩu
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5 }}>
-            Nhập email của bạn và bấm <strong>"Gửi mã OTP"</strong> để nhận mã xác thực qua Gmail hoặc lấy mã từ Quản trị viên.
+            Nhập email của bạn và bấm <strong>"Gửi mã OTP"</strong>. Mã xác thực chỉ được gửi tới Gmail đã đăng ký và có hiệu lực trong 30 phút.
           </p>
         </div>
 
@@ -151,14 +158,14 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Mã Reset (6 chữ số từ Admin) *</label>
+              <label className="form-label">Mã OTP nhận qua Gmail *</label>
               <input
                 type="text"
                 className="form-input"
                 placeholder="VD: 482910"
                 maxLength={6}
                 value={resetCode}
-                onChange={(e) => setResetCode(e.target.value)}
+                onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 style={{ letterSpacing: '2px', fontWeight: 700, fontSize: '16px' }}
                 required
               />
@@ -204,7 +211,7 @@ export default function ForgotPasswordPage() {
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: '8px', fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5
         }}>
-          💡 <strong>Chưa có mã Reset?</strong> Vui lòng liên hệ Trưởng phòng hoặc Quản trị viên để được cấp mã reset 6 chữ số trực tiếp.
+          💡 <strong>Chưa nhận được mã?</strong> Kiểm tra thư mục Spam/Quảng cáo, xác nhận đúng địa chỉ email rồi chờ 60 giây trước khi gửi lại.
         </div>
       </div>
     </div>

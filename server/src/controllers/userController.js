@@ -1,8 +1,12 @@
 const { renderTemplateVariables, buildCustomHtmlEmail, sendCustomEmail } = require("../services/emailService");
-const crypto = require("crypto");
 // controllers/userController.js - Mongoose User Management Controller
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { isResignedEmploymentStatus } = require('../utils/employmentStatus');
+
+const containsPasswordVariable = (...values) => values.some(value => /\{mat_khau\}/i.test(String(value || '')));
+const SMTP_TRANSPORT_FAILURE_CODES = new Set(['EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'EDNS', 'ESOCKET', 'ETIMEDOUT']);
+const isSmtpTransportFailure = result => SMTP_TRANSPORT_FAILURE_CODES.has(result?.code) || result?.responseCode === 535;
 
 // Ham tu sinh employee_code: NS-001, TV-001, TTS-001
 const generateEmployeeCode = async (employeeType = 'NS') => {
@@ -468,6 +472,11 @@ const sendTestEmail = async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedToEmail)) {
     return res.status(400).json({ error: "Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ." });
   }
+  if (containsPasswordVariable(title, body, actionText, footerText)) {
+    return res.status(400).json({
+      error: "Biến {mat_khau} đã bị vô hiệu hóa để bảo vệ tài khoản. Hãy hướng dẫn người nhận dùng Quên mật khẩu để nhận OTP qua Gmail.",
+    });
+  }
 
   try {
     const mockVars = {
@@ -475,7 +484,6 @@ const sendTestEmail = async (req, res) => {
       email: normalizedToEmail,
       chuc_vu: "Kiến trúc sư",
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
-      mat_khau: "ET@2026#8492",
       link_he_thong: actionUrl || process.env.FRONTEND_URL || "https://qly-cham-cong.vercel.app",
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
@@ -530,26 +538,27 @@ const broadcastCustomEmail = async (req, res) => {
   if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
     return res.status(400).json({ error: "Vui lòng chọn ít nhất một nhân sự nhận email." });
   }
+  if (containsPasswordVariable(title, body, actionText, footerText)) {
+    return res.status(400).json({
+      error: "Biến {mat_khau} đã bị vô hiệu hóa. Email hàng loạt không được phép tạo, đổi hoặc gửi mật khẩu của nhân sự.",
+    });
+  }
 
   try {
-    const users = await User.find({ _id: { $in: recipientIds }, is_active: { $ne: false }, employment_status: { $nin: ["Da nghi viec", "resigned", "inactive"] } }).populate("department_id department_ids");
+    const candidates = await User.find({
+      _id: { $in: recipientIds },
+      is_active: { $ne: false },
+    }).populate("department_id department_ids");
+    const users = candidates.filter(user => !isResignedEmploymentStatus(user.employment_status));
     let sentCount = 0;
     let failedCount = 0;
+    let abortedReason = null;
 
-    const needsPassword = body && (body.includes("{mat_khau}") || (title && title.includes("{mat_khau}")));
-
-    for (const u of users) {
+    for (let index = 0; index < users.length; index++) {
+      const u = users[index];
       if (!u.email || !u.email.includes("@")) {
         failedCount++;
         continue;
-      }
-
-      let tempPassword = null;
-      if (needsPassword) {
-        tempPassword = "ET@" + crypto.randomInt(100000, 999999).toString();
-        u.password_hash = await bcrypt.hash(tempPassword, 10);
-        u.must_change_password = true;
-        await u.save();
       }
 
       const deptName = Array.isArray(u.department_ids) && u.department_ids.length > 0
@@ -561,7 +570,6 @@ const broadcastCustomEmail = async (req, res) => {
         email: u.email,
         chuc_vu: u.position || "Nhân sự",
         phong_ban: deptName,
-        mat_khau: tempPassword || "Mật khẩu hiện tại của bạn",
         link_he_thong: actionUrl || process.env.FRONTEND_URL || "https://qly-cham-cong.vercel.app",
         link_tai_lieu: documentUrl || "",
       };
@@ -584,19 +592,30 @@ const broadcastCustomEmail = async (req, res) => {
       });
 
       if (result.sent) sentCount++;
-      else failedCount++;
+      else {
+        failedCount++;
+        if (isSmtpTransportFailure(result)) {
+          failedCount += users.length - index - 1;
+          abortedReason = result.error || 'SMTP không khả dụng';
+          break;
+        }
+      }
 
       // Delay 1s per email to respect Gmail SMTP rate limits
-      if (users.length > 1) {
+      if (users.length > 1 && index < users.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
     res.json({
-      message: "Đã gửi thành công " + sentCount + "/" + users.length + " email!",
+      message: abortedReason
+        ? ("Đã gửi " + sentCount + "/" + users.length + " email. Dừng sớm vì SMTP lỗi: " + abortedReason)
+        : ("Đã gửi thành công " + sentCount + "/" + users.length + " email!"),
       total: users.length,
       sent: sentCount,
       failed: failedCount,
+      skipped: Math.max(0, recipientIds.length - users.length),
+      aborted: Boolean(abortedReason),
     });
   } catch (err) {
     console.error("BroadcastCustomEmail error:", err);
@@ -607,5 +626,6 @@ const broadcastCustomEmail = async (req, res) => {
 module.exports = {
   sendTestEmail, broadcastCustomEmail,
   getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive,
-  getUserDevices, deleteUserDevice, trustUserDevice
+  getUserDevices, deleteUserDevice, trustUserDevice,
+  __test: { containsPasswordVariable, isSmtpTransportFailure },
 };

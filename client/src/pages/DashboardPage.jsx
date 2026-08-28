@@ -37,6 +37,13 @@ const TYPE_MAP = {
   office: '🏢 VP', site: '🏗️ CT', client: '👔 KH', wfh: '🏠 WFH',
 };
 
+const createEmptyDashboard = () => ({
+  date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+  summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
+  staff: [],
+  my_projects: [],
+});
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -186,21 +193,26 @@ export default function DashboardPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      if (!isAdminOrLeader) {
+        const projRes = await api.get('/projects?active_only=true&compact=true').catch(() => ({ data: [] }));
+        setData(createEmptyDashboard());
+        setPendingCount(0);
+        setAllProjects(Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []));
+        setLastRefresh(new Date());
+        return;
+      }
+
       const [d, p, projRes] = await Promise.all([
         api.get('/dashboard/today'),
         api.get('/dashboard/pending-count'),
-        api.get('/projects?active_only=true').catch(() => ({ data: [] })),
+        api.get('/projects?active_only=true&compact=true').catch(() => ({ data: [] })),
       ]);
       const resData = d?.data;
       if (resData && typeof resData === 'object' && resData.summary) {
         setData(resData);
       } else {
         console.warn('Dashboard received invalid payload:', resData);
-        setData({
-          date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-          summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
-          staff: []
-        });
+        setData(createEmptyDashboard());
       }
       setPendingCount(typeof p?.data?.pending_count === 'number' ? p.data.pending_count : 0);
       setAllProjects(Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []));
@@ -213,11 +225,7 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('FetchData error:', err);
       toast.error('Lỗi tải dashboard');
-      setData({
-        date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-        summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
-        staff: []
-      });
+      setData(createEmptyDashboard());
     } finally {
       setLoading(false);
     }

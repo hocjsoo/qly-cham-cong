@@ -60,9 +60,10 @@ const getTodaySummary = async (req, res) => {
       is_active: { $ne: false },
       ...(req.user.role === 'admin' ? {} : { $or: orConditions })
     })
-      .populate('members', 'full_name email avatar_url employee_code position')
-      .populate('pm_id', 'full_name email avatar_url employee_code position')
-      .sort({ progress: -1, updated_at: -1 });
+      .select('name code category avatar_url status progress deadline start_date pm_id pm_name members updated_at created_at')
+      .sort({ progress: -1, updated_at: -1 })
+      .limit(6)
+      .lean();
 
     // Fallback chỉ dành cho Admin nếu chưa gán dự án riêng
     if (myProjects.length === 0 && req.user.role === 'admin') {
@@ -70,10 +71,10 @@ const getTodaySummary = async (req, res) => {
         is_active: { $ne: false },
         status: { $nin: ['Đã hoàn thành', 'Đã lưu trữ', 'cancelled'] }
       })
-        .populate('members', 'full_name email avatar_url employee_code position')
-        .populate('pm_id', 'full_name email avatar_url employee_code position')
+        .select('name code category avatar_url status progress deadline start_date pm_id pm_name members updated_at created_at')
         .sort({ progress: -1, updated_at: -1 })
-        .limit(6);
+        .limit(6)
+        .lean();
     }
 
     // Tổng hợp từng nhân viên

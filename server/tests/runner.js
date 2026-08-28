@@ -22,6 +22,7 @@ const runNotificationTests = require('./unit/notificationBroadcast.test');
 const runDashboardStatsTests = require('./unit/dashboardStats.test');
 const runExportTests = require('./unit/exportCalculations.test');
 const runPasswordAuthTests = require('./unit/passwordAuthLifecycle.test');
+const runEmailSecurityTests = require('./unit/emailSecurity.test');
 const runMultiOfficeTests = require('./unit/multiOfficeLocation.test');
 const runSystemSettingsTests = require('./unit/systemSettings.test');
 const runVehicleParkingTests = require('./unit/vehicleParkingManagement.test');
@@ -106,6 +107,7 @@ async function runAllTests() {
     runDashboardStatsTests(assert);
     runExportTests(assert);
     await runPasswordAuthTests(assert);
+    runEmailSecurityTests(assert);
     runMultiOfficeTests(assert);
     runSystemSettingsTests(assert);
     runVehicleParkingTests(assert);

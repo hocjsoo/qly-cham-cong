@@ -35,6 +35,7 @@ const forgotPassLimiter = rateLimit({
 
 // Public routes (có rate limit chống tấn công dò mật khẩu)
 router.post('/login', loginLimiter, login);
+router.post('/forgot-password', forgotPassLimiter, forgotPassword);
 router.post('/reset-password', loginLimiter, resetPassword);
 
 // Protected routes (không bị rate limit đăng nhập can thiệp)
@@ -44,6 +45,5 @@ router.patch('/profile', authMiddleware, updateProfile);
 
 // Admin/Manager only
 router.post('/register', authMiddleware, requireRole('admin', 'manager'), register);
-router.post('/forgot-password', forgotPassLimiter, forgotPassword);
 
 module.exports = router;

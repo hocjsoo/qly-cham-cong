@@ -4,7 +4,7 @@ const Project = require('../models/Project');
 // GET /api/projects
 const getProjects = async (req, res) => {
   try {
-    const { active_only, search, category, status, sort, my_only } = req.query;
+    const { active_only, search, category, status, sort, my_only, compact } = req.query;
     let filter = { is_active: { $ne: false } };
 
     if (active_only === 'true') {
@@ -63,10 +63,21 @@ const getProjects = async (req, res) => {
     else if (sort === 'date_desc') sortOption = { created_at: -1 };
     else if (sort === 'progress_desc') sortOption = { progress: -1 };
 
-    let projects = await Project.find(filter)
-      .populate('members', 'full_name email avatar_url employee_code position phone')
-      .populate('pm_id', 'full_name email avatar_url employee_code position phone')
-      .sort(sortOption);
+    const compactMode = compact === 'true';
+    const memberFields = compactMode
+      ? 'full_name employee_code'
+      : 'full_name email avatar_url employee_code position phone';
+    const compactProjectFields = 'name code category sub_project avatar_url address client_name pm_id pm_name status members deadline start_date progress is_active created_at updated_at';
+    const findProjects = () => {
+      let query = Project.find(filter);
+      if (compactMode) query = query.select(compactProjectFields);
+      return query
+        .populate('members', memberFields)
+        .populate('pm_id', memberFields)
+        .sort(sortOption);
+    };
+
+    let projects = await findProjects();
 
     // Seeding dự án mẫu nếu trống (chỉ khi là admin)
     if (projects.length === 0 && req.user?.role === 'admin' && !active_only && !search && (!category || category === 'all')) {
@@ -75,9 +86,7 @@ const getProjects = async (req, res) => {
         { name: 'Biệt thự Palm City', code: 'DA-PALM', category: 'Nội thất', client_name: 'Anh Minh', address: 'Quận 2, TP.HCM', status: 'Đang tiến hành', pm_name: 'KTS. Trần Nam', progress: 40, deadline: '2026-10-15' },
         { name: 'Khu đô thị Sol Forest', code: 'DA-SOL', category: 'Quy hoạch&Kiến trúc', client_name: 'Ecopark', address: 'Hưng Yên', status: 'Cần thực hiện', pm_name: 'KTS. Lê Anh', progress: 15, deadline: '2026-11-30' },
       ]);
-      projects = await Project.find(filter)
-        .populate('members', 'full_name email avatar_url employee_code position phone')
-        .populate('pm_id', 'full_name email avatar_url employee_code position phone');
+      projects = await findProjects();
     }
 
     res.json(projects);

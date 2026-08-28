@@ -93,8 +93,8 @@ export default function StaffPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset Code & Detail Modal States
-  const [resetCodeModal, setResetCodeModal] = useState(null); // { user, code }
+  // OTP Recovery & Detail Modal States
+  const [sendingOtpUserId, setSendingOtpUserId] = useState(null);
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
   const [userDevices, setUserDevices] = useState(null);
@@ -169,12 +169,26 @@ export default function StaffPage() {
     } finally { setLoading(false); }
   };
 
-  const handleGenerateResetCode = async (user) => {
+  const handleSendRecoveryOtp = async (user) => {
+    if (!user?.email) {
+      toast.error('Nhân sự này chưa có email để nhận OTP');
+      return;
+    }
+    setSendingOtpUserId(String(user._id || user.id));
     try {
-      const { data } = await api.post('/auth/forgot-password', { email: user.email });
-      setResetCodeModal({ user, code: data.reset_code });
+      const { data } = await api.post(
+        '/auth/forgot-password',
+        { email: user.email },
+        { timeout: 45000 }
+      );
+      toast.success(data.message || 'Đã gửi OTP khôi phục mật khẩu qua Gmail!');
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi tạo mã reset mật khẩu');
+      const message = err?.code === 'ECONNABORTED'
+        ? 'Máy chủ gửi OTP phản hồi chậm. Hãy kiểm tra Gmail trước khi gửi lại.'
+        : (err?.response?.data?.error || 'Lỗi gửi OTP khôi phục mật khẩu');
+      toast.error(message);
+    } finally {
+      setSendingOtpUserId(null);
     }
   };
 
@@ -787,8 +801,13 @@ export default function StaffPage() {
                           <button onClick={() => openOverride(u)} title="Sửa giờ chấm công (Admin)" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--green)', display: 'flex', alignItems: 'center' }}>
                             📝
                           </button>
-                          <button onClick={() => handleGenerateResetCode(u)} title="Tạo mã Reset Password" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}>
-                            🔑
+                          <button
+                            onClick={() => handleSendRecoveryOtp(u)}
+                            disabled={sendingOtpUserId === String(u._id || u.id)}
+                            title="Gửi OTP khôi phục mật khẩu qua Gmail"
+                            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}
+                          >
+                            {sendingOtpUserId === String(u._id || u.id) ? <span className="spinner" /> : '🔑'}
                           </button>
                           <button onClick={() => openEdit(u)} title="Sửa thông tin" style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center' }}>
                             <Edit2 size={14} />
@@ -1229,30 +1248,6 @@ export default function StaffPage() {
                 {submitting ? <span className="spinner" /> : editing ? '💾 Lưu thay đổi nhân viên' : '🚀 Tạo tài khoản nhân viên'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Code Result Modal */}
-      {resetCodeModal && (
-        <div className="modal-overlay">
-          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px' }}>
-            <div className="modal-sheet__handle" />
-            <div style={{ textAlign: 'center', marginBottom: '14px' }}>
-              <div style={{ fontSize: '28px', marginBottom: '4px' }}>🔑</div>
-              <div style={{ fontSize: '16px', fontWeight: 700 }}>Mã Reset Mật Khẩu</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Cấp cho: {resetCodeModal.user.full_name}</div>
-            </div>
-            <div style={{
-              background: 'var(--primary-soft)', border: '1px solid var(--primary)',
-              borderRadius: '10px', padding: '14px', textAlign: 'center', marginBottom: '16px'
-            }}>
-              <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '4px', color: 'var(--primary)' }}>
-                {resetCodeModal.code}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Mã có hiệu lực trong 30 phút</div>
-            </div>
-            <button onClick={() => setResetCodeModal(null)} className="btn btn--primary btn--full">Đóng</button>
           </div>
         </div>
       )}

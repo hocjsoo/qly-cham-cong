@@ -3,18 +3,35 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Mail, Send, Eye, Edit3, Check, Users, ShieldAlert, Sparkles, FileText, CheckSquare, Square, RefreshCw, Link as LinkIcon, ExternalLink, ArrowRight, Info, ShieldCheck, Search, Lock } from "lucide-react";
+import { Send, Eye, Edit3, Users, ShieldAlert, Sparkles, CheckSquare, Square, Info, ShieldCheck, Search, Lock } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../services/api";
 import useAuthStore from "../stores/authStore";
 import HeaderActions from "../components/HeaderActions";
+
+const normalizeEmploymentStatus = value => String(value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .trim()
+  .toLowerCase()
+  .replace(/đ/g, "d");
+
+const isResignedStaff = staff => {
+  if (!staff || staff.is_active === false) return true;
+  const status = normalizeEmploymentStatus(staff.employment_status);
+  return ["da nghi viec", "nghi viec", "resigned", "inactive", "quit", "terminated", "thoi viec"].includes(status);
+};
+
+const hasValidEmail = staff => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(staff?.email || "").trim());
+const isEligibleRecipient = staff => !isResignedStaff(staff) && hasValidEmail(staff);
+const containsPasswordVariable = (...values) => values.some(value => /\{mat_khau\}/i.test(String(value || "")));
 
 const PRESET_TEMPLATES = [
   {
     id: "onboarding",
     name: "🚀 Bàn giao tài khoản & HDSD",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN ĐĂNG NHẬP CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Mật khẩu tạm thời:** {mat_khau}\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🚀 Đăng Nhập Hệ Thống Ngay | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút đăng nhập phía trên để truy cập.\n2. Đổi mật khẩu cá nhân mới ngay trong lần đầu đăng nhập.\n3. Tham khảo tài liệu hướng dẫn để nắm rõ các quy định.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN TÀI KHOẢN CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Thiết lập mật khẩu:** Dùng chức năng **Quên mật khẩu** để nhận mã OTP qua Gmail và tự đặt mật khẩu riêng.\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🔐 Thiết Lập Mật Khẩu Bằng OTP | https://qly-cham-cong.vercel.app/forgot-password]\n\n[button: 🚀 Đăng Nhập Hệ Thống | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút thiết lập mật khẩu và nhập đúng email tài khoản.\n2. Nhập mã OTP nhận qua Gmail để tự đặt mật khẩu mới.\n3. Đăng nhập hệ thống và tham khảo tài liệu hướng dẫn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "",
     actionUrl: "",
     documentUrl: "",
@@ -75,8 +92,6 @@ const PRESET_TEMPLATES = [
 export default function EmailsPage() {
   const { user: currentUser } = useAuthStore();
   const [staffList, setStaffList] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   // Template & Composer State
   const [selectedTemplate, setSelectedTemplate] = useState("onboarding");
@@ -95,7 +110,7 @@ export default function EmailsPage() {
   const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
 
   // Test & Broadcast State
-  const [testEmail, setTestEmail] = useState(currentUser?.email || "ndhoc2816@gmail.com");
+  const [testEmail, setTestEmail] = useState(currentUser?.email || "");
   const [sendingTest, setSendingTest] = useState(false);
   const [broadcasting, setBroadcasting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -172,20 +187,13 @@ export default function EmailsPage() {
 
   const fetchInitialData = async () => {
     try {
-      setLoading(true);
-      const [uRes, dRes] = await Promise.all([
-        api.get("/users"),
-        api.get("/departments"),
-      ]);
-      const list = uRes.data || [];
+      const { data } = await api.get("/users");
+      const list = data || [];
       setStaffList(list);
-      setDepartments(dRes.data || []);
-      const activeIds = list.filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@")).map(s => String(s._id || s.id));
+      const activeIds = list.filter(isEligibleRecipient).map(s => String(s._id || s.id));
       setSelectedRecipientIds(activeIds);
-    } catch (err) {
+    } catch {
       toast.error("Lỗi tải danh sách nhân sự");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -206,12 +214,8 @@ export default function EmailsPage() {
     setBody(prev => prev + " {" + varName + "}");
   };
 
-  const eligibleStaff = useMemo(() => {
-    return staffList.filter(s => s.is_active !== false && s.email && s.email.includes("@"));
-  }, [staffList]);
-
   const activeCount = useMemo(() => {
-    return staffList.filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@")).length;
+    return staffList.filter(isEligibleRecipient).length;
   }, [staffList]);
 
   const displayedStaff = useMemo(() => {
@@ -224,7 +228,7 @@ export default function EmailsPage() {
         const matchPhone = (s.phone || "").toLowerCase().includes(q);
         if (!matchName && !matchEmail && !matchCode && !matchPhone) return false;
       }
-      const isResigned = s.is_active === false || s.employment_status === "Da nghi viec";
+      const isResigned = isResignedStaff(s);
       if (filterStatus === "active" && isResigned) return false;
       if (filterStatus === "resigned" && !isResigned) return false;
 
@@ -242,9 +246,13 @@ export default function EmailsPage() {
 
   const toggleRecipient = (staff) => {
     const sid = String(staff._id || staff.id);
-    const isResigned = staff.is_active === false || staff.employment_status === "Da nghi viec";
+    const isResigned = isResignedStaff(staff);
     if (isResigned) {
       toast.error("Nhân sự này đã nghỉ việc — Tự động khóa không gửi email!", { icon: "🔒" });
+      return;
+    }
+    if (!hasValidEmail(staff)) {
+      toast.error("Nhân sự này chưa có địa chỉ email hợp lệ.");
       return;
     }
     setSelectedRecipientIds(prev => 
@@ -254,7 +262,7 @@ export default function EmailsPage() {
 
   const selectAllEligibleDisplayed = () => {
     const validIds = displayedStaff
-      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
+      .filter(isEligibleRecipient)
       .map(s => String(s._id || s.id));
     setSelectedRecipientIds(prev => Array.from(new Set([...prev, ...validIds])));
   };
@@ -264,26 +272,6 @@ export default function EmailsPage() {
     setSelectedRecipientIds(prev => prev.filter(x => !ids.has(x)));
   };
 
-  const selectOnlyType = (type) => {
-    setFilterEmpType(type);
-    const validIds = staffList
-      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
-      .filter(s => (s.employee_type || "NS") === type)
-      .map(s => String(s._id || s.id));
-    setSelectedRecipientIds(validIds);
-    toast.success("Đã chọn " + validIds.length + " nhân sự loại " + type);
-  };
-
-  const selectOnlyLeaders = () => {
-    setFilterRole("leader");
-    const validIds = staffList
-      .filter(s => s.is_active !== false && s.employment_status !== "Da nghi viec" && s.email && s.email.includes("@"))
-      .filter(s => ["admin", "leader", "manager"].includes(s.role))
-      .map(s => String(s._id || s.id));
-    setSelectedRecipientIds(validIds);
-    toast.success("Đã chọn " + validIds.length + " Cấp Quản Lý (Admin & Leader)");
-  };
-
   // Live HTML generation for preview (Architectural Frame)
   const livePreviewHtml = useMemo(() => {
     const mockVars = {
@@ -291,7 +279,6 @@ export default function EmailsPage() {
       email: "nguyenvana@et-arc.com",
       chuc_vu: "Kiến trúc sư",
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
-      mat_khau: "ET@2026#8492",
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
@@ -337,6 +324,10 @@ export default function EmailsPage() {
       toast.error("Vui lòng nhập địa chỉ Gmail nhận thử nghiệm hợp lệ");
       return;
     }
+    if (containsPasswordVariable(subject, body, actionText, footerText)) {
+      toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua Gmail.");
+      return;
+    }
     setSendingTest(true);
     try {
       const { data } = await api.post("/users/email/send-test", {
@@ -366,6 +357,11 @@ export default function EmailsPage() {
   const handleConfirmBroadcast = async () => {
     if (selectedRecipientIds.length === 0) {
       toast.error("Vui lòng chọn ít nhất một nhân sự nhận email");
+      return;
+    }
+    if (containsPasswordVariable(subject, body, actionText, footerText)) {
+      toast.error("Email hàng loạt không được phép tạo, đổi hoặc gửi mật khẩu nhân sự.");
+      setShowConfirmModal(false);
       return;
     }
     setBroadcasting(true);
@@ -475,7 +471,6 @@ export default function EmailsPage() {
                 {[
                   { tag: "ho_ten", label: "👤 {ho_ten}" },
                   { tag: "email", label: "📧 {email}" },
-                  { tag: "mat_khau", label: "🔑 {mat_khau}" },
                   { tag: "chuc_vu", label: "💼 {chuc_vu}" },
                   { tag: "phong_ban", label: "🏢 {phong_ban}" },
                 ].map(v => (
@@ -725,7 +720,7 @@ export default function EmailsPage() {
               displayedStaff.map(s => {
                 const sid = String(s._id || s.id);
                 const isSelected = selectedRecipientIds.includes(sid);
-                const isResigned = s.is_active === false || s.employment_status === "Da nghi viec";
+                const isResigned = isResignedStaff(s);
                 const empType = s.employee_type || "NS";
                 const isLeader = ["admin", "leader", "manager"].includes(s.role);
 
@@ -823,11 +818,9 @@ export default function EmailsPage() {
               </div>
               <div className="email-confirm-dialog__message">
                 Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua Gmail SMTP (giãn cách 1s/email an toàn).
-                {body.includes("{mat_khau}") && (
-                  <div className="email-confirm-dialog__warning">
-                    ⚠️ Thư có chứa biến mật khẩu tạm, hệ thống sẽ tự động cấp mật khẩu mới và yêu cầu nhân viên đổi mật khẩu khi đăng nhập.
-                  </div>
-                )}
+                <div className="email-confirm-dialog__warning">
+                  🔐 Email này không thay đổi mật khẩu. Nhân sự chỉ tự đặt lại mật khẩu bằng mã OTP gửi qua Gmail.
+                </div>
               </div>
               <div className="email-confirm-dialog__actions">
                 <button type="button" onClick={() => setShowConfirmModal(false)} className="btn btn--ghost btn--full">Hủy</button>

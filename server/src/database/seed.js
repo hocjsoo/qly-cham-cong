@@ -70,8 +70,11 @@ const seedInitialData = async () => {
     // 4. Tạo tài khoản Admin mặc định (nếu chưa có bất kỳ Admin nào)
     const adminCount = await User.countDocuments({ role: 'admin' });
     if (adminCount === 0) {
-      const initialEmail = process.env.INITIAL_ADMIN_EMAIL || 'admin@company.com';
-      const initialPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@123';
+      const initialEmail = process.env.INITIAL_ADMIN_EMAIL;
+      const initialPassword = process.env.INITIAL_ADMIN_PASSWORD;
+      if (!initialEmail || !initialPassword) {
+        throw new Error('Thiếu INITIAL_ADMIN_EMAIL hoặc INITIAL_ADMIN_PASSWORD; từ chối tạo Admin với mật khẩu mặc định.');
+      }
       const passwordHash = await bcrypt.hash(initialPassword, 10);
       await User.create({
         email: initialEmail,
@@ -85,6 +88,7 @@ const seedInitialData = async () => {
     }
   } catch (error) {
     console.error('❌ Seed data error:', error.message);
+    if (process.env.NODE_ENV === 'production') throw error;
   }
 };
 

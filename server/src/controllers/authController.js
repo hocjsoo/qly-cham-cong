@@ -31,6 +31,11 @@ const buildSelfProfile = (user) => {
   return userObject;
 };
 
+const buildOtpRequestPayload = message => ({
+  message,
+  expires_in: '30 phút',
+});
+
 // POST /api/auth/login
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -126,7 +131,7 @@ const register = async (req, res) => {
   }
 };
 
-// POST /api/auth/forgot-password — Admin/Manager tạo mã reset cho nhân viên
+// POST /api/auth/forgot-password — Gửi OTP khôi phục mật khẩu qua email
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -134,9 +139,12 @@ const forgotPassword = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      return res.status(404).json({ error: 'Không tìm thấy tài khoản với email này.' });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user || user.is_active === false) {
+      return res.json(buildOtpRequestPayload(
+        'Nếu email tồn tại và đang hoạt động, mã OTP sẽ được gửi tới hộp thư trong ít phút.'
+      ));
     }
 
     // Chống spam: Kiểm tra thời gian gửi gần nhất (cooldown 60s)
@@ -159,16 +167,18 @@ const forgotPassword = async (req, res) => {
 
     // Gửi email thật qua Gmail SMTP nếu được cấu hình
     const emailResult = await sendPasswordResetEmail(user.email, user.full_name, resetCode);
+    if (!emailResult.sent) {
+      user.reset_token = null;
+      user.reset_token_expires = null;
+      await user.save();
+      return res.status(503).json({
+        error: 'Dịch vụ gửi OTP đang tạm thời không khả dụng. Mật khẩu chưa bị thay đổi, vui lòng thử lại sau.',
+      });
+    }
 
-    res.json({
-      message: emailResult.sent
-        ? ("Đã gửi mã xác thực khôi phục mật khẩu tới email " + user.email + ". Vui lòng kiểm tra hộp thư!")
-        : ("Mã reset cho " + user.full_name + ": " + resetCode + " (hết hạn sau 30 phút)"),
-      reset_code: resetCode,
-      email_sent: emailResult.sent,
-      user_name: user.full_name,
-      expires_in: "30 phút",
-    });
+    res.json(buildOtpRequestPayload(
+      'Đã gửi mã OTP khôi phục mật khẩu tới email của bạn. Vui lòng kiểm tra cả Hộp thư đến và Spam.'
+    ));
 
   } catch (error) {
     console.error('ForgotPassword error:', error);
@@ -190,18 +200,18 @@ const resetPassword = async (req, res) => {
   try {
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      return res.status(404).json({ error: 'Không tìm thấy tài khoản.' });
+      return res.status(400).json({ error: 'Email hoặc mã OTP không hợp lệ.' });
     }
 
     // Kiểm tra hết hạn
     if (!user.reset_token || !user.reset_token_expires || user.reset_token_expires < new Date()) {
-      return res.status(400).json({ error: 'Mã reset đã hết hạn. Vui lòng yêu cầu mã mới từ quản trị viên.' });
+      return res.status(400).json({ error: 'Mã OTP đã hết hạn. Vui lòng yêu cầu gửi mã mới qua email.' });
     }
 
     // Kiểm tra mã reset
     const isValidCode = await bcrypt.compare(reset_code, user.reset_token);
     if (!isValidCode) {
-      return res.status(400).json({ error: 'Mã reset không đúng.' });
+      return res.status(400).json({ error: 'Mã OTP không đúng.' });
     }
 
     user.password_hash = await bcrypt.hash(new_password, 10);
@@ -337,4 +347,13 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { login, register, forgotPassword, resetPassword, getMe, changePassword, updateProfile };
+module.exports = {
+  login,
+  register,
+  forgotPassword,
+  resetPassword,
+  getMe,
+  changePassword,
+  updateProfile,
+  __test: { buildOtpRequestPayload },
+};

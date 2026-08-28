@@ -466,24 +466,27 @@ async function runControllerIntegrationTests(assert) {
 
     const originalProjFind = Project.find;
     let capturedProjQuery = null;
+    let capturedProjectSelect = null;
+    let capturedProjectPopulates = [];
 
     Project.find = function(query) {
       capturedProjQuery = query;
-      return {
-        populate: function() {
-          return {
-            populate: function() {
-              return {
-                sort: function() {
-                  return Promise.resolve([
-                    { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
-                  ]);
-                }
-              };
-            }
-          };
+      const queryChain = {
+        select(fields) {
+          capturedProjectSelect = fields;
+          return queryChain;
+        },
+        populate(path, fields) {
+          capturedProjectPopulates.push({ path, fields });
+          return queryChain;
+        },
+        sort() {
+          return Promise.resolve([
+            { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
+          ]);
         }
       };
+      return queryChain;
     };
 
     const resProjList = await request(app)
@@ -495,6 +498,16 @@ async function runControllerIntegrationTests(assert) {
     const pmNameCond = capturedProjQuery?.$or?.find(c => c.$and);
     assert(pmNameCond !== undefined, 'TC-HTTP-16.2: Truy vấn $or có điều kiện $and bọc pm_name và pm_id null check');
     assert(pmNameCond.$and[0].$or[0].pm_id === null, 'TC-HTTP-16.3: Bắt buộc pm_id là null hoặc không tồn tại mới đối chiếu pm_name');
+
+    capturedProjectSelect = null;
+    capturedProjectPopulates = [];
+    const resCompactProjects = await request(app)
+      .get('/api/projects?compact=true')
+      .set('Authorization', `Bearer ${namEmpToken}`);
+    assert(resCompactProjects.status === 200 && capturedProjectSelect?.includes('avatar_url'),
+      'TC-HTTP-16.4: GET /api/projects?compact=true chỉ chọn tập trường dự án cần cho Dashboard');
+    assert(capturedProjectPopulates.every(item => !item.fields.includes('avatar_url') && !item.fields.includes('phone')),
+      'TC-HTTP-16.5: Chế độ compact không tải avatar/điện thoại lặp lại của thành viên dự án');
 
     // =========================================================================
     // 6. TIMESHEET LOCK CONTROLLER: Supertest kiểm thử overrideCell (Codex Review)

@@ -2,6 +2,7 @@
 // Báo cáo 5 tab: 🔒 Chốt Công (ET_Staff 2026) / 📄 Bảng Chi Tiết Cá Nhân (Mẫu Phiếu Chấm Công) / Tổng quan / Bảng tính công / Xếp hạng
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Download, Trophy, BarChart3, Calculator, TrendingUp, TrendingDown, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, Printer, Building2, ShieldCheck, FileType, Eye, Search, Filter, Calendar, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import html2canvas from 'html2canvas';
@@ -1136,7 +1137,7 @@ export default function ReportPage() {
                   {/* 📊 VIEW MODE: TABLE (Full 31-day Horizontal Spreadsheet) */}
                   {viewMode === 'table' && (
                     <div className="timesheet-table-region">
-                      {matrixScrollMetrics.showFloating && (
+                      {matrixScrollMetrics.showFloating && typeof document !== 'undefined' && createPortal(
                         <div
                           ref={matrixTopScrollRef}
                           className="timesheet-top-scrollbar"
@@ -1148,7 +1149,8 @@ export default function ReportPage() {
                           }}
                         >
                           <div style={{ width: `${matrixScrollMetrics.scrollWidth}px`, height: '1px' }} />
-                        </div>
+                        </div>,
+                        document.body
                       )}
                     <div
                       ref={matrixTableScrollRef}
