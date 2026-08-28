@@ -1511,7 +1511,7 @@ export default function ReportPage() {
             </div>
           </div>
 
-          <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap', border: '1px solid #1e293b' }}>
+          <table className="pdf-export-table" style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', textAlign: 'center', whiteSpace: 'nowrap', border: '1px solid #1e293b' }}>
             <thead>
               <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 800 }}>
                 <th style={{ padding: '8px 10px', textAlign: 'left', minWidth: '60px', border: '1px solid #334155' }}>ID</th>
@@ -1650,7 +1650,7 @@ export default function ReportPage() {
           </div>
 
           {/* Banner 1: Header Employee Info */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px', fontSize: '12px', border: '1.5px solid #1e293b' }}>
+          <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px', fontSize: '12px', border: '1.5px solid #1e293b' }}>
             <tbody>
               <tr style={{ background: '#fef08a', color: '#0f172a' }}>
                 <td style={{ border: '1.5px solid #1e293b', padding: '8px 12px', fontWeight: 'bold', width: '22%' }}>Mã nhân viên: {indUser.id}</td>
@@ -1663,7 +1663,7 @@ export default function ReportPage() {
           {/* Summary Table Grid 1 & 2 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
             {/* Grid Left: Hours & Late/Early */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px' }}>
+            <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px' }}>
               <tbody>
                 <tr>
                   <td style={{ border: '1px solid #1e293b', padding: '5px 8px', fontWeight: 'bold', background: '#f8fafc', color: '#0f172a' }}>Ngày thường</td>
@@ -1693,7 +1693,7 @@ export default function ReportPage() {
             </table>
 
             {/* Grid Right: Leave counts */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px', textAlign: 'center' }}>
+            <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px', textAlign: 'center' }}>
               <thead>
                 <tr style={{ background: '#1e293b', color: '#ffffff' }}>
                   <th colSpan="12" style={{ border: '1px solid #1e293b', padding: '6px' }}>Các loại vắng</th>
@@ -1734,7 +1734,7 @@ export default function ReportPage() {
 
           {/* Main Detailed Logs Table */}
           <div style={{ fontStyle: 'italic', fontSize: '11px', marginBottom: '6px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>Chi tiết điểm danh hàng ngày</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px', textAlign: 'center' }}>
+          <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1e293b', fontSize: '11px', textAlign: 'center' }}>
             <thead>
               <tr style={{ background: '#1e293b', color: '#ffffff', fontWeight: 'bold' }}>
                 <th style={{ border: '1px solid #334155', padding: '8px 6px' }}>Ngày</th>

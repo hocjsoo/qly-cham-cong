@@ -24,6 +24,7 @@ const fmt = (iso) => {
 };
 
 const entityId = value => String(value?._id || value?.id || value || '');
+const personName = value => value?.full_name || value?.name || 'Nhân sự';
 
 const getCurrentWeekStart = () => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -421,6 +422,25 @@ export default function CheckInPage() {
   const isOtNow = isCheckedIn && !isCheckedOut && now.getHours() >= 18;
   const lateConfig = LATE_TIERS[att?.late_tier] || (att?.is_late ? LATE_TIERS.late_medium : LATE_TIERS.on_time);
 
+  const openDutyStaffProfile = person => {
+    if (!person) return;
+    const personId = entityId(person);
+    const basePerson = typeof person === 'object' ? person : { _id: person };
+    const detailedPerson = (weeklyDutySchedule?.people || []).find(candidate => entityId(candidate) === personId);
+    const detailedTtsPerson = (weeklyDutySchedule?.tts_users || []).find(candidate => entityId(candidate) === personId);
+    const departmentName = detailedTtsPerson?.department_id?.name
+      || detailedPerson?.department_id?.name
+      || basePerson.department_id?.name
+      || basePerson.department_name;
+
+    setViewingStaffDetail({
+      ...basePerson,
+      ...(detailedPerson || {}),
+      ...(detailedTtsPerson || {}),
+      ...(departmentName ? { department_name: departmentName } : {}),
+    });
+  };
+
   const myDutyAssignments = useMemo(() => {
     const currentUserId = entityId(user);
     const duties = weeklyDutySchedule?.schedule?.duties || [];
@@ -434,13 +454,13 @@ export default function CheckInPage() {
       if (officeTeam.some(person => entityId(person) === currentUserId)) {
         groups.push({
           label: 'Dọn văn phòng',
-          companions: officeTeam.filter(person => entityId(person) !== currentUserId).map(person => person.full_name),
+          companions: officeTeam.filter(person => entityId(person) !== currentUserId && person?.full_name),
         });
       }
       if (restroomTeam.some(person => entityId(person) === currentUserId)) {
         groups.push({
           label: 'Dọn nhà vệ sinh',
-          companions: restroomTeam.filter(person => entityId(person) !== currentUserId).map(person => person.full_name),
+          companions: restroomTeam.filter(person => entityId(person) !== currentUserId && person?.full_name),
         });
       }
 
@@ -451,8 +471,8 @@ export default function CheckInPage() {
   const restroomAssignments = useMemo(() => {
     const duties = weeklyDutySchedule?.schedule?.duties || [];
     return duties.flatMap(duty => {
-      const names = (duty.restroom_cleaning_user_ids || []).map(person => person.full_name).filter(Boolean);
-      return names.length ? [{ date: duty.date, names }] : [];
+      const people = (duty.restroom_cleaning_user_ids || []).filter(person => person?.full_name);
+      return people.length ? [{ date: duty.date, people }] : [];
     });
   }, [weeklyDutySchedule]);
 
@@ -534,7 +554,19 @@ export default function CheckInPage() {
                           <span key={group.label}>
                             {index > 0 && ' · '}{group.label}
                             {group.companions.length > 0
-                              ? <> cùng <strong style={{ color: 'var(--text)' }}>{group.companions.join(', ')}</strong></>
+                              ? <> cùng {group.companions.map((person, companionIndex) => (
+                                <span key={entityId(person) || personName(person)}>
+                                  {companionIndex > 0 && ', '}
+                                  <button
+                                    type="button"
+                                    className="staff-profile-trigger"
+                                    onClick={() => openDutyStaffProfile(person)}
+                                    title={`Xem hồ sơ ${personName(person)}`}
+                                  >
+                                    {personName(person)}
+                                  </button>
+                                </span>
+                              ))}</>
                               : ' (thực hiện một mình)'}
                           </span>
                         ))}
@@ -553,7 +585,19 @@ export default function CheckInPage() {
                     {restroomAssignments.map(assignment => (
                       <div key={assignment.date} style={{ color: 'var(--text-secondary)', fontSize: '11px', lineHeight: 1.5 }}>
                         <strong style={{ color: 'var(--text)' }}>{formatDutyDate(assignment.date)}:</strong>{' '}
-                        {assignment.names.join(', ')}
+                        {assignment.people.map((person, personIndex) => (
+                          <span key={entityId(person) || personName(person)}>
+                            {personIndex > 0 && ', '}
+                            <button
+                              type="button"
+                              className="staff-profile-trigger"
+                              onClick={() => openDutyStaffProfile(person)}
+                              title={`Xem hồ sơ ${personName(person)}`}
+                            >
+                              {personName(person)}
+                            </button>
+                          </span>
+                        ))}
                       </div>
                     ))}
                   </div>

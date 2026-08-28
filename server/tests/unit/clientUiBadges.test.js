@@ -3,6 +3,9 @@
 // Kiểm thử Thành Phần Giao Diện: Badge Trạng Thái, Nhãn Màu & Định Dạng
 // ==============================================
 
+const fs = require('fs');
+const path = require('path');
+
 function getAttendanceStatusBadge(status) {
   switch (status) {
     case 'present':
@@ -69,6 +72,60 @@ function runClientUiBadgesTests(assert) {
   const l3 = getLateTierLabel('late_severe');
   assert(l1.label === 'Đúng giờ' && l2.label === 'Muộn nhẹ' && l3.label === 'Muộn nặng',
     'TC-UI-BDG-05: Đúng nhãn phân loại đi muộn theo chuẩn thiết kế');
+
+  const globalStyles = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/index.css'),
+    'utf8'
+  );
+  assert(
+    globalStyles.includes('body:has(.email-confirm-overlay) .bottom-nav') &&
+      globalStyles.includes('body:has(.notification-popover-overlay) .bottom-nav') &&
+      globalStyles.includes('body:has(.image-lightbox) .bottom-nav'),
+    'TC-UI-BDG-06: Thanh điều hướng mobile tự ẩn dưới mọi portal overlay'
+  );
+
+  const checkInPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/CheckInPage.jsx'),
+    'utf8'
+  );
+  const expensesPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/ExpensesPage.jsx'),
+    'utf8'
+  );
+  assert(
+    checkInPage.includes('onClick={() => openDutyStaffProfile(person)}') &&
+      expensesPage.includes('onClick={() => setViewingStaffDetail(resolveExpenseStaff(exp))}') &&
+      globalStyles.includes('.staff-profile-trigger'),
+    'TC-UI-BDG-07: Tên nhân sự tại lịch trực và chi tiêu mở được hồ sơ đồng bộ'
+  );
+
+  const imageLightbox = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/components/ImageLightbox.jsx'),
+    'utf8'
+  );
+  const dashboardPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/DashboardPage.jsx'),
+    'utf8'
+  );
+  const reportPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/ReportPage.jsx'),
+    'utf8'
+  );
+  assert(
+    imageLightbox.includes('className="image-lightbox__controls"') &&
+      imageLightbox.includes('getDownloadFilename(image)') &&
+      globalStyles.includes('grid-template-columns: repeat(7, minmax(0, 1fr))'),
+    'TC-UI-BDG-08: Lightbox mobile không tràn nút và giữ tên file tải về dễ đọc'
+  );
+  assert(
+    dashboardPage.includes('key={p.user_id || p._id || p.id || p.email}'),
+    'TC-UI-BDG-09: Danh sách Dashboard luôn có khóa ổn định khi DTO dùng id hoặc _id'
+  );
+  assert(
+    reportPage.includes('className="pdf-export-table"') &&
+      globalStyles.includes('table:not(.pdf-export-table) thead th'),
+    'TC-UI-BDG-10: Mẫu PDF tách khỏi màu color-mix mà html2canvas không hỗ trợ'
+  );
 }
 
 module.exports = runClientUiBadgesTests;

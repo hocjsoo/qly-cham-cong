@@ -171,27 +171,28 @@ function runExpenseManagementTests() {
   // Test 5: CSV Export with UTF-8 BOM
   try {
     const expensesToExport = [
-      { date: '2025-12-15', description: 'Ngọc mua rượu 08/12', spender: 'Ngọc', amount: 1364000, approval: 'Đã duyệt', payment: 'Chưa trả', vat: 'Có VAT', notes: 'Tiệc cuối năm' },
+      { date: '2025-12-15', description: 'Ngọc mua "bản vẽ", vật tư 08/12', spender: 'Ngọc', amount: 1364000, approval: 'Đã duyệt', payment: 'Chưa trả', vat: 'Có VAT', notes: 'Tiệc cuối năm' },
       { date: '2025-12-15', description: 'cf', spender: 'Ninh', amount: 15000, approval: 'Đã duyệt', payment: 'Đã trả', vat: 'Không VAT', notes: '' },
     ];
 
     const headers = ['STT', 'Ngày giao dịch', 'Mô tả', 'Người chi', 'Số tiền (VNĐ)', 'Trạng thái duyệt', 'Trạng thái trả', 'Hóa đơn VAT', 'Ghi chú'];
+    const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
     const rows = expensesToExport.map((exp, idx) => [
       idx + 1,
       exp.date,
-      `"${exp.description}"`,
-      `"${exp.spender}"`,
+      escapeCsv(exp.description),
+      escapeCsv(exp.spender),
       exp.amount,
-      `"${exp.approval}"`,
-      `"${exp.payment}"`,
-      `"${exp.vat}"`,
-      `"${exp.notes}"`
+      escapeCsv(exp.approval),
+      escapeCsv(exp.payment),
+      escapeCsv(exp.vat),
+      escapeCsv(exp.notes)
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 
     assert.ok(csvContent.startsWith('\uFEFF'), 'CSV must contain UTF-8 BOM for Excel Vietnamese display');
-    assert.ok(csvContent.includes('Ngọc mua rượu 08/12'));
+    assert.ok(csvContent.includes('"Ngọc mua ""bản vẽ"", vật tư 08/12"'));
     assert.ok(csvContent.includes('1364000'));
     assert.ok(csvContent.includes('Chưa trả'));
 

@@ -58,7 +58,7 @@ export default function ExpensesPage() {
   const [showRejectModal, setShowRejectModal] = useState(null); // expense object
   const [rejectionReason, setRejectionReason] = useState('');
   const [fullBillImage, setFullBillImage] = useState(null);
-  const [viewingStaffDetail, setViewingStaffDetail] = useState(null); // { url, title }
+  const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
 
   // Form State
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -250,7 +250,7 @@ export default function ExpensesPage() {
       "Ghi chú"
     ];
 
-    const escapeCsv = (str) => "\"" + String(str || "").replace(/"/g, "''") + "\"";
+    const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
     const rows = filteredExpenses.map((expItem, idx) => {
       const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
@@ -293,7 +293,7 @@ export default function ExpensesPage() {
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     downloadBlob(blob, "Bang_Ke_Chi_Tieu_Hoan_Ung_ET_" + new Date().toISOString().slice(0, 10) + ".csv");
-    toast.success("Đã xuất bảng chi tiêu hoàn ứng thành công! 📄");
+    toast.success("Đã xuất file CSV chi tiêu hoàn ứng thành công! 📄");
   };
 
     // Filter list by search locally if needed
@@ -305,6 +305,19 @@ export default function ExpensesPage() {
     const amount = String(exp.amount || '');
     return desc.includes(q) || user.includes(q) || amount.includes(q);
   });
+
+  const resolveExpenseStaff = exp => {
+    const populatedUser = exp?.user_id && typeof exp.user_id === 'object' ? exp.user_id : {};
+    const expenseUserId = String(populatedUser._id || exp?.user_id || '');
+    const matchedStaff = staffList.find(staff => String(staff._id || staff.id) === expenseUserId);
+
+    return {
+      ...populatedUser,
+      ...(matchedStaff || {}),
+      _id: matchedStaff?._id || populatedUser._id || exp?.user_id,
+      full_name: matchedStaff?.full_name || populatedUser.full_name || exp?.user_name || 'Nhân viên',
+    };
+  };
 
   return (
     <div className="page">
@@ -327,9 +340,9 @@ export default function ExpensesPage() {
               onClick={handleExportCSV}
               className="btn btn--ghost"
               style={{ padding: '7px 10px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}
-              title="Xuất bảng Excel / CSV nộp kế toán"
+              title="Xuất file CSV nộp kế toán (mở được bằng Excel)"
             >
-              <Download size={15} /> Xuất Excel
+              <Download size={15} /> Xuất CSV
             </button>
             <HeaderActions />
           </div>
@@ -584,7 +597,12 @@ export default function ExpensesPage() {
                         )}
                       </td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="staff-profile-trigger"
+                          onClick={() => setViewingStaffDetail(resolveExpenseStaff(exp))}
+                          title={`Xem hồ sơ ${exp.user_id?.full_name || exp.user_name || 'nhân viên'}`}
+                        >
                           <img
                             src={exp.user_id?.avatar_url || '/logo.png'}
                             alt=""
@@ -594,7 +612,7 @@ export default function ExpensesPage() {
                           <span style={{ fontWeight: 600, color: 'var(--text)' }}>
                             {exp.user_id?.full_name || 'Nhân viên'}
                           </span>
-                        </div>
+                        </button>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <strong style={{ fontSize: '13.5px', color: 'var(--primary)' }}>
@@ -738,7 +756,14 @@ export default function ExpensesPage() {
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    <span>👤 {exp.user_id?.full_name || 'Nhân viên'}</span>
+                    <button
+                      type="button"
+                      className="staff-profile-trigger"
+                      onClick={() => setViewingStaffDetail(resolveExpenseStaff(exp))}
+                      title={`Xem hồ sơ ${exp.user_id?.full_name || exp.user_name || 'nhân viên'}`}
+                    >
+                      👤 {exp.user_id?.full_name || exp.user_name || 'Nhân viên'}
+                    </button>
                     <span>{exp.has_vat_invoice ? '🧾 Có VAT' : '—'}</span>
                   </div>
 

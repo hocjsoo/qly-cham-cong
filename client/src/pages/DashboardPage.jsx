@@ -912,7 +912,7 @@ export default function DashboardPage() {
                   const cfg = STATUS_MAP[p.today_status] || STATUS_MAP.absent;
                   return (
                     <div
-                      key={p.user_id}
+                      key={p.user_id || p._id || p.id || p.email}
                       onClick={() => setViewingStaffDetail(p)}
                       className="person-row animate-fade-in card--interactive"
                       style={{ cursor: 'pointer' }}
