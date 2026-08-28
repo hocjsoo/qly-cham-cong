@@ -5,7 +5,7 @@ const userController = require('../../src/controllers/userController');
 const authController = require('../../src/controllers/authController');
 const emailService = require('../../src/services/emailService');
 
-function runEmailSecurityTests(assert) {
+async function runEmailSecurityTests(assert) {
   console.log('\n📧 [TEST SUITE: EMAIL & OTP SECURITY]');
 
   assert(
@@ -67,8 +67,80 @@ function runEmailSecurityTests(assert) {
   assert(
     userController.__test.isSmtpTransportFailure({ code: 'EAUTH' }) &&
       userController.__test.isSmtpTransportFailure({ responseCode: 535 }) &&
-      !userController.__test.isSmtpTransportFailure({ code: 'EENVELOPE' }),
-    'TC-EMAIL-07.2: Phân biệt lỗi SMTP hệ thống để dừng gửi hàng loạt an toàn'
+      userController.__test.isEmailProviderFailure({ code: 'BREVO_RATE_LIMIT' }) &&
+      !userController.__test.isEmailProviderFailure({ code: 'EENVELOPE' }),
+    'TC-EMAIL-07.2: Phân biệt lỗi provider hệ thống để dừng gửi hàng loạt an toàn'
+  );
+
+  const brevoEnv = {
+    BREVO_API_KEY: 'test-api-key-never-send',
+    BREVO_SENDER_EMAIL: 'verified@example.com',
+    BREVO_SENDER_NAME: 'Kiến trúc ET',
+    BREVO_REPLY_TO_EMAIL: 'reply@example.com',
+    EMAIL_LOGO_URL: 'https://qly-cham-cong.vercel.app/logo.png',
+    SMTP_USER: 'smtp@example.com',
+    SMTP_PASS: 'smtp-password',
+  };
+  assert(
+    emailService.__test.getConfiguredEmailProvider(brevoEnv) === 'brevo' &&
+      emailService.__test.getConfiguredEmailProvider({ SMTP_USER: 'smtp@example.com', SMTP_PASS: 'smtp-password' }) === 'smtp' &&
+      emailService.__test.getConfiguredEmailProvider({}) === null,
+    'TC-EMAIL-07.3: Brevo được ưu tiên và SMTP chỉ làm phương án dự phòng'
+  );
+
+  const brevoPayload = emailService.__test.buildBrevoPayload({
+    toEmail: 'EMPLOYEE@example.com',
+    toName: 'Nguyễn Văn A',
+    subject: 'Thông báo\r\nBcc: attacker@example.com',
+    htmlContent: '<img src="cid:company_logo"><img src="cid:inline_image_0@etoffice">',
+    attachments: [
+      { filename: 'logo.png', content: Buffer.from('logo'), cid: 'company_logo', contentType: 'image/png' },
+      { filename: 'photo.png', content: Buffer.from('safe-image'), cid: 'inline_image_0@etoffice', contentType: 'image/png' },
+    ],
+  }, brevoEnv);
+  assert(
+    brevoPayload.sender.email === 'verified@example.com' &&
+      brevoPayload.to[0].email === 'employee@example.com' &&
+      brevoPayload.subject === 'Thông báo Bcc: attacker@example.com' &&
+      brevoPayload.htmlContent.includes('https://qly-cham-cong.vercel.app/logo.png') &&
+      brevoPayload.htmlContent.includes('data:image/png;base64,') &&
+      brevoPayload.attachment[0].name === 'photo.png' &&
+      !JSON.stringify(brevoPayload).includes('test-api-key-never-send'),
+    'TC-EMAIL-07.4: Payload Brevo giữ logo, ảnh nội dung và không làm lộ API key'
+  );
+
+  let capturedBrevoRequest = null;
+  const brevoSendResult = await emailService.__test.sendViaBrevo({
+    toEmail: 'employee@example.com',
+    subject: 'Kiểm thử Brevo',
+    htmlContent: '<p>Nội dung thử nghiệm</p>',
+  }, brevoEnv, async (url, options) => {
+    capturedBrevoRequest = { url, options };
+    return {
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: 'mock-message-id' }),
+    };
+  });
+  assert(
+    brevoSendResult.sent === true &&
+      brevoSendResult.provider === 'brevo' &&
+      capturedBrevoRequest.url === 'https://api.brevo.com/v3/smtp/email' &&
+      capturedBrevoRequest.options.method === 'POST' &&
+      capturedBrevoRequest.options.headers['api-key'] === 'test-api-key-never-send' &&
+      JSON.parse(capturedBrevoRequest.options.body).to[0].email === 'employee@example.com',
+    'TC-EMAIL-07.4.1: Brevo gọi đúng HTTPS endpoint và header xác thực'
+  );
+
+  const brevoAuthFailure = emailService.__test.buildBrevoErrorResult(401);
+  const brevoQuotaFailure = emailService.__test.buildBrevoErrorResult(429);
+  const brevoTimeoutFailure = emailService.__test.buildBrevoNetworkErrorResult({ name: 'AbortError', message: 'secret detail' });
+  assert(
+    brevoAuthFailure.code === 'BREVO_AUTH' &&
+      brevoQuotaFailure.code === 'BREVO_RATE_LIMIT' &&
+      brevoTimeoutFailure.code === 'BREVO_TIMEOUT' &&
+      !brevoTimeoutFailure.error.includes('secret detail'),
+    'TC-EMAIL-07.5: Lỗi Brevo được chuẩn hóa và không lộ chi tiết nội bộ'
   );
 
   const broadcastSource = String(userController.broadcastCustomEmail);
@@ -166,6 +238,19 @@ function runEmailSecurityTests(assert) {
       customModalSource.includes('DOMPurify.sanitize') &&
       customModalSource.includes('__html: safePreviewHtml'),
     'TC-EMAIL-15: Cả hai màn hình xem trước email đều sanitize HTML trước khi render'
+  );
+
+  const envExampleSource = fs.readFileSync(
+    path.resolve(__dirname, '../../.env.example'),
+    'utf8'
+  );
+  assert(
+    envExampleSource.includes('BREVO_API_KEY=') &&
+      envExampleSource.includes('BREVO_SENDER_EMAIL=') &&
+      envExampleSource.includes('EMAIL_LOGO_URL=') &&
+      !emailsPageSource.includes('Gmail SMTP') &&
+      !customModalSource.includes('Gmail SMTP'),
+    'TC-EMAIL-15.1: Cấu hình và giao diện phản ánh đúng provider Brevo HTTPS'
   );
 
   const brandedHtml = emailService.buildCustomHtmlEmail({

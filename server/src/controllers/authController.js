@@ -165,7 +165,7 @@ const forgotPassword = async (req, res) => {
     user.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000); // 30 phút
     await user.save();
 
-    // Gửi email thật qua Gmail SMTP nếu được cấu hình
+    // Gửi email thật qua provider đã cấu hình (ưu tiên Brevo HTTPS, SMTP làm dự phòng).
     const emailResult = await sendPasswordResetEmail(user.email, user.full_name, resetCode);
     if (!emailResult.sent) {
       user.reset_token = null;

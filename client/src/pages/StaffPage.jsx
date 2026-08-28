@@ -151,10 +151,10 @@ export default function StaffPage() {
         { email: user.email },
         { timeout: 45000 }
       );
-      toast.success(data.message || 'Đã gửi OTP khôi phục mật khẩu qua Gmail!');
+      toast.success(data.message || 'Đã gửi OTP khôi phục mật khẩu qua email!');
     } catch (err) {
       const message = err?.code === 'ECONNABORTED'
-        ? 'Máy chủ gửi OTP phản hồi chậm. Hãy kiểm tra Gmail trước khi gửi lại.'
+        ? 'Máy chủ gửi OTP phản hồi chậm. Hãy kiểm tra hộp thư trước khi gửi lại.'
         : (err?.response?.data?.error || 'Lỗi gửi OTP khôi phục mật khẩu');
       toast.error(message);
     } finally {
@@ -768,7 +768,7 @@ export default function StaffPage() {
                           <button
                             onClick={() => handleSendRecoveryOtp(u)}
                             disabled={sendingOtpUserId === String(u._id || u.id)}
-                            title="Gửi OTP khôi phục mật khẩu qua Gmail"
+                            title="Gửi OTP khôi phục mật khẩu qua email"
                             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '5px', cursor: 'pointer', color: 'var(--yellow)', display: 'flex', alignItems: 'center' }}
                           >
                             {sendingOtpUserId === String(u._id || u.id) ? <span className="spinner" /> : '🔑'}

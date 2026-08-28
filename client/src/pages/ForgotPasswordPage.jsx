@@ -1,5 +1,5 @@
 // src/pages/ForgotPasswordPage.jsx
-// Trang Đặt lại mật khẩu — Nhận OTP bảo mật qua Gmail
+// Trang Đặt lại mật khẩu — Nhận OTP bảo mật qua email
 
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
       setOtpSent(true);
     } catch (err) {
       const message = err?.code === 'ECONNABORTED'
-        ? 'Máy chủ gửi OTP phản hồi chậm. Vui lòng chờ ít phút và kiểm tra Gmail trước khi gửi lại.'
+        ? 'Máy chủ gửi OTP phản hồi chậm. Vui lòng chờ ít phút và kiểm tra hộp thư trước khi gửi lại.'
         : (err?.response?.data?.error || "Không thể gửi mã. Vui lòng kiểm tra lại email.");
       toast.error(message);
     } finally {
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
             Đặt lại mật khẩu
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.5 }}>
-            Nhập email của bạn và bấm <strong>"Gửi mã OTP"</strong>. Mã xác thực chỉ được gửi tới Gmail đã đăng ký và có hiệu lực trong 30 phút.
+            Nhập email của bạn và bấm <strong>"Gửi mã OTP"</strong>. Mã xác thực chỉ được gửi tới email đã đăng ký và có hiệu lực trong 30 phút.
           </p>
         </div>
 
@@ -158,7 +158,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Mã OTP nhận qua Gmail *</label>
+              <label className="form-label">Mã OTP nhận qua email *</label>
               <input
                 type="text"
                 className="form-input"

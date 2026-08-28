@@ -33,7 +33,7 @@ const PRESET_TEMPLATES = [
     id: "onboarding",
     name: "🚀 Bàn giao tài khoản & HDSD",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN TÀI KHOẢN CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Thiết lập mật khẩu:** Dùng chức năng **Quên mật khẩu** để nhận mã OTP qua Gmail và tự đặt mật khẩu riêng.\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🔐 Thiết Lập Mật Khẩu Bằng OTP | https://qly-cham-cong.vercel.app/forgot-password]\n\n[button: 🚀 Đăng Nhập Hệ Thống | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút thiết lập mật khẩu và nhập đúng email tài khoản.\n2. Nhập mã OTP nhận qua Gmail để tự đặt mật khẩu mới.\n3. Đăng nhập hệ thống và tham khảo tài liệu hướng dẫn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    body: "Xin chào **{ho_ten}**,\n\n**Kiến trúc ET** chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN TÀI KHOẢN CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Thiết lập mật khẩu:** Dùng chức năng **Quên mật khẩu** để nhận mã OTP qua email và tự đặt mật khẩu riêng.\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n[button: 🔐 Thiết Lập Mật Khẩu Bằng OTP | https://qly-cham-cong.vercel.app/forgot-password]\n\n[button: 🚀 Đăng Nhập Hệ Thống | https://qly-cham-cong.vercel.app]\n\n[link: 📖 Bấm vào đây để xem Tài Liệu Hướng Dẫn Sử Dụng Chi Tiết | https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing]\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút thiết lập mật khẩu và nhập đúng email tài khoản.\n2. Nhập mã OTP nhận qua email để tự đặt mật khẩu mới.\n3. Đăng nhập hệ thống và tham khảo tài liệu hướng dẫn.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "",
     actionUrl: "",
     documentUrl: "",
@@ -300,11 +300,11 @@ export default function EmailsPage() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes("@")) {
-      toast.error("Vui lòng nhập địa chỉ Gmail nhận thử nghiệm hợp lệ");
+      toast.error("Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ");
       return;
     }
     if (containsPasswordVariable(subject, body, actionText, footerText)) {
-      toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua Gmail.");
+      toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua email.");
       return;
     }
     setSendingTest(true);
@@ -379,7 +379,7 @@ export default function EmailsPage() {
           <div>
             <div className="header__title">Bộ Soạn & Gửi Email Doanh Nghiệp</div>
             <div className="header__subtitle">
-              Quản lý truyền thông nội bộ · Bàn giao tài khoản & Thông báo chính thức qua Gmail SMTP
+              Quản lý truyền thông nội bộ · Bàn giao tài khoản & Thông báo chính thức qua dịch vụ email bảo mật
             </div>
           </div>
           <div className="page-header-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
@@ -586,7 +586,7 @@ export default function EmailsPage() {
                   className="form-input"
                   value={testEmail}
                   onChange={e => setTestEmail(e.target.value)}
-                  placeholder="Nhập Gmail bất kỳ để nhận thử..."
+                  placeholder="Nhập email bất kỳ để nhận thử..."
                   style={{ fontSize: "13px", minWidth: 0, flex: "1 1 180px" }}
                 />
                 <button
@@ -765,7 +765,7 @@ export default function EmailsPage() {
           {/* Broadcast Action Bottom Bar */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px", paddingTop: "14px", borderTop: "1px solid var(--border)" }}>
             <span style={{ fontSize: "13.5px", color: "var(--text-secondary)" }}>
-              Sẵn sàng gửi tới <strong style={{ color: "var(--primary)" }}>{selectedRecipientIds.length} nhân sự</strong> hợp lệ qua Gmail SMTP
+              Sẵn sàng gửi tới <strong style={{ color: "var(--primary)" }}>{selectedRecipientIds.length} nhân sự</strong> hợp lệ qua dịch vụ email
             </span>
             <button
               type="button"
@@ -796,9 +796,9 @@ export default function EmailsPage() {
                 <h3 id="email-confirm-title">Xác nhận gửi Email hàng loạt</h3>
               </div>
               <div className="email-confirm-dialog__message">
-                Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua Gmail SMTP (giãn cách 1s/email an toàn).
+                Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua dịch vụ email bảo mật (giãn cách 1s/email an toàn).
                 <div className="email-confirm-dialog__warning">
-                  🔐 Email này không thay đổi mật khẩu. Nhân sự chỉ tự đặt lại mật khẩu bằng mã OTP gửi qua Gmail.
+                  🔐 Email này không thay đổi mật khẩu. Nhân sự chỉ tự đặt lại mật khẩu bằng mã OTP gửi qua email.
                 </div>
               </div>
               <div className="email-confirm-dialog__actions">

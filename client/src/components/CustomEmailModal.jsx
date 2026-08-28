@@ -30,7 +30,7 @@ const PRESET_TEMPLATES = [
     id: "onboarding",
     name: "🚀 Bàn giao tài khoản & Hướng dẫn sử dụng",
     subject: "Thông tin tài khoản & Hướng dẫn sử dụng hệ thống ET Office Portal",
-    body: "Xin chào **{ho_ten}**,\n\nKiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN TÀI KHOẢN CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Thiết lập mật khẩu:** Dùng chức năng **Quên mật khẩu** để nhận mã OTP qua Gmail và tự đặt mật khẩu riêng.\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút bên dưới để mở trang thiết lập mật khẩu.\n2. Nhập email và mã OTP nhận qua Gmail.\n3. Đăng nhập hệ thống rồi xem tài liệu hướng dẫn sử dụng.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
+    body: "Xin chào **{ho_ten}**,\n\nKiến trúc ET chính thức đưa vào vận hành hệ thống **ET Office Portal** nhằm tối ưu hóa quy trình chấm công GPS, nộp đơn từ, quản lý dự án và đăng ký lịch làm việc.\n\n🔐 **THÔNG TIN TÀI KHOẢN CỦA BẠN:**\n• **Tài khoản (Email):** {email}\n• **Thiết lập mật khẩu:** Dùng chức năng **Quên mật khẩu** để nhận mã OTP qua email và tự đặt mật khẩu riêng.\n• **Chức vụ:** {chuc_vu} · **Phòng ban:** {phong_ban}\n\n📌 **QUY TRÌNH BẮT ĐẦU:**\n1. Bấm nút bên dưới để mở trang thiết lập mật khẩu.\n2. Nhập email và mã OTP nhận qua email.\n3. Đăng nhập hệ thống rồi xem tài liệu hướng dẫn sử dụng.\n\nChúc bạn có trải nghiệm làm việc thuận tiện và hiệu quả!",
     actionText: "🔐 Thiết Lập Mật Khẩu Bằng OTP",
     actionUrl: "https://qly-cham-cong.vercel.app/forgot-password",
     documentUrl: "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
@@ -181,11 +181,11 @@ export default function CustomEmailModal({ staffList = [], currentUser, onClose 
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes("@")) {
-      toast.error("Vui lòng nhập địa chỉ Gmail nhận thử nghiệm hợp lệ");
+      toast.error("Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ");
       return;
     }
     if (containsPasswordVariable(subject, body, actionText, footerText)) {
-      toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua Gmail.");
+      toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua email.");
       return;
     }
     setSendingTest(true);
@@ -266,7 +266,7 @@ export default function CustomEmailModal({ staffList = [], currentUser, onClose 
             </div>
             <div>
               <h2 style={{ fontSize: "18px", fontWeight: 800, margin: 0, color: "var(--text)" }}>Bộ Soạn & Gửi Email Tùy Chỉnh</h2>
-              <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Gửi thư chào mừng, cấp tài khoản hoặc thông báo chính thức qua Gmail SMTP</div>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Gửi thư chào mừng, cấp tài khoản hoặc thông báo chính thức qua dịch vụ email bảo mật</div>
             </div>
           </div>
           <button type="button" onClick={onClose} className="btn btn--ghost" style={{ padding: "4px 8px" }}><X size={18} /></button>
@@ -418,7 +418,7 @@ export default function CustomEmailModal({ staffList = [], currentUser, onClose 
         ) : (
           <div style={{ flex: 1, overflowY: "auto", background: "var(--bg-raised)", padding: "12px", borderRadius: "14px", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "8px", textAlign: "center" }}>
-              📱 Xem trước giao diện hiển thị trên ứng dụng Gmail (Đã thay thế biến mẫu ví dụ: <em>Nguyễn Văn A</em>)
+              📱 Xem trước giao diện hiển thị trên ứng dụng email (Đã thay thế biến mẫu ví dụ: <em>Nguyễn Văn A</em>)
             </div>
             <div dangerouslySetInnerHTML={{ __html: safePreviewHtml }} />
           </div>
@@ -476,7 +476,7 @@ export default function CustomEmailModal({ staffList = [], currentUser, onClose 
               className="form-input"
               value={testEmail}
               onChange={e => setTestEmail(e.target.value)}
-              placeholder="Nhập Gmail bất kỳ để gửi thử nghiệm..."
+              placeholder="Nhập email bất kỳ để gửi thử nghiệm..."
               style={{ fontSize: "12.5px", minHeight: "38px" }}
             />
             <button
@@ -514,9 +514,9 @@ export default function CustomEmailModal({ staffList = [], currentUser, onClose 
                 <h3 style={{ fontSize: "16px", fontWeight: 800, margin: 0 }}>Xác nhận gửi Email hàng loạt</h3>
               </div>
               <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: "16px" }}>
-                Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua Gmail SMTP (giãn cách 1s/email an toàn).
+                Hệ thống sẽ gửi email <strong>"{subject}"</strong> tới <strong>{selectedRecipientIds.length} nhân sự</strong> đã chọn qua dịch vụ email bảo mật (giãn cách 1s/email an toàn).
                 <span style={{ display: "block", color: "var(--green)", marginTop: "6px", fontWeight: 600 }}>
-                  🔐 Email không thay đổi mật khẩu; người nhận chỉ tự đặt lại bằng OTP gửi qua Gmail.
+                  🔐 Email không thay đổi mật khẩu; người nhận chỉ tự đặt lại bằng OTP gửi qua email.
                 </span>
               </p>
               <div style={{ display: "flex", gap: "8px" }}>

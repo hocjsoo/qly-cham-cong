@@ -5,8 +5,13 @@ const User = require('../models/User');
 const { isResignedEmploymentStatus } = require('../utils/employmentStatus');
 
 const containsPasswordVariable = (...values) => values.some(value => /\{mat_khau\}/i.test(String(value || '')));
-const SMTP_TRANSPORT_FAILURE_CODES = new Set(['EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'EDNS', 'ESOCKET', 'ETIMEDOUT']);
-const isSmtpTransportFailure = result => SMTP_TRANSPORT_FAILURE_CODES.has(result?.code) || result?.responseCode === 535;
+const EMAIL_PROVIDER_FAILURE_CODES = new Set([
+  'EAUTH', 'ECONNECTION', 'ECONNREFUSED', 'EDNS', 'ESOCKET', 'ETIMEDOUT', 'SMTP_CONFIG',
+  'BREVO_AUTH', 'BREVO_CONFIG', 'BREVO_CONNECTION', 'BREVO_ERROR', 'BREVO_QUOTA',
+  'BREVO_RATE_LIMIT', 'BREVO_REQUEST', 'BREVO_RUNTIME', 'BREVO_TIMEOUT', 'BREVO_UNAVAILABLE',
+  'EMAIL_CONFIG',
+]);
+const isEmailProviderFailure = result => EMAIL_PROVIDER_FAILURE_CODES.has(result?.code) || result?.responseCode === 535;
 
 // Ham tu sinh employee_code: NS-001, TV-001, TTS-001
 const generateEmployeeCode = async (employeeType = 'NS') => {
@@ -482,7 +487,7 @@ const sendTestEmail = async (req, res) => {
   }
   if (containsPasswordVariable(title, body, actionText, footerText)) {
     return res.status(400).json({
-      error: "Biến {mat_khau} đã bị vô hiệu hóa để bảo vệ tài khoản. Hãy hướng dẫn người nhận dùng Quên mật khẩu để nhận OTP qua Gmail.",
+      error: "Biến {mat_khau} đã bị vô hiệu hóa để bảo vệ tài khoản. Hãy hướng dẫn người nhận dùng Quên mật khẩu để nhận OTP qua email.",
     });
   }
 
@@ -514,7 +519,7 @@ const sendTestEmail = async (req, res) => {
     });
 
     if (!result.sent) {
-      const reason = result.error || result.reason || "Máy chủ Gmail chưa sẵn sàng.";
+      const reason = result.error || result.reason || "Dịch vụ email chưa sẵn sàng.";
       return res.status(503).json({
         error: "Không thể gửi email thử nghiệm: " + reason,
         sent: false,
@@ -602,14 +607,14 @@ const broadcastCustomEmail = async (req, res) => {
       if (result.sent) sentCount++;
       else {
         failedCount++;
-        if (isSmtpTransportFailure(result)) {
+        if (isEmailProviderFailure(result)) {
           failedCount += users.length - index - 1;
-          abortedReason = result.error || 'SMTP không khả dụng';
+          abortedReason = result.error || 'Dịch vụ email không khả dụng';
           break;
         }
       }
 
-      // Delay 1s per email to respect Gmail SMTP rate limits
+      // Delay 1s per email to respect provider rate limits and the free daily quota.
       if (users.length > 1 && index < users.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -617,7 +622,7 @@ const broadcastCustomEmail = async (req, res) => {
 
     res.json({
       message: abortedReason
-        ? ("Đã gửi " + sentCount + "/" + users.length + " email. Dừng sớm vì SMTP lỗi: " + abortedReason)
+        ? ("Đã gửi " + sentCount + "/" + users.length + " email. Dừng sớm vì dịch vụ email gặp lỗi: " + abortedReason)
         : ("Đã gửi thành công " + sentCount + "/" + users.length + " email!"),
       total: users.length,
       sent: sentCount,
@@ -635,5 +640,9 @@ module.exports = {
   sendTestEmail, broadcastCustomEmail,
   getAllUsers, createUser, updateUser, updateAvatar, deleteUser, toggleActive,
   getUserDevices, deleteUserDevice, trustUserDevice,
-  __test: { containsPasswordVariable, isSmtpTransportFailure },
+  __test: {
+    containsPasswordVariable,
+    isEmailProviderFailure,
+    isSmtpTransportFailure: isEmailProviderFailure,
+  },
 };

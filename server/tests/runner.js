@@ -110,7 +110,7 @@ async function runAllTests() {
     runDashboardStatsTests(assert);
     await runExportTests(assert);
     await runPasswordAuthTests(assert);
-    runEmailSecurityTests(assert);
+    await runEmailSecurityTests(assert);
     runMultiOfficeTests(assert);
     runSystemSettingsTests(assert);
     runVehicleParkingTests(assert);

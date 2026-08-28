@@ -7,6 +7,10 @@ const fs = require("fs");
 
 let transporter = null;
 
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+const DEFAULT_SENDER_NAME = "Kiến trúc ET";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -144,6 +148,55 @@ function buildEmailErrorResult(error) {
     error: getSafeEmailErrorMessage(error),
     code: error?.code || null,
     responseCode: error?.responseCode || null,
+    provider: 'smtp',
+  };
+}
+
+function getSafeBrevoErrorMessage(status) {
+  if (status === 400) {
+    return 'Brevo từ chối yêu cầu. Hãy kiểm tra email người gửi đã xác minh và nội dung thư.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Khóa API Brevo không hợp lệ hoặc không có quyền gửi email.';
+  }
+  if (status === 402 || status === 429) {
+    return 'Đã đạt giới hạn gửi email miễn phí của Brevo. Vui lòng thử lại sau.';
+  }
+  if (status >= 500) {
+    return 'Dịch vụ Brevo đang tạm thời không khả dụng. Vui lòng thử lại sau.';
+  }
+  return 'Brevo không thể gửi email. Vui lòng kiểm tra cấu hình và thử lại.';
+}
+
+function getBrevoFailureCode(status) {
+  if (status === 400) return 'BREVO_REQUEST';
+  if (status === 401 || status === 403) return 'BREVO_AUTH';
+  if (status === 402) return 'BREVO_QUOTA';
+  if (status === 429) return 'BREVO_RATE_LIMIT';
+  if (status >= 500) return 'BREVO_UNAVAILABLE';
+  return 'BREVO_ERROR';
+}
+
+function buildBrevoErrorResult(status) {
+  return {
+    sent: false,
+    error: getSafeBrevoErrorMessage(status),
+    code: getBrevoFailureCode(status),
+    responseCode: Number(status) || null,
+    provider: 'brevo',
+  };
+}
+
+function buildBrevoNetworkErrorResult(error) {
+  const timedOut = error?.name === 'AbortError' || error?.code === 'ABORT_ERR';
+  return {
+    sent: false,
+    error: timedOut
+      ? 'Kết nối Brevo quá thời gian chờ. Vui lòng thử lại sau.'
+      : 'Không thể kết nối dịch vụ Brevo. Vui lòng thử lại sau.',
+    code: timedOut ? 'BREVO_TIMEOUT' : 'BREVO_CONNECTION',
+    responseCode: null,
+    provider: 'brevo',
   };
 }
 
@@ -194,6 +247,236 @@ function getLogoPath() {
   if (fs.existsSync(p1)) return p1;
   if (fs.existsSync(p2)) return p2;
   return null;
+}
+
+function getBrevoConfig(env = process.env) {
+  const apiKey = String(env.BREVO_API_KEY || '').trim();
+  const senderEmail = String(env.BREVO_SENDER_EMAIL || '').trim().toLowerCase();
+  if (!apiKey || !EMAIL_PATTERN.test(senderEmail)) return null;
+
+  const senderName = sanitizeEmailSubject(env.BREVO_SENDER_NAME || DEFAULT_SENDER_NAME).slice(0, 100) || DEFAULT_SENDER_NAME;
+  const replyToEmail = String(env.BREVO_REPLY_TO_EMAIL || '').trim().toLowerCase();
+  const replyToName = sanitizeEmailSubject(env.BREVO_REPLY_TO_NAME || senderName).slice(0, 100) || senderName;
+
+  return {
+    apiKey,
+    sender: { email: senderEmail, name: senderName },
+    replyTo: EMAIL_PATTERN.test(replyToEmail) ? { email: replyToEmail, name: replyToName } : null,
+  };
+}
+
+function hasSmtpConfiguration(env = process.env) {
+  const user = String(env.SMTP_USER || env.GMAIL_USER || '').trim();
+  const pass = normalizeSmtpPassword(env.SMTP_PASS || env.GMAIL_APP_PASSWORD, env.SMTP_HOST || 'smtp.gmail.com');
+  return Boolean(user && pass);
+}
+
+function getConfiguredEmailProvider(env = process.env) {
+  if (getBrevoConfig(env)) return 'brevo';
+  if (hasSmtpConfiguration(env)) return 'smtp';
+  return null;
+}
+
+function getEmailLogoUrl(env = process.env) {
+  const explicitUrl = getSafeHttpUrl(env.EMAIL_LOGO_URL || env.BREVO_LOGO_URL);
+  if (explicitUrl && explicitUrl.startsWith('https://')) return explicitUrl;
+
+  const frontendUrl = getSafeHttpUrl(env.FRONTEND_URL);
+  if (!frontendUrl || !frontendUrl.startsWith('https://')) return null;
+
+  try {
+    return new URL('/logo.png', frontendUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function getAttachmentContent(attachment) {
+  if (Buffer.isBuffer(attachment?.content)) return attachment.content;
+  if (typeof attachment?.content === 'string') return Buffer.from(attachment.content);
+  if (attachment?.path && fs.existsSync(attachment.path)) return fs.readFileSync(attachment.path);
+  return null;
+}
+
+function inferAttachmentContentType(attachment) {
+  if (attachment?.contentType) return String(attachment.contentType).toLowerCase();
+  const extension = path.extname(String(attachment?.filename || attachment?.path || '')).toLowerCase();
+  return {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+  }[extension] || 'application/octet-stream';
+}
+
+function prepareBrevoContent(htmlContent, attachments = [], env = process.env) {
+  let html = String(htmlContent || '');
+  const apiAttachments = [];
+  const logoUrl = getEmailLogoUrl(env);
+
+  for (const attachment of attachments) {
+    const content = getAttachmentContent(attachment);
+    if (!content?.length) continue;
+
+    if (attachment.cid) {
+      let replacement = null;
+      if (attachment.cid === 'company_logo' && logoUrl) {
+        replacement = logoUrl;
+      } else {
+        const contentType = inferAttachmentContentType(attachment);
+        if (contentType.startsWith('image/') && content.length <= 3_000_000) {
+          replacement = `data:${contentType};base64,${content.toString('base64')}`;
+        }
+      }
+
+      if (replacement) {
+        const safeCid = String(attachment.cid).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        html = html.replace(new RegExp(`cid:${safeCid}`, 'gi'), replacement);
+      }
+      if (attachment.cid !== 'company_logo') {
+        apiAttachments.push({
+          name: String(attachment.filename || 'inline-image.png').slice(0, 255),
+          content: content.toString('base64'),
+        });
+      }
+      continue;
+    }
+
+    apiAttachments.push({
+      name: String(attachment.filename || 'attachment.bin').slice(0, 255),
+      content: content.toString('base64'),
+    });
+  }
+
+  return { html, attachments: apiAttachments };
+}
+
+function buildBrevoPayload({ toEmail, toName, subject, htmlContent, attachments = [] }, env = process.env) {
+  const config = getBrevoConfig(env);
+  const normalizedToEmail = String(toEmail || '').trim().toLowerCase();
+  if (!config || !EMAIL_PATTERN.test(normalizedToEmail)) return null;
+
+  const prepared = prepareBrevoContent(htmlContent, attachments, env);
+  const safeToName = sanitizeEmailSubject(toName).slice(0, 100);
+  const payload = {
+    sender: config.sender,
+    to: [{ email: normalizedToEmail, ...(safeToName ? { name: safeToName } : {}) }],
+    subject: sanitizeEmailSubject(subject) || 'Thông báo từ Kiến trúc ET',
+    htmlContent: prepared.html,
+  };
+
+  if (config.replyTo) payload.replyTo = config.replyTo;
+  if (prepared.attachments.length > 0) payload.attachment = prepared.attachments;
+  return payload;
+}
+
+async function sendViaBrevo(message, env = process.env, fetchImpl = globalThis.fetch) {
+  const config = getBrevoConfig(env);
+  const payload = buildBrevoPayload(message, env);
+  if (!config || !payload) {
+    return {
+      sent: false,
+      error: 'Brevo chưa được cấu hình đầy đủ hoặc địa chỉ email không hợp lệ.',
+      code: 'BREVO_CONFIG',
+      responseCode: null,
+      provider: 'brevo',
+    };
+  }
+  if (typeof fetchImpl !== 'function') {
+    return {
+      sent: false,
+      error: 'Máy chủ hiện tại chưa hỗ trợ kết nối Brevo qua HTTPS.',
+      code: 'BREVO_RUNTIME',
+      responseCode: null,
+      provider: 'brevo',
+    };
+  }
+
+  const controller = new AbortController();
+  const configuredTimeout = Number(env.BREVO_TIMEOUT_MS || 20000);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+    ? Math.max(5000, configuredTimeout)
+    : 20000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchImpl(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'api-key': config.apiKey,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) return buildBrevoErrorResult(response.status);
+
+    let responseBody = null;
+    try {
+      responseBody = await response.json();
+    } catch {
+      responseBody = null;
+    }
+    console.log('✅ [EMAIL/BREVO] Đã gửi email thành công.');
+    return {
+      sent: true,
+      provider: 'brevo',
+      messageId: typeof responseBody?.messageId === 'string' ? responseBody.messageId : null,
+    };
+  } catch (error) {
+    console.error('❌ [EMAIL/BREVO] Gửi email thất bại:', error?.name || error?.code || 'UNKNOWN');
+    return buildBrevoNetworkErrorResult(error);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function sendViaSmtp({ toEmail, subject, htmlContent, attachments = [] }) {
+  const mailer = getTransporter();
+  if (!mailer) {
+    return {
+      sent: false,
+      reason: 'SMTP chưa được cấu hình.',
+      code: 'SMTP_CONFIG',
+      provider: 'smtp',
+    };
+  }
+
+  const from = process.env.EMAIL_FROM || ('"ET Office Portal" <' + (process.env.SMTP_USER || process.env.GMAIL_USER) + '>');
+  try {
+    await mailer.sendMail({
+      from,
+      to: toEmail,
+      subject: sanitizeEmailSubject(subject),
+      html: htmlContent,
+      attachments,
+    });
+    console.log('✅ [EMAIL/SMTP] Đã gửi email thành công.');
+    return { sent: true, provider: 'smtp' };
+  } catch (error) {
+    console.error('❌ [EMAIL/SMTP] Gửi email thất bại:', error.code || error.responseCode || 'UNKNOWN');
+    return buildEmailErrorResult(error);
+  }
+}
+
+async function sendEmailMessage(message) {
+  const provider = getConfiguredEmailProvider();
+  if (provider === 'brevo') return sendViaBrevo(message);
+  if (provider === 'smtp') return sendViaSmtp(message);
+
+  const brevoKeyPresent = Boolean(String(process.env.BREVO_API_KEY || '').trim());
+  return {
+    sent: false,
+    error: brevoKeyPresent
+      ? 'Brevo chưa được cấu hình đầy đủ. Hãy bổ sung email người gửi đã xác minh.'
+      : 'Dịch vụ email chưa được cấu hình.',
+    code: brevoKeyPresent ? 'BREVO_CONFIG' : 'EMAIL_CONFIG',
+    responseCode: null,
+    provider: brevoKeyPresent ? 'brevo' : null,
+  };
 }
 
 function renderTemplateVariables(templateStr, vars = {}) {
@@ -275,13 +558,6 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
  * Gửi email đặt lại mật khẩu kèm mã 6 số (Reset OTP) — DUY NHẤT ĐƯỢC GỬI TỰ ĐỘNG (Dark Theme)
  */
 async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
-  const mailer = getTransporter();
-  if (!mailer) {
-    console.warn('⚠️ [EMAIL] SMTP chưa được cấu hình; OTP không được gửi.');
-    return { sent: false, reason: 'SMTP chưa được cấu hình.' };
-  }
-
-  const from = process.env.EMAIL_FROM || ('"ET Office Portal" <' + (process.env.SMTP_USER || process.env.GMAIL_USER) + '>');
   const logoPath = getLogoPath();
   const attachments = logoPath ? [{ filename: "logo.png", path: logoPath, cid: "company_logo" }] : [];
   const safeRecipientName = escapeHtml(recipientName || 'bạn');
@@ -327,33 +603,19 @@ async function sendPasswordResetEmail(toEmail, recipientName, resetCode) {
     '</table>' +
   '</div>';
 
-  try {
-    await mailer.sendMail({
-      from,
-      to: toEmail,
-      subject: '[ET Office Portal] Mã xác thực khôi phục mật khẩu',
-      html,
-      attachments,
-    });
-    console.log('✅ [SMTP GMAIL] Đã gửi email OTP.');
-    return { sent: true };
-  } catch (error) {
-    console.error('❌ [SMTP ERROR] Gửi OTP thất bại:', error.code || error.responseCode || 'UNKNOWN');
-    return buildEmailErrorResult(error);
-  }
+  return sendEmailMessage({
+    toEmail,
+    toName: recipientName,
+    subject: '[ET Office Portal] Mã xác thực khôi phục mật khẩu',
+    htmlContent: html,
+    attachments,
+  });
 }
 
 /**
  * Gửi email tùy chỉnh đơn lẻ (Do Admin bấm gửi thủ công)
  */
 async function sendCustomEmail({ toEmail, subject, htmlContent }) {
-  const mailer = getTransporter();
-  if (!mailer) {
-    console.warn('⚠️ [EMAIL] SMTP chưa được cấu hình; email tùy chỉnh không được gửi.');
-    return { sent: false, reason: 'SMTP chưa được cấu hình.' };
-  }
-
-  const from = process.env.EMAIL_FROM || ('"ET Office Portal" <' + (process.env.SMTP_USER || process.env.GMAIL_USER) + '>');
   const logoPath = getLogoPath();
   const inlineContent = extractInlineDataImages(htmlContent);
   const attachments = [
@@ -361,20 +623,12 @@ async function sendCustomEmail({ toEmail, subject, htmlContent }) {
     ...inlineContent.attachments,
   ];
 
-  try {
-    await mailer.sendMail({
-      from,
-      to: toEmail,
-      subject: sanitizeEmailSubject(subject),
-      html: inlineContent.html,
-      attachments,
-    });
-    console.log('✅ [SMTP GMAIL] Đã gửi email tùy chỉnh.');
-    return { sent: true };
-  } catch (error) {
-    console.error('❌ [SMTP ERROR] Gửi email tùy chỉnh thất bại:', error.code || error.responseCode || 'UNKNOWN');
-    return buildEmailErrorResult(error);
-  }
+  return sendEmailMessage({
+    toEmail,
+    subject,
+    htmlContent: inlineContent.html,
+    attachments,
+  });
 }
 
 module.exports = {
@@ -384,6 +638,14 @@ module.exports = {
   sendCustomEmail,
   sendPasswordResetEmail,
   __test: {
+    getConfiguredEmailProvider,
+    getBrevoConfig,
+    getEmailLogoUrl,
+    prepareBrevoContent,
+    buildBrevoPayload,
+    buildBrevoErrorResult,
+    buildBrevoNetworkErrorResult,
+    sendViaBrevo,
     buildTransportOptions,
     normalizeSmtpPassword,
     getSafeEmailErrorMessage,
