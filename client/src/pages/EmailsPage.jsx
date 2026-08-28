@@ -324,10 +324,17 @@ export default function EmailsPage() {
         actionUrl,
         documentUrl,
         footerText,
-      });
+      }, { timeout: 60000 });
+      if (!data?.sent) {
+        toast.error(data?.error || data?.message || "Máy chủ chưa xác nhận email đã được gửi");
+        return;
+      }
       toast.success(data.message || "Đã gửi email thử nghiệm!", { duration: 4000 });
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Lỗi gửi email thử nghiệm");
+      const message = err?.code === "ECONNABORTED"
+        ? "Máy chủ gửi email phản hồi quá chậm. Vui lòng thử lại sau ít phút."
+        : (err?.response?.data?.error || "Lỗi gửi email thử nghiệm");
+      toast.error(message, { duration: 6000 });
     } finally {
       setSendingTest(false);
     }
@@ -349,10 +356,17 @@ export default function EmailsPage() {
         actionUrl,
         documentUrl,
         footerText,
-      });
-      toast.success(data.message || ("Đã gửi thành công " + data.sent + " email!"), { duration: 6000 });
+      }, { timeout: Math.min(600000, Math.max(120000, selectedRecipientIds.length * 5000)) });
+      if (data.failed > 0) {
+        toast.error(data.message || ("Đã gửi " + data.sent + " email, có " + data.failed + " email lỗi."), { duration: 8000 });
+      } else {
+        toast.success(data.message || ("Đã gửi thành công " + data.sent + " email!"), { duration: 6000 });
+      }
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Lỗi gửi email hàng loạt");
+      const message = err?.code === "ECONNABORTED"
+        ? "Quá trình gửi nhiều email mất nhiều thời gian hơn dự kiến. Vui lòng kiểm tra kết quả trước khi gửi lại."
+        : (err?.response?.data?.error || "Lỗi gửi email hàng loạt");
+      toast.error(message, { duration: 8000 });
     } finally {
       setBroadcasting(false);
     }

@@ -464,14 +464,15 @@ const trustUserDevice = async (req, res) => {
 // POST /api/users/email/send-test — Admin gửi email thử nghiệm vào bất kỳ địa chỉ nào
 const sendTestEmail = async (req, res) => {
   const { toEmail, title, body, actionText, actionUrl, documentUrl, footerText } = req.body;
-  if (!toEmail) {
-    return res.status(400).json({ error: "Vui lòng nhập địa chỉ email nhận thử nghiệm." });
+  const normalizedToEmail = String(toEmail || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedToEmail)) {
+    return res.status(400).json({ error: "Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ." });
   }
 
   try {
     const mockVars = {
       ho_ten: req.user?.full_name || "Nguyễn Văn A",
-      email: toEmail,
+      email: normalizedToEmail,
       chuc_vu: "Kiến trúc sư",
       phong_ban: "Phòng Thiết Kế Kiến Trúc",
       mat_khau: "ET@2026#8492",
@@ -479,7 +480,7 @@ const sendTestEmail = async (req, res) => {
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
 
-    const renderedTitle = renderTemplateVariables(title || "Thông báo từ ET Architects", mockVars);
+    const renderedTitle = renderTemplateVariables(title || "Thông báo từ Kiến trúc ET", mockVars);
     const renderedBody = renderTemplateVariables(body || "", mockVars);
     const html = buildCustomHtmlEmail({
       title: renderedTitle,
@@ -491,17 +492,22 @@ const sendTestEmail = async (req, res) => {
     });
 
     const result = await sendCustomEmail({
-      toEmail,
+      toEmail: normalizedToEmail,
       subject: "[ET Office Portal - THỬ NGHIỆM] " + renderedTitle,
       htmlContent: html,
     });
 
+    if (!result.sent) {
+      const reason = result.error || result.reason || "Máy chủ Gmail chưa sẵn sàng.";
+      return res.status(503).json({
+        error: "Không thể gửi email thử nghiệm: " + reason,
+        sent: false,
+      });
+    }
+
     res.json({
-      message: result.sent
-        ? ("Đã gửi email thử nghiệm thành công tới " + toEmail + "!")
-        : "Đã tạo mẫu email xem trước thành công (chưa bật SMTP Gmail).",
-      sent: result.sent,
-      previewHtml: html,
+      message: "Đã gửi email thử nghiệm thành công tới " + normalizedToEmail + "!",
+      sent: true,
     });
   } catch (err) {
     console.error("SendTestEmail error:", err);
