@@ -1,7 +1,7 @@
 # 🧪 TÀI LIỆU KỊCH BẢN KIỂM THỬ HỆ THỐNG TOÀN DIỆN (TEST SCENARIOS)
 **Dự án:** ET Office Portal — Hệ thống Quản lý Chấm công & Nhân sự Thông minh
 **Phiên bản kiểm thử:** 8.0.0 (Zero-Impact Resilience, Real Supertest HTTP Pipeline & Security Hardening — 40 Test Suites / 321 Test Cases)
-**Tác giả:** [hocjsoo](https://github.com/hocjsoo)
+**Tác giả:** Nguyễn Danh Học ([@hocjsoo](https://github.com/hocjsoo))
 
 ---
 
@@ -172,4 +172,5 @@ server/
 │       └── transactionRollback.test.js# [TX] Kiểm thử xử lý sự cố giao dịch & Rollback
 └── package.json                       # Script "test": "node tests/runner.js"
 ```
+
 

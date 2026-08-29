@@ -6,10 +6,10 @@ const TODAY = '2026-08-29';
 const users = [
   {
     _id: 'user-admin', id: 'user-admin', employee_code: 'ET001',
-    full_name: 'Nguyễn Đăng Học', email: 'admin@etoffice.vn', phone: '0901 234 567',
+    full_name: 'Nguyễn Danh Học', email: 'admin@etoffice.vn', phone: '0901 234 567',
     role: 'admin', position: 'Phó Giám đốc', employee_type: 'NS', department_name: 'Ban Giám Đốc',
     department_id: { _id: 'dept-bgd', name: 'Ban Giám Đốc' }, is_active: true,
-    bank_name: 'Vietcombank', bank_account: '0011001234567', bank_holder: 'NGUYEN DANG HOC',
+    bank_name: 'Vietcombank', bank_account: '0011001234567', bank_holder: 'NGUYEN DANH HOC',
     license_plate: '29E1-888.88', vehicle_type: 'Honda SH', vehicle_color: 'Xám',
     parking_location: 'Tòa 17T10 Nguyễn Thị Định',
   },
@@ -233,7 +233,7 @@ function createMatrix(month, year) {
       late_count: count('0,75x'), total_late_minutes: count('0,75x') * 16,
       early_count: count('0,5x'), total_early_minutes: count('0,5x') * 330,
       days, is_locked: rowIndex === 0, is_attendance_exempt: false,
-      locked_info: rowIndex === 0 ? { locked_by_name: 'Nguyễn Đăng Học', locked_at: '2026-08-29T07:00:00.000Z' } : null,
+      locked_info: rowIndex === 0 ? { locked_by_name: 'Nguyễn Danh Học', locked_at: '2026-08-29T07:00:00.000Z' } : null,
     };
   });
 
@@ -368,3 +368,4 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`ET Office Portal documentation mock API: http://127.0.0.1:${PORT}/api/health`);
 });
+

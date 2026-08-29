@@ -1,6 +1,6 @@
 # 🤝 Hướng Dẫn Đóng Góp (Contributing Guide)
 
-Chào mừng bạn đến với tài liệu hướng dẫn đóng góp mã nguồn cho dự án **ET Office Portal**. Dự án được xây dựng và phát triển độc quyền bởi duy nhất **[hocjsoo](https://github.com/hocjsoo)**.
+Chào mừng bạn đến với tài liệu hướng dẫn đóng góp mã nguồn cho dự án **ET Office Portal**. Dự án được xây dựng và phát triển độc quyền bởi **Nguyễn Danh Học** ([@hocjsoo](https://github.com/hocjsoo)).
 
 Tài liệu này quy định chi tiết về quy chuẩn phát triển, quy trình kiểm thử và văn hóa viết mã nhằm duy trì chất lượng hệ thống ở mức **10/10 VIP PRO**.
 
@@ -94,3 +94,4 @@ Trước khi submit Pull Request, hãy đảm bảo đã hoàn thành checklist 
 ---
 
 *Cảm ơn bạn đã đồng hành xây dựng **ET Office Portal** trở nên hoàn thiện hơn!*
+

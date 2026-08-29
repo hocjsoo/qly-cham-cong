@@ -51,7 +51,7 @@ Chào mừng bạn đến với tài liệu hướng dẫn vận hành và sử 
 </p>
 
 ### 2.1. Đăng nhập
-- Nhập **Email công ty** (ví dụ: `hocjsoo@etoffice.vn`) và **Mật khẩu**.
+- Nhập **Email công ty** (ví dụ: `hoc.nguyen@etoffice.vn`) và **Mật khẩu**.
 - Bấm nút **"Đăng nhập hệ thống"**.
 - Hệ thống tự động thu thập chữ ký phần cứng phần cứng vật lý (`pure_hardware_uuid`) để xác định thiết bị chính chủ.
 
@@ -221,4 +221,5 @@ Dành cho vai trò **Admin** và **Trưởng phòng (Leader)**:
 
 ---
 
-*Tài liệu được phát hành và duy trì độc quyền bởi **[hocjsoo](https://github.com/hocjsoo)**.*
+*Tài liệu được phát hành và duy trì bởi **Nguyễn Danh Học** ([@hocjsoo](https://github.com/hocjsoo)).*
+

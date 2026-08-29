@@ -11,7 +11,7 @@
 
 # 🏢 ET Office Portal
 
-> **Hệ thống quản lý chấm công thông minh, định vị GPS, chống gian lận đa tầng & vận hành doanh nghiệp toàn diện**, được thiết kế & phát triển độc quyền bởi duy nhất **[hocjsoo](https://github.com/hocjsoo)**.
+> **Hệ thống quản lý chấm công thông minh, định vị GPS, chống gian lận đa tầng & vận hành doanh nghiệp toàn diện**, được thiết kế & phát triển độc quyền bởi **Nguyễn Danh Học** ([@hocjsoo](https://github.com/hocjsoo)).
 > 
 > *Mobile-first PWA · GPS Geofencing · Hardware Fingerprinting Anti-Fraud · Phê Duyệt Đơn Từ & Hoàn Phép Thông Minh · Quản Lý Dự Án & Phương Tiện · Báo Cáo Matrix 31 Ngày & Xuất File PDF/Excel*
 
@@ -383,5 +383,6 @@ QLY_CHAM_CONG/
 
 ## 📄 Bản Quyền & Tác Giả
 
-- Dự án được phát triển độc quyền bởi **[hocjsoo](https://github.com/hocjsoo)**.
+- Dự án được phát triển bởi **Nguyễn Danh Học** ([@hocjsoo](https://github.com/hocjsoo)).
 - Toàn bộ mã nguồn phát hành dưới giấy phép **[MIT License](./LICENSE)**.
+

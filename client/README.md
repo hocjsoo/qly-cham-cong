@@ -77,4 +77,5 @@ npm run preview
 
 ---
 
-*Phát triển độc quyền bởi **[hocjsoo](https://github.com/hocjsoo)**.*
+*Phát triển bởi **Nguyễn Danh Học** ([@hocjsoo](https://github.com/hocjsoo)).*
+

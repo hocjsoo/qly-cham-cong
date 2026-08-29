@@ -13,7 +13,7 @@ const DEMO_USER = {
   _id: 'user-admin',
   id: 'user-admin',
   employee_code: 'ET001',
-  full_name: 'Nguyễn Đăng Học',
+  full_name: 'Nguyễn Danh Học',
   email: 'admin@etoffice.vn',
   phone: '0901 234 567',
   role: 'admin',
@@ -23,7 +23,7 @@ const DEMO_USER = {
   is_active: true,
   bank_name: 'Vietcombank',
   bank_account: '0011001234567',
-  bank_holder: 'NGUYEN DANG HOC',
+  bank_holder: 'NGUYEN DANH HOC',
   license_plate: '29E1-888.88',
   vehicle_type: 'Honda SH',
   vehicle_color: 'Xám',
@@ -278,12 +278,12 @@ async function main() {
     await capture(client, '/tts-schedule', '03-tts-schedule.png', 'Phạm Khánh Linh');
     await capture(client, '/projects', '04-projects.png', 'Penthouse Ecopark Grand');
     await capture(client, '/expenses', '05-expenses.png', 'Mua mẫu sơn');
-    await capture(client, '/reports', '06-timesheet-matrix.png', 'Nguyễn Đăng Học');
+    await capture(client, '/reports', '06-timesheet-matrix.png', 'Nguyễn Danh Học');
     await capture(client, '/history', '07-history.png', 'Lịch sử chấm công');
     await capture(client, '/leaderboard', '08-leaderboard.png', 'Trần Minh Anh');
     await capture(client, '/vehicles', '09-vehicles.png', '29E1-888.88');
     await capture(client, '/profile', '10-profile.png', 'Thông tin hồ sơ');
-    await capture(client, '/staff', '11-staff.png', 'Nguyễn Đăng Học');
+    await capture(client, '/staff', '11-staff.png', 'Nguyễn Danh Học');
 
     await client.send('Emulation.setDeviceMetricsOverride', { width: 393, height: 852, deviceScaleFactor: 2, mobile: true });
     await capture(client, '/checkin', '00-mobile-checkin.png', 'Đang làm việc từ');
@@ -308,3 +308,4 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
