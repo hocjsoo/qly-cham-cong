@@ -2,6 +2,7 @@ const { renderTemplateVariables, buildCustomHtmlEmail, sendCustomEmail } = requi
 // controllers/userController.js - Mongoose User Management Controller
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const SystemSetting = require('../models/SystemSetting');
 const { isResignedEmploymentStatus } = require('../utils/employmentStatus');
 
 const containsPasswordVariable = (...values) => values.some(value => /\{mat_khau\}/i.test(String(value || '')));
@@ -480,18 +481,34 @@ const trustUserDevice = async (req, res) => {
 
 // POST /api/users/email/send-test — Admin gửi email thử nghiệm vào bất kỳ địa chỉ nào
 const sendTestEmail = async (req, res) => {
-  const { toEmail, title, body, actionText, actionUrl, documentUrl, footerText } = req.body;
+  const {
+    toEmail,
+    title,
+    body,
+    actionText,
+    actionUrl,
+    documentUrl,
+    footerText,
+    companyAddress,
+    footerNote,
+    companyName,
+  } = req.body;
   const normalizedToEmail = String(toEmail || "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedToEmail)) {
     return res.status(400).json({ error: "Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ." });
   }
-  if (containsPasswordVariable(title, body, actionText, footerText)) {
+  if (containsPasswordVariable(title, body, actionText, footerText, footerNote, companyAddress)) {
     return res.status(400).json({
       error: "Biến {mat_khau} đã bị vô hiệu hóa để bảo vệ tài khoản. Hãy hướng dẫn người nhận dùng Quên mật khẩu để nhận OTP qua email.",
     });
   }
 
   try {
+    const setting = await SystemSetting.findOne({ key: 'global' }).lean();
+    const resolvedCompanyName = companyName || setting?.company_name || 'Kiến trúc ET';
+    const resolvedCompanyAddress = companyAddress || setting?.company_address || '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội';
+    const resolvedFooterNote = footerNote || setting?.email_footer_note || 'Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.';
+
     const mockVars = {
       ho_ten: req.user?.full_name || "Nguyễn Văn A",
       email: normalizedToEmail,
@@ -501,7 +518,7 @@ const sendTestEmail = async (req, res) => {
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     };
 
-    const renderedTitle = renderTemplateVariables(title || "Thông báo từ Kiến trúc ET", mockVars);
+    const renderedTitle = renderTemplateVariables(title || ("Thông báo từ " + resolvedCompanyName), mockVars);
     const renderedBody = renderTemplateVariables(body || "", mockVars);
     const html = buildCustomHtmlEmail({
       title: renderedTitle,
@@ -510,6 +527,9 @@ const sendTestEmail = async (req, res) => {
       actionUrl: renderTemplateVariables(actionUrl || "", mockVars),
       documentUrl: renderTemplateVariables(documentUrl || "", mockVars),
       footerText: renderTemplateVariables(footerText || "", mockVars),
+      companyAddress: renderTemplateVariables(resolvedCompanyAddress, mockVars),
+      footerNote: renderTemplateVariables(resolvedFooterNote, mockVars),
+      companyName: renderTemplateVariables(resolvedCompanyName, mockVars),
     });
 
     const result = await sendCustomEmail({
@@ -545,19 +565,27 @@ const broadcastCustomEmail = async (req, res) => {
     actionText,
     actionUrl,
     documentUrl,
-    footerText
+    footerText,
+    companyAddress,
+    footerNote,
+    companyName,
   } = req.body;
 
   if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
     return res.status(400).json({ error: "Vui lòng chọn ít nhất một nhân sự nhận email." });
   }
-  if (containsPasswordVariable(title, body, actionText, footerText)) {
+  if (containsPasswordVariable(title, body, actionText, footerText, footerNote, companyAddress)) {
     return res.status(400).json({
       error: "Biến {mat_khau} đã bị vô hiệu hóa. Email hàng loạt không được phép tạo, đổi hoặc gửi mật khẩu của nhân sự.",
     });
   }
 
   try {
+    const setting = await SystemSetting.findOne({ key: 'global' }).lean();
+    const resolvedCompanyName = companyName || setting?.company_name || 'Kiến trúc ET';
+    const resolvedCompanyAddress = companyAddress || setting?.company_address || '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội';
+    const resolvedFooterNote = footerNote || setting?.email_footer_note || 'Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.';
+
     const candidates = await User.find({
       _id: { $in: recipientIds },
       is_active: { $ne: false },
@@ -587,7 +615,7 @@ const broadcastCustomEmail = async (req, res) => {
         link_tai_lieu: documentUrl || "",
       };
 
-      const renderedTitle = renderTemplateVariables(title || "Thông báo từ Kiến trúc ET", userVars);
+      const renderedTitle = renderTemplateVariables(title || ("Thông báo từ " + resolvedCompanyName), userVars);
       const renderedBody = renderTemplateVariables(body || "", userVars);
       const html = buildCustomHtmlEmail({
         title: renderedTitle,
@@ -596,6 +624,9 @@ const broadcastCustomEmail = async (req, res) => {
         actionUrl: renderTemplateVariables(actionUrl || "", userVars),
         documentUrl: renderTemplateVariables(documentUrl || "", userVars),
         footerText: renderTemplateVariables(footerText || "", userVars),
+        companyAddress: renderTemplateVariables(resolvedCompanyAddress, userVars),
+        footerNote: renderTemplateVariables(resolvedFooterNote, userVars),
+        companyName: renderTemplateVariables(resolvedCompanyName, userVars),
       });
 
       const result = await sendCustomEmail({

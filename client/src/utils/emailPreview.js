@@ -104,6 +104,9 @@ export const renderEmailPreviewHtml = ({
   actionUrl,
   documentUrl,
   footerText,
+  companyAddress = '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội',
+  footerNote = 'Thư được gửi tự động từ hệ thống ET Office Portal.',
+  companyName = 'Kiến trúc ET',
   variables,
   logoUrl = '/logo.png',
 }) => {
@@ -113,6 +116,9 @@ export const renderEmailPreviewHtml = ({
   const renderedActionUrl = renderVariables(actionUrl, variables);
   const renderedDocumentUrl = renderVariables(documentUrl, variables);
   const renderedFooterText = renderVariables(footerText, variables);
+  const renderedCompanyAddress = renderVariables(companyAddress || '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội', variables);
+  const renderedFooterNote = renderVariables(footerNote || 'Thư được gửi tự động từ hệ thống ET Office Portal.', variables);
+  const renderedCompanyName = renderVariables(companyName || 'Kiến trúc ET', variables);
 
   const safeSubject = escapeHtml(renderedSubject);
   const safeBody = renderBodyMarkup(renderedBody);
@@ -120,6 +126,9 @@ export const renderEmailPreviewHtml = ({
   const safeActionUrl = getSafeHttpUrl(renderedActionUrl);
   const safeDocumentUrl = getSafeHttpUrl(renderedDocumentUrl);
   const safeFooterText = escapeHtml(renderedFooterText);
+  const safeCompanyAddress = escapeHtml(renderedCompanyAddress);
+  const safeFooterNote = escapeHtml(renderedFooterNote);
+  const safeCompanyName = escapeHtml(renderedCompanyName);
   const safeLogoUrl = getSafeImageUrl(logoUrl) || '/logo.png';
 
   let actions = '';
@@ -142,8 +151,8 @@ export const renderEmailPreviewHtml = ({
   return '<div style="background-color: ' + EMAIL_THEME.background + '; padding: 24px 8px; font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif; border-radius: 14px; color: ' + EMAIL_THEME.text + ';">' +
     '<div style="max-width: 560px; margin: 0 auto; background: ' + EMAIL_THEME.card + '; border-radius: 18px; overflow: hidden; border: 1px solid ' + EMAIL_THEME.cardBorder + '; box-shadow: 0 20px 60px rgba(0,0,0,0.65);">' +
       '<div style="background: linear-gradient(180deg, ' + EMAIL_THEME.headerStart + ' 0%, ' + EMAIL_THEME.headerEnd + ' 100%); padding: 28px 22px 22px; text-align: center; border-bottom: 1px solid ' + EMAIL_THEME.divider + ';">' +
-        '<img src="' + escapeHtml(safeLogoUrl) + '" alt="Kiến trúc ET" style="height: 54px; max-width: 180px; object-fit: contain; display: inline-block; margin-bottom: 8px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8)); border-radius: 8px;" />' +
-        '<div style="color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;">Kiến trúc ET</div>' +
+        '<img src="' + escapeHtml(safeLogoUrl) + '" alt="' + safeCompanyName + '" style="height: 54px; max-width: 180px; object-fit: contain; display: inline-block; margin-bottom: 8px; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8)); border-radius: 8px;" />' +
+        '<div style="color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;">' + safeCompanyName + '</div>' +
         '<div style="color: ' + EMAIL_THEME.textMuted + '; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
       '</div>' +
       '<div style="padding: 28px 24px;">' +
@@ -153,8 +162,8 @@ export const renderEmailPreviewHtml = ({
       '</div>' +
       '<div style="background: #111315; padding: 18px 24px; border-top: 1px solid #24282c; text-align: center; font-size: 11.5px; color: ' + EMAIL_THEME.textMuted + '; line-height: 1.6;">' +
         (safeFooterText ? '<div style="font-weight: 800; color: #e2e8f0; margin-bottom: 4px; font-size: 12.5px;">' + safeFooterText + '</div>' : '') +
-        '<div><strong style="color: #cbd5e1;">Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div>' +
-        '<div style="margin-top: 4px; color: #64748b; font-size: 10.5px;">Thư được gửi tự động từ hệ thống ET Office Portal.</div>' +
+        '<div><strong style="color: #cbd5e1;">' + safeCompanyName + '</strong> · ' + safeCompanyAddress + '</div>' +
+        '<div style="margin-top: 4px; color: #64748b; font-size: 10.5px;">' + safeFooterNote + '</div>' +
       '</div>' +
     '</div>' +
   '</div>';

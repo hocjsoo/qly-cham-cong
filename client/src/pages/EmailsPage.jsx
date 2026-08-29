@@ -8,8 +8,13 @@ import { Send, Eye, Edit3, Users, ShieldAlert, Sparkles, CheckSquare, Square, Sh
 import toast from "react-hot-toast";
 import api from "../services/api";
 import useAuthStore from "../stores/authStore";
+import useSettingsStore from "../stores/settingsStore";
 import HeaderActions from "../components/HeaderActions";
 import { renderEmailPreviewHtml } from "../utils/emailPreview";
+import {
+  DEFAULT_COMPANY_ADDRESS,
+  DEFAULT_EMAIL_FOOTER_NOTE,
+} from "../utils/dynamicBranding";
 
 const normalizeEmploymentStatus = value => String(value || "")
   .normalize("NFD")
@@ -95,6 +100,8 @@ export default function EmailsPage() {
   const { user: currentUser } = useAuthStore();
   const [staffList, setStaffList] = useState([]);
 
+  const { company_name, company_address, email_footer_note, company_logo_url } = useSettingsStore();
+
   // Template & Composer State
   const [selectedTemplate, setSelectedTemplate] = useState("onboarding");
   const [subject, setSubject] = useState(PRESET_TEMPLATES[0].subject);
@@ -103,6 +110,8 @@ export default function EmailsPage() {
   const [actionUrl, setActionUrl] = useState(PRESET_TEMPLATES[0].actionUrl);
   const [documentUrl, setDocumentUrl] = useState(PRESET_TEMPLATES[0].documentUrl);
   const [footerText, setFooterText] = useState(PRESET_TEMPLATES[0].footerText);
+  const [companyAddress, setCompanyAddress] = useState(company_address || DEFAULT_COMPANY_ADDRESS);
+  const [footerNote, setFooterNote] = useState(email_footer_note || DEFAULT_EMAIL_FOOTER_NOTE);
 
   // Multi-Dimensional Recipient Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -281,6 +290,10 @@ export default function EmailsPage() {
     actionUrl,
     documentUrl,
     footerText,
+    companyAddress,
+    footerNote,
+    companyName: company_name,
+    logoUrl: company_logo_url,
     variables: {
       ho_ten: "Nguyễn Văn A",
       email: "nguyenvana@et-arc.com",
@@ -289,7 +302,7 @@ export default function EmailsPage() {
       link_he_thong: actionUrl || "https://qly-cham-cong.vercel.app",
       link_tai_lieu: documentUrl || "https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing",
     },
-  }), [subject, body, actionText, actionUrl, documentUrl, footerText]);
+  }), [subject, body, actionText, actionUrl, documentUrl, footerText, companyAddress, footerNote, company_name, company_logo_url]);
 
   const safePreviewHtml = useMemo(() => DOMPurify.sanitize(livePreviewHtml, {
     USE_PROFILES: { html: true },
@@ -303,7 +316,7 @@ export default function EmailsPage() {
       toast.error("Vui lòng nhập địa chỉ email nhận thử nghiệm hợp lệ");
       return;
     }
-    if (containsPasswordVariable(subject, body, actionText, footerText)) {
+    if (containsPasswordVariable(subject, body, actionText, footerText, footerNote, companyAddress)) {
       toast.error("Biến {mat_khau} đã bị vô hiệu hóa. Hãy dùng hướng dẫn nhận OTP qua email.");
       return;
     }
@@ -317,6 +330,9 @@ export default function EmailsPage() {
         actionUrl,
         documentUrl,
         footerText,
+        companyAddress,
+        footerNote,
+        companyName: company_name,
       }, { timeout: 60000 });
       if (!data?.sent) {
         toast.error(data?.error || data?.message || "Máy chủ chưa xác nhận email đã được gửi");
@@ -338,7 +354,7 @@ export default function EmailsPage() {
       toast.error("Vui lòng chọn ít nhất một nhân sự nhận email");
       return;
     }
-    if (containsPasswordVariable(subject, body, actionText, footerText)) {
+    if (containsPasswordVariable(subject, body, actionText, footerText, footerNote, companyAddress)) {
       toast.error("Email hàng loạt không được phép tạo, đổi hoặc gửi mật khẩu nhân sự.");
       setShowConfirmModal(false);
       return;
@@ -354,6 +370,9 @@ export default function EmailsPage() {
         actionUrl,
         documentUrl,
         footerText,
+        companyAddress,
+        footerNote,
+        companyName: company_name,
       }, { timeout: Math.min(600000, Math.max(120000, selectedRecipientIds.length * 5000)) });
       if (data.failed > 0) {
         toast.error(data.message || ("Đã gửi " + data.sent + " email, có " + data.failed + " email lỗi."), { duration: 8000 });
@@ -534,17 +553,17 @@ export default function EmailsPage() {
               </div>
             </div>
 
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Link Tài Liệu Hướng Dẫn (Drive / Notion / PDF)</label>
+              <input
+                type="url"
+                className="form-input"
+                value={documentUrl}
+                onChange={e => setDocumentUrl(e.target.value)}
+                placeholder="https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing"
+              />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Link Tài Liệu Hướng Dẫn (Drive / Notion / PDF)</label>
-                <input
-                  type="url"
-                  className="form-input"
-                  value={documentUrl}
-                  onChange={e => setDocumentUrl(e.target.value)}
-                  placeholder="https://docs.google.com/presentation/d/1wniEsYDzZ5yWMO0kpJDVNucalvfOPMzxpJfweixT2Ek/edit?usp=sharing"
-                />
-              </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Chữ ký chân trang (Footer Signature)</label>
                 <input
@@ -555,6 +574,27 @@ export default function EmailsPage() {
                   placeholder="VD: Ban Giám Đốc Kiến trúc ET"
                 />
               </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Ghi chú chân trang email</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={footerNote}
+                  onChange={e => setFooterNote(e.target.value)}
+                  placeholder={DEFAULT_EMAIL_FOOTER_NOTE}
+                />
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Địa chỉ trụ sở công ty ở chân trang (Company Address)</label>
+              <input
+                type="text"
+                className="form-input"
+                value={companyAddress}
+                onChange={e => setCompanyAddress(e.target.value)}
+                placeholder={DEFAULT_COMPANY_ADDRESS}
+              />
             </div>
           </div>
 

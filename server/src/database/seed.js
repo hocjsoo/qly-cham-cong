@@ -25,14 +25,14 @@ const seedInitialData = async () => {
     // 2. Tạo vị trí văn phòng mặc định
     const locationCount = await OfficeLocation.countDocuments();
     if (locationCount === 0) {
-      const officeLat = parseFloat(process.env.OFFICE_LAT || '10.7769');
-      const officeLng = parseFloat(process.env.OFFICE_LNG || '106.7009');
+      const officeLat = parseFloat(process.env.OFFICE_LAT || '21.0118');
+      const officeLng = parseFloat(process.env.OFFICE_LNG || '105.8005');
       await OfficeLocation.create({
         name: 'Văn phòng chính Kiến trúc ET',
-        address: 'Thành phố Hồ Chí Minh',
+        address: '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội',
         lat: officeLat,
         lng: officeLng,
-        radius_m: parseInt(process.env.OFFICE_RADIUS_METERS || '100'),
+        radius_m: parseInt(process.env.OFFICE_RADIUS_METERS || '250'),
         is_active: true,
       });
       console.log('🌱 Seeded default office location');
@@ -44,9 +44,11 @@ const seedInitialData = async () => {
       await SystemSetting.create({
         key: 'global',
         company_name: 'Kiến trúc ET',
+        company_address: '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội',
+        email_footer_note: 'Thư được gửi tự động từ hệ thống ET Office Portal.',
         company_logo_url: '/logo.png',
-        work_start_time: '08:30',
-        work_end_time: '17:30',
+        work_start_time: '09:00',
+        work_end_time: '18:30',
         lunch_break_start: '12:00',
         lunch_break_end: '13:00',
         ot_start_time: '18:00',

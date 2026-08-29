@@ -493,13 +493,26 @@ function renderTemplateVariables(templateStr, vars = {}) {
 /**
  * Xây dựng khung giao diện Email HTML Chuẩn Chủ Đề Tối (Dark Cyber Slate Theme)
  */
-function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl, footerText }) {
+function buildCustomHtmlEmail({
+  title,
+  body,
+  actionText,
+  actionUrl,
+  documentUrl,
+  footerText,
+  companyAddress,
+  footerNote,
+  companyName,
+}) {
   const cleanBody = renderBodyMarkup(body);
   const safeActionUrl = getSafeHttpUrl(actionUrl);
   const safeDocumentUrl = getSafeHttpUrl(documentUrl);
   const safeActionText = escapeHtml(actionText);
   const safeTitle = escapeHtml(title);
   const safeFooterText = escapeHtml(footerText);
+  const safeCompanyName = escapeHtml(companyName || 'Kiến trúc ET');
+  const safeCompanyAddress = escapeHtml(companyAddress || '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội');
+  const safeFooterNote = escapeHtml(footerNote || 'Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.');
 
   let ctaSection = "";
   if (safeActionText && safeActionUrl) {
@@ -525,8 +538,8 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
       '<!-- Dark Header with Logo -->' +
       '<tr>' +
         '<td style="background: linear-gradient(180deg, #181b1e 0%, #131618 100%); padding: 30px 28px 24px; text-align: center; border-bottom: 1px solid #282d33;">' +
-          (logoPath ? '<img src="cid:company_logo" alt="Kiến trúc ET" style="height: 56px; max-width: 180px; object-fit: contain; display: inline-block; margin-bottom: 10px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.8)); border-radius: 8px;" />' : "") +
-          '<div style="color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;">Kiến trúc ET</div>' +
+          (logoPath ? '<img src="cid:company_logo" alt="' + safeCompanyName + '" style="height: 56px; max-width: 180px; object-fit: contain; display: inline-block; margin-bottom: 10px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.8)); border-radius: 8px;" />' : "") +
+          '<div style="color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;">' + safeCompanyName + '</div>' +
           '<div style="color: #81888e; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 4px;">HỆ THỐNG QUẢN LÝ CHẤM CÔNG & NỘI BỘ</div>' +
         '</td>' +
       '</tr>' +
@@ -546,8 +559,8 @@ function buildCustomHtmlEmail({ title, body, actionText, actionUrl, documentUrl,
       '<tr>' +
         '<td style="background: #111315; padding: 20px 28px; border-top: 1px solid #24282c; text-align: center; font-size: 11.5px; color: #81888e; line-height: 1.6;">' +
           (safeFooterText ? ('<div style="font-weight: 800; color: #e2e8f0; margin-bottom: 5px; font-size: 12.5px;">' + safeFooterText + '</div>') : "") +
-          '<div><strong style="color: #cbd5e1;">Kiến trúc ET</strong> · Tòa nhà 17T10 Nguyễn Thị Định, Cầu Giấy, Hà Nội</div>' +
-          '<div style="margin-top: 4px; color: #64748b; font-size: 10.5px;">Thư được gửi tự động từ hệ thống ET Office Portal. Vui lòng không trả lời trực tiếp email này.</div>' +
+          '<div><strong style="color: #cbd5e1;">' + safeCompanyName + '</strong> · ' + safeCompanyAddress + '</div>' +
+          '<div style="margin-top: 4px; color: #64748b; font-size: 10.5px;">' + safeFooterNote + '</div>' +
         '</td>' +
       '</tr>' +
     '</table>' +

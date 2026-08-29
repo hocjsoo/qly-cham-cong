@@ -6,6 +6,8 @@ let currentManifestBlobUrl = null;
 
 export const DEFAULT_COMPANY_NAME = 'Kiến trúc ET';
 export const DEFAULT_COMPANY_LOGO_URL = '/logo.png';
+export const DEFAULT_COMPANY_ADDRESS = '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội';
+export const DEFAULT_EMAIL_FOOTER_NOTE = 'Thư được gửi tự động từ hệ thống ET Office Portal.';
 
 const LEGACY_COMPANY_NAMES = new Set([
   'ET Architects',

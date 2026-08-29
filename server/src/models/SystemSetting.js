@@ -7,6 +7,8 @@ const systemSettingSchema = new mongoose.Schema(
     // Thông tin công ty
     company_name: { type: String, default: 'Kiến trúc ET' },
     company_logo_url: { type: String, default: '/logo.png' },
+    company_address: { type: String, default: '7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội' },
+    email_footer_note: { type: String, default: 'Thư được gửi tự động từ hệ thống ET Office Portal.' },
     // Ca làm việc chuẩn Kiến trúc ET (09:00 - 18:30)
     work_start_time: { type: String, default: '09:00' },       // Giờ vào chuẩn
     work_end_time: { type: String, default: '18:30' },         // Giờ về chuẩn

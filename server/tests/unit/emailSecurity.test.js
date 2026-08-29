@@ -259,10 +259,39 @@ async function runEmailSecurityTests(assert) {
   });
   assert(
     brandedHtml.includes('Kiến trúc ET') &&
+      brandedHtml.includes('7 P. Nguyễn Thị Định, Trung Hoà, Cầu Giấy, Hà Nội') &&
       brandedHtml.includes('#596168') &&
       !brandedHtml.includes('#6366f1') &&
       !brandedHtml.includes('#4f46e5'),
-    'TC-EMAIL-16: Mẫu email đồng bộ graphite và không còn màu tím cũ'
+    'TC-EMAIL-16: Mẫu email đồng bộ graphite và có địa chỉ trụ sở mới 7 P. Nguyễn Thị Định'
+  );
+
+  const customFooterHtml = emailService.buildCustomHtmlEmail({
+    title: 'Thông báo mới',
+    body: 'Nội dung thông báo',
+    companyAddress: 'Tòa nhà Landmark 81, TP.HCM',
+    footerNote: 'Ghi chú chân trang riêng của phòng ban.',
+    companyName: 'ET Architecture Studio',
+  });
+  assert(
+    customFooterHtml.includes('Tòa nhà Landmark 81, TP.HCM') &&
+      customFooterHtml.includes('Ghi chú chân trang riêng của phòng ban.') &&
+      customFooterHtml.includes('ET Architecture Studio'),
+    'TC-EMAIL-17: Cho phép tùy biến toàn diện địa chỉ công ty và ghi chú chân trang email'
+  );
+
+  const settingsPageSource = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/SettingsPage.jsx'),
+    'utf8'
+  );
+  assert(
+    settingsPageSource.includes('company_address') &&
+      settingsPageSource.includes('email_footer_note') &&
+      emailsPageSource.includes('companyAddress') &&
+      emailsPageSource.includes('footerNote') &&
+      customModalSource.includes('companyAddress') &&
+      customModalSource.includes('footerNote'),
+    'TC-EMAIL-18: Giao diện Cài đặt và Soạn thảo email đều hỗ trợ cấu hình & chỉnh sửa footer linh hoạt'
   );
 }
 

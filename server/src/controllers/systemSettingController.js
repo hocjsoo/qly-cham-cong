@@ -26,7 +26,7 @@ const updateSettings = async (req, res) => {
       'work_start_time', 'work_end_time', 'lunch_break_start', 'lunch_break_end',
       'minor_late_mins', 'medium_late_mins', 'ot_start_time', 'ot_mode',
       'working_days', 'holidays', 'makeup_days',
-      'company_name', 'company_logo_url',
+      'company_name', 'company_logo_url', 'company_address', 'email_footer_note',
       'announcement_display_days', 'anniversary_display_mode', 'anniversary_display_days',
       'request_guidelines',
     ];

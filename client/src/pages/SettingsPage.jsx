@@ -9,7 +9,13 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import MapGpsPicker from '../components/MapGpsPicker';
 import useSettingsStore from '../stores/settingsStore';
-import { DEFAULT_COMPANY_LOGO_URL, DEFAULT_COMPANY_NAME, normalizeCompanyName } from '../utils/dynamicBranding';
+import {
+  DEFAULT_COMPANY_ADDRESS,
+  DEFAULT_COMPANY_LOGO_URL,
+  DEFAULT_COMPANY_NAME,
+  DEFAULT_EMAIL_FOOTER_NOTE,
+  normalizeCompanyName,
+} from '../utils/dynamicBranding';
 
 const WORKING_DAYS_OPTIONS = [
   { key: 'Mon', label: 'T2' }, { key: 'Tue', label: 'T3' }, { key: 'Wed', label: 'T4' },
@@ -342,6 +348,26 @@ export default function SettingsPage() {
                   <div className="form-group">
                     <label className="form-label">Tên công ty</label>
                     <input type="text" className="form-input" value={shiftForm.company_name} onChange={e => setShiftForm(p => ({...p, company_name: e.target.value}))} placeholder={DEFAULT_COMPANY_NAME} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Địa chỉ trụ sở công ty (Chân trang email & hệ thống)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={shiftForm.company_address ?? ''}
+                      onChange={e => setShiftForm(p => ({...p, company_address: e.target.value}))}
+                      placeholder={DEFAULT_COMPANY_ADDRESS}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Ghi chú chân trang email mặc định</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={shiftForm.email_footer_note ?? ''}
+                      onChange={e => setShiftForm(p => ({...p, email_footer_note: e.target.value}))}
+                      placeholder={DEFAULT_EMAIL_FOOTER_NOTE}
+                    />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Logo công ty</label>
