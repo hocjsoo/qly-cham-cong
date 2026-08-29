@@ -4,6 +4,8 @@
 // ==============================================
 
 process.env.NODE_ENV = 'test';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_test_123456';
+process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'https://qly-cham-cong.vercel.app';
 delete process.env.MONGODB_URI;
 delete process.env.DATABASE_URL;
 

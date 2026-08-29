@@ -45,3 +45,8 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# Edge temp automation
+.tmp_edge/
+.tmp_edge_profile/
+.tmp_edge_profile_*/

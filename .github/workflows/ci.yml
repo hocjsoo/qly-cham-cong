@@ -47,5 +47,5 @@ jobs:
       - name: Install Server Dependencies
         run: cd server && npm ci
 
-      - name: Run Zero-Impact Test Suite (235 Test Cases)
+      - name: Run Zero-Impact Test Suite (321 Test Cases)
         run: cd server && npm test
