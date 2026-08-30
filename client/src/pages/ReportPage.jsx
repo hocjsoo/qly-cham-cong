@@ -734,7 +734,7 @@ export default function ReportPage() {
                 );
               };
 
-              const renderDaySymbol = (symbol, isWeekend) => {
+              const renderDaySymbol = (symbol, isWeekend, otHours = 0) => {
                 if (isWeekend) return null;
                 if (!symbol || symbol === '—') {
                   return <span style={{ opacity: isWeekend ? 0.15 : 0.25, color: 'var(--text-muted)' }}>—</span>;
@@ -765,9 +765,20 @@ export default function ReportPage() {
                   bg = 'rgba(236, 72, 153, 0.15)'; color = '#db2777';
                 }
 
+                const numOt = Number(otHours) || 0;
+                const hasOt = numOt > 0;
+
                 return (
-                  <span className="timesheet-day-symbol" style={{ background: bg, color }}>
+                  <span
+                    className={`timesheet-day-symbol${hasOt ? ' has-ot' : ''}`}
+                    style={{ background: bg, color, position: 'relative' }}
+                  >
                     {symbol}
+                    {hasOt && (
+                      <span className="timesheet-ot-marker" title={`Tăng ca OT: ${numOt}h`}>
+                        🔥{numOt}h
+                      </span>
+                    )}
                   </span>
                 );
               };
@@ -916,7 +927,7 @@ export default function ReportPage() {
                                       aria-label={`${r.full_name}, ngày ${headerDay.day}: ${isSunday ? 'Chủ nhật để trống' : dayData?.symbol || 'Trống'}`}
                                     >
                                       <span>{headerDay.weekday}<small>{String(headerDay.day).padStart(2, '0')}</small></span>
-                                      <b>{isSunday ? '' : renderDaySymbol(dayData?.symbol, false)}</b>
+                                      <b>{isSunday ? '' : renderDaySymbol(dayData?.symbol, false, dayData?.ot_hours)}</b>
                                     </button>
                                   );
                                 })}
@@ -941,9 +952,6 @@ export default function ReportPage() {
                                 </div>
                                 <div>
                                   <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>KL / K</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.unpaid_leave || 0} / {r.other_leave || 0}</div>
-                                </div>
-                                <div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Muộn / Sớm</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.late_count || 0} / {r.early_count || 0}</div>
                                 </div>
                                 <div>
                                   <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>OT</div><div style={{ fontWeight: 800, fontSize: '12px', marginTop: '2px' }}>{r.total_ot_hours || 0}h</div>
@@ -1228,9 +1236,7 @@ export default function ReportPage() {
                               <th title="Nghỉ ốm">O</th>
                               <th title="Nghỉ không lương">KL</th>
                               <th title="Nghỉ khác">K</th>
-                              <th className="timesheet-attention-col timesheet-eval-col-late" title="Số lượt đi muộn (Đánh giá chuyên cần)" style={{ borderLeft: "2px solid var(--border)", background: "rgba(217, 119, 6, 0.12)", color: "#d97706", fontWeight: 800 }}>Muộn</th>
-                              <th className="timesheet-attention-col timesheet-eval-col-early" title="Số lượt về sớm (Đánh giá chuyên cần)" style={{ background: "rgba(225, 29, 72, 0.12)", color: "#e11d48", fontWeight: 800 }}>Sớm</th>
-                              <th className="timesheet-eval-col-ot" title="Tổng số giờ tăng ca OT" style={{ background: "rgba(99, 102, 241, 0.12)", color: "#6366f1", fontWeight: 800 }}>OT</th>
+                              <th className="timesheet-eval-col-ot" title="Tổng số giờ tăng ca OT" style={{ borderLeft: "2px solid var(--border)", background: "rgba(99, 102, 241, 0.12)", color: "#6366f1", fontWeight: 800 }}>OT</th>
                             </>}
 
                             {/* Day and weekday in one compact header, matching preview */}
@@ -1282,21 +1288,7 @@ export default function ReportPage() {
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.sick_leave, '#ef4444')}</td>
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.unpaid_leave, '#64748b')}</td>
                                 <td style={{ padding: '4px 3px' }}>{renderSummaryVal(r.other_leave, '#94a3b8')}</td>
-                                <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: r.late_count > 0 ? "rgba(217, 119, 6, 0.1)" : "transparent" }}>
-                                  {r.late_count > 0 ? (
-                                    <span style={{ color: "#d97706", fontWeight: 800, background: "rgba(217, 119, 6, 0.14)", padding: "2px 5px", borderRadius: "5px", fontSize: "11px" }}>
-                                      {r.late_count}
-                                    </span>
-                                  ) : <span style={{ opacity: 0.18 }}>—</span>}
-                                </td>
-                                <td style={{ padding: "4px 3px", background: r.early_count > 0 ? "rgba(225, 29, 72, 0.1)" : "transparent" }}>
-                                  {r.early_count > 0 ? (
-                                    <span style={{ color: "#e11d48", fontWeight: 800, background: "rgba(225, 29, 72, 0.14)", padding: "2px 5px", borderRadius: "5px", fontSize: "11px" }}>
-                                      {r.early_count}
-                                    </span>
-                                  ) : <span style={{ opacity: 0.18 }}>—</span>}
-                                </td>
-                                <td style={{ padding: "4px 3px", background: r.total_ot_hours > 0 ? "rgba(99, 102, 241, 0.1)" : "transparent" }}>
+                                <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: r.total_ot_hours > 0 ? "rgba(99, 102, 241, 0.1)" : "transparent" }}>
                                   {r.total_ot_hours > 0 ? (
                                     <span style={{ color: "#6366f1", fontWeight: 800, background: "rgba(99, 102, 241, 0.16)", padding: "2px 6px", borderRadius: "5px", fontSize: "11px" }}>
                                       {r.total_ot_hours}h
@@ -1353,7 +1345,7 @@ export default function ReportPage() {
                                     }}
                                     title={isSun ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${d.symbol || '—'}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
                                   >
-                                    {renderDaySymbol(d.symbol, isSun)}
+                                    {renderDaySymbol(d.symbol, isSun, d.ot_hours)}
                                   </td>
                                 );
                               })}
@@ -1391,13 +1383,7 @@ export default function ReportPage() {
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.sick_leave, 0), '#ef4444')}</td>
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.unpaid_leave, 0), '#64748b')}</td>
                               <td style={{ padding: '4px 3px' }}>{renderSummaryVal(displayedStaffRows.reduce((s, r) => s + r.other_leave, 0), '#94a3b8')}</td>
-                              <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: "rgba(217, 119, 6, 0.09)" }}>
-                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.late_count || 0), 0), "#d97706")}
-                              </td>
-                              <td style={{ padding: "4px 3px", background: "rgba(225, 29, 72, 0.09)" }}>
-                                {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.early_count || 0), 0), "#e11d48")}
-                              </td>
-                              <td style={{ padding: "4px 3px", background: "rgba(99, 102, 241, 0.09)", color: "#6366f1", fontWeight: 800 }}>
+                              <td style={{ padding: "4px 3px", borderLeft: "2px solid var(--border)", background: "rgba(99, 102, 241, 0.09)", color: "#6366f1", fontWeight: 800 }}>
                                 {renderSummaryVal(displayedStaffRows.reduce((s, r) => s + (r.total_ot_hours || 0), 0), "#6366f1")}
                               </td>
                             </>}

@@ -104,7 +104,7 @@ const DEFAULT_REQUEST_GUIDELINES = {
   },
   late: {
     label: "⏰ Giải trình đi muộn",
-    desc: "Sử dụng khi nhân sự đến sau giờ làm việc quy định (08:30)",
+    desc: "Sử dụng khi nhân sự đến sau giờ làm việc quy định (09:00)",
     timing: "Nộp trong ngày phát sinh",
     requirement: "Ghi rõ lý do đi muộn và thời gian dự kiến đến văn phòng",
     impact: "Gỡ bỏ phạt muộn & khôi phục đủ công sau khi quản lý duyệt",
@@ -113,7 +113,7 @@ const DEFAULT_REQUEST_GUIDELINES = {
   },
   early_leave: {
     label: "🏃 Giải trình về sớm",
-    desc: "Sử dụng khi nhân sự rời công ty trước giờ kết thúc làm việc (17:30)",
+    desc: "Sử dụng khi nhân sự rời công ty trước giờ kết thúc làm việc (18:30)",
     timing: "Nộp trước thời điểm về sớm / Trường hợp đột xuất báo cáo sau",
     requirement: "Ghi rõ lý do và bàn giao công việc còn dở",
     impact: "Ghi nhận về sớm hợp lệ sau khi được phê duyệt",

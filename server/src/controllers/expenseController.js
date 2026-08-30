@@ -51,17 +51,7 @@ const getExpenses = async (req, res) => {
       requestedFilter.description = { $regex: search.trim(), $options: 'i' };
     }
 
-    let accessFilter = {};
-    if (isLeaderRole(req.user)) {
-      const visibleUserIds = await User.find(
-        buildLeaderUserScope(req.user, { includeSelf: true })
-      ).distinct('_id');
-      accessFilter = { user_id: { $in: visibleUserIds } };
-    } else if (req.user.role !== 'admin') {
-      accessFilter = { user_id: req.user._id };
-    }
-
-    const filter = combineUserFilters(accessFilter, requestedFilter);
+    const filter = requestedFilter;
 
     const expenses = await Expense.find(filter)
       .populate('user_id', 'full_name employee_code department_name department_id avatar_url phone email')
@@ -69,11 +59,9 @@ const getExpenses = async (req, res) => {
       .populate('paid_by', 'full_name')
       .sort({ date: -1, created_at: -1 });
 
-    // Tính toán KPIs trên toàn bộ tập dữ liệu (không bị ảnh hưởng bởi pagination)
+    // Tính toán KPIs trên toàn bộ tập dữ liệu công ty (không bị ảnh hưởng bởi bộ lọc chi tiết)
     const summaryDateFilter = year && year !== 'all' ? { date: { $regex: `^${year}-` } } : {};
-    const allExpenses = await Expense.find(
-      combineUserFilters(accessFilter, summaryDateFilter)
-    ).lean();
+    const allExpenses = await Expense.find(summaryDateFilter).lean();
     
     let totalApprovedAmount = 0;
     let totalPendingAmount = 0;

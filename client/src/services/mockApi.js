@@ -69,6 +69,53 @@ const INITIAL_MOCK_REQUESTS = [
   },
 ];
 
+const INITIAL_MOCK_EXPENSES = [
+  {
+    _id: 'exp-1',
+    id: 'exp-1',
+    user_id: {
+      _id: 'user-staff',
+      full_name: 'Lê Văn Nhân (KTS)',
+      employee_code: 'ET003',
+      department_name: 'Kiến trúc',
+      avatar_url: '/logo.png',
+    },
+    date: new Date().toISOString().split('T')[0],
+    description: 'Mua văn phòng phẩm, giấy in A3 & bút dạ thiết kế',
+    amount: 350000,
+    has_vat_invoice: true,
+    approval_status: 'approved',
+    approved_by: { full_name: 'Quản trị viên (Phó GĐ)' },
+    approved_at: new Date().toISOString(),
+    payment_status: 'unpaid',
+    notes: 'Chi hộ dự án Biệt thự Gamuda',
+    created_at: new Date().toISOString(),
+  },
+  {
+    _id: 'exp-2',
+    id: 'exp-2',
+    user_id: {
+      _id: 'user-manager',
+      full_name: 'Trần Văn Trưởng (Trưởng phòng)',
+      employee_code: 'ET002',
+      department_name: 'Kiến trúc',
+      avatar_url: '/logo.png',
+    },
+    date: new Date().toISOString().split('T')[0],
+    description: 'Tiền taxi tiếp khách khảo sát hiện trường công trình',
+    amount: 180000,
+    has_vat_invoice: false,
+    approval_status: 'approved',
+    approved_by: { full_name: 'Quản trị viên (Phó GĐ)' },
+    approved_at: new Date().toISOString(),
+    payment_status: 'paid',
+    paid_by: { full_name: 'Quản trị viên (Phó GĐ)' },
+    paid_at: new Date().toISOString(),
+    payment_note: 'Đã hoàn tiền qua Techcombank',
+    created_at: new Date().toISOString(),
+  },
+];
+
 function getMockStorage(key, initialData) {
   const data = localStorage.getItem(`mock_${key}`);
   if (!data) {
@@ -328,6 +375,106 @@ export async function mockRequest(method, url, data = {}) {
       return { data: { message: 'Đã lưu cấu hình hệ thống!', settings: systemSettings } };
     }
     return { data: systemSettings };
+  }
+
+  // === COMPANY EXPENSES & REIMBURSEMENTS ===
+  if (url.includes('/expenses')) {
+    const expenses = getMockStorage('expenses', INITIAL_MOCK_EXPENSES);
+
+    if (url.includes('/approve') && method === 'put') {
+      const parts = url.split('/');
+      const expId = parts[parts.indexOf('expenses') + 1];
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      if (exp) {
+        exp.approval_status = data.status || 'approved';
+        exp.approved_by = { full_name: 'Quản trị viên (Offline Mode)' };
+        exp.approved_at = new Date().toISOString();
+        if (data.rejection_reason) exp.rejection_reason = data.rejection_reason;
+        setMockStorage('expenses', expenses);
+      }
+      return { data: { message: 'Cập nhật trạng thái duyệt thành công ✅', expense: exp } };
+    }
+
+    if (url.includes('/pay') && method === 'put') {
+      const parts = url.split('/');
+      const expId = parts[parts.indexOf('expenses') + 1];
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      if (exp) {
+        exp.payment_status = 'paid';
+        exp.paid_by = { full_name: 'Quản trị viên (Offline Mode)' };
+        exp.paid_at = new Date().toISOString();
+        if (data.payment_note) exp.payment_note = data.payment_note;
+        setMockStorage('expenses', expenses);
+      }
+      return { data: { message: 'Xác nhận hoàn ứng thành công 💵', expense: exp } };
+    }
+
+    if (method === 'post') {
+      const newExp = {
+        _id: `exp-${Date.now()}`,
+        id: `exp-${Date.now()}`,
+        user_id: {
+          _id: 'user-staff',
+          full_name: 'Lê Văn Nhân (KTS)',
+          employee_code: 'ET003',
+          department_name: 'Kiến trúc',
+          avatar_url: '/logo.png',
+        },
+        date: data.date || todayStr,
+        description: data.description || 'Khoản chi tiêu mới',
+        amount: Number(data.amount) || 0,
+        has_vat_invoice: Boolean(data.has_vat_invoice),
+        receipt_url: data.receipt_url || null,
+        notes: data.notes || null,
+        approval_status: 'pending',
+        payment_status: 'unpaid',
+        created_at: new Date().toISOString(),
+      };
+      expenses.unshift(newExp);
+      setMockStorage('expenses', expenses);
+      return { data: { message: 'Báo cáo khoản chi tiêu mới thành công! ✅', expense: newExp } };
+    }
+
+    if (method === 'delete') {
+      const expId = url.split('/').pop();
+      const nextExpenses = expenses.filter((e) => e._id !== expId && e.id !== expId);
+      setMockStorage('expenses', nextExpenses);
+      return { data: { message: 'Đã xóa khoản chi tiêu thành công 🗑️' } };
+    }
+
+    // GET /expenses
+    let filtered = [...expenses];
+    let totalApprovedAmount = 0;
+    let totalPendingAmount = 0;
+    let totalPendingCount = 0;
+    let totalUnpaidAmount = 0;
+    let totalPaidAmount = 0;
+
+    expenses.forEach((exp) => {
+      if (exp.approval_status === 'approved') {
+        totalApprovedAmount += exp.amount || 0;
+        if (exp.payment_status === 'paid') totalPaidAmount += exp.amount || 0;
+        else totalUnpaidAmount += exp.amount || 0;
+      } else if (exp.approval_status === 'pending') {
+        totalPendingAmount += exp.amount || 0;
+        totalPendingCount += 1;
+      }
+    });
+
+    return {
+      data: {
+        expenses: filtered,
+        summary: {
+          totalApprovedAmount,
+          totalPendingAmount,
+          totalPendingCount,
+          totalUnpaidAmount,
+          totalPaidAmount,
+          myTotalApproved: totalApprovedAmount,
+          myTotalUnpaid: totalUnpaidAmount,
+        },
+      },
+    };
   }
 
   return { data: {} };
