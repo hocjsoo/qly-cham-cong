@@ -8,6 +8,7 @@ const {
   toggleLock,
   overrideCell,
   getAuditLogs,
+  getAuditLogDetail,
 } = require('../controllers/timesheetLockController');
 
 router.use(authMiddleware);
@@ -20,6 +21,7 @@ router.use(requireRole('admin'));
 
 // Xem lịch sử chỉnh sửa ô công (Admin)
 router.get('/audit-logs', getAuditLogs);
+router.get('/audit-logs/:id/snapshot', getAuditLogDetail);
 
 // Chốt công / Mở chốt công (Admin)
 router.post('/toggle', toggleLock);

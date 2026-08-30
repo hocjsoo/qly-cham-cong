@@ -241,17 +241,37 @@ export async function mockRequest(method, url, data = {}) {
   // === DASHBOARD ===
   if (url.includes('/dashboard/today')) {
     const staffSummary = users.map((u) => {
-      const att = attendance.find((a) => a.user_id === (u._id || u.id) && a.date === todayStr);
+      const att = attendance.find((a) => String(a.user_id) === String(u._id || u.id) && a.date === todayStr);
+      let today_status = 'absent';
+      if (att) {
+        if (att.check_in_time) {
+          today_status = att.check_out_time ? 'checked_out' : 'checked_in';
+        } else if (att.status === 'leave' || att.status === 'holiday') {
+          today_status = att.status;
+        } else if (att.status === 'present' && ((att.work_units ?? 0) > 0 || (att.total_hours ?? 0) > 0)) {
+          today_status = 'checked_in';
+        } else {
+          today_status = 'absent';
+        }
+      }
+
       return {
         user_id: u._id || u.id,
+        id: u._id || u.id,
         full_name: u.full_name,
         email: u.email,
+        phone: u.phone || '',
+        employee_code: u.employee_code || '—',
+        avatar_url: u.avatar_url || null,
         role: u.role,
-        department_name: u.department_name,
-        today_status: att ? (att.check_out_time ? 'checked_out' : 'checked_in') : 'absent',
+        department_name: u.department_name || '—',
+        today_status,
         check_in_time: att?.check_in_time || null,
         check_in_type: att?.check_in_type || null,
         check_out_time: att?.check_out_time || null,
+        total_hours: att?.total_hours ?? 0,
+        work_units: att ? (att.work_units ?? (att.status === 'present' ? 1.0 : 0)) : 0,
+        status: att?.status || 'absent',
       };
     });
 
@@ -262,10 +282,13 @@ export async function mockRequest(method, url, data = {}) {
           total: users.length,
           checked_in: staffSummary.filter((s) => s.today_status === 'checked_in').length,
           checked_out: staffSummary.filter((s) => s.today_status === 'checked_out').length,
+          leave: staffSummary.filter((s) => s.today_status === 'leave').length,
+          holiday: staffSummary.filter((s) => s.today_status === 'holiday').length,
           absent: staffSummary.filter((s) => s.today_status === 'absent').length,
-          present_total: staffSummary.filter((s) => s.today_status !== 'absent').length,
+          present_total: staffSummary.filter((s) => ['checked_in', 'checked_out'].includes(s.today_status)).length,
         },
         staff: staffSummary,
+        my_projects: [],
       },
     };
   }
@@ -364,10 +387,10 @@ export async function mockRequest(method, url, data = {}) {
     let systemSettings = getMockStorage('system_settings', {
       company_name: 'Kiến trúc ET',
       company_logo_url: '/logo.png',
-      work_start_time: '08:30',
-      work_end_time: '17:30',
-      minor_late_mins: 10,
-      medium_late_mins: 30,
+      work_start_time: '09:00',
+      work_end_time: '18:30',
+      minor_late_mins: 30,
+      medium_late_mins: 60,
     });
     if (method === 'put' || method === 'post') {
       systemSettings = { ...systemSettings, ...data };
@@ -380,33 +403,117 @@ export async function mockRequest(method, url, data = {}) {
   // === COMPANY EXPENSES & REIMBURSEMENTS ===
   if (url.includes('/expenses')) {
     const expenses = getMockStorage('expenses', INITIAL_MOCK_EXPENSES);
+    const userList = getMockStorage('users', INITIAL_MOCK_USERS);
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : userList[0];
+    const currentUserId = String(currentUser._id || currentUser.id || 'user-admin');
+    const isAdmin = currentUser.role === 'admin';
+    const isLeader = ['leader', 'manager'].includes(currentUser.role);
 
-    if (url.includes('/approve') && method === 'put') {
-      const parts = url.split('/');
+    const isSubordinate = (ownerRef) => {
+      if (!isLeader || isAdmin) return false;
+      const ownerId = String(ownerRef?._id || ownerRef?.id || ownerRef || '');
+      if (ownerId === currentUserId) return false;
+      const matched = userList.find((u) => String(u._id || u.id) === ownerId) || (typeof ownerRef === 'object' ? ownerRef : null);
+      if (!matched) return false;
+      if (matched.role === 'admin') return false;
+
+      if (matched.manager_id && String(matched.manager_id) === currentUserId) return true;
+
+      const leaderDeptIds = (currentUser.department_ids && currentUser.department_ids.length > 0)
+        ? currentUser.department_ids.map(String)
+        : [String(currentUser.department_id || '')].filter(Boolean);
+      const leaderDeptName = currentUser.department_name || currentUser.department || '';
+
+      const userDeptIds = (matched.department_ids && matched.department_ids.length > 0)
+        ? matched.department_ids.map(String)
+        : [String(matched.department_id || '')].filter(Boolean);
+      const userDeptName = matched.department_name || matched.department || '';
+
+      const hasDeptIdOverlap = leaderDeptIds.length > 0 && userDeptIds.some((id) => leaderDeptIds.includes(id));
+      const hasDeptNameMatch = Boolean(leaderDeptName && userDeptName && leaderDeptName === userDeptName);
+
+      return hasDeptIdOverlap || hasDeptNameMatch;
+    };
+
+    const createMockError = (message, status = 400) => {
+      const err = new Error(message);
+      err.response = {
+        status,
+        data: { error: message },
+      };
+      return err;
+    };
+
+    const urlParts = url.split('?');
+    const pathOnly = urlParts[0];
+    const queryString = urlParts[1] || '';
+    const params = new URLSearchParams(queryString);
+    const qUserId = params.get('user_id');
+    const qYear = params.get('year');
+    const qMonth = params.get('month');
+    const qStatus = params.get('approval_status') || params.get('status');
+    const qPaymentStatus = params.get('payment_status');
+    const qHasVat = params.get('has_vat');
+    const qSearch = params.get('search');
+    const qPage = params.get('page');
+    const qLimit = params.get('limit');
+
+    if (pathOnly.includes('/approve') && method === 'put') {
+      const parts = pathOnly.split('/');
       const expId = parts[parts.indexOf('expenses') + 1];
       const exp = expenses.find((e) => e._id === expId || e.id === expId);
-      if (exp) {
-        exp.approval_status = data.status || 'approved';
-        exp.approved_by = { full_name: 'Quản trị viên (Offline Mode)' };
-        exp.approved_at = new Date().toISOString();
-        if (data.rejection_reason) exp.rejection_reason = data.rejection_reason;
-        setMockStorage('expenses', expenses);
-      }
+      if (!exp) throw createMockError('Khoản chi không tồn tại.', 404);
+
+      const canApprove = (isAdmin || isSubordinate(exp.user_id)) && exp.approval_status === 'pending';
+      if (!canApprove) throw createMockError('Bạn không có quyền duyệt khoản chi này.', 403);
+
+      exp.approval_status = data.status || 'approved';
+      exp.approved_by = { full_name: currentUser.full_name || 'Quản trị viên' };
+      exp.approved_at = new Date().toISOString();
+      if (data.rejection_reason) exp.rejection_reason = data.rejection_reason;
+      setMockStorage('expenses', expenses);
       return { data: { message: 'Cập nhật trạng thái duyệt thành công ✅', expense: exp } };
     }
 
-    if (url.includes('/pay') && method === 'put') {
-      const parts = url.split('/');
+    if (pathOnly.includes('/pay') && method === 'put') {
+      const parts = pathOnly.split('/');
       const expId = parts[parts.indexOf('expenses') + 1];
       const exp = expenses.find((e) => e._id === expId || e.id === expId);
-      if (exp) {
-        exp.payment_status = 'paid';
-        exp.paid_by = { full_name: 'Quản trị viên (Offline Mode)' };
+      if (!exp) throw createMockError('Khoản chi không tồn tại.', 404);
+
+      if (!isAdmin || exp.approval_status !== 'approved') {
+        throw createMockError('Chỉ Admin mới có quyền xác nhận hoàn ứng cho khoản chi đã duyệt.', 403);
+      }
+
+      exp.payment_status = data.payment_status || (exp.payment_status === 'paid' ? 'unpaid' : 'paid');
+      if (exp.payment_status === 'paid') {
+        exp.paid_by = { full_name: currentUser.full_name || 'Quản trị viên' };
         exp.paid_at = new Date().toISOString();
         if (data.payment_note) exp.payment_note = data.payment_note;
-        setMockStorage('expenses', expenses);
+      } else {
+        exp.paid_by = null;
+        exp.paid_at = null;
+        exp.payment_note = null;
       }
-      return { data: { message: 'Xác nhận hoàn ứng thành công 💵', expense: exp } };
+      setMockStorage('expenses', expenses);
+      return { data: { message: 'Cập nhật trạng thái hoàn ứng thành công 💵', expense: exp } };
+    }
+
+    if (pathOnly.includes('/vat') && method === 'put') {
+      const parts = pathOnly.split('/');
+      const expId = parts[parts.indexOf('expenses') + 1];
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      if (!exp) throw createMockError('Khoản chi không tồn tại.', 404);
+
+      const ownerId = String(exp.user_id?._id || exp.user_id?.id || exp.user_id || '');
+      const isOwner = ownerId === currentUserId;
+      const canToggleVat = isAdmin || ((isOwner || isSubordinate(exp.user_id)) && exp.approval_status === 'pending');
+      if (!canToggleVat) throw createMockError('Bạn không có quyền cập nhật VAT cho khoản chi này.', 403);
+
+      exp.has_vat_invoice = !exp.has_vat_invoice;
+      setMockStorage('expenses', expenses);
+      return { data: { message: 'Đã cập nhật trạng thái hóa đơn VAT!', has_vat_invoice: exp.has_vat_invoice } };
     }
 
     if (method === 'post') {
@@ -414,11 +521,11 @@ export async function mockRequest(method, url, data = {}) {
         _id: `exp-${Date.now()}`,
         id: `exp-${Date.now()}`,
         user_id: {
-          _id: 'user-staff',
-          full_name: 'Lê Văn Nhân (KTS)',
-          employee_code: 'ET003',
-          department_name: 'Kiến trúc',
-          avatar_url: '/logo.png',
+          _id: currentUserId,
+          full_name: currentUser.full_name || 'Nhân viên',
+          employee_code: currentUser.employee_code || 'ET003',
+          department_name: currentUser.department_name || currentUser.department || 'Kiến trúc',
+          avatar_url: currentUser.avatar_url || '/logo.png',
         },
         date: data.date || todayStr,
         description: data.description || 'Khoản chi tiêu mới',
@@ -436,42 +543,146 @@ export async function mockRequest(method, url, data = {}) {
     }
 
     if (method === 'delete') {
-      const expId = url.split('/').pop();
+      const expId = pathOnly.split('/').pop();
+      const exp = expenses.find((e) => e._id === expId || e.id === expId);
+      if (!exp) throw createMockError('Khoản chi không tồn tại.', 404);
+
+      const ownerId = String(exp.user_id?._id || exp.user_id?.id || exp.user_id || '');
+      const isOwner = ownerId === currentUserId;
+      const canDelete = isAdmin || ((isOwner || isSubordinate(exp.user_id)) && exp.approval_status === 'pending');
+      if (!canDelete) throw createMockError('Bạn không có quyền xóa khoản chi này.', 403);
+
       const nextExpenses = expenses.filter((e) => e._id !== expId && e.id !== expId);
       setMockStorage('expenses', nextExpenses);
       return { data: { message: 'Đã xóa khoản chi tiêu thành công 🗑️' } };
     }
 
-    // GET /expenses
+    // GET /expenses with filters
     let filtered = [...expenses];
+    if (qUserId && qUserId !== 'all') {
+      filtered = filtered.filter((e) => String(e.user_id?._id || e.user_id?.id || e.user_id || '') === qUserId);
+    }
+    if (qYear && qYear !== 'all') {
+      filtered = filtered.filter((e) => e.date && e.date.startsWith(`${qYear}-`));
+    }
+    if (qMonth && qMonth !== 'all') {
+      const targetYear = qYear && qYear !== 'all' ? qYear : new Date().getFullYear();
+      const monthPrefix = `${targetYear}-${String(qMonth).padStart(2, '0')}`;
+      filtered = filtered.filter((e) => e.date && e.date.startsWith(monthPrefix));
+    }
+    if (qStatus && qStatus !== 'all') {
+      filtered = filtered.filter((e) => e.approval_status === qStatus);
+    }
+    if (qPaymentStatus && qPaymentStatus !== 'all') {
+      filtered = filtered.filter((e) => e.payment_status === qPaymentStatus);
+    }
+    if (qHasVat !== null && qHasVat !== undefined && qHasVat !== 'all') {
+      filtered = filtered.filter((e) => Boolean(e.has_vat_invoice) === (qHasVat === 'true' || qHasVat === true));
+    }
+    if (qSearch && qSearch.trim()) {
+      const s = qSearch.trim().toLowerCase();
+      filtered = filtered.filter((e) => e.description && e.description.toLowerCase().includes(s));
+    }
+
+    // Summary KPIs calculated across year dataset
     let totalApprovedAmount = 0;
     let totalPendingAmount = 0;
     let totalPendingCount = 0;
     let totalUnpaidAmount = 0;
     let totalPaidAmount = 0;
+    let myTotalApproved = 0;
+    let myTotalUnpaid = 0;
 
-    expenses.forEach((exp) => {
+    const summaryExpenses = (qYear && qYear !== 'all')
+      ? expenses.filter((e) => e.date && e.date.startsWith(`${qYear}-`))
+      : expenses;
+
+    summaryExpenses.forEach((exp) => {
+      const ownerId = String(exp.user_id?._id || exp.user_id?.id || exp.user_id || '');
+      const isMine = ownerId === currentUserId;
+
       if (exp.approval_status === 'approved') {
         totalApprovedAmount += exp.amount || 0;
         if (exp.payment_status === 'paid') totalPaidAmount += exp.amount || 0;
         else totalUnpaidAmount += exp.amount || 0;
+
+        if (isMine) {
+          myTotalApproved += exp.amount || 0;
+          if (exp.payment_status !== 'paid') myTotalUnpaid += exp.amount || 0;
+        }
       } else if (exp.approval_status === 'pending') {
         totalPendingAmount += exp.amount || 0;
         totalPendingCount += 1;
       }
     });
 
+    const qExport = params.get('export');
+    const isExport = qExport === 'true' || qExport === true;
+
+    const expenseDtos = filtered.map((exp) => {
+      const ownerId = String(exp.user_id?._id || exp.user_id?.id || exp.user_id || '');
+      const isOwner = ownerId === currentUserId;
+      const isSub = isSubordinate(exp.user_id);
+      const isPending = exp.approval_status === 'pending';
+      const isApproved = exp.approval_status === 'approved';
+
+      const canApprove = (isAdmin || isSub) && isPending;
+      const canDelete = isAdmin || ((isOwner || isSub) && isPending);
+      const canToggleVat = isAdmin || ((isOwner || isSub) && isPending);
+      const canMarkPaid = isAdmin && isApproved;
+      const canManage = canApprove || canDelete || canToggleVat || canMarkPaid;
+
+      const baseExp = isExport
+        ? {
+            _id: exp._id,
+            user_id: exp.user_id,
+            date: exp.date,
+            description: exp.description,
+            amount: exp.amount,
+            has_vat_invoice: exp.has_vat_invoice,
+            notes: exp.notes,
+            approval_status: exp.approval_status,
+            approved_by: exp.approved_by,
+            approved_at: exp.approved_at,
+            rejection_reason: exp.rejection_reason,
+            payment_status: exp.payment_status,
+            paid_by: exp.paid_by,
+            paid_at: exp.paid_at,
+            payment_note: exp.payment_note,
+            created_at: exp.created_at,
+          }
+        : exp;
+
+      return {
+        ...baseExp,
+        can_approve: canApprove,
+        can_delete: canDelete,
+        can_toggle_vat: canToggleVat,
+        can_mark_paid: canMarkPaid,
+        can_manage: canManage,
+      };
+    });
+
+    const hasPagination = !isExport && (qPage !== null || qLimit !== null);
+    const pageNum = Math.max(1, parseInt(qPage, 10) || 1);
+    const limitNum = hasPagination ? Math.min(Math.max(1, parseInt(qLimit, 10) || 50), 500) : expenseDtos.length;
+    const paginatedList = hasPagination ? expenseDtos.slice((pageNum - 1) * limitNum, pageNum * limitNum) : expenseDtos;
+
     return {
       data: {
-        expenses: filtered,
+        expenses: paginatedList,
         summary: {
           totalApprovedAmount,
           totalPendingAmount,
           totalPendingCount,
           totalUnpaidAmount,
           totalPaidAmount,
-          myTotalApproved: totalApprovedAmount,
-          myTotalUnpaid: totalUnpaidAmount,
+          myTotalApproved,
+          myTotalUnpaid,
+          totalCount: expenseDtos.length,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(expenseDtos.length / limitNum) || 1,
         },
       },
     };

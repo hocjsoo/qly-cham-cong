@@ -900,7 +900,19 @@ const getFlaggedAttendance = async (req, res) => {
 
     // Tính thống kê nhanh các nhóm trạng thái
     const baseCountFilter = filter.user_id ? { user_id: filter.user_id } : {};
-    const [pendingCount, approvedCount, rejectedCount, photoCount, deviceCount] = await Promise.all([
+    const allForensicFilter = {
+      ...baseCountFilter,
+      $or: [
+        { is_flagged: true },
+        { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
+        { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } },
+        { check_in_mode: 'photo' },
+        { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }
+      ]
+    };
+
+    const [totalCount, pendingCount, approvedCount, rejectedCount, photoCount, deviceCount] = await Promise.all([
+      Attendance.countDocuments(allForensicFilter),
       Attendance.countDocuments({ ...baseCountFilter, $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] }),
       Attendance.countDocuments({ ...baseCountFilter, verification_status: 'approved' }),
       Attendance.countDocuments({ ...baseCountFilter, verification_status: 'rejected' }),
@@ -911,7 +923,7 @@ const getFlaggedAttendance = async (req, res) => {
     res.json({
       flagged: list,
       counts: {
-        total: list.length,
+        total: totalCount,
         pending: pendingCount,
         approved: approvedCount,
         rejected: rejectedCount,

@@ -1,7 +1,5 @@
-// ==============================================
-// tests/unit/systemSettings.test.js
-// Kiểm thử Cấu hình Hệ thống & Ca Làm việc (System Settings)
-// ==============================================
+const { getSettings } = require('../../src/controllers/systemSettingController');
+const SystemSetting = require('../../src/models/SystemSetting');
 
 function validateSystemSettings(settings) {
   const errors = [];
@@ -32,8 +30,8 @@ function validateSystemSettings(settings) {
   };
 }
 
-function runSystemSettingsTests(assert) {
-  console.log('\n⚙️ [TEST SUITE: SYSTEM SETTINGS VALIDATION]');
+async function runSystemSettingsTests(assert) {
+  console.log('\n⚙️ [TEST SUITE: SYSTEM SETTINGS VALIDATION & CONTROLLER ZERO-MUTATION]');
 
   // TC-SET-01: Cấu hình ca làm việc chuẩn hợp lệ
   const validConfig = {
@@ -59,6 +57,75 @@ function runSystemSettingsTests(assert) {
   const res3 = validateSystemSettings(invalidThreshold);
   assert(res3.isValid === false && res3.errors[0].includes('Ngưỡng muộn vừa phải lớn hơn'),
     'TC-SET-03: Bắt lỗi khi ngưỡng muộn nhẹ (40p) >= ngưỡng muộn vừa (30p)');
+
+  // TC-SET-04: Kiểm thử trực tiếp Controller getSettings: Chuẩn hóa in-memory và cam kết KHÔNG ghi DB (Zero Mutation)
+  const originalFindOne = SystemSetting.findOne;
+  const originalUpdateOne = SystemSetting.updateOne;
+  const originalSave = SystemSetting.prototype.save;
+
+  let updateOneCallCount = 0;
+  let saveCallCount = 0;
+
+  SystemSetting.updateOne = async () => {
+    updateOneCallCount++;
+    return { acknowledged: true };
+  };
+
+  SystemSetting.prototype.save = async function() {
+    saveCallCount++;
+    return this;
+  };
+
+  const mockDbSetting = {
+    key: 'global',
+    work_start_time: '09:00',
+    work_end_time: '18:30',
+    request_guidelines: {
+      late: { desc: 'Sử dụng khi nhân sự đến sau giờ làm việc quy định (08:30)' },
+      early_leave: { desc: 'Sử dụng khi nhân sự rời công ty trước giờ kết thúc làm việc (17:30)' },
+      custom_type: { desc: 'Quy định riêng của công ty liên quan mốc 08:30 không được sửa' },
+    },
+    toObject() {
+      return {
+        key: this.key,
+        work_start_time: this.work_start_time,
+        work_end_time: this.work_end_time,
+        request_guidelines: { ...this.request_guidelines },
+      };
+    }
+  };
+
+  SystemSetting.findOne = async (query) => {
+    if (query?.key === 'global') return mockDbSetting;
+    return null;
+  };
+
+  let responseData = null;
+  const mockReq = {};
+  const mockRes = {
+    json(data) {
+      responseData = data;
+      return this;
+    },
+    status() {
+      return this;
+    }
+  };
+
+  try {
+    await getSettings(mockReq, mockRes);
+
+    assert(responseData !== null, 'TC-SET-04a: getSettings controller phải trả về dữ liệu JSON');
+    assert(responseData.request_guidelines.late.desc.includes('09:00'), 'TC-SET-04b: getSettings chuẩn hóa giờ đi muộn sang 09:00');
+    assert(responseData.request_guidelines.early_leave.desc.includes('18:30'), 'TC-SET-04c: getSettings chuẩn hóa giờ về sớm sang 18:30');
+    assert(responseData.request_guidelines.custom_type.desc.includes('08:30'), 'TC-SET-04d: getSettings bảo toàn nguyên vẹn hướng dẫn tùy biến của Admin');
+    assert(updateOneCallCount === 0, 'TC-SET-04e: getSettings cam kết 100% read-only, updateOne KHÔNG được gọi');
+    assert(saveCallCount === 0, 'TC-SET-04f: getSettings cam kết 100% read-only, save KHÔNG được gọi');
+  } finally {
+    SystemSetting.findOne = originalFindOne;
+    SystemSetting.updateOne = originalUpdateOne;
+    SystemSetting.prototype.save = originalSave;
+  }
 }
 
 module.exports = runSystemSettingsTests;

@@ -7,6 +7,7 @@ process.env.NODE_ENV = 'test';
 delete process.env.MONGODB_URI;
 delete process.env.DATABASE_URL;
 
+const mongoose = require('mongoose');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const app = require('../../src/app');
@@ -56,6 +57,12 @@ async function runControllerIntegrationTests(assert) {
   const originalDevSessSave = DeviceSession.prototype.save;
   const originalProjFind = Project.find;
   const originalAuditLogCreate = AttendanceAuditLog.create;
+  const originalAuditLogFind = AttendanceAuditLog.find;
+  const originalAuditLogFindById = AttendanceAuditLog.findById;
+  const originalAuditLogCountDocuments = AttendanceAuditLog.countDocuments;
+  const originalMongooseStartSession = mongoose.startSession;
+  const originalConnectionReadyState = mongoose.connection?.readyState;
+  const originalConnectionClient = mongoose.connection ? mongoose.connection.client : undefined;
 
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -167,40 +174,41 @@ async function runControllerIntegrationTests(assert) {
     }
   ];
 
-  User.find = function() {
-    return {
-      select() {
-        return {
-          populate() {
-            return {
-              populate() {
-                return {
-                  populate() {
-                    return {
-                      sort() {
-                        return Promise.resolve(sampleDbUsers);
-                      }
-                    };
-                  }
-                };
-              }
-            };
-          }
-        };
-      }
+  const createQueryChain = (data) => {
+    const chain = {
+      select() { return chain; },
+      populate() { return chain; },
+      sort() { return chain; },
+      limit() { return chain; },
+      lean() { return Promise.resolve(data); },
+      distinct() { return Promise.resolve(data); },
+      then(resolve, reject) { return Promise.resolve(data).then(resolve, reject); },
+      catch(reject) { return Promise.resolve(data).catch(reject); },
     };
+    return chain;
+  };
+
+  User.find = function() {
+    return createQueryChain(sampleDbUsers);
   };
 
   User.findById = function(id) {
     const found = [mockAdminUser, mockLeaderUser, mockEmpUser, userNamEmp].find(u => u._id.toString() === id.toString()) || mockAdminUser;
-    return {
-      select() {
-        return Promise.resolve({
-          ...found,
-          toObject() { return { ...found }; }
-        });
-      }
+    const userDoc = {
+      ...found,
+      toObject() { return { ...found }; }
     };
+    const chain = {
+      session(sess) {
+        chain._session = sess;
+        return chain;
+      },
+      select() { return chain; },
+      populate() { return chain; },
+      then(resolve, reject) { return Promise.resolve(userDoc).then(resolve, reject); },
+      catch(reject) { return Promise.resolve(userDoc).catch(reject); }
+    };
+    return chain;
   };
 
   let lastUpdatedData = null;
@@ -261,34 +269,194 @@ async function runControllerIntegrationTests(assert) {
     return Promise.resolve(this);
   };
 
-  let mockSavedAttendance = null;
-  Attendance.findOne = function(query) {
-    if (mockSavedAttendance && query?.user_id?.toString() === mockSavedAttendance.user_id?.toString()) {
-      return Promise.resolve(mockSavedAttendance);
+  const mockSavedAttendanceMap = new Map();
+  const mockAuditLogs = [];
+
+  AttendanceAuditLog.create = async function(data) {
+    const raw = Array.isArray(data) ? data[0] : data;
+    const doc = new AttendanceAuditLog(raw);
+    doc._id = doc._id || '507f1f77bcf86cd799439077';
+    await doc.validate();
+    mockAuditLogs.push(doc);
+    return Array.isArray(data) ? [doc] : doc;
+  };
+
+  AttendanceAuditLog.find = function(query) {
+    let list = [...mockAuditLogs];
+    if (query?.date?.$gte && query?.date?.$lte) {
+      list = list.filter(l => l.date >= query.date.$gte && l.date <= query.date.$lte);
     }
-    return Promise.resolve(null);
+    const queryObj = {
+      select(fields) {
+        if (typeof fields === 'string') {
+          const fieldList = fields.split(' ').filter(Boolean);
+          list = list.map(item => {
+            const rawItem = typeof item.toObject === 'function' ? item.toObject() : item;
+            const projected = {};
+            fieldList.forEach(f => {
+              if (rawItem[f] !== undefined) projected[f] = rawItem[f];
+            });
+            projected._id = rawItem._id;
+            return projected;
+          });
+        }
+        return queryObj;
+      },
+      sort() { return queryObj; },
+      skip(n) {
+        list = list.slice(n);
+        return queryObj;
+      },
+      limit(n) {
+        list = list.slice(0, n);
+        return queryObj;
+      },
+      then(resolve, reject) { return Promise.resolve(list).then(resolve, reject); },
+      catch(reject) { return Promise.resolve(list).catch(reject); }
+    };
+    return queryObj;
   };
 
-  Attendance.find = function() {
-    return {
-      populate() {
-        return Promise.resolve([]);
+  AttendanceAuditLog.findById = function(id) {
+    const found = mockAuditLogs.find(l => String(l._id) === String(id)) || mockAuditLogs[0] || null;
+    return Promise.resolve(found);
+  };
+
+  AttendanceAuditLog.countDocuments = function(query) {
+    let list = [...mockAuditLogs];
+    if (query?.date?.$gte && query?.date?.$lte) {
+      list = list.filter(l => l.date >= query.date.$gte && l.date <= query.date.$lte);
+    }
+    return Promise.resolve(list.length);
+  };
+
+  function matchesCond(r, cond) {
+    if (cond.verification_status !== undefined) {
+      if (typeof cond.verification_status === 'object' && cond.verification_status.$in) {
+        if (!cond.verification_status.$in.includes(r.verification_status)) return false;
+      } else if (typeof cond.verification_status === 'object' && cond.verification_status.$ne) {
+        if (r.verification_status === cond.verification_status.$ne) return false;
+      } else if (r.verification_status !== cond.verification_status) {
+        return false;
       }
-    };
+    }
+    if (cond.is_flagged !== undefined && r.is_flagged !== cond.is_flagged) {
+      return false;
+    }
+    if (cond.selfie_url !== undefined && !r.selfie_url) {
+      return false;
+    }
+    if (cond.check_in_mode !== undefined && r.check_in_mode !== cond.check_in_mode) {
+      return false;
+    }
+    if (cond.flag_reasons !== undefined) {
+      if (!Array.isArray(r.flag_reasons) || r.flag_reasons.length === 0) return false;
+    }
+    return true;
+  }
+
+  function matchesAttQuery(r, query) {
+    if (!query) return true;
+    if (query.user_id) {
+      if (query.user_id.$in) {
+        if (!query.user_id.$in.map(String).includes(String(r.user_id))) return false;
+      } else if (String(r.user_id) !== String(query.user_id)) {
+        return false;
+      }
+    }
+    if (query.date) {
+      if (typeof query.date === 'string') {
+        if (r.date !== query.date) return false;
+      } else if (query.date.$regex) {
+        const re = new RegExp(query.date.$regex);
+        if (!re.test(r.date)) return false;
+      }
+    }
+    if (query.verification_status) {
+      if (!matchesCond(r, { verification_status: query.verification_status })) return false;
+    }
+    if (query.selfie_url && !r.selfie_url) return false;
+    if (query.$and) {
+      for (const andCond of query.$and) {
+        if (andCond.$or) {
+          if (!andCond.$or.some(c => matchesCond(r, c))) return false;
+        } else if (!matchesCond(r, andCond)) {
+          return false;
+        }
+      }
+    }
+    if (query.$or) {
+      if (!query.$or.some(c => matchesCond(r, c))) return false;
+    }
+    return true;
+  }
+
+  const originalAttCountDocuments = Attendance.countDocuments;
+  Attendance.countDocuments = function(query) {
+    const list = Array.from(mockSavedAttendanceMap.values()).filter(r => matchesAttQuery(r, query));
+    return Promise.resolve(list.length);
   };
 
-  Attendance.create = function(data) {
-    mockSavedAttendance = {
-      ...data,
-      save: function() { return Promise.resolve(this); },
-      toObject: function() { return { ...this }; }
+  Attendance.findOne = function(query) {
+    let rec = null;
+    if (query?.user_id && query?.date) {
+      const key = `${query.user_id.toString()}_${query.date}`;
+      rec = mockSavedAttendanceMap.get(key) || null;
+    } else if (query?.user_id) {
+      for (const [k, v] of mockSavedAttendanceMap.entries()) {
+        if (k.startsWith(query.user_id.toString())) {
+          rec = v;
+          break;
+        }
+      }
+    }
+    const queryObj = {
+      session(sess) {
+        queryObj._session = sess;
+        return queryObj;
+      },
+      populate() { return queryObj; },
+      select() { return queryObj; },
+      then(resolve, reject) { return Promise.resolve(rec).then(resolve, reject); },
+      catch(reject) { return Promise.resolve(rec).catch(reject); }
     };
-    return Promise.resolve(mockSavedAttendance);
+    return queryObj;
   };
 
-  Attendance.prototype.save = function() {
-    mockSavedAttendance = this;
-    return Promise.resolve(this);
+  Attendance.find = function(query) {
+    let list = Array.from(mockSavedAttendanceMap.values()).filter(r => matchesAttQuery(r, query));
+
+    const queryObj = {
+      populate() { return queryObj; },
+      sort() { return queryObj; },
+      skip() { return queryObj; },
+      limit() { return queryObj; },
+      select() { return queryObj; },
+      then(resolve, reject) { return Promise.resolve(list).then(resolve, reject); },
+      catch(reject) { return Promise.resolve(list).catch(reject); }
+    };
+    return queryObj;
+  };
+
+  Attendance.create = async function(data) {
+    const raw = Array.isArray(data) ? data[0] : data;
+    const doc = new Attendance(raw);
+    await doc.validate();
+    const key = `${(raw.user_id || '').toString()}_${raw.date || 'today'}`;
+    doc.save = async function() {
+      await this.validate();
+      mockSavedAttendanceMap.set(key, this);
+      return this;
+    };
+    mockSavedAttendanceMap.set(key, doc);
+    return Array.isArray(data) ? [doc] : doc;
+  };
+
+  Attendance.prototype.save = async function() {
+    await this.validate();
+    const key = `${(this.user_id || '').toString()}_${this.date || 'today'}`;
+    mockSavedAttendanceMap.set(key, this);
+    return this;
   };
 
   try {
@@ -481,9 +649,25 @@ async function runControllerIntegrationTests(assert) {
           return queryChain;
         },
         sort() {
+          return queryChain;
+        },
+        limit() {
+          return queryChain;
+        },
+        lean() {
           return Promise.resolve([
             { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
           ]);
+        },
+        then(resolve, reject) {
+          return Promise.resolve([
+            { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
+          ]).then(resolve, reject);
+        },
+        catch(reject) {
+          return Promise.resolve([
+            { _id: 'proj_01', name: 'Dự án Của Nam NV', pm_id: '507f1f77bcf86cd799439099', pm_name: 'Nguyễn Văn Nam' }
+          ]).catch(reject);
         }
       };
       return queryChain;
@@ -584,6 +768,834 @@ async function runControllerIntegrationTests(assert) {
     assert(resValidOverride.status === 200,
       'TC-HTTP-18.4: POST /api/timesheet-lock/override-cell chấp nhận ký hiệu "0,75x" và OT "2.5h"');
 
+    // TC-HTTP-18.5: Chủ nhật / Ngày chỉ tính OT với new_symbol="" -> work_units=0, total_hours=0, ot_hours=3.5
+    const resSundayOtOnly = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-23', // Sunday
+        new_symbol: '',
+        ot_hours: 3.5,
+        reason: 'Tăng ca Chủ nhật trực ca khẩn cấp',
+      });
+    assert(
+      resSundayOtOnly.status === 200 &&
+        resSundayOtOnly.body.attendance.date === '2026-08-23' &&
+        resSundayOtOnly.body.attendance.work_units === 0 &&
+        resSundayOtOnly.body.attendance.total_hours === 0 &&
+        resSundayOtOnly.body.attendance.ot_hours === 3.5 &&
+        resSundayOtOnly.body.attendance.check_in_time === null &&
+        resSundayOtOnly.body.attendance.check_out_time === null &&
+        resSundayOtOnly.body.attendance.late_minutes === 0 &&
+        resSundayOtOnly.body.attendance.early_minutes === 0 &&
+        resSundayOtOnly.body.attendance.status === 'absent',
+      'TC-HTTP-18.5: POST /api/timesheet-lock/override-cell cho phép ngày chỉ tính OT (0 công thường, status=absent, +3.5h OT)'
+    );
+
+    // TC-HTTP-18.6: new_symbol bị thiếu (undefined) -> 400 Bad Request (không tự ý xóa công của user)
+    const resMissingSymbol = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        reason: 'Thiếu new_symbol',
+      });
+    assert(
+      resMissingSymbol.status === 400 && resMissingSymbol.body.error.includes('Ký hiệu công là bắt buộc'),
+      'TC-HTTP-18.6: POST /api/timesheet-lock/override-cell từ chối request thiếu new_symbol với 400 Bad Request'
+    );
+
+    // TC-HTTP-18.7: new_symbol là null -> 400 Bad Request
+    const resNullSymbol = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-20',
+        new_symbol: null,
+        reason: 'new_symbol là null',
+      });
+    assert(
+      resNullSymbol.status === 400 && resNullSymbol.body.error.includes('Ký hiệu công là bắt buộc'),
+      'TC-HTTP-18.7: POST /api/timesheet-lock/override-cell từ chối new_symbol=null với 400 Bad Request'
+    );
+
+    // TC-HTTP-18.8: Override bản ghi nghi vấn pending_review về rỗng (0 công) -> Giải quyết cảnh báo sang 'rejected', lưu reviewer note và snapshot forensic trong AuditLog
+    const keyExisting = `${mockEmpUser._id.toString()}_2026-08-19`;
+    const existingAttendanceDoc = new Attendance({
+      user_id: mockEmpUser._id,
+      date: '2026-08-19',
+      check_in_time: new Date('2026-08-19T08:15:00.000Z'),
+      check_out_time: new Date('2026-08-19T17:30:00.000Z'),
+      check_in_type: 'office',
+      check_in_lat: 21.0285,
+      check_in_lng: 105.8542,
+      is_late: true,
+      late_minutes: 15,
+      total_hours: 8,
+      work_units: 1.0,
+      status: 'present',
+      notes: 'Đi làm bình thường',
+      is_flagged: true,
+      flag_reasons: ['MULTI_ACCOUNT_SAME_DEVICE', 'DEVICE_UNTRUSTED'],
+      selfie_url: 'https://example.com/selfie-evidence.jpg',
+      hardware_uuid: 'hw-uuid-12345-anti-fraud',
+      verification_status: 'pending_review',
+    });
+    existingAttendanceDoc.save = async function() {
+      await this.validate();
+      mockSavedAttendanceMap.set(keyExisting, this);
+      return this;
+    };
+    mockSavedAttendanceMap.set(keyExisting, existingAttendanceDoc);
+
+    const resClearExisting = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: '',
+        ot_hours: 2,
+        reason: 'Hủy công ngày do gian lận, chuyển thành 2h OT',
+      });
+
+    assert(
+      resClearExisting.status === 200 &&
+        resClearExisting.body.attendance.check_in_time === null &&
+        resClearExisting.body.attendance.check_out_time === null &&
+        resClearExisting.body.attendance.is_late === false &&
+        resClearExisting.body.attendance.late_minutes === 0 &&
+        resClearExisting.body.attendance.work_units === 0 &&
+        resClearExisting.body.attendance.total_hours === 0 &&
+        resClearExisting.body.attendance.status === 'absent' &&
+        resClearExisting.body.attendance.ot_hours === 2 &&
+        resClearExisting.body.attendance.check_in_lat === 21.0285 &&
+        resClearExisting.body.attendance.check_in_lng === 105.8542 &&
+        resClearExisting.body.attendance.selfie_url === 'https://example.com/selfie-evidence.jpg' &&
+        resClearExisting.body.attendance.hardware_uuid === 'hw-uuid-12345-anti-fraud' &&
+        resClearExisting.body.attendance.is_flagged === false &&
+        resClearExisting.body.attendance.verification_status === 'rejected' &&
+        resClearExisting.body.attendance.reviewed_by !== null &&
+        resClearExisting.body.attendance.reviewer_note.includes('Admin điều chỉnh ô công (0 công)') &&
+        resClearExisting.body.audit_log?.snapshot_before?.check_in_time !== null &&
+        resClearExisting.body.audit_log?.snapshot_before?.selfie_url === 'https://example.com/selfie-evidence.jpg',
+      'TC-HTTP-18.8: POST /api/timesheet-lock/override-cell giải quyết pending_review sang rejected, bảo lưu 100% forensic evidence và lưu snapshot_before trong AuditLog'
+    );
+
+    // TC-HTTP-18.8b: Override bản ghi pending_review sang ký hiệu hợp lệ "x" -> Giải quyết cảnh báo sang 'approved' kèm reviewer note
+    const keyApprovedFlag = `${mockEmpUser._id.toString()}_2026-08-17`;
+    const flaggedApprovedDoc = new Attendance({
+      user_id: mockEmpUser._id,
+      date: '2026-08-17',
+      check_in_time: new Date('2026-08-17T08:30:00.000Z'),
+      check_out_time: new Date('2026-08-17T17:30:00.000Z'),
+      check_in_type: 'office',
+      is_late: false,
+      late_minutes: 0,
+      total_hours: 8,
+      work_units: 1.0,
+      status: 'present',
+      is_flagged: true,
+      flag_reasons: ['GPS_OUTSIDE_GEOFENCE'],
+      selfie_url: 'https://example.com/selfie-outside.jpg',
+      verification_status: 'pending_review',
+    });
+    flaggedApprovedDoc.save = async function() {
+      await this.validate();
+      mockSavedAttendanceMap.set(keyApprovedFlag, this);
+      return this;
+    };
+    mockSavedAttendanceMap.set(keyApprovedFlag, flaggedApprovedDoc);
+
+    const resApproveFlagged = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-17',
+        new_symbol: 'x',
+        reason: 'Xác nhận đi công tác ngoài văn phòng, duyệt 1 công',
+      });
+
+    assert(
+      resApproveFlagged.status === 200 &&
+        resApproveFlagged.body.attendance.is_flagged === false &&
+        resApproveFlagged.body.attendance.verification_status === 'approved' &&
+        resApproveFlagged.body.attendance.selfie_url === 'https://example.com/selfie-outside.jpg' &&
+        resApproveFlagged.body.attendance.reviewer_note.includes('Admin điều chỉnh & phê duyệt công [x]'),
+      'TC-HTTP-18.8b: POST /api/timesheet-lock/override-cell giải quyết pending_review sang approved khi Admin gán ký hiệu công hợp lệ'
+    );
+
+    // TC-HTTP-18.9: Nhánh cập nhật bản ghi hiện hữu gọi validate() và bắt chặt vi phạm schema enum
+    const docWithInvalidEnum = new Attendance({
+      user_id: mockEmpUser._id,
+      date: '2026-08-18',
+      check_in_type: 'office',
+      status: 'present',
+    });
+    docWithInvalidEnum.save = async function() {
+      await this.validate();
+      return this;
+    };
+    docWithInvalidEnum.status = 'invalid_unknown_status_enum';
+    let schemaValidationThrew = false;
+    try {
+      await docWithInvalidEnum.save();
+    } catch (valErr) {
+      schemaValidationThrew = valErr?.name === 'ValidationError';
+    }
+    assert(
+      schemaValidationThrew === true,
+      'TC-HTTP-18.9: Nhánh cập nhật bản ghi hiện hữu gọi validate() và bắt chặt vi phạm schema enum'
+    );
+
+    // -------------------------------------------------------------
+    // 5. Supertest: GET /api/dashboard/today Thống kê đa trạng thái
+    // -------------------------------------------------------------
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    // Tạo 1 bản ghi OT-only ngày hôm nay cho mockEmpUser
+    const keyToday = `${mockEmpUser._id.toString()}_${todayStr}`;
+    const todayDoc = new Attendance({
+      user_id: mockEmpUser._id,
+      date: todayStr,
+      check_in_type: 'office',
+      check_in_time: null,
+      check_out_time: null,
+      total_hours: 0,
+      work_units: 0,
+      ot_hours: 3,
+      status: 'absent',
+    });
+    todayDoc.save = async function() {
+      await this.validate();
+      mockSavedAttendanceMap.set(keyToday, this);
+      return this;
+    };
+    mockSavedAttendanceMap.set(keyToday, todayDoc);
+
+    const resDash = await request(app)
+      .get('/api/dashboard/today')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resDash.status === 200 &&
+        resDash.body.summary &&
+        resDash.body.summary.checked_in + resDash.body.summary.checked_out + resDash.body.summary.leave + resDash.body.summary.holiday + resDash.body.summary.absent === resDash.body.summary.total,
+      'TC-HTTP-19: GET /api/dashboard/today trả về đúng cấu trúc summary đa trạng thái và tổng các nhóm khớp 100% total'
+    );
+
+    // -------------------------------------------------------------
+    // 6. Supertest: GET /api/attendance/flagged Thống kê độc lập với filter tab
+    // -------------------------------------------------------------
+    // Thêm 1 bản ghi pending_review ngày 2026-08-16
+    const keyPendingFlag = `${mockEmpUser._id.toString()}_2026-08-16`;
+    const pendingFlagDoc = new Attendance({
+      user_id: mockEmpUser._id,
+      date: '2026-08-16',
+      check_in_time: new Date('2026-08-16T08:30:00.000Z'),
+      check_in_type: 'office',
+      is_flagged: true,
+      flag_reasons: ['MULTI_ACCOUNT_SAME_DEVICE'],
+      selfie_url: 'https://example.com/pending-selfie.jpg',
+      verification_status: 'pending_review',
+    });
+    pendingFlagDoc.save = async function() {
+      await this.validate();
+      mockSavedAttendanceMap.set(keyPendingFlag, this);
+      return this;
+    };
+    mockSavedAttendanceMap.set(keyPendingFlag, pendingFlagDoc);
+
+    const resFlaggedPending = await request(app)
+      .get('/api/attendance/flagged?status=pending')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resFlaggedPending.status === 200 &&
+        Array.isArray(resFlaggedPending.body.flagged) &&
+        resFlaggedPending.body.flagged.length === 1 &&
+        resFlaggedPending.body.flagged[0].date === '2026-08-16' &&
+        resFlaggedPending.body.counts.pending === 1 &&
+        resFlaggedPending.body.counts.approved === 1 &&
+        resFlaggedPending.body.counts.rejected === 1 &&
+        resFlaggedPending.body.counts.total === 3 &&
+        resFlaggedPending.body.counts.total > resFlaggedPending.body.flagged.length,
+      'TC-HTTP-20: GET /api/attendance/flagged lọc đúng danh sách theo tab và trả về counts.total độc lập không phụ thuộc tab đang chọn'
+    );
+
+    // -------------------------------------------------------------
+    // 7. Supertest: POST /api/timesheet-lock/override-cell Atomic Rollback & Mongo Transactions
+    // -------------------------------------------------------------
+
+    // 7.1: Compensatory In-Memory Rollback (Hoàn nguyên 100% snapshot khi ghi audit log lỗi)
+    const fullSnapshotBefore = {
+      status: existingAttendanceDoc.status,
+      total_hours: existingAttendanceDoc.total_hours,
+      work_units: existingAttendanceDoc.work_units,
+      ot_hours: existingAttendanceDoc.ot_hours,
+      is_late: existingAttendanceDoc.is_late,
+      late_minutes: existingAttendanceDoc.late_minutes,
+      is_early_leave: existingAttendanceDoc.is_early_leave,
+      early_minutes: existingAttendanceDoc.early_minutes,
+      check_in_time: existingAttendanceDoc.check_in_time,
+      check_out_time: existingAttendanceDoc.check_out_time,
+      check_in_lat: existingAttendanceDoc.check_in_lat,
+      check_in_lng: existingAttendanceDoc.check_in_lng,
+      selfie_url: existingAttendanceDoc.selfie_url,
+      hardware_uuid: existingAttendanceDoc.hardware_uuid,
+      is_flagged: existingAttendanceDoc.is_flagged,
+      verification_status: existingAttendanceDoc.verification_status,
+      reviewer_note: existingAttendanceDoc.reviewer_note,
+    };
+
+    const savedAuditCreate = AttendanceAuditLog.create;
+    AttendanceAuditLog.create = async function() {
+      throw new Error('SIMULATED_DB_AUDIT_LOG_FAILURE');
+    };
+
+    const resFailedAudit = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác gây lỗi audit log để test compensatory rollback',
+      });
+
+    assert(
+      resFailedAudit.status === 500 &&
+        resFailedAudit.body.error.includes('đã được khôi phục trạng thái ban đầu') &&
+        existingAttendanceDoc.status === fullSnapshotBefore.status &&
+        existingAttendanceDoc.total_hours === fullSnapshotBefore.total_hours &&
+        existingAttendanceDoc.work_units === fullSnapshotBefore.work_units &&
+        existingAttendanceDoc.ot_hours === fullSnapshotBefore.ot_hours &&
+        existingAttendanceDoc.is_late === fullSnapshotBefore.is_late &&
+        existingAttendanceDoc.late_minutes === fullSnapshotBefore.late_minutes &&
+        existingAttendanceDoc.is_early_leave === fullSnapshotBefore.is_early_leave &&
+        existingAttendanceDoc.early_minutes === fullSnapshotBefore.early_minutes &&
+        existingAttendanceDoc.check_in_time === fullSnapshotBefore.check_in_time &&
+        existingAttendanceDoc.check_out_time === fullSnapshotBefore.check_out_time &&
+        existingAttendanceDoc.check_in_lat === fullSnapshotBefore.check_in_lat &&
+        existingAttendanceDoc.check_in_lng === fullSnapshotBefore.check_in_lng &&
+        existingAttendanceDoc.selfie_url === fullSnapshotBefore.selfie_url &&
+        existingAttendanceDoc.hardware_uuid === fullSnapshotBefore.hardware_uuid &&
+        existingAttendanceDoc.is_flagged === fullSnapshotBefore.is_flagged &&
+        existingAttendanceDoc.verification_status === fullSnapshotBefore.verification_status &&
+        existingAttendanceDoc.reviewer_note === fullSnapshotBefore.reviewer_note,
+      'TC-HTTP-21.1: Ghi Audit Log thất bại -> Kích hoạt Compensatory Rollback, bản ghi Attendance được hoàn nguyên 100% snapshot'
+    );
+
+    // 7.2: Compensatory Rollback thất bại -> Phát cảnh báo toàn vẹn dữ liệu nghiêm trọng (integrity_warning: true)
+    const savedDocSave = existingAttendanceDoc.save;
+    existingAttendanceDoc.save = async function() {
+      throw new Error('SIMULATED_DISK_IO_CORRUPTION');
+    };
+
+    const resFatalRollback = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác gây lỗi kép cả audit log lẫn rollback',
+      });
+
+    assert(
+      resFatalRollback.status === 500 &&
+        resFatalRollback.body.integrity_warning === true &&
+        resFatalRollback.body.error.includes('Lỗi nghiêm trọng: Quá trình cập nhật thất bại và không thể hoàn nguyên'),
+      'TC-HTTP-21.2: Rollback thất bại -> Trả về cảnh báo toàn vẹn dữ liệu nghiêm trọng (integrity_warning: true) và không khẳng định sai là đã phục hồi'
+    );
+
+    existingAttendanceDoc.save = savedDocSave;
+    AttendanceAuditLog.create = savedAuditCreate;
+
+    // 7.3: Mongoose Transaction Lifecycle & Session Passing (Commit & Abort Branches)
+    const sessionCalls = {
+      startTransaction: 0,
+      commitTransaction: 0,
+      abortTransaction: 0,
+      endSession: 0,
+    };
+    const fakeSession = {
+      startTransaction() { sessionCalls.startTransaction++; },
+      commitTransaction() { sessionCalls.commitTransaction++; },
+      abortTransaction() { sessionCalls.abortTransaction++; },
+      endSession() { sessionCalls.endSession++; },
+    };
+
+    let sessionPassedToFindOne = null;
+    let sessionPassedToSave = null;
+    let sessionPassedToAudit = null;
+
+    const savedAttFindOne = Attendance.findOne;
+    Attendance.findOne = function(query) {
+      const q = savedAttFindOne(query);
+      const origSession = q.session;
+      q.session = function(sess) {
+        sessionPassedToFindOne = sess;
+        return origSession ? origSession.call(q, sess) : q;
+      };
+      return q;
+    };
+
+    const savedPrototypeSave = Attendance.prototype.save;
+    const savedInstanceSave = existingAttendanceDoc.save;
+    const saveWithSessionTracking = async function(opts) {
+      if (opts?.session) sessionPassedToSave = opts.session;
+      await this.validate();
+      const key = `${(this.user_id || '').toString()}_${this.date || 'today'}`;
+      mockSavedAttendanceMap.set(key, this);
+      return this;
+    };
+    Attendance.prototype.save = saveWithSessionTracking;
+    existingAttendanceDoc.save = saveWithSessionTracking;
+
+    const savedAuditCreateTracking = AttendanceAuditLog.create;
+    AttendanceAuditLog.create = async function(data, opts) {
+      if (opts?.session) sessionPassedToAudit = opts.session;
+      return savedAuditCreateTracking(data, opts);
+    };
+
+    // Bật chế độ Mongoose Transaction
+    mongoose.connection = mongoose.connection || {};
+    mongoose.connection.readyState = 1;
+    mongoose.startSession = async function() {
+      return fakeSession;
+    };
+
+    // Case 21.3a: Giao dịch thành công -> startTransaction, truyền session vào findOne, save & audit, commit & endSession
+    const resTxSuccess = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác chạy trong MongoDB transaction',
+      });
+
+    assert(
+      resTxSuccess.status === 200 &&
+        sessionCalls.startTransaction === 1 &&
+        sessionCalls.commitTransaction === 1 &&
+        sessionCalls.endSession === 1 &&
+        sessionCalls.abortTransaction === 0 &&
+        sessionPassedToFindOne === fakeSession &&
+        sessionPassedToSave === fakeSession &&
+        sessionPassedToAudit === fakeSession,
+      'TC-HTTP-21.3: Mongo Transaction thành công -> Khởi tạo session, truyền cùng session vào Attendance.findOne, Attendance.save & AuditLog, commitTransaction & endSession đúng vòng đời'
+    );
+
+    // Case 21.3b: Lỗi trong transaction -> abortTransaction & endSession
+    sessionCalls.startTransaction = 0;
+    sessionCalls.commitTransaction = 0;
+    sessionCalls.abortTransaction = 0;
+    sessionCalls.endSession = 0;
+
+    AttendanceAuditLog.create = async function() {
+      throw new Error('SIMULATED_TRANSACTION_AUDIT_FAILURE');
+    };
+
+    const resTxAbort = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác gây abort transaction',
+      });
+
+    assert(
+      resTxAbort.status === 500 &&
+        sessionCalls.startTransaction === 1 &&
+        sessionCalls.abortTransaction === 1 &&
+        sessionCalls.endSession === 1 &&
+        sessionCalls.commitTransaction === 0,
+      'TC-HTTP-21.4: Lỗi trong Mongo Transaction -> abortTransaction & endSession được kích hoạt lập tức để rollback atomicity trên Atlas'
+    );
+
+    // Case 21.5: commitTransaction thành công nhưng endSession ném lỗi -> Trả về HTTP 200 thành công, không gọi abort hoặc báo sai lỗi rollback
+    AttendanceAuditLog.create = savedAuditCreateTracking;
+    sessionCalls.startTransaction = 0;
+    sessionCalls.commitTransaction = 0;
+    sessionCalls.abortTransaction = 0;
+    sessionCalls.endSession = 0;
+
+    fakeSession.endSession = function() {
+      sessionCalls.endSession++;
+      throw new Error('SIMULATED_SOCKET_CLOSE_CLEANUP_ERROR');
+    };
+
+    const resCommitWithEndSessionError = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác commit thành công nhưng endSession gặp lỗi đóng socket',
+      });
+
+    assert(
+      resCommitWithEndSessionError.status === 200 &&
+        sessionCalls.commitTransaction === 1 &&
+        sessionCalls.endSession === 1 &&
+        sessionCalls.abortTransaction === 0,
+      'TC-HTTP-21.5: commitTransaction thành công nhưng endSession lỗi -> Dữ liệu được bảo toàn an toàn, trả về HTTP 200 và không gọi abort trên transaction đã commit'
+    );
+
+    // Case 21.6: startTransaction ném lỗi khi khởi tạo session -> Đóng session ngay lập tức (không rò rỉ session) và hạ cấp an toàn sang non-transaction mode
+    sessionCalls.startTransaction = 0;
+    sessionCalls.commitTransaction = 0;
+    sessionCalls.abortTransaction = 0;
+    sessionCalls.endSession = 0;
+
+    fakeSession.startTransaction = function() {
+      sessionCalls.startTransaction++;
+      throw new Error('SIMULATED_START_TRANSACTION_REPLICA_NOT_READY');
+    };
+    fakeSession.endSession = function() {
+      sessionCalls.endSession++;
+    };
+
+    const resStartTxFailed = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi startTransaction gặp lỗi',
+      });
+
+    assert(
+      resStartTxFailed.status === 500 &&
+        sessionCalls.startTransaction === 1 &&
+        sessionCalls.endSession === 1 &&
+        sessionCalls.commitTransaction === 0,
+      'TC-HTTP-21.6: startTransaction ném lỗi -> session.endSession() được gọi ngay lập tức và từ chối ghi ngoài transaction (Fail-Closed)'
+    );
+
+    // Case 21.7: UnknownTransactionCommitResult -> Hệ thống thử lại commitTransaction thành công
+    sessionCalls.startTransaction = 0;
+    sessionCalls.commitTransaction = 0;
+    sessionCalls.abortTransaction = 0;
+    sessionCalls.endSession = 0;
+
+    fakeSession.startTransaction = function() {
+      sessionCalls.startTransaction++;
+    };
+
+    let commitAttempt = 0;
+    fakeSession.commitTransaction = async function() {
+      sessionCalls.commitTransaction++;
+      commitAttempt++;
+      if (commitAttempt === 1) {
+        const unknownErr = new Error('Transient network error during commit');
+        unknownErr.hasErrorLabel = label => label === 'UnknownTransactionCommitResult';
+        throw unknownErr;
+      }
+    };
+
+    const resRetryCommitSuccess = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác kiểm thử retry commit',
+      });
+
+    assert(
+      resRetryCommitSuccess.status === 200 &&
+        sessionCalls.commitTransaction === 2 &&
+        sessionCalls.endSession === 1 &&
+        sessionCalls.abortTransaction === 0,
+      'TC-HTTP-21.7: Lỗi UnknownTransactionCommitResult -> Kích hoạt retry commitTransaction tự động và hoàn tất ghi nhận thành công'
+    );
+
+    // Case 21.8: MongoDB Recommended Callback Transaction API (session.withTransaction)
+    let withTxCalled = 0;
+    const fakeCallbackSession = {
+      async withTransaction(fn) {
+        withTxCalled++;
+        return await fn();
+      },
+      async endSession() {
+        sessionCalls.endSession++;
+      }
+    };
+    mongoose.startSession = async function() {
+      return fakeCallbackSession;
+    };
+    sessionCalls.endSession = 0;
+
+    const resCallbackTx = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác chạy qua MongoDB withTransaction Callback API',
+      });
+
+    assert(
+      resCallbackTx.status === 200 &&
+        withTxCalled === 1 &&
+        sessionCalls.endSession === 1,
+      'TC-HTTP-21.8: MongoDB Callback Transaction API (session.withTransaction) chạy thành công trọn vẹn và giải phóng session trong finally'
+    );
+
+    // Case 21.9: Standalone deployment topology detection -> Tự động nhận diện 'Single' và hạ cấp sang Compensatory Rollback mà không mở session
+    let standaloneStartSessionCalled = 0;
+    mongoose.connection.client = {
+      topology: {
+        description: { type: 'Single' }
+      }
+    };
+    mongoose.startSession = async function() {
+      standaloneStartSessionCalled++;
+      return fakeCallbackSession;
+    };
+
+    const resStandalone = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác chạy trên Standalone topology',
+      });
+
+    assert(
+      resStandalone.status === 200 &&
+        standaloneStartSessionCalled === 0,
+      'TC-HTTP-21.9: Topology Standalone (Single) được nhận diện chính xác -> Bỏ qua transaction driver và thực thi an toàn với Compensatory Rollback'
+    );
+
+    // Case 21.10: Fail-closed policy trên Topology ReplicaSet / Atlas -> Nếu startSession lỗi, từ chối mutation và trả lỗi 500
+    mongoose.connection.client = {
+      topology: {
+        description: { type: 'ReplicaSetWithPrimary' }
+      }
+    };
+    mongoose.startSession = async function() {
+      throw new Error('SIMULATED_REPLICA_SET_SESSION_FAILURE');
+    };
+
+    const resFailClosed = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi ReplicaSet session khởi tạo lỗi',
+      });
+
+    assert(
+      resFailClosed.status === 500 &&
+        resFailClosed.body.error.includes('Lỗi thiết lập giao dịch') &&
+        resFailClosed.body.integrity_warning === false,
+      'TC-HTTP-21.10: Fail-closed policy trên ReplicaSet/Atlas -> startSession lỗi thì từ chối ghi ngoài transaction và trả lỗi 500 an toàn'
+    );
+
+    // Case 21.11: Atlas explicit + withTransaction ném lỗi -> Từ chối ghi nhận, không replay ngoài transaction
+    let nonSessionSaveAttempts = 0;
+    const trackingInstanceSave = existingAttendanceDoc.save;
+    existingAttendanceDoc.save = async function(opts) {
+      if (!opts?.session) nonSessionSaveAttempts++;
+      return trackingInstanceSave.call(this, opts);
+    };
+
+    fakeCallbackSession.withTransaction = async function() {
+      throw new Error('Transaction numbers are only allowed on a replica set member or mongos');
+    };
+    mongoose.startSession = async function() {
+      return fakeCallbackSession;
+    };
+
+    const resWithTxError = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi withTransaction ném lỗi trên Atlas',
+      });
+
+    assert(
+      resWithTxError.status === 500 &&
+        nonSessionSaveAttempts === 0,
+      'TC-HTTP-21.11: Atlas explicit + withTransaction ném lỗi -> Từ chối ghi, tuyệt đối không replay mutation ngoài session'
+    );
+
+    // Case 21.12: Topology Unknown + startSession lỗi trong production -> Fail-closed
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    mongoose.connection.client = {
+      topology: {
+        description: { type: 'Unknown' }
+      }
+    };
+    mongoose.startSession = async function() {
+      throw new Error('SIMULATED_PRODUCTION_START_SESSION_ERROR');
+    };
+
+    const resUnknownProdFailClosed = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi topology Unknown trong production',
+      });
+
+    assert(
+      resUnknownProdFailClosed.status === 500 &&
+        resUnknownProdFailClosed.body.error.includes('Lỗi thiết lập giao dịch'),
+      'TC-HTTP-21.12: Topology Unknown trong production -> Bắt buộc transaction và fail-closed khi startSession gặp sự cố'
+    );
+
+    // Case 21.13: readyState = 0 (disconnect/reconnecting) trên transaction-required topology -> Fail-closed
+    mongoose.connection.readyState = 0;
+    const resReadyStateZero = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi DB readyState = 0',
+      });
+
+    assert(
+      resReadyStateZero.status === 500 &&
+        resReadyStateZero.body.error.includes('Lỗi kết nối cơ sở dữ liệu'),
+      'TC-HTTP-21.13: readyState = 0 trên topology bắt buộc transaction -> Fail-closed, từ chối ghi và trả HTTP 500'
+    );
+    mongoose.connection.readyState = 1;
+
+    // Case 21.14: Thiếu mongoose.startSession trên transaction-required topology -> Fail-closed
+    const tempStartSessionStub = mongoose.startSession;
+    mongoose.startSession = null;
+    const resMissingStartSession = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi thiếu mongoose.startSession',
+      });
+
+    assert(
+      resMissingStartSession.status === 500 &&
+        (resMissingStartSession.body.error.includes('Lỗi kết nối cơ sở dữ liệu') || resMissingStartSession.body.error.includes('Lỗi thiết lập giao dịch')),
+      'TC-HTTP-21.14: Thiếu mongoose.startSession trên topology bắt buộc transaction -> Fail-closed, từ chối ghi và trả HTTP 500'
+    );
+    mongoose.startSession = tempStartSessionStub;
+
+    // Case 21.15: mongoose.startSession trả về null trên transaction-required topology -> Fail-closed
+    mongoose.connection.readyState = 1;
+    mongoose.startSession = async function() {
+      return null;
+    };
+    const resNullSession = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Thao tác khi startSession trả null',
+      });
+
+    assert(
+      resNullSession.status === 500 &&
+        resNullSession.body.error.includes('null session'),
+      'TC-HTTP-21.15: startSession() trả về null trên topology bắt buộc transaction -> Fail-closed, từ chối ghi và trả HTTP 500'
+    );
+
+    process.env.NODE_ENV = originalNodeEnv;
+
+    // Khôi phục MongoClient và stubs
+    mongoose.connection.client = originalConnectionClient;
+    existingAttendanceDoc.save = savedInstanceSave;
+    Attendance.findOne = savedAttFindOne;
+    Attendance.prototype.save = savedPrototypeSave;
+    AttendanceAuditLog.create = savedAuditCreateTracking;
+    if (originalMongooseStartSession) {
+      mongoose.startSession = originalMongooseStartSession;
+    } else {
+      delete mongoose.startSession;
+    }
+    mongoose.connection.readyState = originalConnectionReadyState || 0;
+
+    // -------------------------------------------------------------
+    // 8. Supertest: GET /api/timesheet-lock/audit-logs DTO projection, pagination & snapshot detail
+    // -------------------------------------------------------------
+    if (mockAuditLogs.length === 0) {
+      const sampleAuditDoc = new AttendanceAuditLog({
+        attendance_id: existingAttendanceDoc._id,
+        user_id: mockEmpUser._id,
+        user_name: 'Dev IT 1',
+        date: '2026-08-19',
+        old_symbol: 'x',
+        new_symbol: 'Không công (0 công)',
+        reason: 'Hủy công ngày do gian lận, chuyển thành 2h OT',
+        modified_by: mockAdminUser._id,
+        modified_by_name: 'Admin Tổng',
+        snapshot_before: { check_in_time: '2026-08-19T08:15:00.000Z', selfie_url: 'https://example.com/selfie.jpg' },
+        snapshot_after: { check_in_time: null, total_hours: 0 },
+      });
+      mockAuditLogs.push(sampleAuditDoc);
+    }
+
+    const resAuditList = await request(app)
+      .get('/api/timesheet-lock/audit-logs?month=8&year=2026&page=1&limit=50')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resAuditList.status === 200 &&
+        resAuditList.body.logs &&
+        Array.isArray(resAuditList.body.logs) &&
+        resAuditList.body.logs.length > 0 &&
+        resAuditList.body.pagination &&
+        resAuditList.body.pagination.page === 1 &&
+        resAuditList.body.pagination.limit === 50 &&
+        resAuditList.body.pagination.total >= 1 &&
+        resAuditList.body.pagination.totalPages >= 1 &&
+        resAuditList.body.logs[0].user_name &&
+        resAuditList.body.logs[0].reason &&
+        resAuditList.body.logs[0].snapshot_before === undefined,
+      'TC-HTTP-22.1: GET /api/timesheet-lock/audit-logs trả về DTO tóm tắt kèm pagination metadata ({ logs, pagination }), loại trừ snapshot_before/after'
+    );
+
+    const firstAuditId = mockAuditLogs[0]._id;
+    const resAuditDetail = await request(app)
+      .get(`/api/timesheet-lock/audit-logs/${firstAuditId}/snapshot`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resAuditDetail.status === 200 &&
+        resAuditDetail.body.snapshot_before &&
+        resAuditDetail.body.snapshot_before.check_in_time !== null,
+      'TC-HTTP-22.2: GET /api/timesheet-lock/audit-logs/:id/snapshot trả về chi tiết forensic snapshot đầy đủ theo yêu cầu'
+    );
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;
@@ -594,12 +1606,25 @@ async function runControllerIntegrationTests(assert) {
     Attendance.find = originalAttFind;
     Attendance.create = originalAttCreate;
     Attendance.prototype.save = originalAttSave;
+    Attendance.countDocuments = originalAttCountDocuments;
     DeviceRegistry.find = originalDevRegFind;
     DeviceRegistry.findOneAndUpdate = originalDevRegFindOneAndUpdate;
     DeviceSession.findOne = originalDevSessFindOne;
     DeviceSession.prototype.save = originalDevSessSave;
     Project.find = originalProjFind;
     AttendanceAuditLog.create = originalAuditLogCreate;
+    AttendanceAuditLog.find = originalAuditLogFind;
+    AttendanceAuditLog.findById = originalAuditLogFindById;
+    AttendanceAuditLog.countDocuments = originalAuditLogCountDocuments;
+    if (originalMongooseStartSession) {
+      mongoose.startSession = originalMongooseStartSession;
+    } else {
+      delete mongoose.startSession;
+    }
+    if (mongoose.connection) {
+      mongoose.connection.readyState = originalConnectionReadyState || 0;
+      mongoose.connection.client = originalConnectionClient;
+    }
   }
 }
 

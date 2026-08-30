@@ -53,16 +53,84 @@ const getExpenses = async (req, res) => {
 
     const filter = requestedFilter;
 
-    const expenses = await Expense.find(filter)
-      .populate('user_id', 'full_name employee_code department_name department_id avatar_url phone email')
-      .populate('approved_by', 'full_name')
-      .populate('paid_by', 'full_name')
-      .sort({ date: -1, created_at: -1 });
+    const isExport = req.query.export === 'true' || req.query.export === true;
+    const hasPagination = !isExport && (req.query.page !== undefined || req.query.limit !== undefined);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = hasPagination ? Math.min(Math.max(1, parseInt(req.query.limit, 10) || 50), 500) : 0;
+    const skip = hasPagination ? (page - 1) * limit : 0;
 
-    // Tính toán KPIs trên toàn bộ tập dữ liệu công ty (không bị ảnh hưởng bởi bộ lọc chi tiết)
-    const summaryDateFilter = year && year !== 'all' ? { date: { $regex: `^${year}-` } } : {};
-    const allExpenses = await Expense.find(summaryDateFilter).lean();
-    
+    // Export mode: tối giản projection, bỏ toàn bộ populate dữ liệu hiển thị & capability
+    const exportSelectFields = '_id user_id date description amount has_vat_invoice notes approval_status approved_at rejection_reason payment_status paid_at payment_note created_at';
+    // Normal mode: đầy đủ trường để hiển thị card, lightbox và capability buttons
+    const normalSelectFields = '_id user_id date description amount has_vat_invoice receipt_url notes approval_status approved_by approved_at rejection_reason payment_status paid_by paid_at payment_note created_at';
+    const selectFields = isExport ? exportSelectFields : normalSelectFields;
+
+    let query = Expense.find(filter).select(selectFields);
+
+    if (!isExport) {
+      // Populate thông tin người chi, người duyệt & người hoàn ứng chỉ cần cho giao diện card/table, không cần cho CSV export
+      query = query
+        .populate('user_id', '_id full_name employee_code department_name avatar_url')
+        .populate('approved_by', '_id full_name')
+        .populate('paid_by', '_id full_name');
+    }
+
+    query = query.sort({ date: -1, created_at: -1 });
+
+    if (hasPagination) {
+      query = query.skip(skip).limit(limit);
+    }
+
+    // countDocuments không cần thiết khi export (không phân trang)
+    const [expenses, totalFilteredCount] = await Promise.all([
+      query.lean(),
+      isExport ? Promise.resolve(0) : Expense.countDocuments(filter),
+    ]);
+
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
+    const currentUserIdStr = String(req.user._id);
+
+    let expenseDtos;
+
+    if (isExport) {
+      // Export mode: không tính capability, không cần User.find scope, trả raw DTO
+      expenseDtos = expenses.map(exp => ({ ...exp }));
+    } else {
+      // Normal mode: tính đầy đủ capability để điều khiển nút giao diện
+      let managedSubordinateIds = new Set();
+      if (isLeader && !isAdmin) {
+        const managedSubordinates = await User.find(
+          buildLeaderUserScope(req.user, { includeSelf: false, excludeAdmins: true })
+        ).select('_id').lean();
+        managedSubordinateIds = new Set(managedSubordinates.map(u => String(u._id)));
+      }
+
+      expenseDtos = expenses.map(exp => {
+        const ownerId = String(exp.user_id?._id || exp.user_id || '');
+        const isOwner = ownerId === currentUserIdStr;
+        const isSubordinate = isLeader && managedSubordinateIds.has(ownerId);
+        const isPending = exp.approval_status === 'pending';
+        const isApproved = exp.approval_status === 'approved';
+
+        const canApprove = (isAdmin || isSubordinate) && isPending;
+        const canDelete = isAdmin || ((isOwner || isSubordinate) && isPending);
+        const canToggleVat = isAdmin || ((isOwner || isSubordinate) && isPending);
+        const canMarkPaid = isAdmin && isApproved;
+        const canManage = canApprove || canDelete || canToggleVat || canMarkPaid;
+
+        return {
+          ...exp,
+          can_approve: canApprove,
+          can_delete: canDelete,
+          can_toggle_vat: canToggleVat,
+          can_mark_paid: canMarkPaid,
+          can_manage: canManage,
+        };
+      });
+    }
+
+    // Tính toán KPIs chỉ khi xem giao diện (bỏ qua khi export để tối ưu hiệu năng)
     let totalApprovedAmount = 0;
     let totalPendingAmount = 0;
     let totalPendingCount = 0;
@@ -71,33 +139,39 @@ const getExpenses = async (req, res) => {
     let myTotalApproved = 0;
     let myTotalUnpaid = 0;
 
-    const currentUserIdStr = String(req.user._id);
+    if (!isExport) {
+      const summaryDateFilter = year && year !== 'all' ? { date: { $regex: `^${year}-` } } : {};
+      const allExpenses = await Expense.find(summaryDateFilter)
+        .select('user_id amount approval_status payment_status date')
+        .lean();
 
-    allExpenses.forEach(exp => {
-      const isMine = String(exp.user_id) === currentUserIdStr;
+      allExpenses.forEach(exp => {
+        const isMine = String(exp.user_id) === currentUserIdStr;
 
-      if (exp.approval_status === 'approved') {
-        totalApprovedAmount += exp.amount || 0;
-        if (exp.payment_status === 'paid') {
-          totalPaidAmount += exp.amount || 0;
-        } else {
-          totalUnpaidAmount += exp.amount || 0;
-        }
-
-        if (isMine) {
-          myTotalApproved += exp.amount || 0;
-          if (exp.payment_status !== 'paid') {
-            myTotalUnpaid += exp.amount || 0;
+        if (exp.approval_status === 'approved') {
+          totalApprovedAmount += exp.amount || 0;
+          if (exp.payment_status === 'paid') {
+            totalPaidAmount += exp.amount || 0;
+          } else {
+            totalUnpaidAmount += exp.amount || 0;
           }
-        }
-      } else if (exp.approval_status === 'pending') {
-        totalPendingAmount += exp.amount || 0;
-        totalPendingCount += 1;
-      }
-    });
 
+          if (isMine) {
+            myTotalApproved += exp.amount || 0;
+            if (exp.payment_status !== 'paid') {
+              myTotalUnpaid += exp.amount || 0;
+            }
+          }
+        } else if (exp.approval_status === 'pending') {
+          totalPendingAmount += exp.amount || 0;
+          totalPendingCount += 1;
+        }
+      });
+    }
+
+    const exportCount = expenses.length;
     res.json({
-      expenses,
+      expenses: expenseDtos,
       summary: {
         totalApprovedAmount,
         totalPendingAmount,
@@ -106,7 +180,10 @@ const getExpenses = async (req, res) => {
         totalPaidAmount,
         myTotalApproved,
         myTotalUnpaid,
-        totalCount: expenses.length,
+        totalCount: isExport ? exportCount : totalFilteredCount,
+        page: hasPagination ? page : 1,
+        limit: hasPagination ? limit : exportCount,
+        totalPages: hasPagination ? (Math.ceil(totalFilteredCount / limit) || 1) : 1,
       }
     });
   } catch (error) {

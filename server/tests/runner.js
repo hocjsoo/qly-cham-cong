@@ -114,9 +114,9 @@ async function runAllTests() {
     await runPasswordAuthTests(assert);
     await runEmailSecurityTests(assert);
     runMultiOfficeTests(assert);
-    runSystemSettingsTests(assert);
+    await runSystemSettingsTests(assert);
     runVehicleParkingTests(assert);
-    runExpenseManagementTests();
+    await runExpenseManagementTests();
     runLeaderboardRankingTests();
     runTtsWeeklyScheduleTests(assert);
 
@@ -125,8 +125,8 @@ async function runAllTests() {
     runClientThemeTests(assert);
     runClientNavAccessTests(assert);
     runClientDeviceFingerprintTests(assert);
-    runClientExportCsvTests(assert);
-    runClientUiBadgesTests(assert);
+    await runClientExportCsvTests(assert);
+    await runClientUiBadgesTests(assert);
 
     // === PHẦN 3: TÍCH HỢP TOÀN TRÌNH & EXPERT QA ===
     await runE2EScenarioTests(assert);
@@ -170,6 +170,9 @@ async function runAllTests() {
     process.exit(0);
   } else {
     console.log(`${RED}${BOLD}❌ CÓ ${failedTests} KỊCH BẢN THẤT BẠI. VUI LÒNG KIỂM TRA LẠI CHI TIẾT TRÊN.${RESET}\n`);
+    if (failedDetails.length > 0) {
+      console.log('Chi tiết lỗi:', JSON.stringify(failedDetails, null, 2));
+    }
     process.exit(1);
   }
 }

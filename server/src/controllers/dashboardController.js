@@ -80,7 +80,15 @@ const getTodaySummary = async (req, res) => {
       const att = attMap.get(u._id.toString());
       let today_status = 'absent';
       if (att) {
-        today_status = att.check_out_time ? 'checked_out' : 'checked_in';
+        if (att.check_in_time) {
+          today_status = att.check_out_time ? 'checked_out' : 'checked_in';
+        } else if (att.status === 'leave' || att.status === 'holiday') {
+          today_status = att.status;
+        } else if (att.status === 'present' && ((att.work_units ?? 0) > 0 || (att.total_hours ?? 0) > 0)) {
+          today_status = 'checked_in';
+        } else {
+          today_status = 'absent';
+        }
       }
 
       const deptNames = (u.department_ids && u.department_ids.length > 0)
@@ -100,8 +108,8 @@ const getTodaySummary = async (req, res) => {
         check_in_time: att?.check_in_time || null,
         check_in_type: att?.check_in_type || null,
         check_out_time: att?.check_out_time || null,
-        total_hours: att?.total_hours || 0,
-        work_units: att?.work_units || 1.0,
+        total_hours: att?.total_hours ?? 0,
+        work_units: att ? (att.work_units ?? (att.status === 'present' ? 1.0 : 0)) : 0,
         status: att?.status || 'absent',
         today_status,
       };
@@ -111,8 +119,10 @@ const getTodaySummary = async (req, res) => {
       total: staff.length,
       checked_in: staff.filter(s => s.today_status === 'checked_in').length,
       checked_out: staff.filter(s => s.today_status === 'checked_out').length,
+      leave: staff.filter(s => s.today_status === 'leave').length,
+      holiday: staff.filter(s => s.today_status === 'holiday').length,
       absent: staff.filter(s => s.today_status === 'absent').length,
-      present_total: staff.filter(s => s.today_status !== 'absent').length,
+      present_total: staff.filter(s => ['checked_in', 'checked_out'].includes(s.today_status)).length,
     };
 
     res.json({

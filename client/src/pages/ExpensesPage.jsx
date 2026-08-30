@@ -13,6 +13,7 @@ import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
+import { sanitizeCsvCell } from '../utils/exportCsv';
 
 const formatVND = (amount) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -44,6 +45,8 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(true);
 
   // Filters
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
   const [search, setSearch] = useState('');
   const [filterUser, setFilterUser] = useState('all');
   const [filterApproval, setFilterApproval] = useState('all');
@@ -75,6 +78,8 @@ export default function ExpensesPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.append('page', String(currentPage));
+      params.append('limit', String(pageSize));
       if (filterUser !== 'all') params.append('user_id', filterUser);
       if (filterApproval !== 'all') params.append('approval_status', filterApproval);
       if (filterPayment !== 'all') params.append('payment_status', filterPayment);
@@ -84,14 +89,22 @@ export default function ExpensesPage() {
       if (search.trim()) params.append('search', search.trim());
 
       const { data } = await api.get(`/expenses?${params.toString()}`);
-      setExpenses(data.expenses || []);
-      if (data.summary) setSummary(data.summary);
+      const fetchedExpenses = data.expenses || [];
+      const fetchedSummary = data.summary || {};
+      setExpenses(fetchedExpenses);
+      setSummary(fetchedSummary);
+
+      if (fetchedSummary.totalPages && currentPage > fetchedSummary.totalPages) {
+        setCurrentPage(Math.max(1, fetchedSummary.totalPages));
+      } else if (fetchedExpenses.length === 0 && currentPage > 1) {
+        setCurrentPage(1);
+      }
     } catch {
       toast.error('Lỗi tải danh sách chi tiêu');
     } finally {
       setLoading(false);
     }
-  }, [filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search]);
+  }, [currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search]);
 
   const loadStaffList = useCallback(async () => {
     try {
@@ -137,14 +150,15 @@ export default function ExpensesPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleCreateExpense = async () => {
+  const handleCreate = async (e) => {
+    e.preventDefault();
     if (!formDesc.trim()) {
       toast.error('Vui lòng nhập mô tả khoản chi');
       return;
     }
     const cleanAmount = Number(String(formAmount).replace(/\D/g, ''));
     if (!cleanAmount || cleanAmount <= 0) {
-      toast.error('Vui lòng nhập số tiền chi hợp lệ');
+      toast.error('Số tiền chi tiêu phải lớn hơn 0 VNĐ');
       return;
     }
 
@@ -159,52 +173,56 @@ export default function ExpensesPage() {
         notes: formNotes.trim() || null,
       });
 
-      toast.success('Đã gửi báo cáo chi tiêu thành công! 💵');
+      toast.success('Báo cáo khoản chi tiêu thành công! 🎉');
       setShowCreateModal(false);
-      // Reset form
-      setFormDate(todayStr);
       setFormDesc('');
       setFormAmount('');
       setFormVat(false);
       setFormReceipt(null);
       setFormNotes('');
+      setCurrentPage(1);
       loadData();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi gửi chi tiêu');
+      toast.error(err?.response?.data?.error || 'Lỗi gửi báo cáo chi tiêu');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleApprove = async (expenseId, status, reason = '') => {
+  const handleApprove = async (expenseId) => {
     try {
-      await api.put(`/expenses/${expenseId}/approve`, {
-        status,
-        rejection_reason: reason,
+      await api.put(`/expenses/${expenseId}/approve`, { status: 'approved' });
+      toast.success('Đã duyệt khoản chi ✅');
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi duyệt chi tiêu');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!showRejectModal) return;
+    try {
+      await api.put(`/expenses/${showRejectModal._id}/approve`, {
+        status: 'rejected',
+        rejection_reason: rejectionReason.trim() || 'Không hợp lệ',
       });
-      toast.success(status === 'approved' ? 'Đã duyệt khoản chi tiêu! ✅' : 'Đã từ chối khoản chi tiêu');
+      toast.success('Đã từ chối khoản chi ❌');
       setShowRejectModal(null);
       setRejectionReason('');
       loadData();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi xử lý duyệt chi');
+      toast.error(err?.response?.data?.error || 'Lỗi từ chối chi tiêu');
     }
   };
 
-  const handleMarkPaid = async (expenseId, currentStatus) => {
-    if (!isAdmin) {
-      toast.error('Chỉ Admin mới có quyền xác nhận hoàn ứng');
-      return;
-    }
+  const handlePay = async (expenseId, currentStatus) => {
     const nextStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
     try {
-      await api.put(`/expenses/${expenseId}/pay`, {
-        payment_status: nextStatus,
-      });
-      toast.success(nextStatus === 'paid' ? 'Đã xác nhận thanh toán hoàn ứng! 💳' : 'Đã chuyển về chưa thanh toán');
+      await api.put(`/expenses/${expenseId}/pay`, { payment_status: nextStatus });
+      toast.success(nextStatus === 'paid' ? 'Đã hoàn ứng thành công 💵' : 'Đã chuyển về chưa trả');
       loadData();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi cập nhật thanh toán');
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật hoàn ứng');
     }
   };
 
@@ -223,77 +241,101 @@ export default function ExpensesPage() {
     try {
       await api.delete(`/expenses/${expenseId}`);
       toast.success('Đã xóa khoản chi thành công');
-      loadData();
+      if (expenses.length === 1 && currentPage > 1) {
+        setCurrentPage(p => Math.max(1, p - 1));
+      } else {
+        loadData();
+      }
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi xóa chi tiêu');
     }
   };
 
-  const handleExportCSV = () => {
-    if (expenses.length === 0) {
-      toast.error("Không có dữ liệu để xuất file");
-      return;
-    }
+  const handleExportCSV = async () => {
+    const toastId = toast.loading('Đang chuẩn bị dữ liệu xuất CSV...');
+    try {
+      const params = new URLSearchParams();
+      params.append('export', 'true');
+      if (filterUser !== 'all') params.append('user_id', filterUser);
+      if (filterApproval !== 'all') params.append('approval_status', filterApproval);
+      if (filterPayment !== 'all') params.append('payment_status', filterPayment);
+      if (filterVat !== 'all') params.append('has_vat', filterVat);
+      if (filterMonth !== 'all') params.append('month', filterMonth);
+      if (filterYear !== 'all') params.append('year', filterYear);
+      if (search.trim()) params.append('search', search.trim());
 
-    const headers = [
-      "STT",
-      "Ngày giao dịch",
-      "Mô tả khoản chi",
-      "Người chi",
-      "Số tiền (VNĐ)",
-      "Trạng thái duyệt",
-      "Trạng thái hoàn tiền",
-      "Hóa đơn VAT",
-      "Ngân hàng",
-      "Số tài khoản nhận tiền",
-      "Chi nhánh",
-      "Ghi chú"
-    ];
+      const { data } = await api.get(`/expenses?${params.toString()}`);
+      const fullList = data.expenses || [];
+      if (fullList.length === 0) {
+        toast.dismiss(toastId);
+        toast.error('Không có dữ liệu để xuất file');
+        return;
+      }
 
-    const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-
-    const rows = filteredExpenses.map((expItem, idx) => {
-      const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
-      const spenderName = expItem.user_id?.full_name || expItem.user_name || spenderUser.full_name || "—";
-      const approvalVi = expItem.approval_status === "approved" ? "Đã duyệt" : expItem.approval_status === "rejected" ? "Từ chối" : "Chờ duyệt";
-      const paymentVi = expItem.payment_status === "paid" ? "Đã trả" : "Chưa trả";
-      const vatVi = expItem.has_vat_invoice ? "Có VAT" : "Không VAT";
-
-      return [
-        idx + 1,
-        formatDate(expItem.date),
-        escapeCsv(expItem.description),
-        escapeCsv(spenderName),
-        expItem.amount,
-        escapeCsv(approvalVi),
-        escapeCsv(paymentVi),
-        escapeCsv(vatVi),
-        escapeCsv(spenderUser.bank_name),
-        escapeCsv(spenderUser.bank_account),
-        escapeCsv(spenderUser.branch),
-        escapeCsv(expItem.notes)
+      const headers = [
+        'STT',
+        'Ngày giao dịch',
+        'Mô tả khoản chi',
+        'Người chi',
+        'Số tiền (VNĐ)',
+        'Trạng thái duyệt',
+        'Trạng thái hoàn tiền',
+        'Hóa đơn VAT',
+        'Ngân hàng',
+        'Số tài khoản nhận tiền',
+        'Chi nhánh',
+        'Ghi chú'
       ];
-    });
 
-    const totalRow = [
-      "TỔNG CỘNG",
-      "",
-      "Tổng các khoản chi",
-      "",
-      summary.totalApprovedAmount || 0,
-      escapeCsv("Chờ duyệt: " + (summary.totalPendingCount || 0) + " khoản"),
-      escapeCsv("Chưa hoàn tiền: " + formatVND(summary.totalUnpaidAmount || 0)),
-      "",
-      "",
-      "",
-      "",
-      ""
-    ];
+      let totalAmount = 0;
+      const rows = fullList.map((expItem, idx) => {
+        totalAmount += Number(expItem.amount) || 0;
+        const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
+        const spenderName = expItem.user_id?.full_name || expItem.user_name || spenderUser.full_name || '—';
+        const approvalVi = expItem.approval_status === 'approved' ? 'Đã duyệt' : expItem.approval_status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
+        const paymentVi = expItem.payment_status === 'paid' ? 'Đã trả' : 'Chưa trả';
+        const vatVi = expItem.has_vat_invoice ? 'Có VAT' : 'Không VAT';
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(",")), totalRow.join(",")].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    downloadBlob(blob, "Bang_Ke_Chi_Tieu_Hoan_Ung_ET_" + new Date().toISOString().slice(0, 10) + ".csv");
-    toast.success("Đã xuất file CSV chi tiêu hoàn ứng thành công! 📄");
+        return [
+          idx + 1,
+          sanitizeCsvCell(formatDate(expItem.date)),
+          sanitizeCsvCell(expItem.description),
+          sanitizeCsvCell(spenderName),
+          expItem.amount,
+          sanitizeCsvCell(approvalVi),
+          sanitizeCsvCell(paymentVi),
+          sanitizeCsvCell(vatVi),
+          sanitizeCsvCell(spenderUser.bank_name),
+          sanitizeCsvCell(spenderUser.bank_account),
+          sanitizeCsvCell(spenderUser.branch),
+          sanitizeCsvCell(expItem.notes)
+        ];
+      });
+
+      const totalRow = [
+        'TỔNG CỘNG',
+        '""',
+        sanitizeCsvCell(`Tổng ${fullList.length} khoản chi`),
+        '""',
+        totalAmount,
+        '""',
+        '""',
+        '""',
+        '""',
+        '""',
+        '""',
+        '""'
+      ];
+
+      const csvContent = '\uFEFF' + [headers.map(sanitizeCsvCell).join(','), ...rows.map(r => r.join(',')), totalRow.join(',')].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      downloadBlob(blob, `Bang_Ke_Chi_Tieu_Hoan_Ung_ET_${filterMonth !== 'all' ? `T${filterMonth}_` : ''}${filterYear}_${new Date().toISOString().slice(0, 10)}.csv`);
+      toast.dismiss(toastId);
+      toast.success(`Đã xuất file CSV (${fullList.length} khoản chi) thành công! 📄`);
+    } catch {
+      toast.dismiss(toastId);
+      toast.error('Lỗi khi tải dữ liệu xuất CSV');
+    }
   };
 
     // Filter list by search locally if needed
@@ -361,7 +403,7 @@ export default function ExpensesPage() {
           </div>
 
           <div
-            onClick={() => setFilterApproval(filterApproval === "pending" ? "all" : "pending")}
+            onClick={() => { setFilterApproval(filterApproval === "pending" ? "all" : "pending"); setCurrentPage(1); }}
             className="stat-card-modern card--interactive"
             style={{
               cursor: "pointer",
@@ -377,7 +419,7 @@ export default function ExpensesPage() {
           </div>
 
           <div
-            onClick={() => setFilterPayment(filterPayment === "unpaid" ? "all" : "unpaid")}
+            onClick={() => { setFilterPayment(filterPayment === "unpaid" ? "all" : "unpaid"); setCurrentPage(1); }}
             className="stat-card-modern card--interactive"
             style={{
               cursor: "pointer",
@@ -393,7 +435,7 @@ export default function ExpensesPage() {
           </div>
 
           <div
-            onClick={() => setFilterPayment(filterPayment === "paid" ? "all" : "paid")}
+            onClick={() => { setFilterPayment(filterPayment === "paid" ? "all" : "paid"); setCurrentPage(1); }}
             className="stat-card-modern card--interactive"
             style={{
               cursor: "pointer",
@@ -421,7 +463,7 @@ export default function ExpensesPage() {
                 style={{ paddingLeft: '32px', fontSize: '13px', height: '34px' }}
                 placeholder="Tìm nội dung, người chi, số tiền..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
               />
             </div>
 
@@ -430,7 +472,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', minWidth: '140px', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterUser}
-              onChange={e => setFilterUser(e.target.value)}
+              onChange={e => { setFilterUser(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">👤 Người chi: Tất cả</option>
               {staffList.map(s => (
@@ -443,7 +485,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterApproval}
-              onChange={e => setFilterApproval(e.target.value)}
+              onChange={e => { setFilterApproval(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">📋 Duyệt: Tất cả</option>
               <option value="pending">⏳ Chờ duyệt</option>
@@ -456,7 +498,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterPayment}
-              onChange={e => setFilterPayment(e.target.value)}
+              onChange={e => { setFilterPayment(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">💳 Hoàn tiền: Tất cả</option>
               <option value="unpaid">💸 Chưa trả</option>
@@ -468,7 +510,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterVat}
-              onChange={e => setFilterVat(e.target.value)}
+              onChange={e => { setFilterVat(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">🧾 VAT: Tất cả</option>
               <option value="true">☑ Có hóa đơn VAT</option>
@@ -480,7 +522,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterMonth}
-              onChange={e => setFilterMonth(e.target.value)}
+              onChange={e => { setFilterMonth(e.target.value); setCurrentPage(1); }}
             >
               <option value="all">📅 Tháng: Tất cả</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
@@ -493,7 +535,7 @@ export default function ExpensesPage() {
               className="form-select"
               style={{ width: 'auto', fontSize: '12.5px', padding: '6px 10px', height: '34px' }}
               value={filterYear}
-              onChange={e => setFilterYear(e.target.value)}
+              onChange={e => { setFilterYear(e.target.value); setCurrentPage(1); }}
             >
               {[2024, 2025, 2026, 2027].map(y => (
                 <option key={y} value={String(y)}>Năm {y}</option>
@@ -554,18 +596,23 @@ export default function ExpensesPage() {
                   <th style={{ padding: '12px 14px', width: '125px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI TRẢ</th>
                   <th style={{ padding: '12px 14px', width: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>HÓA ĐƠN VAT</th>
                   <th style={{ padding: '12px 14px', width: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>ẢNH BILL</th>
-                  {isAdminOrLeader && (
-                    <th style={{ padding: '12px 14px', width: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
-                  )}
+                  <th style={{ padding: '12px 14px', width: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredExpenses.map((exp, idx) => {
-                  const isOwner = String(exp.user_id?._id || exp.user_id) === String(user?._id);
                   const isApproved = exp.approval_status === 'approved';
                   const isPending = exp.approval_status === 'pending';
                   const isRejected = exp.approval_status === 'rejected';
                   const isPaid = exp.payment_status === 'paid';
+                  const ownerId = String(exp.user_id?._id || exp.user_id || '');
+                  const isOwner = ownerId === String(user?._id);
+
+                  const canApprove = exp.can_approve !== undefined ? exp.can_approve : (isAdmin && isPending);
+                  const canDelete = exp.can_delete !== undefined ? exp.can_delete : (isAdmin || (isOwner && isPending));
+                  const canToggleVat = exp.can_toggle_vat !== undefined ? exp.can_toggle_vat : (isAdmin || (isOwner && isPending));
+                  const canMarkPaid = exp.can_mark_paid !== undefined ? exp.can_mark_paid : (isAdmin && isApproved);
+                  const hasAnyAction = canApprove || canDelete || canMarkPaid;
 
                   return (
                     <tr
@@ -636,13 +683,13 @@ export default function ExpensesPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: (isAdminOrLeader || isOwner) ? 'pointer' : 'default' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: canToggleVat ? 'pointer' : 'default' }}>
                           <input
                             type="checkbox"
                             checked={Boolean(exp.has_vat_invoice)}
-                            onChange={() => (isAdminOrLeader || isOwner) && handleToggleVat(exp._id)}
-                            disabled={!isAdminOrLeader && !isOwner}
-                            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                            onChange={() => canToggleVat && handleToggleVat(exp._id)}
+                            disabled={!canToggleVat}
+                            style={{ accentColor: 'var(--primary)', cursor: canToggleVat ? 'pointer' : 'default' }}
                           />
                           <span style={{ fontSize: '11px', color: exp.has_vat_invoice ? 'var(--primary)' : 'var(--text-muted)', fontWeight: exp.has_vat_invoice ? 700 : 500 }}>
                             {exp.has_vat_invoice ? 'Có VAT' : 'Không'}
@@ -664,48 +711,48 @@ export default function ExpensesPage() {
                         )}
                       </td>
 
-                      {/* Admin Quick Action Column */}
-                      {isAdminOrLeader && (
-                        <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                            {isPending && (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(exp._id, 'approved')}
-                                  className="btn btn--primary"
-                                  style={{ padding: '3px 8px', fontSize: '11px', background: 'var(--green)' }}
-                                  title="Duyệt chi"
-                                >
-                                  <Check size={12} /> Duyệt
-                                </button>
-                                <button
-                                  onClick={() => setShowRejectModal(exp)}
-                                  className="btn btn--ghost"
-                                  style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--red)' }}
-                                  title="Từ chối chi"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </>
-                            )}
-
-                            {isApproved && isAdmin && (
+                      {/* Quick Action Column */}
+                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                          {canApprove && (
+                            <>
                               <button
-                                onClick={() => handleMarkPaid(exp._id, exp.payment_status)}
-                                className="btn btn--ghost"
-                                style={{
-                                  padding: '3px 8px', fontSize: '11px',
-                                  color: isPaid ? 'var(--text-muted)' : 'var(--green)',
-                                  borderColor: isPaid ? 'var(--border)' : 'var(--green)',
-                                  fontWeight: 600
-                                }}
-                                title={isPaid ? 'Đổi về chưa thanh toán' : 'Xác nhận đã chuyển khoản trả tiền'}
+                                onClick={() => handleApprove(exp._id, 'approved')}
+                                className="btn btn--primary"
+                                style={{ padding: '3px 8px', fontSize: '11px', background: 'var(--green)' }}
+                                title="Duyệt chi"
                               >
-                                <CreditCard size={12} style={{ marginRight: '3px' }} />
-                                {isPaid ? 'Hủy trả' : 'Xác nhận trả'}
+                                <Check size={12} /> Duyệt
                               </button>
-                            )}
+                              <button
+                                onClick={() => setShowRejectModal(exp)}
+                                className="btn btn--ghost"
+                                style={{ padding: '3px 8px', fontSize: '11px', color: 'var(--red)' }}
+                                title="Từ chối chi"
+                              >
+                                <X size={12} />
+                              </button>
+                            </>
+                          )}
 
+                          {canMarkPaid && (
+                            <button
+                              onClick={() => handleMarkPaid(exp._id, exp.payment_status)}
+                              className="btn btn--ghost"
+                              style={{
+                                padding: '3px 8px', fontSize: '11px',
+                                color: isPaid ? 'var(--text-muted)' : 'var(--green)',
+                                borderColor: isPaid ? 'var(--border)' : 'var(--green)',
+                                fontWeight: 600
+                              }}
+                              title={isPaid ? 'Đổi về chưa thanh toán' : 'Xác nhận đã chuyển khoản trả tiền'}
+                            >
+                              <CreditCard size={12} style={{ marginRight: '3px' }} />
+                              {isPaid ? 'Hủy trả' : 'Xác nhận trả'}
+                            </button>
+                          )}
+
+                          {canDelete && (
                             <button
                               onClick={() => handleDelete(exp._id)}
                               className="btn btn--ghost"
@@ -714,9 +761,13 @@ export default function ExpensesPage() {
                             >
                               <Trash2 size={12} />
                             </button>
-                          </div>
-                        </td>
-                      )}
+                          )}
+
+                          {!hasAnyAction && (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>—</span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -730,6 +781,13 @@ export default function ExpensesPage() {
               const isApproved = exp.approval_status === 'approved';
               const isPending = exp.approval_status === 'pending';
               const isPaid = exp.payment_status === 'paid';
+              const ownerId = String(exp.user_id?._id || exp.user_id || '');
+              const isOwner = ownerId === String(user?._id);
+
+              const canApprove = exp.can_approve !== undefined ? exp.can_approve : (isAdmin && isPending);
+              const canDelete = exp.can_delete !== undefined ? exp.can_delete : (isAdmin || (isOwner && isPending));
+              const canMarkPaid = exp.can_mark_paid !== undefined ? exp.can_mark_paid : (isAdmin && isApproved);
+              const hasAnyAction = canApprove || canDelete || canMarkPaid;
 
               return (
                 <div key={exp._id} className="card animate-fade-in" style={{ padding: '14px', position: 'relative' }}>
@@ -778,9 +836,9 @@ export default function ExpensesPage() {
                     </div>
                   )}
 
-                  {isAdminOrLeader && (
+                  {hasAnyAction && (
                     <div style={{ display: 'flex', gap: '6px', marginTop: '10px', borderTop: '1px solid var(--border-muted)', paddingTop: '8px' }}>
-                      {isPending && (
+                      {canApprove && (
                         <>
                           <button onClick={() => handleApprove(exp._id, 'approved')} className="btn btn--primary btn--full" style={{ padding: '6px', fontSize: '11.5px' }}>
                             Duyệt chi
@@ -790,7 +848,7 @@ export default function ExpensesPage() {
                           </button>
                         </>
                       )}
-                      {isApproved && isAdmin && (
+                      {canMarkPaid && (
                         <button
                           onClick={() => handleMarkPaid(exp._id, exp.payment_status)}
                           className="btn btn--ghost btn--full"
@@ -799,11 +857,64 @@ export default function ExpensesPage() {
                           {isPaid ? 'Đổi về chưa trả' : '💳 Xác nhận đã hoàn ứng'}
                         </button>
                       )}
+                      {canDelete && !canApprove && !canMarkPaid && (
+                        <button
+                          onClick={() => handleDelete(exp._id)}
+                          className="btn btn--ghost btn--full"
+                          style={{ padding: '6px', fontSize: '11.5px', color: 'var(--red)' }}
+                        >
+                          <Trash2 size={12} style={{ marginRight: '4px' }} /> Xóa khoản chi
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {!loading && (summary.totalPages > 1 || (summary.totalCount || expenses.length) > pageSize) && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '10px',
+              marginTop: '16px',
+              padding: '12px 16px',
+              background: 'var(--bg-card)',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              fontSize: '12.5px',
+            }}
+          >
+            <div style={{ color: 'var(--text-muted)' }}>
+              Hiển thị <strong style={{ color: 'var(--text)' }}>{(currentPage - 1) * pageSize + 1}</strong> – <strong style={{ color: 'var(--text)' }}>{Math.min(currentPage * pageSize, summary.totalCount || expenses.length)}</strong> trên tổng số <strong style={{ color: 'var(--primary)' }}>{summary.totalCount || expenses.length}</strong> khoản chi
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                className="btn btn--ghost"
+                style={{ padding: '5px 10px', fontSize: '12px' }}
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                ‹ Trang trước
+              </button>
+              <span style={{ fontWeight: 700, padding: '0 6px', color: 'var(--text-secondary)' }}>
+                {currentPage} / {summary.totalPages || 1}
+              </span>
+              <button
+                className="btn btn--ghost"
+                style={{ padding: '5px 10px', fontSize: '12px' }}
+                disabled={currentPage >= (summary.totalPages || 1)}
+                onClick={() => setCurrentPage((p) => Math.min(summary.totalPages || 1, p + 1))}
+              >
+                Trang sau ›
+              </button>
+            </div>
           </div>
         )}
       </div>

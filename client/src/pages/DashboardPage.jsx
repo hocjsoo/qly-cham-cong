@@ -31,6 +31,8 @@ const fmt = (iso) => {
 const STATUS_MAP = {
   checked_in:  { label: 'Đang làm', cls: 'badge--success' },
   checked_out: { label: 'Đã về',    cls: 'badge--neutral' },
+  leave:       { label: 'Nghỉ phép', cls: 'badge--warning' },
+  holiday:     { label: 'Nghỉ lễ',  cls: 'badge--primary' },
   absent:      { label: 'Vắng',     cls: 'badge--danger' },
 };
 
@@ -40,7 +42,7 @@ const TYPE_MAP = {
 
 const createEmptyDashboard = () => ({
   date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-  summary: { total: 0, checked_in: 0, checked_out: 0, absent: 0, present_total: 0 },
+  summary: { total: 0, checked_in: 0, checked_out: 0, leave: 0, holiday: 0, absent: 0, present_total: 0 },
   staff: [],
   my_projects: [],
 });
@@ -344,7 +346,11 @@ export default function DashboardPage() {
   const s = data?.summary || {};
   const staff = data?.staff || [];
   const filtered = staff.filter(p => {
-    const matchFilter = filter === 'all' ? true : p.today_status === filter;
+    const matchFilter = filter === 'all'
+      ? true
+      : filter === 'leave'
+        ? (p.today_status === 'leave' || p.today_status === 'holiday')
+        : p.today_status === filter;
     const matchSearch = p.full_name?.toLowerCase().includes(search.toLowerCase()) ||
                         p.email?.toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
@@ -885,6 +891,7 @@ export default function DashboardPage() {
                 { value: 'all', label: `Tất cả (${staff.length})` },
                 { value: 'checked_in', label: `Đang làm (${s.checked_in || 0})` },
                 { value: 'checked_out', label: `Đã về (${s.checked_out || 0})` },
+                { value: 'leave', label: `Nghỉ phép (${(s.leave || 0) + (s.holiday || 0)})` },
                 { value: 'absent', label: `Vắng (${s.absent || 0})` },
               ].map(c => (
                 <button key={c.value} onClick={() => setFilter(c.value)} className={`chip${filter === c.value ? ' active' : ''}`}>

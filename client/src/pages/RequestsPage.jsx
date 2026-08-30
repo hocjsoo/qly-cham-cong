@@ -204,12 +204,25 @@ export default function RequestsPage() {
   const [draftGuidelines, setDraftGuidelines] = useState(DEFAULT_REQUEST_GUIDELINES);
   const [savingGuidelines, setSavingGuidelines] = useState(false);
 
+  const normalizeGuidelines = (rawGuidelines = {}) => {
+    if (!rawGuidelines || typeof rawGuidelines !== "object") return DEFAULT_REQUEST_GUIDELINES;
+    const merged = { ...DEFAULT_REQUEST_GUIDELINES, ...rawGuidelines };
+    if (merged.late?.desc && typeof merged.late.desc === "string" && merged.late.desc.includes("08:30")) {
+      merged.late = { ...merged.late, desc: merged.late.desc.replace(/08:30/g, "09:00") };
+    }
+    if (merged.early_leave?.desc && typeof merged.early_leave.desc === "string" && merged.early_leave.desc.includes("17:30")) {
+      merged.early_leave = { ...merged.early_leave, desc: merged.early_leave.desc.replace(/17:30/g, "18:30") };
+    }
+    return merged;
+  };
+
   const loadSystemGuidelines = async () => {
     try {
       const { data } = await api.get("/settings");
       if (data && data.request_guidelines && typeof data.request_guidelines === "object") {
-        setGuidelines({ ...DEFAULT_REQUEST_GUIDELINES, ...data.request_guidelines });
-        setDraftGuidelines({ ...DEFAULT_REQUEST_GUIDELINES, ...data.request_guidelines });
+        const normalized = normalizeGuidelines(data.request_guidelines);
+        setGuidelines(normalized);
+        setDraftGuidelines(normalized);
       }
     } catch {}
   };

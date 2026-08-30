@@ -456,7 +456,7 @@ const getIndividualDetailReport = async (req, res) => {
         else ot1Hours += ot;
       }
 
-      let locationName = 'VP';
+      let locationName = isWeekend ? '' : 'VP';
       if (att) {
         if (att.check_in_type === 'site') locationName = 'CT1';
         else if (att.check_in_type === 'client') locationName = 'CT2';
@@ -464,7 +464,9 @@ const getIndividualDetailReport = async (req, res) => {
         else if (att.status === 'leave') {
           locationName = 'Nghỉ';
           leaveCounts.P += 1;
-        } else if (hrs === 0) {
+        } else if (att.status === 'holiday') {
+          locationName = 'Lễ';
+        } else if (hrs === 0 && !isWeekend && ot === 0 && att.status === 'absent') {
           leaveCounts.V += 1;
         }
       }

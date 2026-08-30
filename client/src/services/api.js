@@ -36,9 +36,10 @@ api.interceptors.response.use(
           if (config.data) {
             data = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
           }
-          return await mockRequest(method, url, data);
-        } catch {
-          return response;
+          const mockRes = await mockRequest(method, url, data);
+          return mockRes;
+        } catch (mockErr) {
+          return Promise.reject(mockErr);
         }
       }
       return Promise.reject(new Error('Máy chủ Backend không khả dụng hoặc định tuyến chưa chính xác.'));

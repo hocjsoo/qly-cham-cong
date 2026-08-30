@@ -1,5 +1,4 @@
-// controllers/timesheetLockController.js - Chốt Công & Bảng Công Mẫu Thủ Công ET_Staff 2026
-
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 const TimesheetLock = require('../models/TimesheetLock');
@@ -10,6 +9,8 @@ const { getActiveEmploymentFilter, isInactiveEmploymentStatus } = require('../ut
 
 // Map symbol to status / check_in_type / work_units for override
 const SYMBOL_TO_STATUS_MAP = {
+  '': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Chỉ tính OT / Không tính công ngày' },
+  'NONE': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Chỉ tính OT / Không tính công ngày' },
   'x': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '0,75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '0.75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
@@ -23,6 +24,26 @@ const SYMBOL_TO_STATUS_MAP = {
   'KL': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Nghỉ không lương (KL)' },
   'K': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Khác (K)' },
   'L': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
+};
+
+// Helper kiểm tra topology MongoDB:
+// - ReplicaSet / Sharded / Production / Unknown: Bắt buộc ACID transaction (fail-closed nếu startSession lỗi)
+// - Single (Standalone / local dev non-production): Chạy compensatory rollback
+const getTopologyStatus = () => {
+  try {
+    const topology = mongoose.connection?.client?.topology;
+    const descType = topology?.description?.type || topology?.s?.description?.type;
+    // Standalone deployment ('Single'): chỉ chấp nhận fallback non-transaction khi KHÔNG PHẢI môi trường production
+    if (descType === 'Single' && process.env.NODE_ENV !== 'production') {
+      return { isStandalone: true, requiresTransaction: false };
+    }
+    // In-memory test environment (không kết nối MongoDB thực tế và ngoài production)
+    if (!topology && process.env.NODE_ENV !== 'production' && mongoose.connection?.readyState !== 1) {
+      return { isStandalone: true, requiresTransaction: false };
+    }
+  } catch {}
+  // Mọi môi trường khác (Atlas, ReplicaSet, Sharded, Unknown topology, hoặc bất kỳ NODE_ENV=production nào) đều BẮT BUỘC Transaction (Fail-Closed)
+  return { isStandalone: false, requiresTransaction: true };
 };
 
 // GET /api/timesheet-lock/full-matrix?month=7&year=2026
@@ -366,109 +387,465 @@ const toggleLock = async (req, res) => {
 const overrideCell = async (req, res) => {
   const { user_id, date, new_symbol, reason, ot_hours, custom_notes } = req.body;
 
-  if (!user_id || !date || !new_symbol || !reason || !reason.trim()) {
+  if (!user_id || !date || (!reason || !reason.trim())) {
     return res.status(400).json({ error: 'Ký hiệu công và Lý do chỉnh sửa là bắt buộc.' });
   }
 
-  // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
-  if (!SYMBOL_TO_STATUS_MAP[new_symbol]) {
+  // Bắt buộc new_symbol phải được truyền tường minh dưới dạng chuỗi (chuỗi ký hiệu hoặc chuỗi rỗng '' cho ngày chỉ tính OT/không công)
+  if (typeof new_symbol !== 'string') {
     return res.status(400).json({
-      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận các ký hiệu: x, 0,75x, 0,5x, CT1, CT2, WFH, P, O, KL, K, L.'
+      error: 'Ký hiệu công là bắt buộc (vui lòng truyền chuỗi ký hiệu hợp lệ hoặc chuỗi rỗng "" để chỉ tính OT/không tính công).'
     });
   }
 
+  const rawSymbol = new_symbol.trim();
+
+  // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
+  if (rawSymbol !== '' && !SYMBOL_TO_STATUS_MAP[rawSymbol]) {
+    return res.status(400).json({
+      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận các ký hiệu: x, 0,75x, 0,5x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
+    });
+  }
+
+  let session = null;
+  let useCallbackTx = false;
+  const topologyStatus = getTopologyStatus();
   try {
-    let attendance = await Attendance.findOne({ user_id, date });
+    if (topologyStatus.requiresTransaction) {
+      if (mongoose.connection?.readyState !== 1 || typeof mongoose.startSession !== 'function') {
+        return res.status(500).json({
+          error: 'Lỗi kết nối cơ sở dữ liệu: Trạng thái kết nối MongoDB không khả dụng để thiết lập phiên giao dịch an toàn. Yêu cầu bị hủy theo chính sách Fail-Closed.',
+          integrity_warning: false,
+        });
+      }
+      try {
+        session = await mongoose.startSession();
+        if (!session) {
+          return res.status(500).json({
+            error: 'Lỗi thiết lập giao dịch: Phiên giao dịch MongoDB khởi tạo không thành công (null session). Yêu cầu bị hủy theo chính sách Fail-Closed.',
+            integrity_warning: false,
+          });
+        }
+        useCallbackTx = typeof session.withTransaction === 'function';
+      } catch (sessInitErr) {
+        console.error('Session start failed on transaction-required topology:', sessInitErr);
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Không thể khởi tạo phiên giao dịch an toàn trên cơ sở dữ liệu MongoDB Atlas. Yêu cầu bị hủy để bảo vệ tính toàn vẹn dữ liệu.',
+          integrity_warning: false,
+        });
+      }
+    } else {
+      // Standalone topology: Driver không hỗ trợ multi-document transactions trên Single deployment
+      session = null;
+      useCallbackTx = false;
+    }
+  } catch (err) {
+    if (topologyStatus.requiresTransaction) {
+      return res.status(500).json({
+        error: 'Lỗi thiết lập giao dịch: Không thể khởi tạo phiên giao dịch an toàn trên cơ sở dữ liệu MongoDB Atlas. Yêu cầu bị hủy để bảo vệ tính toàn vẹn dữ liệu.',
+        integrity_warning: false,
+      });
+    }
+    session = null;
+    useCallbackTx = false;
+  }
+
+  let isCommitted = false;
+  let attendance = null;
+  let isExisting = false;
+  let originalDocState = null;
+  let createdAttendanceDoc = null;
+  let auditLog = null;
+  let displayMsg = '';
+
+  const executeMutation = async (activeSession) => {
+    const attFindQuery = Attendance.findOne({ user_id, date });
+    if (activeSession && typeof attFindQuery.session === 'function') {
+      attFindQuery.session(activeSession);
+    }
+    attendance = await attFindQuery;
+    isExisting = Boolean(attendance);
     const oldSymbol = attendance ? (attendance.notes || '—') : '—';
-    const targetConfig = SYMBOL_TO_STATUS_MAP[new_symbol];
+    const snapshotBefore = attendance ? {
+      check_in_time: attendance.check_in_time,
+      check_out_time: attendance.check_out_time,
+      check_in_lat: attendance.check_in_lat,
+      check_in_lng: attendance.check_in_lng,
+      check_out_lat: attendance.check_out_lat,
+      check_out_lng: attendance.check_out_lng,
+      total_hours: attendance.total_hours,
+      work_units: attendance.work_units,
+      ot_hours: attendance.ot_hours,
+      status: attendance.status,
+      notes: attendance.notes,
+      is_late: attendance.is_late,
+      late_minutes: attendance.late_minutes,
+      late_tier: attendance.late_tier,
+      is_early_leave: attendance.is_early_leave,
+      early_minutes: attendance.early_minutes,
+      check_in_type: attendance.check_in_type,
+      hardware_uuid: attendance.hardware_uuid,
+      selfie_url: attendance.selfie_url,
+      is_flagged: attendance.is_flagged,
+      flag_reasons: attendance.flag_reasons,
+      verification_status: attendance.verification_status,
+      reviewed_by: attendance.reviewed_by,
+      reviewed_at: attendance.reviewed_at,
+      reviewer_note: attendance.reviewer_note,
+      check_in_note: attendance.check_in_note,
+      check_out_note: attendance.check_out_note,
+    } : null;
+
+    if (isExisting && attendance && !activeSession) {
+      originalDocState = {
+        total_hours: attendance.total_hours,
+        work_units: attendance.work_units,
+        ot_hours: attendance.ot_hours,
+        is_late: attendance.is_late,
+        late_minutes: attendance.late_minutes,
+        late_tier: attendance.late_tier,
+        is_early_leave: attendance.is_early_leave,
+        early_minutes: attendance.early_minutes,
+        check_in_time: attendance.check_in_time,
+        check_out_time: attendance.check_out_time,
+        check_in_type: attendance.check_in_type,
+        check_in_lat: attendance.check_in_lat,
+        check_in_lng: attendance.check_in_lng,
+        check_out_lat: attendance.check_out_lat,
+        check_out_lng: attendance.check_out_lng,
+        hardware_uuid: attendance.hardware_uuid,
+        selfie_url: attendance.selfie_url,
+        is_flagged: attendance.is_flagged,
+        flag_reasons: attendance.flag_reasons,
+        status: attendance.status,
+        notes: attendance.notes,
+        verification_status: attendance.verification_status,
+        reviewer_note: attendance.reviewer_note,
+        reviewed_by: attendance.reviewed_by,
+        reviewed_at: attendance.reviewed_at,
+      };
+    }
+
+    const targetConfig = SYMBOL_TO_STATUS_MAP[rawSymbol] || SYMBOL_TO_STATUS_MAP[''];
 
     // 2. Kiểm tra tính hợp lệ của Giờ OT: Số hữu hạn, 0 <= OT <= 16, bước 0.5h
     let confirmedOtHours = attendance?.ot_hours || 0;
     if (ot_hours !== undefined && ot_hours !== null && ot_hours !== '') {
       const numOt = Number(ot_hours);
       if (!Number.isFinite(numOt) || numOt < 0 || numOt > 16 || (numOt * 2) % 1 !== 0) {
-        return res.status(400).json({
-          error: 'Số giờ OT không hợp lệ. Vui lòng nhập số hữu hạn từ 0 đến 16 giờ theo bước 0.5h (ví dụ: 0, 0.5, 1, 1.5...).'
-        });
+        const validationErr = new Error('Số giờ OT không hợp lệ. Vui lòng nhập số hữu hạn từ 0 đến 16 giờ theo bước 0.5h (ví dụ: 0, 0.5, 1, 1.5...).');
+        validationErr.isValidationError = true;
+        throw validationErr;
       }
       confirmedOtHours = numOt;
     }
 
     const otNotePart = confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : '';
+    const symbolLabel = rawSymbol ? `[${rawSymbol}]` : '[TRỐNG]';
     const noteContent = custom_notes
       ? `${custom_notes}${otNotePart} | Sửa: ${reason.trim()}`
-      : `Ký hiệu: [${new_symbol}]${otNotePart} | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
+      : `Ký hiệu: ${symbolLabel}${otNotePart} | ${targetConfig.notes || ''} | Sửa: ${reason.trim()}`;
 
-    if (attendance) {
-      attendance.total_hours = targetConfig.total_hours;
-      attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0;
-      attendance.ot_hours = confirmedOtHours;
-      attendance.is_late = targetConfig.is_late;
-      attendance.late_tier = targetConfig.late_tier;
-      attendance.check_in_type = targetConfig.check_in_type;
-      attendance.status = targetConfig.status;
-      attendance.notes = noteContent;
-      await attendance.save();
+    if (rawSymbol === '') {
+      // Khi override về rỗng / không công / chỉ tính OT:
+      // Xóa giờ chấm công & cờ muộn/sớm cũ; bảo toàn dữ liệu GPS/Selfie làm chứng từ forensic (snapshot gốc đã được lưu trọn vẹn vào AttendanceAuditLog)
+      if (attendance) {
+        attendance.total_hours = targetConfig.total_hours; // 0
+        attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 0; // 0
+        attendance.ot_hours = confirmedOtHours;
+        attendance.is_late = false;
+        attendance.late_minutes = 0;
+        attendance.late_tier = 'on_time';
+        attendance.is_early_leave = false;
+        attendance.early_minutes = 0;
+        attendance.check_in_time = null;
+        attendance.check_out_time = null;
+        attendance.status = 'absent';
+        attendance.notes = noteContent;
+
+        // Nếu ca này đang có cờ cảnh báo / chờ duyệt -> Đánh dấu giải quyết tường minh kèm reviewer audit note
+        if (attendance.is_flagged || attendance.verification_status === 'pending_review') {
+          attendance.is_flagged = false;
+          attendance.verification_status = 'rejected';
+          attendance.reviewed_by = req.user._id;
+          attendance.reviewed_at = new Date();
+          attendance.reviewer_note = `Admin điều chỉnh ô công (0 công): ${reason.trim()}`;
+        }
+
+        await attendance.save(activeSession ? { session: activeSession } : undefined);
+      } else {
+        const createPayload = {
+          user_id,
+          date,
+          total_hours: targetConfig.total_hours, // 0
+          work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 0, // 0
+          ot_hours: confirmedOtHours,
+          is_late: false,
+          late_minutes: 0,
+          late_tier: 'on_time',
+          is_early_leave: false,
+          early_minutes: 0,
+          check_in_time: null,
+          check_out_time: null,
+          check_in_type: 'office',
+          status: 'absent',
+          notes: noteContent,
+          verification_status: 'auto_approved',
+        };
+        const created = await Attendance.create(
+          activeSession ? [createPayload] : createPayload,
+          activeSession ? { session: activeSession } : undefined
+        );
+        attendance = Array.isArray(created) ? created[0] : created;
+        if (!activeSession) createdAttendanceDoc = attendance;
+      }
     } else {
-      attendance = await Attendance.create({
-        user_id,
-        date,
-        total_hours: targetConfig.total_hours,
-        work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0,
-        ot_hours: confirmedOtHours,
-        is_late: targetConfig.is_late,
-        late_tier: targetConfig.late_tier,
-        check_in_type: targetConfig.check_in_type,
-        status: targetConfig.status,
-        notes: noteContent,
-      });
+      if (attendance) {
+        attendance.total_hours = targetConfig.total_hours;
+        attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0;
+        attendance.ot_hours = confirmedOtHours;
+        attendance.is_late = targetConfig.is_late;
+        attendance.late_tier = targetConfig.late_tier;
+        attendance.check_in_type = targetConfig.check_in_type;
+        attendance.status = targetConfig.status;
+        attendance.notes = noteContent;
+
+        // Nếu ca này đang có cờ cảnh báo / chờ duyệt -> Đánh dấu phê duyệt tường minh kèm reviewer note
+        if (attendance.is_flagged || attendance.verification_status === 'pending_review') {
+          attendance.is_flagged = false;
+          attendance.verification_status = 'approved';
+          attendance.reviewed_by = req.user._id;
+          attendance.reviewed_at = new Date();
+          attendance.reviewer_note = `Admin điều chỉnh & phê duyệt công [${rawSymbol}]: ${reason.trim()}`;
+        }
+
+        await attendance.save(activeSession ? { session: activeSession } : undefined);
+      } else {
+        const createPayload = {
+          user_id,
+          date,
+          total_hours: targetConfig.total_hours,
+          work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0,
+          ot_hours: confirmedOtHours,
+          is_late: targetConfig.is_late,
+          late_tier: targetConfig.late_tier,
+          check_in_type: targetConfig.check_in_type,
+          status: targetConfig.status,
+          notes: noteContent,
+          verification_status: 'auto_approved',
+        };
+        const created = await Attendance.create(
+          activeSession ? [createPayload] : createPayload,
+          activeSession ? { session: activeSession } : undefined
+        );
+        attendance = Array.isArray(created) ? created[0] : created;
+        if (!activeSession) createdAttendanceDoc = attendance;
+      }
     }
 
-    const user = await User.findById(user_id);
+    const userFindQuery = User.findById(user_id);
+    if (activeSession && typeof userFindQuery.session === 'function') {
+      userFindQuery.session(activeSession);
+    }
+    const user = await userFindQuery;
 
-    // Lưu Lịch Sử Audit Log
-    const auditLog = await AttendanceAuditLog.create({
+    // Lưu Lịch Sử Audit Log (bao gồm snapshot chi tiết trước và sau khi thay đổi)
+    const auditSymbolDisplay = rawSymbol
+      ? (confirmedOtHours > 0 ? `${rawSymbol} (+${confirmedOtHours}h OT)` : rawSymbol)
+      : (confirmedOtHours > 0 ? `Chỉ OT (+${confirmedOtHours}h)` : 'Không công (0 công)');
+
+    const auditLogPayload = {
       attendance_id: attendance._id,
       user_id,
       user_name: user ? user.full_name : 'Nhân viên',
       date,
       old_symbol: oldSymbol,
-      new_symbol: confirmedOtHours > 0 ? `${new_symbol} (+${confirmedOtHours}h OT)` : new_symbol,
+      new_symbol: auditSymbolDisplay,
       reason: reason.trim(),
       modified_by: req.user._id,
       modified_by_name: req.user.full_name,
       modified_at: new Date(),
-    });
+      snapshot_before: snapshotBefore,
+      snapshot_after: {
+        check_in_time: attendance.check_in_time,
+        check_out_time: attendance.check_out_time,
+        total_hours: attendance.total_hours,
+        work_units: attendance.work_units,
+        ot_hours: attendance.ot_hours,
+        status: attendance.status,
+        notes: attendance.notes,
+        is_late: attendance.is_late,
+        late_minutes: attendance.late_minutes,
+        verification_status: attendance.verification_status,
+        reviewer_note: attendance.reviewer_note,
+      },
+    };
 
-    res.json({
-      message: `Đã điều chỉnh ô công ngày ${date} thành [${new_symbol}]${confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : ''} ✅`,
+    const createdAudit = await AttendanceAuditLog.create(
+      activeSession ? [auditLogPayload] : auditLogPayload,
+      activeSession ? { session: activeSession } : undefined
+    );
+    auditLog = Array.isArray(createdAudit) ? createdAudit[0] : createdAudit;
+
+    displayMsg = rawSymbol
+      ? `Đã điều chỉnh ô công ngày ${date} thành [${rawSymbol}]${confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : ''} ✅`
+      : `Đã cập nhật ngày ${date}${confirmedOtHours > 0 ? ` (+${confirmedOtHours}h OT)` : ' (không tính công)'} ✅`;
+  };
+
+  try {
+    if (useCallbackTx && session) {
+      // 1. MongoDB Recommended Callback Transaction API (Tự động retry TransientTransactionError & UnknownTransactionCommitResult)
+      await session.withTransaction(async () => {
+        await executeMutation(session);
+      });
+      isCommitted = true;
+    } else if (session) {
+      // 2. Core Transaction API (Dành cho custom/mock session): Thủ công startTransaction, commitTransaction với retry commit & abort
+      session.startTransaction();
+      await executeMutation(session);
+      try {
+        await session.commitTransaction();
+        isCommitted = true;
+      } catch (commitErr) {
+        if (commitErr.hasErrorLabel && commitErr.hasErrorLabel('UnknownTransactionCommitResult')) {
+          try {
+            await session.commitTransaction();
+            isCommitted = true;
+          } catch (retryCommitErr) {
+            console.error('Retry commit transaction failed:', retryCommitErr);
+            throw commitErr;
+          }
+        } else {
+          throw commitErr;
+        }
+      }
+    } else if (topologyStatus.isStandalone && !topologyStatus.requiresTransaction) {
+      // 3. Standalone MongoDB Deployment (Local Dev Non-Production Mode): Chạy trực tiếp được bảo vệ bởi Compensatory In-Memory Rollback
+      await executeMutation(null);
+    } else {
+      return res.status(500).json({
+        error: 'Lỗi bảo mật giao dịch: Phiên giao dịch không tồn tại trên môi trường yêu cầu tính nguyên tử. Yêu cầu bị hủy.',
+        integrity_warning: false,
+      });
+    }
+
+    return res.json({
+      message: displayMsg,
       attendance,
       audit_log: auditLog,
     });
   } catch (error) {
+    if (error.isValidationError) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (isCommitted) {
+      console.warn('Override cell committed successfully with downstream warning:', error);
+      return res.json({
+        message: displayMsg || `Đã cập nhật ngày ${date} ✅`,
+        attendance,
+        audit_log: auditLog,
+      });
+    }
+
+    let rollbackSucceeded = true;
+    if (session && !useCallbackTx) {
+      try {
+        await session.abortTransaction();
+      } catch (abortErr) {
+        rollbackSucceeded = false;
+        console.error('Abort transaction error:', abortErr);
+      }
+    } else if (!session) {
+      // Cơ chế Rollback bù trừ (Compensatory In-Memory Rollback): Phục hồi hoàn nguyên Attendance nếu Audit Log ghi thất bại
+      try {
+        if (isExisting && attendance && originalDocState) {
+          Object.assign(attendance, originalDocState);
+          await attendance.save();
+        } else if (!isExisting && (createdAttendanceDoc?._id || attendance?._id)) {
+          const idToDelete = createdAttendanceDoc?._id || attendance?._id;
+          if (idToDelete) {
+            await Attendance.deleteOne({ _id: idToDelete });
+          }
+        }
+      } catch (rollbackErr) {
+        rollbackSucceeded = false;
+        console.error('Compensatory Rollback error:', rollbackErr);
+      }
+    }
+
     console.error('OverrideCell error:', error);
-    res.status(500).json({ error: 'Lỗi điều chỉnh ô công.' });
+    if (!rollbackSucceeded) {
+      return res.status(500).json({
+        error: 'Lỗi nghiêm trọng: Quá trình cập nhật thất bại và không thể hoàn nguyên dữ liệu điểm danh. Vui lòng liên hệ quản trị viên để kiểm tra tính toàn vẹn dữ liệu.',
+        integrity_warning: true,
+      });
+    }
+    return res.status(500).json({ error: 'Lỗi điều chỉnh ô công: Giao dịch không hoàn tất và đã được khôi phục trạng thái ban đầu.' });
+  } finally {
+    if (session) {
+      try {
+        await session.endSession();
+      } catch (endErr) {
+        console.error('End session error in finally:', endErr);
+      }
+    }
   }
 };
 
-// GET /api/timesheet-lock/audit-logs?month=7&year=2026
+// GET /api/timesheet-lock/audit-logs?month=7&year=2026&page=1&limit=50
 const getAuditLogs = async (req, res) => {
   const month = parseInt(req.query.month, 10) || new Date().getMonth() + 1;
   const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
 
   try {
     const daysInMonth = new Date(year, month, 0).getDate();
     const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    const logs = await AttendanceAuditLog.find({
+    const filter = {
       date: { $gte: startDateStr, $lte: endDateStr },
-    }).sort({ modified_at: -1 });
+    };
 
-    res.json(logs);
+    const total = await AttendanceAuditLog.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    // DTO tóm tắt: Loại bỏ trường snapshot_before & snapshot_after (tránh phình payload khi có ảnh selfie base64)
+    const logs = await AttendanceAuditLog.find(filter)
+      .select('attendance_id user_id user_name date old_symbol new_symbol reason modified_by modified_by_name modified_at createdAt')
+      .sort({ modified_at: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      logs,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
   } catch (error) {
     console.error('GetAuditLogs error:', error);
     res.status(500).json({ error: 'Lỗi tải lịch sử chỉnh sửa.' });
+  }
+};
+
+// GET /api/timesheet-lock/audit-logs/:id/snapshot - Tải chi tiết snapshot forensic theo yêu cầu
+const getAuditLogDetail = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const log = await AttendanceAuditLog.findById(id);
+    if (!log) {
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi kiểm toán.' });
+    }
+    res.json(log);
+  } catch (error) {
+    console.error('GetAuditLogDetail error:', error);
+    res.status(500).json({ error: 'Lỗi tải chi tiết snapshot kiểm toán.' });
   }
 };
 
@@ -477,4 +854,5 @@ module.exports = {
   toggleLock,
   overrideCell,
   getAuditLogs,
+  getAuditLogDetail,
 };

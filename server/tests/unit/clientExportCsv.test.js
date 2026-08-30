@@ -1,35 +1,16 @@
 // ==============================================
 // tests/unit/clientExportCsv.test.js
 // Kiểm thử Xuất Tệp CSV Chấm Công Phía Giao Diện (Client CSV Export)
+// Hàm sanitizeCsvCell được import TRỰC TIẾP từ mã nguồn sản xuất:
+//   client/src/utils/exportCsv.js
+// → Mọi regression trong hàm production đều sẽ được phát hiện ngay
 // ==============================================
 
-function generateAttendanceCSVContent(staffList, dateStr) {
-  const headers = ['STT', 'Mã NV', 'Họ và tên', 'Phòng ban', 'Giờ vào', 'Loại', 'Giờ ra', 'Tổng giờ', 'Trạng thái'];
-
-  const rows = staffList.map((s, idx) => [
-    idx + 1,
-    s.employee_code || '',
-    `"${(s.full_name || '').replace(/"/g, '""')}"`,
-    `"${(s.department_name || '').replace(/"/g, '""')}"`,
-    s.check_in_time ? s.check_in_time.slice(11, 16) : '—',
-    s.check_in_type || '—',
-    s.check_out_time ? s.check_out_time.slice(11, 16) : '—',
-    s.total_hours ? `${s.total_hours}h` : '0h',
-    s.status === 'present' ? 'Có mặt' : s.status === 'leave' ? 'Nghỉ phép' : 'Vắng mặt',
-  ]);
-
-  const csv = '\uFEFF' + [
-    `BÁO CÁO CHẤM CÔNG NGÀY ${dateStr || ''}`,
-    '',
-    headers.join(','),
-    ...rows.map(r => r.join(',')),
-  ].join('\n');
-
-  return csv;
-}
-
-function runClientExportCsvTests(assert) {
+async function runClientExportCsvTests(assert) {
   console.log('\n📊 [TEST SUITE: FRONTEND CSV EXPORT & UTF-8 FORMATTING]');
+
+  // Import TRỰC TIẾP hàm production buildAttendanceCSVContent & sanitizeCsvCell (không tự định nghĩa lại bất kỳ hàm nào)
+  const { buildAttendanceCSVContent, sanitizeCsvCell } = await import('../../../client/src/utils/exportCsv.js');
 
   const mockStaff = [
     {
@@ -51,10 +32,22 @@ function runClientExportCsvTests(assert) {
       check_out_time: null,
       total_hours: 0,
       status: 'leave'
+    },
+    {
+      employee_code: 'ET003',
+      full_name: '=HYPERLINK("http://evil.com","Click")',
+      department_name: '+Phòng Dự án @Hà Nội',
+      check_in_time: null,
+      check_in_type: null,
+      check_out_time: null,
+      total_hours: 0,
+      status: 'leave'
     }
   ];
 
-  const csvContent = generateAttendanceCSVContent(mockStaff, '2026-08-21');
+  // Gọi trực tiếp hàm sản xuất buildAttendanceCSVContent
+  const csvContent = buildAttendanceCSVContent(mockStaff, '2026-08-21');
+
 
   // TC-UI-CSV-01: Kiểm tra tiền tố UTF-8 BOM (\uFEFF) cho tiếng Việt có dấu
   assert(csvContent.startsWith('\uFEFF'), 'TC-UI-CSV-01: Nội dung CSV có chứa tiền tố UTF-8 BOM cho Excel tiếng Việt');
@@ -70,6 +63,12 @@ function runClientExportCsvTests(assert) {
   // TC-UI-CSV-04: Kiểm tra định dạng giờ vào / ra (HH:mm)
   assert(csvContent.includes('08:30') && csvContent.includes('17:30') && csvContent.includes('8h'),
     'TC-UI-CSV-04: Cắt chuỗi hiển thị đúng giờ dạng HH:mm (08:30, 17:30)');
+
+  // TC-UI-CSV-05: Kiểm tra triệt tiêu CSV Formula Injection qua hàm PRODUCTION (=, +, @)
+  assert(csvContent.includes('"\'=HYPERLINK(""http://evil.com"",""Click"")"'),
+    'TC-UI-CSV-05a: Vô hiệu hóa tiền tố = bằng dấu nháy đơn \' (gọi thật exportCsv.js)');
+  assert(csvContent.includes('"\'+ Phòng Dự án @Hà Nội"'.replace('+ ', '+')) || csvContent.includes('"\'+Phòng Dự án @Hà Nội"'),
+    'TC-UI-CSV-05b: Vô hiệu hóa tiền tố + bằng dấu nháy đơn \' (gọi thật exportCsv.js)');
 }
 
 module.exports = runClientExportCsvTests;

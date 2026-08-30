@@ -45,6 +45,14 @@ const attendanceAuditLogSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    snapshot_before: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    snapshot_after: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true }
 );

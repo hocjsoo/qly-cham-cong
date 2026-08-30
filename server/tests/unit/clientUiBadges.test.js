@@ -44,7 +44,7 @@ function getLateTierLabel(tier) {
   }
 }
 
-function runClientUiBadgesTests(assert) {
+async function runClientUiBadgesTests(assert) {
   console.log('\n🏷️ [TEST SUITE: FRONTEND UI BADGES & STATUS LABELS]');
 
   // TC-UI-BDG-01: Badge trạng thái điểm danh có mặt
@@ -126,6 +126,243 @@ function runClientUiBadgesTests(assert) {
       globalStyles.includes('table:not(.pdf-export-table) thead th'),
     'TC-UI-BDG-10: Mẫu PDF tách khỏi màu color-mix mà html2canvas không hỗ trợ'
   );
+
+  assert(
+    reportPage.includes('renderDaySymbol') &&
+      reportPage.includes('hasOt = otHoursNum > 0') &&
+      reportPage.includes('{(isLate || hasOt) && (') &&
+      !reportPage.includes('{!isSun && (isLate || hasOt) && ('),
+    'TC-UI-BDG-11: OT Chủ nhật hiển thị trực quan đầy đủ trên cả Weekstrip và Month Grid'
+  );
+
+  assert(
+    globalStyles.includes('.timesheet-day-symbol.has-ot') &&
+      globalStyles.includes('.timesheet-ot-marker') &&
+      globalStyles.includes('linear-gradient(135deg, #9a3412, #b91c1c)') &&
+      globalStyles.includes('[data-theme="dark"] .timesheet-legend__item.is-ot') &&
+      globalStyles.includes('#fdba74'),
+    'TC-UI-BDG-12: Badge OT và Legend đạt chuẩn độ tương phản WCAG 2.2 AA (>= 4.5:1)'
+  );
+
+  assert(
+    reportPage.includes("d.ot_hours > 0 ? 'rgba(194, 65, 12, 0.08)'") &&
+      reportPage.includes('handleOpenMatrixCell') &&
+      reportPage.includes('handleOpenMonthCell'),
+    'TC-UI-BDG-13: Cell bảng công và lưới tháng hỗ trợ tương tác và xem chi tiết khi Chủ nhật có OT'
+  );
+
+  // === KIỂM THỬ TRỰC TIẾP MODULE timesheetGridA11y.js (WCAG 2.2 AA & 2D NAVIGATION) ===
+  const {
+    clampMatrixCoords,
+    formatTimesheetCellAriaLabel,
+    getNextMatrixCoords,
+    getNextMonthGridCoords,
+    getMatrixRovingTabIndex,
+    getFocusableElements,
+    trapFocusInDialog,
+    handleDialogKeyDown,
+  } = await import('../../../client/src/utils/timesheetGridA11y.js');
+
+  // TC-UI-BDG-14: Định dạng nhãn ARIA chi tiết cho Screen Reader
+  const ariaHolidayOt = formatTimesheetCellAriaLabel({
+    day: 2,
+    weekday: 'T3',
+    dateStr: '2026-09-02',
+    staffName: 'Nguyễn Văn A',
+    symbol: 'L',
+    isHoliday: true,
+    holidayName: 'Quốc khánh 2/9',
+    otHours: 4,
+    isAdmin: true,
+  });
+  assert(
+    ariaHolidayOt.includes('Ngày 2/9/2026 (T3)') &&
+      ariaHolidayOt.includes('Nguyễn Văn A') &&
+      ariaHolidayOt.includes('Nghỉ Lễ: Quốc khánh 2/9') &&
+      ariaHolidayOt.includes('Tăng ca OT 4 giờ') &&
+      ariaHolidayOt.includes('Bấm để xem và sửa'),
+    'TC-UI-BDG-14a: Nhãn ARIA mô tả đầy đủ ngày lễ, OT và quyền chỉnh sửa của Admin'
+  );
+
+  const ariaLateEarly = formatTimesheetCellAriaLabel({
+    day: 15,
+    weekday: 'T4',
+    staffName: 'Trần Thị B',
+    symbol: 'x',
+    isLate: true,
+    lateMinutes: 18,
+    isEarlyLeave: true,
+    earlyMinutes: 10,
+    isAdmin: false,
+  });
+  assert(
+    ariaLateEarly.includes('Ký hiệu x') &&
+      ariaLateEarly.includes('Đi muộn 18 phút') &&
+      ariaLateEarly.includes('Về sớm 10 phút') &&
+      ariaLateEarly.includes('Bấm để xem chi tiết'),
+    'TC-UI-BDG-14b: Nhãn ARIA mô tả chính xác số phút đi muộn / về sớm cho Non-admin'
+  );
+
+  // TC-UI-BDG-15: Điều hướng bàn phím ma trận 2D (Desktop Matrix Navigation)
+  const navRight = getNextMatrixCoords(2, 5, 10, 31, 'ArrowRight');
+  const navLeft = getNextMatrixCoords(2, 5, 10, 31, 'ArrowLeft');
+  const navDown = getNextMatrixCoords(2, 5, 10, 31, 'ArrowDown');
+  const navUp = getNextMatrixCoords(2, 5, 10, 31, 'ArrowUp');
+  const navHome = getNextMatrixCoords(2, 5, 10, 31, 'Home');
+  const navEnd = getNextMatrixCoords(2, 5, 10, 31, 'End');
+  const navPageDown = getNextMatrixCoords(2, 5, 10, 31, 'PageDown');
+  const navPageUp = getNextMatrixCoords(7, 5, 10, 31, 'PageUp');
+
+  assert(
+    navRight.handled && navRight.staffIdx === 2 && navRight.dayIdx === 6 &&
+      navLeft.handled && navLeft.staffIdx === 2 && navLeft.dayIdx === 4 &&
+      navDown.handled && navDown.staffIdx === 3 && navDown.dayIdx === 5 &&
+      navUp.handled && navUp.staffIdx === 1 && navUp.dayIdx === 5 &&
+      navHome.handled && navHome.dayIdx === 0 &&
+      navEnd.handled && navEnd.dayIdx === 30 &&
+      navPageDown.handled && navPageDown.staffIdx === 7 &&
+      navPageUp.handled && navPageUp.staffIdx === 2,
+    'TC-UI-BDG-15: Điều hướng bàn phím ma trận 2D chuẩn xác theo mọi hướng và biên giới hạn'
+  );
+
+  // TC-UI-BDG-16: Điều hướng bàn phím lưới tháng 7 cột (Month Grid Navigation)
+  const mNavDown = getNextMonthGridCoords(10, 31, 'ArrowDown');
+  const mNavUp = getNextMonthGridCoords(10, 31, 'ArrowUp');
+  const mNavRight = getNextMonthGridCoords(10, 31, 'ArrowRight');
+  const mNavLeft = getNextMonthGridCoords(10, 31, 'ArrowLeft');
+  const mNavClamp = getNextMonthGridCoords(28, 31, 'ArrowDown');
+
+  assert(
+    mNavDown.handled && mNavDown.dayIdx === 17 &&
+      mNavUp.handled && mNavUp.dayIdx === 3 &&
+      mNavRight.handled && mNavRight.dayIdx === 11 &&
+      mNavLeft.handled && mNavLeft.dayIdx === 9 &&
+      mNavClamp.handled && mNavClamp.dayIdx === 30,
+    'TC-UI-BDG-16: Điều hướng lưới tháng 7 cột nhảy đúng ±7 ngày (tuần) và kẹp biên an toàn'
+  );
+
+  // TC-UI-BDG-17: Roving TabIndex cho ô ma trận
+  assert(
+    getMatrixRovingTabIndex(2, 5, 2, 5, 10, 31) === 0 &&
+      getMatrixRovingTabIndex(2, 6, 2, 5, 10, 31) === -1 &&
+      getMatrixRovingTabIndex(3, 5, 2, 5, 10, 31) === -1 &&
+      getMatrixRovingTabIndex(0, 0, 50, 50, 5, 5) === -1 &&
+      getMatrixRovingTabIndex(4, 4, 50, 50, 5, 5) === 0,
+    'TC-UI-BDG-17: Roving Tabindex gán 0 cho duy nhất ô đang chọn và kẹp biên an toàn'
+  );
+
+  // TC-UI-BDG-18: Kẹp tọa độ ma trận hợp lệ (clampMatrixCoords)
+  const clampNegative = clampMatrixCoords({ staffIdx: -3, dayIdx: -5 }, 10, 31);
+  const clampOverflow = clampMatrixCoords({ staffIdx: 25, dayIdx: 50 }, 10, 31);
+  const clampValid = clampMatrixCoords({ staffIdx: 4, dayIdx: 12 }, 10, 31);
+  const clampZero = clampMatrixCoords({ staffIdx: 0, dayIdx: 0 }, 0, 0);
+  assert(
+    clampNegative.staffIdx === 0 && clampNegative.dayIdx === 0 &&
+      clampOverflow.staffIdx === 9 && clampOverflow.dayIdx === 30 &&
+      clampValid.staffIdx === 4 && clampValid.dayIdx === 12 &&
+      clampZero.staffIdx === 0 && clampZero.dayIdx === 0,
+    'TC-UI-BDG-18: clampMatrixCoords kẹp chuẩn xác mọi biên âm, tràn và kích thước 0'
+  );
+
+  // TC-UI-BDG-19: Focus Trap và Bẫy phím Modal Dialog (W3C APG Pattern)
+  const originalDoc = global.document;
+  try {
+    const mockBtn1 = { disabled: false, offsetWidth: 100, focus: () => { focusedEl = mockBtn1; } };
+    const mockBtn2 = { disabled: false, offsetWidth: 100, focus: () => { focusedEl = mockBtn2; } };
+    const mockHiddenBtn = { disabled: false, offsetWidth: 0, style: { display: 'none' } };
+    let focusedEl = mockBtn1;
+
+    const mockContainer = {
+      querySelectorAll: () => [mockBtn1, mockBtn2, mockHiddenBtn],
+      contains: (el) => [mockBtn1, mockBtn2].includes(el),
+      focus: () => { focusedEl = mockContainer; },
+    };
+
+    const focusable = getFocusableElements(mockContainer);
+    assert(
+      focusable.length === 2 && focusable[0] === mockBtn1 && focusable[1] === mockBtn2,
+      'TC-UI-BDG-19a: getFocusableElements lọc chính xác các phần tử tương tác hiển thị'
+    );
+
+    // Tab tại phần tử cuối cùng -> vòng về phần tử đầu tiên
+    global.document = { activeElement: mockBtn2 };
+    let prevented = false;
+    const tabEvent = { key: 'Tab', shiftKey: false, preventDefault: () => { prevented = true; } };
+    const trapRes1 = trapFocusInDialog(tabEvent, mockContainer);
+    assert(trapRes1 && prevented && focusedEl === mockBtn1, 'TC-UI-BDG-19b: Tab tại nút cuối vòng về nút đầu tiên');
+
+    // Shift + Tab tại phần tử đầu tiên -> vòng về phần tử cuối cùng
+    global.document = { activeElement: mockBtn1 };
+    prevented = false;
+    const shiftTabEvent = { key: 'Tab', shiftKey: true, preventDefault: () => { prevented = true; } };
+    const trapRes2 = trapFocusInDialog(shiftTabEvent, mockContainer);
+    assert(trapRes2 && prevented && focusedEl === mockBtn2, 'TC-UI-BDG-19c: Shift+Tab tại nút đầu vòng về nút cuối cùng');
+
+    // Escape key handling
+    let escapeTriggered = false;
+    const escEvent = { key: 'Escape', preventDefault: () => {} };
+    const escRes = handleDialogKeyDown(escEvent, { onEscape: () => { escapeTriggered = true; } });
+    assert(escRes && escapeTriggered, 'TC-UI-BDG-19d: handleDialogKeyDown kích hoạt callback onEscape khi ấn Escape');
+  } finally {
+    global.document = originalDoc;
+  }
+
+  // TC-UI-BDG-20: Tích hợp Semantic Button & Accessible Controls trên ReportPage
+  assert(
+    reportPage.includes('className="timesheet-cell-btn"') &&
+      reportPage.includes('className="timesheet-month-cell"') &&
+      reportPage.includes('tabIndex={isFocused ? 0 : -1}') &&
+      reportPage.includes('aria-label={cellAriaLabel}') &&
+      reportPage.includes('role="dialog"') &&
+      reportPage.includes('aria-modal="true"') &&
+      reportPage.includes('aria-labelledby="cell-detail-modal-title"') &&
+      reportPage.includes('closeCellModal') &&
+      reportPage.includes('cellModalTriggerRef') &&
+      reportPage.includes('lockTriggerRef') &&
+      reportPage.includes('closeLockConfirm') &&
+      reportPage.includes('closeExportModal') &&
+      reportPage.includes('pdfModalTriggerRef.current = exportModalTriggerRef.current') &&
+      reportPage.includes('exportModalTriggerRef.current = staffProfileTriggerRef.current') &&
+      reportPage.includes('restorePdfTriggerFocus') &&
+      !reportPage.includes("setCellSymbol(dayData?.symbol || (headerDay?.isHoliday ? 'L' : 'x'));") &&
+      !reportPage.includes("setCellSymbol(d.symbol || (isHol ? 'L' : 'x'));"),
+    'TC-UI-BDG-20: ReportPage áp dụng đầy đủ Semantic Button, W3C Dialog Semantics, Focus Restoration chuỗi modal (kể cả lỗi PDF) và Không gán bừa ký hiệu x cho Chủ nhật/ô trống'
+  );
+
+  // TC-UI-BDG-21: getFocusableElements trong môi trường JSDOM (kích thước 0x0) và kiểm tra ẩn bởi Ancestor
+  const parentVisible = { parentElement: null };
+  const parentHidden = { parentElement: null };
+  const mockWindow = {
+    getComputedStyle: (el) => {
+      if (el === parentHidden || el?.style?.display === 'none') {
+        return { display: 'none', visibility: 'hidden' };
+      }
+      return { display: 'block', visibility: 'visible' };
+    },
+  };
+  const originalWindow = global.window;
+  try {
+    global.window = mockWindow;
+
+    const jsdomBtn1 = { disabled: false, offsetWidth: 0, offsetHeight: 0, parentElement: parentVisible, style: {} };
+    const jsdomBtn2 = { disabled: false, offsetWidth: 0, offsetHeight: 0, parentElement: parentVisible, style: {} };
+    const jsdomHiddenByParent = { disabled: false, offsetWidth: 0, offsetHeight: 0, parentElement: parentHidden, style: {} };
+    const jsdomDirectHidden = { disabled: false, offsetWidth: 0, offsetHeight: 0, parentElement: parentVisible, style: { display: 'none' } };
+
+    const jsdomContainer = {
+      querySelectorAll: () => [jsdomBtn1, jsdomBtn2, jsdomHiddenByParent, jsdomDirectHidden],
+    };
+
+    const jsdomFocusable = getFocusableElements(jsdomContainer);
+    assert(
+      jsdomFocusable.length === 2 &&
+        jsdomFocusable[0] === jsdomBtn1 &&
+        jsdomFocusable[1] === jsdomBtn2,
+      'TC-UI-BDG-21: getFocusableElements hoạt động chính xác trong JSDOM/Headless và loại bỏ đúng phần tử ẩn bởi Ancestor'
+    );
+  } finally {
+    global.window = originalWindow;
+  }
 }
 
 module.exports = runClientUiBadgesTests;

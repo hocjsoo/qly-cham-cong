@@ -1,11 +1,29 @@
 // controllers/systemSettingController.js - He thong cai dat
 const SystemSetting = require('../models/SystemSetting');
 
-// GET /api/settings
+const normalizeRequestGuidelines = (guidelines) => {
+  if (!guidelines || typeof guidelines !== 'object') return guidelines;
+  const migrated = { ...guidelines };
+  if (migrated.late && typeof migrated.late === 'object' && typeof migrated.late.desc === 'string' && migrated.late.desc.includes('08:30')) {
+    migrated.late = { ...migrated.late, desc: migrated.late.desc.replace(/08:30/g, '09:00') };
+  }
+  if (migrated.early_leave && typeof migrated.early_leave === 'object' && typeof migrated.early_leave.desc === 'string' && migrated.early_leave.desc.includes('17:30')) {
+    migrated.early_leave = { ...migrated.early_leave, desc: migrated.early_leave.desc.replace(/17:30/g, '18:30') };
+  }
+  return migrated;
+};
+
+// GET /api/settings - Read-only public settings
 const getSettings = async (req, res) => {
   try {
     const settings = await SystemSetting.findOne({ key: 'global' });
-    if (settings) return res.json(settings);
+    if (settings) {
+      const settingsObj = settings.toObject ? settings.toObject() : { ...settings };
+      if (settingsObj.request_guidelines) {
+        settingsObj.request_guidelines = normalizeRequestGuidelines(settingsObj.request_guidelines);
+      }
+      return res.json(settingsObj);
+    }
 
     const defaults = new SystemSetting({ key: 'global' }).toObject();
     delete defaults._id;

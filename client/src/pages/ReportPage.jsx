@@ -12,19 +12,58 @@ import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
+import {
+  clampMatrixCoords,
+  getNextMatrixCoords,
+  getNextMonthGridCoords,
+  getMatrixRovingTabIndex,
+  formatTimesheetCellAriaLabel,
+  getFocusableElements,
+  trapFocusInDialog,
+  handleDialogKeyDown,
+} from '../utils/timesheetGridA11y';
 
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
 // Confirm Dialog Component
 function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = true, onConfirm, onCancel }) {
+  const dialogRef = useRef(null);
+  const triggerRef = useRef(typeof document !== 'undefined' ? document.activeElement : null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (dialogRef.current) {
+        const focusable = getFocusableElements(dialogRef.current);
+        if (focusable.length > 0) focusable[0].focus();
+        else dialogRef.current.focus();
+      }
+    }, 50);
+    return () => {
+      clearTimeout(timer);
+      if (triggerRef.current && typeof triggerRef.current.focus === 'function') {
+        triggerRef.current.focus();
+      }
+    };
+  }, []);
+
   return (
-    <div className="modal-overlay" style={{ zIndex: 99999 }}>
-      <div className="modal-sheet animate-slide-up" style={{ maxWidth: '380px' }}>
+    <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={onCancel}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        tabIndex={-1}
+        className="modal-sheet animate-slide-up"
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => handleDialogKeyDown(e, { onEscape: onCancel, container: dialogRef.current })}
+        style={{ maxWidth: '380px', outline: 'none' }}
+      >
         <div className="modal-sheet__handle" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
           <AlertTriangle size={22} color={danger ? 'var(--red)' : 'var(--yellow)'} />
-          <div style={{ fontSize: '15px', fontWeight: 700 }}>{title}</div>
+          <div id="confirm-dialog-title" style={{ fontSize: '15px', fontWeight: 700 }}>{title}</div>
         </div>
         <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '18px' }}>{message}</div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -95,10 +134,16 @@ export default function ReportPage() {
   const [cellReason, setCellReason] = useState('');
   const [submittingCell, setSubmittingCell] = useState(false);
 
+  // Roving TabIndex Coordinates State for Accessibility (Desktop 2D Matrix & Month Grid)
+  const [focusedMatrixCoords, setFocusedMatrixCoords] = useState({ staffIdx: 0, dayIdx: 0 });
+  const [focusedMonthGridDay, setFocusedMonthGridDay] = useState({});
+
   // Audit Logs Modal State
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [, setLoadingLogs] = useState(false);
+  const [auditPagination, setAuditPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
+  const [auditPage, setAuditPage] = useState(1);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Unified Export Modal State
   const pdfMatrixPrintRef = useRef(null);
@@ -133,6 +178,131 @@ export default function ReportPage() {
   const [viewingStaffProfile, setViewingStaffProfile] = useState(null);
   const [loadingStaffProfile, setLoadingStaffProfile] = useState(false);
 
+  // Refs for Accessible Modals & Focus Restoration (W3C APG Dialog Pattern)
+  const cellModalRef = useRef(null);
+  const cellModalTriggerRef = useRef(null);
+  const auditLogsModalRef = useRef(null);
+  const auditLogsTriggerRef = useRef(null);
+  const staffProfileModalRef = useRef(null);
+  const staffProfileTriggerRef = useRef(null);
+  const exportModalRef = useRef(null);
+  const exportModalTriggerRef = useRef(null);
+  const pdfModalRef = useRef(null);
+  const pdfModalTriggerRef = useRef(null);
+  const [pdfFocusRequestId, setPdfFocusRequestId] = useState(0);
+  const lockTriggerRef = useRef(null);
+
+  // Phục hồi focus chuẩn W3C về nút trigger sau khi quá trình tạo PDF kết thúc/thất bại và DOM đã re-enable
+  useEffect(() => {
+    if (pdfFocusRequestId > 0) {
+      if (pdfModalTriggerRef.current && typeof pdfModalTriggerRef.current.focus === 'function') {
+        pdfModalTriggerRef.current.focus();
+      }
+    }
+  }, [pdfFocusRequestId]);
+
+  const closeCellModal = useCallback(() => {
+    setSelectedCell(null);
+    if (cellModalTriggerRef.current && typeof cellModalTriggerRef.current.focus === 'function') {
+      cellModalTriggerRef.current.focus();
+    }
+  }, []);
+
+  const closeAuditLogsModal = useCallback(() => {
+    setShowAuditLogs(false);
+    if (auditLogsTriggerRef.current && typeof auditLogsTriggerRef.current.focus === 'function') {
+      auditLogsTriggerRef.current.focus();
+    }
+    auditLogsTriggerRef.current = null;
+  }, []);
+
+  const closeStaffProfileModal = useCallback(() => {
+    setViewingStaffProfile(null);
+    if (staffProfileTriggerRef.current && typeof staffProfileTriggerRef.current.focus === 'function') {
+      staffProfileTriggerRef.current.focus();
+    }
+  }, []);
+
+  const closeExportModal = useCallback(() => {
+    setShowExportModal(false);
+    if (exportModalTriggerRef.current && typeof exportModalTriggerRef.current.focus === 'function') {
+      exportModalTriggerRef.current.focus();
+    }
+  }, []);
+
+  const closePdfPreviewModal = useCallback(() => {
+    setShowPdfPreviewModal(false);
+    if (pdfModalTriggerRef.current && typeof pdfModalTriggerRef.current.focus === 'function') {
+      pdfModalTriggerRef.current.focus();
+    }
+  }, []);
+
+  // Focus management for modals
+  useEffect(() => {
+    if (selectedCell && cellModalRef.current) {
+      const timer = setTimeout(() => {
+        if (cellModalRef.current) {
+          const focusable = getFocusableElements(cellModalRef.current);
+          if (focusable.length > 0) focusable[0].focus();
+          else cellModalRef.current.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedCell]);
+
+  useEffect(() => {
+    if (showAuditLogs && auditLogsModalRef.current) {
+      const timer = setTimeout(() => {
+        if (auditLogsModalRef.current) {
+          const focusable = getFocusableElements(auditLogsModalRef.current);
+          if (focusable.length > 0) focusable[0].focus();
+          else auditLogsModalRef.current.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [showAuditLogs]);
+
+  useEffect(() => {
+    if (viewingStaffProfile && staffProfileModalRef.current) {
+      const timer = setTimeout(() => {
+        if (staffProfileModalRef.current) {
+          const focusable = getFocusableElements(staffProfileModalRef.current);
+          if (focusable.length > 0) focusable[0].focus();
+          else staffProfileModalRef.current.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [viewingStaffProfile]);
+
+  useEffect(() => {
+    if (showExportModal && exportModalRef.current) {
+      const timer = setTimeout(() => {
+        if (exportModalRef.current) {
+          const focusable = getFocusableElements(exportModalRef.current);
+          if (focusable.length > 0) focusable[0].focus();
+          else exportModalRef.current.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [showExportModal]);
+
+  useEffect(() => {
+    if (showPdfPreviewModal && pdfModalRef.current) {
+      const timer = setTimeout(() => {
+        if (pdfModalRef.current) {
+          const focusable = getFocusableElements(pdfModalRef.current);
+          if (focusable.length > 0) focusable[0].focus();
+          else pdfModalRef.current.focus();
+        }
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [showPdfPreviewModal]);
+
   useEffect(() => {
     const syncResponsiveView = () => setViewMode(window.innerWidth < 768 ? 'cards' : 'table');
     syncResponsiveView();
@@ -152,7 +322,12 @@ export default function ReportPage() {
     }).catch(() => {});
   }, []);
 
-  const openStaffProfile = async (matrixRow) => {
+  const openStaffProfile = async (matrixRow, event = null) => {
+    if (event?.currentTarget) {
+      staffProfileTriggerRef.current = event.currentTarget;
+    } else if (typeof document !== 'undefined' && document.activeElement) {
+      staffProfileTriggerRef.current = document.activeElement;
+    }
     const rowId = String(matrixRow.id || matrixRow._id);
     const cached = staffDirectory.find(person => String(person.id || person._id) === rowId);
     setViewingStaffProfile(cached || {
@@ -218,6 +393,22 @@ export default function ReportPage() {
       return matchSearch && matchDept && matchAttendance && matchStaffType;
     });
   }, [matrixData, searchQuery, deptFilter, attendanceFilter, staffTypeFilter]);
+
+  // Đảm bảo tọa độ focus ma trận luôn hợp lệ khi lọc danh sách hoặc đổi tháng (Tránh mất điểm Tab)
+  useEffect(() => {
+    if (displayedStaffRows.length > 0) {
+      setFocusedMatrixCoords(prev => {
+        const maxStaff = Math.max(0, displayedStaffRows.length - 1);
+        const maxDays = Math.max(0, (matrixData?.header_days?.length || 1) - 1);
+        const clampedStaff = Math.max(0, Math.min(maxStaff, prev.staffIdx));
+        const clampedDay = Math.max(0, Math.min(maxDays, prev.dayIdx));
+        if (clampedStaff !== prev.staffIdx || clampedDay !== prev.dayIdx) {
+          return { staffIdx: clampedStaff, dayIdx: clampedDay };
+        }
+        return prev;
+      });
+    }
+  }, [displayedStaffRows.length, matrixData?.header_days?.length]);
 
   const pdfMatrixRows = useMemo(() => {
     const sourceRows = matrixData?.staff_rows || [];
@@ -326,8 +517,20 @@ export default function ReportPage() {
     else setMonth(m => m + 1);
   };
 
+  const closeLockConfirm = useCallback(() => {
+    setLockConfirm(null);
+    if (lockTriggerRef.current && typeof lockTriggerRef.current.focus === 'function') {
+      lockTriggerRef.current.focus();
+    }
+  }, []);
+
   // Toggle Chốt Công Toàn Bộ Công Ty Hoặc Nhân Viên
-  const triggerToggleLock = (userId = null, currentLocked = false) => {
+  const triggerToggleLock = (userId = null, currentLocked = false, event = null) => {
+    if (event?.currentTarget) {
+      lockTriggerRef.current = event.currentTarget;
+    } else if (typeof document !== 'undefined' && document.activeElement) {
+      lockTriggerRef.current = document.activeElement;
+    }
     const actionText = currentLocked ? 'Mở chốt công' : 'Chốt công';
     const targetText = userId ? 'nhân viên này' : `toàn bộ công ty Tháng ${month}/${year}`;
     setLockConfirm({ userId, currentLocked, actionText, targetText });
@@ -345,7 +548,7 @@ export default function ReportPage() {
         note: `${actionText} bởi ${user.full_name}`,
       });
       toast.success(`Đã ${actionText} thành công! 🔒`);
-      setLockConfirm(null);
+      closeLockConfirm();
       loadTab();
     } catch {
       toast.error('Lỗi chốt/mở chốt công');
@@ -355,6 +558,11 @@ export default function ReportPage() {
   // Sửa Ô Công & Xác Nhận Giờ OT Có Ghi Lý Do
   const handleSaveCellOverride = async () => {
     if (!selectedCell) return;
+    const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
+    if (!VALID_SYMBOLS.includes(cellSymbol)) {
+      toast.error('Vui lòng chọn Ký hiệu công hợp lệ');
+      return;
+    }
     if (!cellReason.trim()) {
       toast.error('Vui lòng nhập Lý do chỉnh sửa công');
       return;
@@ -371,7 +579,7 @@ export default function ReportPage() {
         reason: cellReason.trim(),
       });
       toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}]${parsedOt > 0 ? ` (+${parsedOt}h OT)` : ''} & lưu lịch sử! ✅`);
-      setSelectedCell(null);
+      closeCellModal();
       setCellReason('');
       setCellOtHours(0);
       loadTab();
@@ -383,11 +591,25 @@ export default function ReportPage() {
   };
 
   // Tải Lịch Sử Audit Logs Chỉnh Sửa
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = async (event = null, targetPage = 1) => {
+    if (event?.currentTarget) {
+      auditLogsTriggerRef.current = event.currentTarget;
+    } else if (!showAuditLogs && !auditLogsTriggerRef.current && typeof document !== 'undefined' && document.activeElement) {
+      auditLogsTriggerRef.current = document.activeElement;
+    }
     setLoadingLogs(true);
     try {
-      const { data } = await api.get(`/timesheet-lock/audit-logs?month=${month}&year=${year}`);
-      setAuditLogs(Array.isArray(data) ? data : []);
+      const { data } = await api.get(`/timesheet-lock/audit-logs?month=${month}&year=${year}&page=${targetPage}&limit=50`);
+      const logsList = Array.isArray(data) ? data : (data?.logs || []);
+      const paginationData = data?.pagination || {
+        page: targetPage,
+        limit: 50,
+        total: logsList.length,
+        totalPages: Math.ceil(logsList.length / 50) || 1,
+      };
+      setAuditLogs(logsList);
+      setAuditPagination(paginationData);
+      setAuditPage(paginationData.page || targetPage);
       setShowAuditLogs(true);
     } catch {
       toast.error('Lỗi tải lịch sử chỉnh sửa');
@@ -411,11 +633,16 @@ export default function ReportPage() {
         `ET_Staff_${year}_Thang_${String(month).padStart(2,'0')}${fileNameSuffix}.xlsx`,
       );
       toast.success('Đã tải file Excel Bảng Chấm Công thành công! 📊', { id: 'excel' });
-      setShowExportModal(false);
+      closeExportModal();
     } catch {
       toast.error('Lỗi xuất Excel', { id: 'excel' });
     }
   };
+
+  const restorePdfTriggerFocus = useCallback(() => {
+    setGeneratingPdf(false);
+    setPdfFocusRequestId(c => c + 1);
+  }, []);
 
   // 2. Xuất & Xem Trước File PDF Chuẩn A4 Sắc Nét (jsPDF High-Def Offscreen Renderer)
   const handleGeneratePdfPreview = async (targetUserId = null) => {
@@ -430,6 +657,7 @@ export default function ReportPage() {
     const safeName = userObj?.full_name?.replace(/[\\/:*?"<>|]/g, '').trim().replace(/\s+/g, '_');
     setPdfDownloadName(`Bang_Cong_Thang_${String(month).padStart(2, '0')}_${year}${safeName ? `_${safeName}` : '_Toan_Cong_Ty'}.pdf`);
     setFilterStaffId(queryUser);
+    pdfModalTriggerRef.current = exportModalTriggerRef.current || document.activeElement;
     setShowExportModal(false);
     setGeneratingPdf(true);
     toast.loading(isIndividual ? 'Đang tạo phiếu chấm công cá nhân...' : 'Đang tạo bảng công PDF toàn công ty...', { id: 'pdf' });
@@ -442,6 +670,7 @@ export default function ReportPage() {
         toast.error(err?.response?.data?.error || 'Không tải được dữ liệu phiếu cá nhân', { id: 'pdf' });
         setGeneratingPdf(false);
         setFilterStaffId('');
+        restorePdfTriggerFocus();
         return;
       }
     }
@@ -451,6 +680,7 @@ export default function ReportPage() {
     if (!printEl) {
       toast.error('Chưa sẵn sàng mẫu PDF', { id: 'pdf' });
       setGeneratingPdf(false);
+      restorePdfTriggerFocus();
       return;
     }
 
@@ -498,6 +728,7 @@ export default function ReportPage() {
       } catch (err) {
         console.error('PDF error:', err);
         toast.error('Lỗi tạo file PDF bảng công', { id: 'pdf' });
+        restorePdfTriggerFocus();
       } finally {
         setGeneratingPdf(false);
         setFilterStaffId('');
@@ -522,7 +753,12 @@ export default function ReportPage() {
     }
   };
 
-  const openExportDialog = () => {
+  const openExportDialog = (event = null) => {
+    if (event?.currentTarget) {
+      exportModalTriggerRef.current = event.currentTarget;
+    } else if (typeof document !== 'undefined' && document.activeElement) {
+      exportModalTriggerRef.current = document.activeElement;
+    }
     setExportTarget('matrix');
     setExportFormat('pdf');
     setExportScope('all');
@@ -735,15 +971,22 @@ export default function ReportPage() {
               };
 
               const renderDaySymbol = (symbol, isWeekend, otHours = 0) => {
-                if (isWeekend) return null;
-                if (!symbol || symbol === '—') {
+                const numOt = Number(otHours) || 0;
+                const hasOt = numOt > 0;
+                const isBlank = !symbol || symbol === '—';
+
+                if (isWeekend && isBlank && !hasOt) return null;
+
+                if (isBlank && !hasOt) {
                   return <span style={{ opacity: isWeekend ? 0.15 : 0.25, color: 'var(--text-muted)' }}>—</span>;
                 }
 
                 let bg = 'transparent';
                 let color = 'var(--text)';
 
-                if (symbol === 'x' || symbol === '1.0x') {
+                if (isBlank) {
+                  color = 'var(--text-muted)';
+                } else if (symbol === 'x' || symbol === '1.0x') {
                   bg = 'var(--green-soft)'; color = 'var(--green)';
                 } else if (symbol === '0,75x' || symbol === '0.75x') {
                   bg = 'var(--green-soft)'; color = 'var(--green)';
@@ -765,15 +1008,12 @@ export default function ReportPage() {
                   bg = 'rgba(236, 72, 153, 0.15)'; color = '#db2777';
                 }
 
-                const numOt = Number(otHours) || 0;
-                const hasOt = numOt > 0;
-
                 return (
                   <span
                     className={`timesheet-day-symbol${hasOt ? ' has-ot' : ''}`}
                     style={{ background: bg, color, position: 'relative' }}
                   >
-                    {symbol}
+                    {isBlank ? '—' : symbol}
                     {hasOt && (
                       <span className="timesheet-ot-marker" title={`Tăng ca OT: ${numOt}h`}>
                         🔥{numOt}h
@@ -903,10 +1143,11 @@ export default function ReportPage() {
                                     <button
                                       type="button"
                                       key={headerDay.day}
-                                      className={`timesheet-mobile-day${isSunday ? ' is-sunday' : ''}`}
-                                      disabled={isSunday}
-                                      onClick={() => {
-                                        if (!dayData || isSunday) return;
+                                      className={`timesheet-mobile-day${isSunday ? ' is-sunday' : ''}${dayData?.ot_hours > 0 ? ' has-ot' : ''}`}
+                                      disabled={!dayData}
+                                      onClick={(e) => {
+                                        if (!dayData) return;
+                                        cellModalTriggerRef.current = e.currentTarget;
                                         setSelectedCell({
                                           user_id: r.id, staff_name: r.full_name, staff_code: r.code,
                                           department_name: r.department_name, dateStr: dayData.dateStr,
@@ -918,16 +1159,17 @@ export default function ReportPage() {
                                           early_minutes: dayData.early_minutes, status: dayData.status,
                                           notes: dayData.notes, check_in_type: dayData.check_in_type,
                                           is_modified: dayData.is_modified, audit_logs: dayData.audit_logs || [],
+                                          holiday_name: headerDay?.holidayName || null,
                                           is_locked: r.is_locked,
                                         });
-                                        setCellSymbol(dayData.symbol || 'x');
+                                        setCellSymbol(dayData?.symbol || (headerDay?.isHoliday ? 'L' : ''));
                                         setCellOtHours(dayData.ot_hours || 0);
                                         setCellReason('');
                                       }}
-                                      aria-label={`${r.full_name}, ngày ${headerDay.day}: ${isSunday ? 'Chủ nhật để trống' : dayData?.symbol || 'Trống'}`}
+                                      aria-label={`${r.full_name}, ngày ${headerDay.day}: ${dayData?.symbol || (isSunday ? 'Chủ nhật' : 'Trống')}${dayData?.ot_hours > 0 ? `, tăng ca ${dayData.ot_hours} giờ` : ''}`}
                                     >
                                       <span>{headerDay.weekday}<small>{String(headerDay.day).padStart(2, '0')}</small></span>
-                                      <b>{isSunday ? '' : renderDaySymbol(dayData?.symbol, false, dayData?.ot_hours)}</b>
+                                      <b>{renderDaySymbol(dayData?.symbol, isSunday, dayData?.ot_hours)}</b>
                                     </button>
                                   );
                                 })}
@@ -982,19 +1224,21 @@ export default function ReportPage() {
                                 {isExpanded && (
                                   <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '4px' }}>
-                                      {r.days.map(d => {
+                                      {r.days.map((d, dayIdx) => {
                                         const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
                                         const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                                         const isModified = d.is_modified;
                                         const isLate = d.is_late;
-                                        const hasOt = d.ot_hours > 0;
+                                        const otHoursNum = Number(d.ot_hours) || 0;
+                                        const hasOt = otHoursNum > 0;
 
                                         // Phân biệt màu sắc trực quan theo từng loại công
                                         let bg = 'var(--bg-raised)';
                                         let border = isSun ? '1px solid rgba(239, 68, 68, 0.25)' : '1px solid var(--border)';
+                                        let cellBoxShadow = undefined;
                                         let dayColor = isSun ? '#ef4444' : 'var(--text-muted)';
                                         let symbolColor = 'var(--text-muted)';
-                                        let cellOpacity = 0.45;
+                                        let cellOpacity = (d.symbol && d.symbol !== '—') || hasOt ? 1 : 0.55;
 
                                         if (d.symbol && d.symbol !== '—') {
                                           cellOpacity = 1;
@@ -1048,64 +1292,141 @@ export default function ReportPage() {
                                           bg = 'rgba(239, 68, 68, 0.05)';
                                         }
 
+                                        if (hasOt) {
+                                          cellOpacity = 1;
+                                          border = '1px solid #9a3412';
+                                          cellBoxShadow = '0 0 0 1px rgba(154, 52, 18, 0.4)';
+                                        }
                                         if (isModified) {
                                           border = '1.5px solid #f59e0b';
+                                          cellBoxShadow = hasOt ? '0 0 0 1.5px #9a3412' : undefined;
                                         }
 
+                                        const isInteractive = true;
+                                        const handleOpenMonthCell = (e) => {
+                                          if (e?.currentTarget) {
+                                            cellModalTriggerRef.current = e.currentTarget;
+                                          } else if (typeof document !== 'undefined' && document.activeElement) {
+                                            cellModalTriggerRef.current = document.activeElement;
+                                          }
+                                          setSelectedCell({
+                                            user_id: r.id,
+                                            staff_name: r.full_name,
+                                            staff_code: r.code,
+                                            department_name: r.department_name,
+                                            dateStr: d.dateStr,
+                                            day: d.day,
+                                            weekday: hdObj?.weekday,
+                                            current_symbol: d.symbol,
+                                            check_in_time: d.check_in_time,
+                                            check_out_time: d.check_out_time,
+                                            total_hours: d.total_hours,
+                                            ot_hours: d.ot_hours,
+                                            is_late: d.is_late,
+                                            late_minutes: d.late_minutes,
+                                            is_early_leave: d.is_early_leave,
+                                            early_minutes: d.early_minutes,
+                                            status: d.status,
+                                            notes: d.notes,
+                                            check_in_type: d.check_in_type,
+                                            is_modified: d.is_modified,
+                                            audit_logs: d.audit_logs || [],
+                                            holiday_name: hdObj?.holidayName || null,
+                                            is_locked: r.is_locked
+                                          });
+                                          setCellSymbol(d.symbol || (hdObj?.isHoliday ? 'L' : ''));
+                                          setCellOtHours(d.ot_hours || 0);
+                                          setCellReason('');
+                                        };
+
+                                        const activeMonthDayIdx = Math.max(0, Math.min(r.days.length - 1, focusedMonthGridDay[r.id] ?? 0));
+                                        const isMonthDayFocused = activeMonthDayIdx === dayIdx;
+
+                                        const handleMonthGridKeyDown = (e) => {
+                                          const next = getNextMonthGridCoords(dayIdx, r.days.length, e.key);
+                                          if (next.handled) {
+                                            e.preventDefault();
+                                            setFocusedMonthGridDay(prev => ({ ...prev, [r.id]: next.dayIdx }));
+                                            const targetBtn = document.querySelector(
+                                              `button.timesheet-month-cell[data-staff-id="${r.id}"][data-day-idx="${next.dayIdx}"]`
+                                            );
+                                            if (targetBtn) {
+                                              targetBtn.focus();
+                                            }
+                                          }
+                                        };
+
+                                        const cellAriaLabel = formatTimesheetCellAriaLabel({
+                                          day: d.day,
+                                          weekday: hdObj?.weekday,
+                                          dateStr: d.dateStr,
+                                          staffName: r.full_name,
+                                          symbol: d.symbol,
+                                          isSunday: isSun,
+                                          isHoliday: hdObj?.isHoliday,
+                                          holidayName: hdObj?.holidayName,
+                                          otHours: d.ot_hours,
+                                          isLate: d.is_late,
+                                          lateMinutes: d.late_minutes,
+                                          isEarlyLeave: d.is_early_leave,
+                                          earlyMinutes: d.early_minutes,
+                                          isInteractive,
+                                          isAdmin,
+                                        });
+
                                         return (
-                                          <div
+                                          <button
                                             key={d.day}
-                                            onClick={() => {
-                                              if (isSun) return;
-                                              setSelectedCell({
-                                                user_id: r.id,
-                                                staff_name: r.full_name,
-                                                staff_code: r.code,
-                                                department_name: r.department_name,
-                                                dateStr: d.dateStr,
-                                                day: d.day,
-                                                weekday: hdObj?.weekday,
-                                                current_symbol: d.symbol,
-                                                check_in_time: d.check_in_time,
-                                                check_out_time: d.check_out_time,
-                                                total_hours: d.total_hours,
-                                                ot_hours: d.ot_hours,
-                                                is_late: d.is_late,
-                                                late_minutes: d.late_minutes,
-                                                status: d.status,
-                                                notes: d.notes,
-                                                check_in_type: d.check_in_type,
-                                                is_modified: d.is_modified,
-                                                audit_logs: d.audit_logs || [],
-                                                is_locked: r.is_locked
-                                              });
-                                              setCellSymbol(d.symbol || 'x');
-                                              setCellOtHours(d.ot_hours || 0);
-                                              setCellReason('');
-                                            }}
+                                            type="button"
+                                            className="timesheet-month-cell"
+                                            data-staff-id={r.id}
+                                            data-day-idx={dayIdx}
+                                            tabIndex={isMonthDayFocused ? 0 : -1}
+                                            onFocus={() => setFocusedMonthGridDay(prev => ({ ...prev, [r.id]: dayIdx }))}
+                                            onClick={handleOpenMonthCell}
+                                            onKeyDown={handleMonthGridKeyDown}
+                                            aria-label={cellAriaLabel}
                                             style={{
                                               padding: '4px 2px',
                                               textAlign: 'center',
                                               borderRadius: '6px',
                                               background: bg,
                                               border: border,
+                                              boxShadow: cellBoxShadow,
                                               opacity: cellOpacity,
-                                              cursor: !isSun ? 'pointer' : 'default',
+                                              cursor: 'pointer',
                                               transition: 'all 0.15s ease'
                                             }}
-                                            title={isSun ? `${d.dateStr}: Chủ nhật để trống` : `${d.dateStr}: [${d.symbol || 'Không công'}]${d.is_late ? ` (⚠️ Muộn ${d.late_minutes}p)` : ''}${d.is_early_leave ? ` (🚪 Sớm ${d.early_minutes}p)` : ''}${hasOt ? ` (🔥 OT: ${d.ot_hours}h)` : ''}`}
+                                            title={isSun && !hasOt && !d.symbol ? `${d.dateStr}: Chủ nhật để trống` : `${d.dateStr}: [${d.symbol || (isSun ? 'Chủ nhật' : 'Không công')}]${d.is_late ? ` (⚠️ Muộn ${d.late_minutes}p)` : ''}${d.is_early_leave ? ` (🚪 Sớm ${d.early_minutes}p)` : ''}${hasOt ? ` (🔥 OT: ${otHoursNum}h)` : ''}`}
                                           >
                                             <div style={{ fontSize: '9px', fontWeight: 600, color: dayColor }}>{d.day}</div>
                                             <div style={{ fontSize: '11px', fontWeight: 800, color: symbolColor, marginTop: '1px' }}>
-                                              {isSun ? '' : (d.symbol || '—')}
+                                              {d.symbol ? d.symbol : (isSun ? '' : '—')}
                                             </div>
-                                            {!isSun && (isLate || hasOt) && (
-                                              <div style={{ display: 'flex', justifyContent: 'center', gap: '2px', marginTop: '1px' }}>
-                                                {isLate && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} />}
-                                                {hasOt && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#8b5cf6' }} />}
+                                            {(isLate || hasOt) && (
+                                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', marginTop: '1px' }}>
+                                                {hasOt && (
+                                                  <span
+                                                    style={{
+                                                      fontSize: '9px',
+                                                      fontWeight: 800,
+                                                      color: '#ffffff',
+                                                      background: 'linear-gradient(135deg, #9a3412, #b91c1c)',
+                                                      padding: '1px 4px',
+                                                      borderRadius: '4px',
+                                                      lineHeight: 1.1,
+                                                      boxShadow: '0 1px 3px rgba(154, 52, 18, 0.5)',
+                                                      whiteSpace: 'nowrap'
+                                                    }}
+                                                    title={`Tăng ca OT: ${otHoursNum}h`}
+                                                  >
+                                                    🔥{otHoursNum}h
+                                                  </span>
+                                                )}
+                                                {isLate && <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ef4444' }} title={`Muộn ${d.late_minutes}p`} />}
                                               </div>
                                             )}
-                                          </div>
+                                          </button>
                                         );
                                       })}
                                     </div>
@@ -1129,6 +1450,9 @@ export default function ReportPage() {
                                       </span>
                                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                         <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#d97706' }} /> 0.5x
+                                      </span>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '9px', fontWeight: 800, color: '#ffffff', background: 'linear-gradient(135deg, #9a3412, #b91c1c)', padding: '1.5px 5px', borderRadius: '3px', lineHeight: 1 }}>🔥</span> OT: Tăng ca
                                       </span>
                                     </div>
                                   </div>
@@ -1209,6 +1533,7 @@ export default function ReportPage() {
                             <span className="timesheet-legend__item is-blue"><i />CT1 · CT2 · WFH</span>
                             <span className="timesheet-legend__item is-purple"><i />P · O · KL · K</span>
                             <span className="timesheet-legend__item is-red"><i />CN để trống</span>
+                            <span className="timesheet-legend__item is-ot"><i />🔥 OT tăng ca</span>
                           </div>
                           {matrixData.global_locked && (
                             <span className="badge badge--warning" style={{ fontSize: '11px' }}>
@@ -1298,54 +1623,116 @@ export default function ReportPage() {
                               </>}
 
                               {/* Day Cell Symbols */}
-                              {showDayColumns && r.days.map(d => {
+                              {showDayColumns && r.days.map((d, dayIdx) => {
                                 const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
                                 const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                                 const isHol = hdObj?.isHoliday;
+                                const isInteractive = true;
+                                const handleOpenMatrixCell = (e) => {
+                                  if (e?.currentTarget) {
+                                    cellModalTriggerRef.current = e.currentTarget;
+                                  } else if (typeof document !== 'undefined' && document.activeElement) {
+                                    cellModalTriggerRef.current = document.activeElement;
+                                  }
+                                  setSelectedCell({
+                                    user_id: r.id,
+                                    staff_name: r.full_name,
+                                    staff_code: r.code,
+                                    department_name: r.department_name,
+                                    dateStr: d.dateStr,
+                                    day: d.day,
+                                    weekday: hdObj?.weekday,
+                                    current_symbol: d.symbol,
+                                    check_in_time: d.check_in_time,
+                                    check_out_time: d.check_out_time,
+                                    total_hours: d.total_hours,
+                                    ot_hours: d.ot_hours,
+                                    is_late: d.is_late,
+                                    late_minutes: d.late_minutes,
+                                    is_early_leave: d.is_early_leave,
+                                    early_minutes: d.early_minutes,
+                                    status: d.status,
+                                    notes: d.notes,
+                                    check_in_type: d.check_in_type,
+                                    is_modified: d.is_modified,
+                                    audit_logs: d.audit_logs || [],
+                                    holiday_name: hdObj?.holidayName || null,
+                                    is_locked: r.is_locked
+                                  });
+                                  setCellSymbol(d.symbol || (isHol ? 'L' : ''));
+                                  setCellOtHours(d.ot_hours || 0);
+                                  setCellReason('');
+                                };
+
+                                const cellAriaLabel = formatTimesheetCellAriaLabel({
+                                  day: d.day,
+                                  weekday: hdObj?.weekday,
+                                  dateStr: d.dateStr,
+                                  staffName: r.full_name,
+                                  symbol: d.symbol,
+                                  isSunday: isSun,
+                                  isHoliday: isHol,
+                                  holidayName: hdObj?.holidayName,
+                                  otHours: d.ot_hours,
+                                  isLate: d.is_late,
+                                  lateMinutes: d.late_minutes,
+                                  isEarlyLeave: d.is_early_leave,
+                                  earlyMinutes: d.early_minutes,
+                                  isInteractive,
+                                  isAdmin,
+                                });
+
+                                const isFocused = getMatrixRovingTabIndex(
+                                  idx,
+                                  dayIdx,
+                                  focusedMatrixCoords.staffIdx,
+                                  focusedMatrixCoords.dayIdx,
+                                  displayedStaffRows.length,
+                                  r.days.length
+                                ) === 0;
+
+                                const handleMatrixCellKeyDown = (e) => {
+                                  const next = getNextMatrixCoords(idx, dayIdx, displayedStaffRows.length, r.days.length, e.key);
+                                  if (next.handled) {
+                                    e.preventDefault();
+                                    setFocusedMatrixCoords({ staffIdx: next.staffIdx, dayIdx: next.dayIdx });
+                                    const targetBtn = document.querySelector(
+                                      `button.timesheet-cell-btn[data-staff-idx="${next.staffIdx}"][data-day-idx="${next.dayIdx}"]`
+                                    );
+                                    if (targetBtn) {
+                                      targetBtn.focus();
+                                    }
+                                  }
+                                };
+
                                 return (
                                   <td
                                     className="timesheet-day-cell"
                                     key={d.day}
-                                    onClick={() => {
-                                      if (isSun) return;
-                                      setSelectedCell({
-                                        user_id: r.id,
-                                        staff_name: r.full_name,
-                                        staff_code: r.code,
-                                        department_name: r.department_name,
-                                        dateStr: d.dateStr,
-                                        day: d.day,
-                                        weekday: hdObj?.weekday,
-                                        current_symbol: d.symbol,
-                                        check_in_time: d.check_in_time,
-                                        check_out_time: d.check_out_time,
-                                        total_hours: d.total_hours,
-                                        ot_hours: d.ot_hours,
-                                        is_late: d.is_late,
-                                        late_minutes: d.late_minutes,
-                                        is_early_leave: d.is_early_leave,
-                                        early_minutes: d.early_minutes,
-                                        status: d.status,
-                                        notes: d.notes,
-                                        check_in_type: d.check_in_type,
-                                        is_modified: d.is_modified,
-                                        audit_logs: d.audit_logs || [],
-                                        holiday_name: hdObj?.holidayName || null,
-                                      });
-                                      setCellSymbol(d.symbol || (isHol ? 'L' : 'x'));
-                                      setCellOtHours(d.ot_hours || 0);
-                                      setCellReason('');
-                                    }}
                                     style={{
-                                      padding: '6px 7px',
+                                      padding: '0',
                                       minWidth: '42px', width: '42px',
-                                      cursor: !isSun ? 'pointer' : 'default',
-                                      background: isHol ? 'rgba(236, 72, 153, 0.05)' : isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
+                                      background: d.ot_hours > 0 ? 'rgba(194, 65, 12, 0.08)' : isHol ? 'rgba(236, 72, 153, 0.05)' : isSun ? 'rgba(239, 68, 68, 0.03)' : 'transparent',
                                       borderLeft: '1px solid var(--border-muted)',
                                     }}
-                                    title={isSun ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${d.symbol || '—'}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
                                   >
-                                    {renderDaySymbol(d.symbol, isSun, d.ot_hours)}
+                                    <button
+                                      type="button"
+                                      className="timesheet-cell-btn"
+                                      data-staff-idx={idx}
+                                      data-day-idx={dayIdx}
+                                      tabIndex={isFocused ? 0 : -1}
+                                      onFocus={() => setFocusedMatrixCoords({ staffIdx: idx, dayIdx })}
+                                      onClick={handleOpenMatrixCell}
+                                      onKeyDown={handleMatrixCellKeyDown}
+                                      aria-label={cellAriaLabel}
+                                      style={{
+                                        cursor: 'pointer',
+                                      }}
+                                      title={isSun && !d.ot_hours && !d.symbol ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${d.symbol || (isSun ? 'Chủ nhật' : '—')}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj?.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
+                                    >
+                                      {renderDaySymbol(d.symbol, isSun, d.ot_hours)}
+                                    </button>
                                   </td>
                                 );
                               })}
@@ -1354,7 +1741,7 @@ export default function ReportPage() {
                               {isAdmin && (
                                 <td style={{ padding: '6px' }}>
                                   <button
-                                    onClick={() => triggerToggleLock(r.id, r.is_locked)}
+                                    onClick={e => triggerToggleLock(r.id, r.is_locked, e)}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}
                                     title={r.is_locked ? 'Mở chốt công riêng NV này' : 'Chốt công riêng NV này'}
                                   >
@@ -1568,7 +1955,7 @@ export default function ReportPage() {
                           key={d.day}
                           style={{
                             padding: '6px 4px', fontWeight: 800, border: '1px solid #cbd5e1',
-                            background: isSun ? '#fef2f2' : 'transparent',
+                            background: isSun ? '#fef2f2' : d.ot_hours > 0 ? '#fff7ed' : 'transparent',
                             color: d.symbol === 'x' || d.symbol === '0,75x' ? '#059669' :
                                    d.symbol === '0,5x' ? '#d97706' :
                                    d.symbol === 'CT1' ? '#2563eb' :
@@ -1580,6 +1967,11 @@ export default function ReportPage() {
                           }}
                         >
                           {d.symbol || '—'}
+                          {d.ot_hours > 0 && (
+                            <div style={{ fontSize: '7.5px', color: '#c2410c', fontWeight: 900, marginTop: '1px' }}>
+                              +{d.ot_hours}h
+                            </div>
+                          )}
                         </td>
                       );
                     })}
@@ -1790,12 +2182,22 @@ export default function ReportPage() {
 
       {/* EMPLOYEE DIRECTORY PROFILE — same interaction as Weekly Schedule */}
       {viewingStaffProfile && (
-        <div className="modal-overlay" onClick={() => setViewingStaffProfile(null)}>
-          <div className="modal-sheet animate-slide-up timesheet-profile-modal" onClick={event => event.stopPropagation()}>
+        <div className="modal-overlay" onClick={closeStaffProfileModal}>
+          <div
+            ref={staffProfileModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="staff-profile-modal-title"
+            tabIndex={-1}
+            className="modal-sheet animate-slide-up timesheet-profile-modal"
+            onClick={event => event.stopPropagation()}
+            onKeyDown={e => handleDialogKeyDown(e, { onEscape: closeStaffProfileModal, container: staffProfileModalRef.current })}
+            style={{ outline: 'none' }}
+          >
             <div className="modal-sheet__handle" />
             <div className="timesheet-profile-modal__heading">
-              <div><h3>Hồ sơ nhân sự</h3><span>Thông tin danh bạ công ty</span></div>
-              <button type="button" className="btn btn--ghost" onClick={() => setViewingStaffProfile(null)} aria-label="Đóng"><X size={18} /></button>
+              <div><h3 id="staff-profile-modal-title">Hồ sơ nhân sự</h3><span>Thông tin danh bạ công ty</span></div>
+              <button type="button" className="btn btn--ghost" onClick={closeStaffProfileModal} aria-label="Đóng"><X size={18} /></button>
             </div>
 
             <section className="timesheet-profile-card">
@@ -1834,13 +2236,14 @@ export default function ReportPage() {
             </section>
 
             <div className="timesheet-profile-modal__actions">
-              <button type="button" className="btn btn--ghost" onClick={() => setViewingStaffProfile(null)}>Đóng</button>
+              <button type="button" className="btn btn--ghost" onClick={closeStaffProfileModal}>Đóng</button>
               {isAdmin && (
                 <button type="button" className="btn btn--primary" onClick={() => {
                   setSelectedExportUser(String(viewingStaffProfile.id || viewingStaffProfile._id));
                   setExportTarget('individual');
                   setExportFormat('pdf');
                   setExportScope('single');
+                  exportModalTriggerRef.current = staffProfileTriggerRef.current || document.activeElement;
                   setViewingStaffProfile(null);
                   setShowExportModal(true);
                 }}><FileText size={16} /> Xuất phiếu cá nhân</button>
@@ -1852,15 +2255,25 @@ export default function ReportPage() {
 
       {/* MODAL 1: CHI TIẾT NGÀY ĐIỂM DANH & CHỈNH SỬA Ô CÔNG */}
       {selectedCell && (
-        <div className="modal-overlay" onClick={() => setSelectedCell(null)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={closeCellModal}>
+          <div
+            ref={cellModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cell-detail-modal-title"
+            tabIndex={-1}
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => handleDialogKeyDown(e, { onEscape: closeCellModal, container: cellModalRef.current })}
+            style={{ maxWidth: '480px', margin: '0 auto', outline: 'none' }}
+          >
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Calendar size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Chi Tiết Ngày Điểm Danh</h3>
+                <h3 id="cell-detail-modal-title" style={{ fontSize: '16px', fontWeight: 800 }}>Chi Tiết Ngày Điểm Danh</h3>
               </div>
-              <button onClick={() => setSelectedCell(null)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={closeCellModal} className="btn btn--ghost" style={{ padding: '4px 8px' }} aria-label="Đóng"><X size={18} /></button>
             </div>
 
             {/* Employee & Date Banner */}
@@ -1985,6 +2398,7 @@ export default function ReportPage() {
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '11px' }}>Ký hiệu công mới *</label>
                     <select className="form-select" value={cellSymbol} onChange={e => setCellSymbol(e.target.value)} style={{ fontSize: '12.5px' }}>
+                      <option value="">-- Để trống (Chủ nhật / Chỉ tính OT / Không công) --</option>
                       <option value="x">x : Đủ 1 công (1.0)</option>
                       <option value="0,75x">0,75x : 3/4 công (0.75)</option>
                       <option value="0,5x">0,5x : 1/2 công (0.5)</option>
@@ -2033,7 +2447,7 @@ export default function ReportPage() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => setSelectedCell(null)} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
+                  <button onClick={closeCellModal} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
                   <button onClick={handleSaveCellOverride} disabled={submittingCell} className="btn btn--primary btn--full" style={{ padding: '8px' }}>
                     {submittingCell ? <span className="spinner" /> : 'Lưu & Ghi Lịch Sử'}
                   </button>
@@ -2041,7 +2455,7 @@ export default function ReportPage() {
               </div>
             ) : (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button onClick={() => setSelectedCell(null)} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
+                <button onClick={closeCellModal} className="btn btn--ghost btn--full" style={{ padding: '8px' }}>Đóng</button>
               </div>
             )}
           </div>
@@ -2050,19 +2464,40 @@ export default function ReportPage() {
 
       {/* MODAL 2: AUDIT LOGS HISTORY MODAL */}
       {showAuditLogs && (
-        <div className="modal-overlay" onClick={() => setShowAuditLogs(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={closeAuditLogsModal}>
+          <div
+            ref={auditLogsModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="audit-logs-modal-title"
+            tabIndex={-1}
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => handleDialogKeyDown(e, { onEscape: closeAuditLogsModal, container: auditLogsModalRef.current })}
+            style={{ maxWidth: '540px', margin: '0 auto', outline: 'none' }}
+          >
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <History size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Lịch Sử Chỉnh Sửa Ô Công</h3>
+                <h3 id="audit-logs-modal-title" style={{ fontSize: '16px', fontWeight: 800 }}>
+                  Lịch Sử Chỉnh Sửa Ô Công
+                  {auditPagination.total > 0 && (
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginLeft: '6px' }}>
+                      ({auditPagination.total} bản ghi)
+                    </span>
+                  )}
+                </h3>
               </div>
-              <button onClick={() => setShowAuditLogs(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={closeAuditLogsModal} className="btn btn--ghost" style={{ padding: '4px 8px' }} aria-label="Đóng"><X size={18} /></button>
             </div>
 
             <div style={{ overflowY: 'auto', maxHeight: '380px' }}>
-              {auditLogs.length === 0 ? (
+              {loadingLogs ? (
+                <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  ⏳ Đang tải danh sách lịch sử...
+                </div>
+              ) : auditLogs.length === 0 ? (
                 <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                   ⚪ Chưa có lịch sử chỉnh sửa công nào trong tháng {month}/{year}
                 </div>
@@ -2086,24 +2521,63 @@ export default function ReportPage() {
                 ))
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {auditPagination.totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                  disabled={auditPage <= 1 || loadingLogs}
+                  onClick={() => fetchAuditLogs(null, auditPage - 1)}
+                  aria-label="Trang trước"
+                >
+                  ◀ Trang trước
+                </button>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Trang {auditPagination.page} / {auditPagination.totalPages}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                  disabled={auditPage >= auditPagination.totalPages || loadingLogs}
+                  onClick={() => fetchAuditLogs(null, auditPage + 1)}
+                  aria-label="Trang sau"
+                >
+                  Trang sau ▶
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* MODAL 3: UNIFIED EXPORT OPTIONS MODAL (EXCEL & PDF) */}
       {showExportModal && (
-        <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
-          <div className="modal-sheet animate-slide-up" onClick={e => e.stopPropagation()} style={{ maxWidth: '460px', margin: '0 auto' }}>
+        <div className="modal-overlay" onClick={closeExportModal}>
+          <div
+            ref={exportModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-modal-title"
+            tabIndex={-1}
+            className="modal-sheet animate-slide-up"
+            onClick={e => e.stopPropagation()}
+            onKeyDown={e => handleDialogKeyDown(e, { onEscape: closeExportModal, container: exportModalRef.current })}
+            style={{ maxWidth: '460px', margin: '0 auto', outline: 'none' }}
+          >
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Download size={20} color="var(--primary)" />
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Xuất bảng chấm công</h3>
+                  <h3 id="export-modal-title" style={{ fontSize: '16px', fontWeight: 800, margin: 0 }}>Xuất bảng chấm công</h3>
                   <div style={{ marginTop: '2px', color: 'var(--text-muted)', fontSize: '11px' }}>Tháng {String(month).padStart(2, '0')}/{year}</div>
                 </div>
               </div>
-              <button onClick={() => setShowExportModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={closeExportModal} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
             {/* Step 1: Target type */}
@@ -2213,23 +2687,30 @@ export default function ReportPage() {
 
       {/* MODAL 4: SERIOUS CORPORATE PDF PREVIEW & DOWNLOAD MODAL */}
       {showPdfPreviewModal && (
-        <div className="modal-overlay" onClick={() => setShowPdfPreviewModal(false)}>
+        <div className="modal-overlay" onClick={closePdfPreviewModal}>
           <div
+            ref={pdfModalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdf-preview-modal-title"
+            tabIndex={-1}
             className="modal-sheet animate-slide-up"
             onClick={e => e.stopPropagation()}
+            onKeyDown={e => handleDialogKeyDown(e, { onEscape: closePdfPreviewModal, container: pdfModalRef.current })}
             style={{
               maxWidth: '90vw',
               width: '920px',
               margin: '0 auto',
+              outline: 'none',
             }}
           >
             <div className="modal-sheet__handle" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileType size={20} color="var(--primary)" />
-                <h3 style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước File PDF Bảng Chấm Công Chuẩn A4 Sắc Nét</h3>
+                <h3 id="pdf-preview-modal-title" style={{ fontSize: '16px', fontWeight: 800 }}>Xem Trước File PDF Bảng Chấm Công Chuẩn A4 Sắc Nét</h3>
               </div>
-              <button onClick={() => setShowPdfPreviewModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+              <button onClick={closePdfPreviewModal} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
             </div>
 
             {/* PDF Embedded View */}
@@ -2248,7 +2729,7 @@ export default function ReportPage() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
-              <button onClick={() => setShowPdfPreviewModal(false)} className="btn btn--ghost">Đóng</button>
+              <button onClick={closePdfPreviewModal} className="btn btn--ghost">Đóng</button>
               <button onClick={handleDownloadPdf} className="btn btn--primary" style={{ gap: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: 800 }}>
                 <Download size={16} /> 📄 Tải File PDF Về Máy
               </button>
@@ -2265,7 +2746,7 @@ export default function ReportPage() {
           confirmLabel={lockConfirm.actionText}
           danger={!lockConfirm.currentLocked}
           onConfirm={executeToggleLock}
-          onCancel={() => setLockConfirm(null)}
+          onCancel={closeLockConfirm}
         />
       )}
     </div>
