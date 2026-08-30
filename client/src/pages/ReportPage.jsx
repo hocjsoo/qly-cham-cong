@@ -13,13 +13,11 @@ import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
 import {
-  clampMatrixCoords,
   getNextMatrixCoords,
   getNextMonthGridCoords,
   getMatrixRovingTabIndex,
   formatTimesheetCellAriaLabel,
   getFocusableElements,
-  trapFocusInDialog,
   handleDialogKeyDown,
 } from '../utils/timesheetGridA11y';
 
@@ -32,6 +30,7 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
   const triggerRef = useRef(typeof document !== 'undefined' ? document.activeElement : null);
 
   useEffect(() => {
+    const triggerNode = triggerRef.current;
     const timer = setTimeout(() => {
       if (dialogRef.current) {
         const focusable = getFocusableElements(dialogRef.current);
@@ -41,8 +40,8 @@ function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = 
     }, 50);
     return () => {
       clearTimeout(timer);
-      if (triggerRef.current && typeof triggerRef.current.focus === 'function') {
-        triggerRef.current.focus();
+      if (triggerNode && typeof triggerNode.focus === 'function') {
+        triggerNode.focus();
       }
     };
   }, []);

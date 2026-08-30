@@ -29,7 +29,6 @@ const formatDate = (isoDate) => {
 export default function ExpensesPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
-  const isAdminOrLeader = ['admin', 'leader', 'manager'].includes(user?.role);
 
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({
@@ -150,8 +149,8 @@ export default function ExpensesPage() {
     reader.readAsDataURL(file);
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
+  const handleCreateExpense = async (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (!formDesc.trim()) {
       toast.error('Vui lòng nhập mô tả khoản chi');
       return;
@@ -189,33 +188,22 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleApprove = async (expenseId) => {
+  const handleApprove = async (expenseId, status = 'approved', rejection_reason = '') => {
     try {
-      await api.put(`/expenses/${expenseId}/approve`, { status: 'approved' });
-      toast.success('Đã duyệt khoản chi ✅');
-      loadData();
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi duyệt chi tiêu');
-    }
-  };
-
-  const handleReject = async () => {
-    if (!showRejectModal) return;
-    try {
-      await api.put(`/expenses/${showRejectModal._id}/approve`, {
-        status: 'rejected',
-        rejection_reason: rejectionReason.trim() || 'Không hợp lệ',
+      await api.put(`/expenses/${expenseId}/approve`, {
+        status,
+        rejection_reason: rejection_reason.trim() || undefined,
       });
-      toast.success('Đã từ chối khoản chi ❌');
+      toast.success(status === 'approved' ? 'Đã duyệt khoản chi ✅' : 'Đã từ chối khoản chi ❌');
       setShowRejectModal(null);
       setRejectionReason('');
       loadData();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi từ chối chi tiêu');
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật trạng thái chi tiêu');
     }
   };
 
-  const handlePay = async (expenseId, currentStatus) => {
+  const handleMarkPaid = async (expenseId, currentStatus) => {
     const nextStatus = currentStatus === 'paid' ? 'unpaid' : 'paid';
     try {
       await api.put(`/expenses/${expenseId}/pay`, { payment_status: nextStatus });
