@@ -407,6 +407,7 @@ const overrideCell = async (req, res) => {
     });
   }
 
+  // 2. Fail-Fast: Kiểm tra trạng thái kết nối & topology MongoDB trước khi thực thi bất kỳ truy vấn DB nào (ngăn chặn Mongoose buffering timeout)
   let session = null;
   let useCallbackTx = false;
   const topologyStatus = getTopologyStatus();
@@ -450,6 +451,70 @@ const overrideCell = async (req, res) => {
     useCallbackTx = false;
   }
 
+  const dateParts = String(date).split('-');
+  const dYear = parseInt(dateParts[0], 10);
+  const dMonth = parseInt(dateParts[1], 10);
+
+  // 3. Khởi tạo trước (ngoài transaction) các document guard bằng upsert idempotent,
+  // loại bỏ hoàn toàn việc upsert và lỗi DuplicateKeyError (11000) bên trong multi-document transaction.
+  if (dYear && dMonth && typeof TimesheetLock.updateOne === 'function') {
+    try {
+      await TimesheetLock.updateOne(
+        { month: dMonth, year: dYear, user_id: null },
+        {
+          $setOnInsert: {
+            month: dMonth,
+            year: dYear,
+            user_id: null,
+            is_locked: false,
+            guard_version: 0,
+          },
+        },
+        { upsert: true }
+      );
+    } catch (initGlobalErr) {
+      if (initGlobalErr.code !== 11000) {
+        console.error('Pre-transaction global lock init failed:', initGlobalErr);
+        if (session) {
+          try { await session.endSession(); } catch (_) {}
+        }
+        return res.status(500).json({
+          error: 'Lỗi khởi tạo bảo vệ giao dịch: Không thể thiết lập trạng thái khóa bảng công an toàn. Yêu cầu bị hủy theo chính sách Fail-Closed.',
+          integrity_warning: false,
+        });
+      }
+    }
+
+    if (user_id) {
+      try {
+        await TimesheetLock.updateOne(
+          { month: dMonth, year: dYear, user_id },
+          {
+            $setOnInsert: {
+              month: dMonth,
+              year: dYear,
+              user_id,
+              is_locked: false,
+              guard_version: 0,
+            },
+          },
+          { upsert: true }
+        );
+      } catch (initUserErr) {
+        if (initUserErr.code !== 11000) {
+          console.error('Pre-transaction user lock init failed:', initUserErr);
+          if (session) {
+            try { await session.endSession(); } catch (_) {}
+          }
+          return res.status(500).json({
+            error: 'Lỗi khởi tạo bảo vệ giao dịch: Không thể thiết lập trạng thái khóa nhân viên an toàn. Yêu cầu bị hủy theo chính sách Fail-Closed.',
+            integrity_warning: false,
+          });
+        }
+      }
+    }
+  }
+
   let isCommitted = false;
   let attendance = null;
   let isExisting = false;
@@ -459,6 +524,82 @@ const overrideCell = async (req, res) => {
   let displayMsg = '';
 
   const executeMutation = async (activeSession) => {
+    // 0. Kiểm tra & khóa tranh chấp (write-intent guard) trạng thái chốt khóa bảng công ngay trong Transaction Session
+    if (dYear && dMonth) {
+      const lockQuery = TimesheetLock.findOne({
+        month: dMonth,
+        year: dYear,
+        is_locked: true,
+        $or: [{ user_id: null }, { user_id }]
+      });
+      if (activeSession && typeof lockQuery.session === 'function') {
+        lockQuery.session(activeSession);
+      }
+      const activeLock = await lockQuery;
+      if (activeLock) {
+        const lockErr = new Error(
+          activeLock.user_id === null
+            ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục bởi Ban Giám Đốc. Vui lòng mở khóa trước khi chỉnh sửa.`
+            : `Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Vui lòng mở khóa trước khi chỉnh sửa.`
+        );
+        lockErr.statusCode = 403;
+        throw lockErr;
+      }
+
+      // Write-Intent Guard: Thực hiện thao tác ghi thực sự ($inc guard_version, $set last_verified_at)
+      // với { upsert: false } trên document TimesheetLock đã tồn tại.
+      // WiredTiger bắt buộc phải giữ write lock trên document TimesheetLock cho đến khi transaction kết thúc.
+      // Nếu có bất kỳ request toggleLock nào sửa document này đồng thời, WiredTiger sẽ phát sinh Write Conflict.
+      if (typeof TimesheetLock.findOneAndUpdate === 'function') {
+        const updateOptions = { upsert: false, new: true };
+        if (activeSession) {
+          updateOptions.session = activeSession;
+        }
+
+        // 1. Guard global company-wide lock document
+        const globalGuard = await TimesheetLock.findOneAndUpdate(
+          {
+            month: dMonth,
+            year: dYear,
+            user_id: null,
+            is_locked: { $ne: true },
+          },
+          {
+            $inc: { guard_version: 1 },
+            $set: { last_verified_at: new Date() },
+          },
+          updateOptions
+        );
+        if (!globalGuard || globalGuard.is_locked) {
+          const lockErr = new Error(`Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục bởi Ban Giám Đốc. Vui lòng mở khóa trước khi chỉnh sửa.`);
+          lockErr.statusCode = 403;
+          throw lockErr;
+        }
+
+        // 2. Guard user-specific lock document (nếu có user_id)
+        if (user_id) {
+          const userGuard = await TimesheetLock.findOneAndUpdate(
+            {
+              month: dMonth,
+              year: dYear,
+              user_id,
+              is_locked: { $ne: true },
+            },
+            {
+              $inc: { guard_version: 1 },
+              $set: { last_verified_at: new Date() },
+            },
+            updateOptions
+          );
+          if (!userGuard || userGuard.is_locked) {
+            const lockErr = new Error(`Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Vui lòng mở khóa trước khi chỉnh sửa.`);
+            lockErr.statusCode = 403;
+            throw lockErr;
+          }
+        }
+      }
+    }
+
     const attFindQuery = Attendance.findOne({ user_id, date });
     if (activeSession && typeof attFindQuery.session === 'function') {
       attFindQuery.session(activeSession);
@@ -735,6 +876,10 @@ const overrideCell = async (req, res) => {
       audit_log: auditLog,
     });
   } catch (error) {
+    if (error.statusCode === 403) {
+      return res.status(403).json({ error: error.message });
+    }
+
     if (error.isValidationError) {
       return res.status(400).json({ error: error.message });
     }

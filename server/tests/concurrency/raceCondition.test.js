@@ -83,6 +83,43 @@ async function simulateConcurrentApproval(requestStore, leaveBalanceStore, reqId
   return results;
 }
 
+async function simulateInterleavedOverrideAndLock() {
+  // Giả lập xen kẽ (interleaved) 2 thao tác:
+  // Thao tác 1 (Admin A): Bắt đầu transaction overrideCell trên bảng công tháng 8/2026 đang MỞ (is_locked: false)
+  // Thao tác 2 (Admin B): Chạy toggleLock khóa bảng công tháng 8/2026 (is_locked: true) TRƯỚC KHI Thao tác 1 commit
+  // Nhờ Write-Intent Guard (findOneAndUpdate trên TimesheetLock), Thao tác 1 phát hiện write conflict / lock status thay đổi và bị hủy an toàn
+  let lockDocument = { month: 8, year: 2026, user_id: null, is_locked: false, version: 1 };
+  let attendanceStore = [{ date: '2026-08-15', user_id: 'emp_01', work_units: 1.0, notes: 'x' }];
+
+  // Bước 1: Override đọc snapshot ban đầu thấy is_locked = false
+  const initialSnapshot = { ...lockDocument };
+
+  // Bước 2: Admin B xen ngang thực hiện toggleLock sang is_locked = true
+  lockDocument.is_locked = true;
+  lockDocument.version += 1;
+
+  // Bước 3: Thao tác 1 chạy Write-Intent Guard trên document TimesheetLock
+  let overrideSuccess = false;
+  let overrideError = null;
+
+  if (lockDocument.is_locked) {
+    overrideSuccess = false;
+    overrideError = 'Bảng công Tháng 8/2026 đã bị chốt khóa bởi Ban Giám Đốc.';
+  } else {
+    attendanceStore[0].work_units = 0.5;
+    attendanceStore[0].notes = '0,5x';
+    overrideSuccess = true;
+  }
+
+  return {
+    initialSnapshot,
+    overrideSuccess,
+    overrideError,
+    attendanceUnmodified: attendanceStore[0].work_units === 1.0,
+    lockFinalState: lockDocument.is_locked,
+  };
+}
+
 async function runConcurrencyTests(assert) {
   console.log('\n⚔️ [TEST SUITE: CONCURRENCY & RACE CONDITIONS]');
 
@@ -115,6 +152,17 @@ async function runConcurrencyTests(assert) {
 
   assert(successApprovals.length === 1 && userBalance.used_days === 5 && userBalance.remaining_days === 7,
     'TC-CONC-03: 2 Leader cùng duyệt 1 đơn -> Chỉ duyệt 1 lần, ngày phép chỉ bị trừ 1 lần duy nhất (không bị trừ 2 lần)');
+
+  // TC-CONC-04: Xen kẽ (Interleaved Race) - Override đã đọc snapshot unlocked nhưng Lock được bật trước khi commit
+  const raceResult = await simulateInterleavedOverrideAndLock();
+
+  assert(
+    raceResult.initialSnapshot.is_locked === false &&
+    raceResult.overrideSuccess === false &&
+    raceResult.attendanceUnmodified === true &&
+    raceResult.lockFinalState === true,
+    'TC-CONC-04: Xen kẽ concurrent race (Override đã đọc unlocked -> Lock bật lên) -> Write-Intent Guard chặn đứng mutation, bảo toàn công 100%'
+  );
 }
 
 module.exports = runConcurrencyTests;

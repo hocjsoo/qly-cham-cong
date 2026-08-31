@@ -183,6 +183,37 @@ function runTimesheetTests(assert) {
   const resolvedHoliday = resolveMatrixSymbol(null, true);
   assert(resolvedHoliday === 'L',
     'TC-TIME-07.3: Khi không có chấm công vào ngày lễ (isHoliday=true), ma trận hiển thị ký hiệu "L"');
+
+  // TC-TIME-08: Tự động tính 0,75x khi check-in sau 09:30:00 (work_units=0.75)
+  const autoLateRecord = {
+    check_in_type: 'office',
+    status: 'present',
+    is_late: true,
+    late_minutes: 31,
+    work_units: 0.75,
+    total_hours: 6,
+    notes: null,
+  };
+  assert(resolveMatrixSymbol(autoLateRecord, false) === '0,75x',
+    'TC-TIME-08: Ca muộn sau 09:30 (work_units=0.75) tự động hiển thị ký hiệu "0,75x"');
+
+  // TC-TIME-09: Admin override 0,75x thành x -> Giữ nguyên kết quả override x không bị ghi đè
+  const overriddenToFull = {
+    check_in_type: 'office',
+    status: 'present',
+    is_late: true,
+    late_minutes: 31,
+    work_units: 1.0,
+    total_hours: 8,
+    notes: 'Ký hiệu: [x] | Chỉnh sửa: Admin duyệt lại đủ công',
+  };
+  assert(resolveMatrixSymbol(overriddenToFull, false) === 'x',
+    'TC-TIME-09: Admin override 0,75x thành "x" -> Ma trận giữ nguyên ký hiệu override "x"');
+
+  // TC-TIME-10: Bảng công tháng đã khóa không cho phép sửa đổi trái phép
+  const lockedMonthCheck = checkTimesheetLock([{ user_id: null, month: 8, year: 2026, is_locked: true }], 'user_001', 8, 2026);
+  assert(lockedMonthCheck.isLocked === true,
+    'TC-TIME-10: Tháng đã chốt khóa (is_locked=true) được bảo vệ toàn vẹn không bị tự động sửa đổi');
 }
 
 module.exports = runTimesheetTests;

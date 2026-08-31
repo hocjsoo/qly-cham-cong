@@ -19,6 +19,7 @@ const DeviceRegistry = require('../../src/models/DeviceRegistry');
 const DeviceSession = require('../../src/models/DeviceSession');
 const Project = require('../../src/models/Project');
 const AttendanceAuditLog = require('../../src/models/AttendanceAuditLog');
+const TimesheetLock = require('../../src/models/TimesheetLock');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -60,6 +61,12 @@ async function runControllerIntegrationTests(assert) {
   const originalAuditLogFind = AttendanceAuditLog.find;
   const originalAuditLogFindById = AttendanceAuditLog.findById;
   const originalAuditLogCountDocuments = AttendanceAuditLog.countDocuments;
+  const originalLockFindOne = TimesheetLock.findOne;
+  const originalLockFindOneAndUpdate = TimesheetLock.findOneAndUpdate;
+  const originalLockUpdateOne = TimesheetLock.updateOne;
+  TimesheetLock.findOne = async () => null;
+  TimesheetLock.findOneAndUpdate = async () => ({ is_locked: false });
+  TimesheetLock.updateOne = async () => ({ acknowledged: true });
   const originalMongooseStartSession = mongoose.startSession;
   const originalConnectionReadyState = mongoose.connection?.readyState;
   const originalConnectionClient = mongoose.connection ? mongoose.connection.client : undefined;
@@ -1596,6 +1603,389 @@ async function runControllerIntegrationTests(assert) {
       'TC-HTTP-22.2: GET /api/timesheet-lock/audit-logs/:id/snapshot trả về chi tiết forensic snapshot đầy đủ theo yêu cầu'
     );
 
+    // -------------------------------------------------------------
+    // 9. Supertest: Late rules, WFH/site exemptions, override sync & TimesheetLock HTTP enforcement
+    // -------------------------------------------------------------
+
+    // TC-HTTP-23.1: POST /api/attendance/checkin trên tháng/nhân viên bị khóa -> Trả về 403 Forbidden và KHÔNG tạo attendance
+    TimesheetLock.findOne = async function(filter) {
+      if (filter && filter.is_locked) {
+        return {
+          _id: new mongoose.Types.ObjectId(),
+          month: filter.month,
+          year: filter.year,
+          user_id: filter.$or?.some(c => c.user_id === null) ? null : mockEmpUser._id,
+          is_locked: true,
+        };
+      }
+      return null;
+    };
+
+    let checkinCreateCalled = false;
+    Attendance.create = async function() {
+      checkinCreateCalled = true;
+      throw new Error('UNEXPECTED_MUTATION_ON_LOCKED_TIMESHEET');
+    };
+
+    const resCheckinLocked = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        lat: 10.7769,
+        lng: 106.7009,
+        type: 'office',
+      });
+
+    assert(
+      resCheckinLocked.status === 403 &&
+        resCheckinLocked.body.error.includes('đã bị') &&
+        checkinCreateCalled === false,
+      'TC-HTTP-23.1: POST /api/attendance/checkin bị chặn 403 Forbidden khi tháng đã chốt khóa, 0 tác động database'
+    );
+
+    // TC-HTTP-23.2: POST /api/timesheet-lock/override-cell trên tháng bị khóa -> Trả về 403 Forbidden
+    const resOverrideCellLocked = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Sửa công tháng đã khóa',
+      });
+
+    assert(
+      resOverrideCellLocked.status === 403 &&
+        resOverrideCellLocked.body.error.includes('đã bị'),
+      'TC-HTTP-23.2: POST /api/timesheet-lock/override-cell bị chặn 403 Forbidden khi tháng đã chốt khóa'
+    );
+
+    // Mở khóa TimesheetLock cho các test tiếp theo
+    TimesheetLock.findOne = async function() {
+      return null;
+    };
+
+    // TC-HTTP-23.3: POST /api/attendance/checkin với clock injection cố định 09:45 AM (> 09:30)
+    // Chứng minh: ca office bị tính 0.75 công, nhưng ca WFH/công tác được miễn trừ và giữ đủ 1.0 công
+    const RealDate = global.Date;
+    const fixedClockTime = new Date('2026-08-31T09:45:00+07:00');
+    class MockClockDate extends RealDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(fixedClockTime.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() {
+        return fixedClockTime.getTime();
+      }
+    }
+    global.Date = MockClockDate;
+
+    try {
+      Attendance.findOne = async function() { return null; };
+      Attendance.create = async function(data) {
+        return new Attendance(data);
+      };
+
+      // 1. Kiểm tra ca office lúc 09:45 -> Bị giảm công xuống 0.75x
+      const resOfficeLate = await request(app)
+        .post('/api/attendance/checkin')
+        .set('Authorization', `Bearer ${employeeToken}`)
+        .send({
+          lat: 21.0285,
+          lng: 105.8542,
+          type: 'office',
+        });
+
+      assert(
+        resOfficeLate.status === 201 &&
+          resOfficeLate.body.attendance.work_units === 0.75 &&
+          resOfficeLate.body.attendance.is_late === true,
+        'TC-HTTP-23.3a: Check-in văn phòng lúc 09:45 AM (> 09:30) bị tính 0.75 công (work_units=0.75, is_late=true)'
+      );
+
+      // 2. Kiểm tra ca WFH lúc 09:45 -> Vẫn giữ nguyên đủ 1.0 công (miễn trừ WFH)
+      const resWfhCheckin = await request(app)
+        .post('/api/attendance/checkin')
+        .set('Authorization', `Bearer ${employeeToken}`)
+        .send({
+          lat: 10.7769,
+          lng: 106.7009,
+          type: 'wfh',
+        });
+
+      assert(
+        resWfhCheckin.status === 201 &&
+          resWfhCheckin.body.attendance.work_units === 1.0 &&
+          resWfhCheckin.body.attendance.check_in_type === 'wfh',
+        'TC-HTTP-23.3b: POST /api/attendance/checkin loại hình WFH lúc 09:45 AM luôn duy trì đủ 1.0 công (không bị trừ 0.75 công)'
+      );
+    } finally {
+      global.Date = RealDate;
+    }
+
+    // TC-HTTP-23.4: PUT /api/attendance/override/:id cập nhật giờ check-in từ 09:35 về 09:20 -> work_units tự động đồng bộ từ 0.75 lên 1.0
+    const mockLateAttDoc = new Attendance({
+      _id: new mongoose.Types.ObjectId(),
+      user_id: mockEmpUser._id,
+      date: '2026-08-31',
+      check_in_time: new Date('2026-08-31T09:35:00+07:00'),
+      check_in_type: 'office',
+      work_units: 0.75,
+      is_late: true,
+      late_minutes: 35,
+      status: 'present',
+    });
+    mockLateAttDoc.save = async function() { return this; };
+    Attendance.findById = async function() { return mockLateAttDoc; };
+
+    const resOverrideTime = await request(app)
+      .put(`/api/attendance/override/${mockLateAttDoc._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        check_in_time: '09:20',
+      });
+
+    assert(
+      resOverrideTime.status === 200 &&
+        resOverrideTime.body.attendance.work_units === 1.0 &&
+        resOverrideTime.body.attendance.late_minutes === 20,
+      'TC-HTTP-23.4: PUT /api/attendance/override/:id sửa giờ từ 09:35 về 09:20 -> work_units tự động đồng bộ lại thành 1.0'
+    );
+
+    // TC-HTTP-23.5: PUT /api/attendance/override/:id khi Admin đã override ký hiệu công rõ ràng [0,75x] -> Bảo toàn work_units=0.75 không bị ghi đè
+    const mockExplicitOverrideDoc = new Attendance({
+      _id: new mongoose.Types.ObjectId(),
+      user_id: mockEmpUser._id,
+      date: '2026-08-31',
+      check_in_time: new Date('2026-08-31T09:00:00+07:00'),
+      check_in_type: 'office',
+      work_units: 0.75,
+      notes: 'Ký hiệu: [0,75x] | Admin điều chỉnh công 0.75',
+      status: 'present',
+    });
+    mockExplicitOverrideDoc.save = async function() { return this; };
+    Attendance.findById = async function() { return mockExplicitOverrideDoc; };
+
+    const resOverrideExplicit = await request(app)
+      .put(`/api/attendance/override/${mockExplicitOverrideDoc._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        check_in_time: '09:00',
+      });
+
+    assert(
+      resOverrideExplicit.status === 200 &&
+        resOverrideExplicit.body.attendance.work_units === 0.75,
+      'TC-HTTP-23.5: PUT /api/attendance/override/:id có ký hiệu override rõ ràng [0,75x] -> Bảo toàn work_units=0.75'
+    );
+
+    // TC-HTTP-23.6: POST /api/attendance/checkout bị chặn 403 Forbidden khi tháng đã chốt khóa
+    TimesheetLock.findOne = async function(filter) {
+      if (filter && filter.is_locked) {
+        return {
+          _id: new mongoose.Types.ObjectId(),
+          month: filter.month,
+          year: filter.year,
+          user_id: null,
+          is_locked: true,
+        };
+      }
+      return null;
+    };
+
+    const resCheckoutLocked = await request(app)
+      .post('/api/attendance/checkout')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        lat: 10.7769,
+        lng: 106.7009,
+      });
+
+    assert(
+      resCheckoutLocked.status === 403 &&
+        resCheckoutLocked.body.error.includes('đã bị'),
+      'TC-HTTP-23.6: POST /api/attendance/checkout bị chặn 403 Forbidden khi tháng đã chốt khóa'
+    );
+
+    // TC-HTTP-23.7: PUT /api/attendance/override/:id bị chặn 403 Forbidden khi tháng đã chốt khóa
+    const resOverrideLocked = await request(app)
+      .put(`/api/attendance/override/${mockLateAttDoc._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        check_in_time: '09:00',
+      });
+
+    assert(
+      resOverrideLocked.status === 403 &&
+        resOverrideLocked.body.error.includes('đã bị'),
+      'TC-HTTP-23.7: PUT /api/attendance/override/:id bị chặn 403 Forbidden khi tháng đã chốt khóa'
+    );
+
+    // TC-HTTP-23.8: DELETE /api/attendance/:id bị chặn 403 Forbidden khi tháng đã chốt khóa
+    const resDeleteLocked = await request(app)
+      .delete(`/api/attendance/${mockLateAttDoc._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resDeleteLocked.status === 403 &&
+        resDeleteLocked.body.error.includes('đã bị'),
+      'TC-HTTP-23.8: DELETE /api/attendance/:id bị chặn 403 Forbidden khi tháng đã chốt khóa'
+    );
+
+    // TC-HTTP-23.9: POST /api/timesheet-lock/override-cell chạy pre-init updateOne và guard findOneAndUpdate (upsert: false), chặn 403 khi khóa toàn cục
+    let interceptedPreInitCalls = [];
+    let interceptedGlobalGuardUpdate = null;
+    let interceptedGlobalGuardOptions = null;
+    TimesheetLock.updateOne = async (filter, update, options) => {
+      interceptedPreInitCalls.push({ filter, update, options });
+      return { acknowledged: true };
+    };
+    TimesheetLock.findOne = async () => null;
+    TimesheetLock.findOneAndUpdate = async (filter, update, options) => {
+      if (filter.user_id === null) {
+        interceptedGlobalGuardUpdate = update;
+        interceptedGlobalGuardOptions = options;
+        return null; // Mô phỏng document đã bị khóa (predicate không match -> null)
+      }
+      return { is_locked: false };
+    };
+
+    const resOverrideConflict = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Sửa công đồng thời',
+      });
+
+    assert(
+      resOverrideConflict.status === 403 &&
+        resOverrideConflict.body.error.includes('chốt khóa') &&
+        interceptedPreInitCalls.length >= 2 &&
+        interceptedPreInitCalls[0].options?.upsert === true &&
+        interceptedGlobalGuardOptions?.upsert === false &&
+        interceptedGlobalGuardUpdate?.$inc?.guard_version === 1 &&
+        interceptedGlobalGuardUpdate?.$set?.last_verified_at,
+      'TC-HTTP-23.9: Pre-init updateOne idempotent (upsert: true) ngoài transaction & Guard findOneAndUpdate (upsert: false) chặn 403 Forbidden'
+    );
+
+    // TC-HTTP-23.10: POST /api/timesheet-lock/override-cell chặn 403 khi Write-Intent Guard phát hiện khóa riêng của nhân viên có xung đột
+    let interceptedUserGuardUpdate = null;
+    let interceptedUserGuardOptions = null;
+    TimesheetLock.findOneAndUpdate = async (filter, update, options) => {
+      if (filter.user_id === null) {
+        return { is_locked: false };
+      }
+      if (String(filter.user_id) === String(mockEmpUser._id)) {
+        interceptedUserGuardUpdate = update;
+        interceptedUserGuardOptions = options;
+        return null; // Khóa riêng của nhân viên đã bị khóa
+      }
+      return { is_locked: false };
+    };
+
+    const resUserLockConflict = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Sửa công nhân viên bị khóa',
+      });
+
+    assert(
+      resUserLockConflict.status === 403 &&
+        resUserLockConflict.body.error.includes('khóa') &&
+        interceptedUserGuardOptions?.upsert === false &&
+        interceptedUserGuardUpdate?.$inc?.guard_version === 1,
+      'TC-HTTP-23.10: Write-Intent Guard trên TimesheetLock (User-Level, upsert: false) chặn 403 Forbidden khi có xung đột'
+    );
+
+    // TC-HTTP-23.11: Pre-init updateOne gặp lỗi DB (khác 11000) -> Fail-closed trả về HTTP 500, không mở transaction
+    TimesheetLock.updateOne = async () => {
+      const err = new Error('Database connection lost during pre-init');
+      err.code = 500;
+      throw err;
+    };
+
+    const resPreInitFail = await request(app)
+      .post('/api/timesheet-lock/override-cell')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        user_id: mockEmpUser._id,
+        date: '2026-08-19',
+        new_symbol: 'x',
+        reason: 'Sửa công khi DB pre-init lỗi',
+      });
+
+    assert(
+      resPreInitFail.status === 500 &&
+        resPreInitFail.body.error.includes('Fail-Closed'),
+      'TC-HTTP-23.11: Pre-init updateOne gặp lỗi DB (khác 11000) -> Fail-closed trả về HTTP 500 an toàn'
+    );
+
+    // TC-HTTP-23.12: Topology yêu cầu transaction truyền session thật vào findOneAndUpdate options
+    TimesheetLock.updateOne = async () => ({ acknowledged: true });
+    let passedSessionInGuard = null;
+    const mockSession = {
+      withTransaction: async (cb) => cb(mockSession),
+      endSession: async () => {},
+    };
+    const origStartSession = mongoose.startSession;
+    const origReadyState = mongoose.connection ? mongoose.connection.readyState : 0;
+    const origClient = mongoose.connection ? mongoose.connection.client : undefined;
+
+    try {
+      mongoose.startSession = async () => mockSession;
+      if (mongoose.connection) {
+        mongoose.connection.readyState = 1;
+        mongoose.connection.client = {
+          topology: {
+            description: {
+              type: 'ReplicaSetWithPrimary',
+              servers: new Map([['host1', {}]]),
+            },
+          },
+        };
+      }
+
+      TimesheetLock.findOneAndUpdate = async (filter, update, options) => {
+        if (filter.user_id === null) {
+          passedSessionInGuard = options?.session;
+        }
+        return { is_locked: false };
+      };
+
+      const resSessionPassed = await request(app)
+        .post('/api/timesheet-lock/override-cell')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          user_id: mockEmpUser._id,
+          date: '2026-08-19',
+          new_symbol: 'x',
+          reason: 'Sửa công với session transaction',
+        });
+
+      assert(
+        resSessionPassed.status === 200 &&
+          passedSessionInGuard === mockSession,
+        'TC-HTTP-23.12: In-transaction findOneAndUpdate nhận đúng session từ withTransaction trên replica-set topology'
+      );
+    } finally {
+      if (origStartSession) mongoose.startSession = origStartSession;
+      else delete mongoose.startSession;
+      if (mongoose.connection) {
+        mongoose.connection.readyState = origReadyState;
+        mongoose.connection.client = origClient;
+      }
+    }
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;
@@ -1616,6 +2006,9 @@ async function runControllerIntegrationTests(assert) {
     AttendanceAuditLog.find = originalAuditLogFind;
     AttendanceAuditLog.findById = originalAuditLogFindById;
     AttendanceAuditLog.countDocuments = originalAuditLogCountDocuments;
+    TimesheetLock.findOne = originalLockFindOne;
+    TimesheetLock.findOneAndUpdate = originalLockFindOneAndUpdate;
+    TimesheetLock.updateOne = originalLockUpdateOne;
     if (originalMongooseStartSession) {
       mongoose.startSession = originalMongooseStartSession;
     } else {

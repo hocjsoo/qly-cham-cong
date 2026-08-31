@@ -6,6 +6,7 @@ const SystemSetting = require('../models/SystemSetting');
 const DeviceSession = require('../models/DeviceSession');
 const DeviceRegistry = require('../models/DeviceRegistry');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
+const TimesheetLock = require('../models/TimesheetLock');
 const User = require('../models/User');
 const {
   isLeaderRole,
@@ -33,42 +34,72 @@ const getClientIP = (req) => {
 
 // Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
 function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60) {
-  const dateStr = new Date(checkInDate).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const timePart = (workStartStr && workStartStr.includes(':')) ? workStartStr.trim() : '09:00';
+  if (!checkInDate) {
+    return {
+      is_late: false,
+      late_minutes: 0,
+      late_tier: 'on_time',
+      label: 'Chưa check-in',
+      work_units: 0,
+      credit_symbol: ''
+    };
+  }
+
+  const checkIn = new Date(checkInDate);
+  if (isNaN(checkIn.getTime())) {
+    return {
+      is_late: false,
+      late_minutes: 0,
+      late_tier: 'on_time',
+      label: 'Thời gian không hợp lệ',
+      work_units: 0,
+      credit_symbol: ''
+    };
+  }
+
+  const dateStr = checkIn.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const timePart = (workStartStr && typeof workStartStr === 'string' && workStartStr.includes(':')) ? workStartStr.trim() : '09:00';
   const [startH, startM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
 
   // Mốc bắt đầu ca làm việc chuẩn theo múi giờ Việt Nam +07:00
   const targetDate = new Date(`${dateStr}T${startH}:${startM}:00+07:00`);
 
-  const checkIn = new Date(checkInDate);
   const diffMs = checkIn.getTime() - targetDate.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
-  if (diffMins <= 0) {
+  // Mốc cutoff giảm công ĐỘC LẬP cố định 09:30:00 (chuẩn múi giờ VN +07:00)
+  // Tuyệt đối không phụ thuộc vào minor_late_mins cảnh báo cũ (vốn có thể là 10p trong seed hoặc DB cũ)
+  const cutoff0930Ms = new Date(`${dateStr}T09:30:00+07:00`).getTime();
+
+  // Tier cảnh báo muộn nhẹ / muộn vừa (phục vụ hiển thị nhãn)
+  const minorMinutesNum = Number(minorMins ?? 30);
+  const mediumMinutesNum = Number(mediumMins ?? 60);
+
+  if (diffMs <= 0) {
     return {
       is_late: false,
       late_minutes: 0,
       late_tier: 'on_time',
-      label: `Đúng giờ (≤ ${workStartStr})`,
+      label: `Đúng giờ (≤ ${timePart})`,
       work_units: 1.0,
       credit_symbol: 'x'
     };
-  } else if (diffMins <= minorMins) {
-    // 09:01 - 09:30: Muộn nhẹ (Tính 1.0 công, gắn cờ cảnh báo nhắc nhở)
+  } else if (checkIn.getTime() <= cutoff0930Ms) {
+    // Check-in từ sau giờ ca (09:00:01) đến đúng 09:30:00: VẪN TÍNH 1 CÔNG (x), hiển thị cảnh báo muộn (+diffMins phút)
     return {
       is_late: true,
       late_minutes: diffMins,
-      late_tier: 'late_minor',
+      late_tier: diffMins <= minorMinutesNum ? 'late_minor' : 'late_medium',
       label: `Muộn nhẹ (+${diffMins}p)`,
       work_units: 1.0,
       credit_symbol: 'x'
     };
   } else {
-    // Sau 09:30: Muộn trừ công (Trừ 0.25 công, thực nhận 0.75 công)
+    // Check-in sau 09:30:00 (từ 09:30:01 trở đi): Tự động tính 0.75 công (0,75x), ghi nhận chính xác số phút đi muộn
     return {
       is_late: true,
       late_minutes: diffMins,
-      late_tier: diffMins <= mediumMins ? 'late_medium' : 'late_severe',
+      late_tier: diffMins <= mediumMinutesNum ? 'late_medium' : 'late_severe',
       label: `Muộn trừ công (+${diffMins}p - 0.75 công)`,
       work_units: 0.75,
       credit_symbol: '0,75x'
@@ -137,6 +168,22 @@ const checkIn = async (req, res) => {
     };
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
+    const [dYear, dMonth] = dateStr.split('-').map(Number);
+    const activeLock = await TimesheetLock.findOne({
+      month: dMonth,
+      year: dYear,
+      is_locked: true,
+      $or: [{ user_id: null }, { user_id: userId }]
+    });
+    if (activeLock) {
+      return res.status(403).json({
+        error: activeLock.user_id === null
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể thực hiện chấm công.`
+          : `Bảng công của bạn trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể thực hiện chấm công.`
+      });
+    }
 
     const clientIP = getClientIP(req);
     const effectiveHardwareUuid = hardware_uuid || device_fingerprint || null;
@@ -338,7 +385,8 @@ const checkIn = async (req, res) => {
     ].filter(Boolean).join(' | ');
 
     const checkInMode = selfie_url ? 'photo' : 'gps';
-    const finalWorkUnits = lateInfo.work_units ?? 1.0;
+    const isExemptType = ['wfh', 'site', 'client'].includes(validCheckInType);
+    const finalWorkUnits = isExemptType ? 1.0 : (lateInfo.work_units ?? 1.0);
 
     if (attendance) {
       attendance.check_in_time = now;
@@ -411,6 +459,8 @@ const checkIn = async (req, res) => {
             is_late: lateInfo.is_late,
             late_minutes: lateInfo.late_minutes,
             late_tier: lateInfo.late_tier,
+            work_units: finalWorkUnits,
+            check_in_mode: checkInMode,
             hardware_uuid: effectiveHardwareUuid || null,
             is_flagged: isFlagged,
             flag_reasons: flagReasons,
@@ -453,6 +503,22 @@ const checkOut = async (req, res) => {
   try {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
+    const [dYear, dMonth] = dateStr.split('-').map(Number);
+    const activeLock = await TimesheetLock.findOne({
+      month: dMonth,
+      year: dYear,
+      is_locked: true,
+      $or: [{ user_id: null }, { user_id: userId }]
+    });
+    if (activeLock) {
+      return res.status(403).json({
+        error: activeLock.user_id === null
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể thực hiện check-out.`
+          : `Bảng công của bạn trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể thực hiện check-out.`
+      });
+    }
 
     const attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     if (!attendance || !attendance.check_in_time) {
@@ -714,6 +780,23 @@ const overrideAttendance = async (req, res) => {
 
     const targetDate = date || attendance.date;
 
+    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
+    const [dYear, dMonth] = targetDate.split('-').map(Number);
+    const targetUserId = user_id || attendance.user_id;
+    const activeLock = await TimesheetLock.findOne({
+      month: dMonth,
+      year: dYear,
+      is_locked: true,
+      $or: [{ user_id: null }, { user_id: targetUserId }]
+    });
+    if (activeLock) {
+      return res.status(403).json({
+        error: activeLock.user_id === null
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể sửa giờ chấm công.`
+          : `Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể sửa giờ chấm công.`
+      });
+    }
+
     const parseVNTime = (tVal) => {
       if (!tVal) return null;
       if (tVal instanceof Date) return tVal;
@@ -746,6 +829,15 @@ const overrideAttendance = async (req, res) => {
       }
       attendance.late_minutes = lateInfo.late_minutes;
       attendance.late_tier = lateInfo.late_tier;
+
+      // Đồng bộ lại work_units theo giờ mới nếu ca chưa bị Admin override ký hiệu công rõ ràng
+      const effectiveType = check_in_type || attendance.check_in_type || 'office';
+      const isExempt = ['wfh', 'site', 'client'].includes(effectiveType);
+      const upperNotes = (notes || attendance.notes || '').toUpperCase();
+      const hasExplicitSymbolOverride = upperNotes.includes('[X]') || upperNotes.includes('[0,75X]') || upperNotes.includes('[0.75X]') || upperNotes.includes('[0,5X]') || upperNotes.includes('[0.5X]');
+      if (!hasExplicitSymbolOverride) {
+        attendance.work_units = isExempt ? 1.0 : (lateInfo.work_units ?? 1.0);
+      }
     } else if (is_late !== undefined) {
       attendance.is_late = Boolean(is_late);
     }
@@ -753,7 +845,15 @@ const overrideAttendance = async (req, res) => {
     if (check_out_time) {
       attendance.check_out_time = parseVNTime(check_out_time);
     }
-    if (check_in_type) attendance.check_in_type = check_in_type;
+    if (check_in_type) {
+      attendance.check_in_type = check_in_type;
+      const isExempt = ['wfh', 'site', 'client'].includes(check_in_type);
+      const upperNotes = (notes || attendance.notes || '').toUpperCase();
+      const hasExplicitSymbolOverride = upperNotes.includes('[X]') || upperNotes.includes('[0,75X]') || upperNotes.includes('[0.75X]') || upperNotes.includes('[0,5X]') || upperNotes.includes('[0.5X]');
+      if (isExempt && !hasExplicitSymbolOverride) {
+        attendance.work_units = 1.0;
+      }
+    }
     if (notes) attendance.notes = notes;
     if (status) attendance.status = status;
 
@@ -826,6 +926,23 @@ const deleteAttendance = async (req, res) => {
     const attendance = await Attendance.findById(id);
     if (!attendance) {
       return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công cần xóa.' });
+    }
+
+    if (attendance.date) {
+      const [dYear, dMonth] = attendance.date.split('-').map(Number);
+      const activeLock = await TimesheetLock.findOne({
+        month: dMonth,
+        year: dYear,
+        is_locked: true,
+        $or: [{ user_id: null }, { user_id: attendance.user_id }]
+      });
+      if (activeLock) {
+        return res.status(403).json({
+          error: activeLock.user_id === null
+            ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể xóa ca chấm công.`
+            : `Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể xóa ca chấm công.`
+        });
+      }
     }
 
     await deleteAttendanceAndLog({
@@ -1034,5 +1151,6 @@ const verifyFlaggedAttendance = async (req, res) => {
 
 module.exports = {
   checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
-  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance
+  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance,
+  calculateLateTier, calculateOT
 };

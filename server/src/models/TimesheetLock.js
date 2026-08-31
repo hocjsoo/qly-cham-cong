@@ -35,6 +35,14 @@ const timesheetLockSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    guard_version: {
+      type: Number,
+      default: 0,
+    },
+    last_verified_at: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

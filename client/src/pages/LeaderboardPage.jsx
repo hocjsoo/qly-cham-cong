@@ -1,24 +1,23 @@
-import ImageLightbox from "../components/ImageLightbox";
 // src/pages/LeaderboardPage.jsx
-// Bảng Xếp Hạng & Vinh Danh Đa Chiều — Podium Top 3, Bảng danh sách 100% nhân sự, Sticky My Rank, Lọc Ngày/Tháng/Năm/All
+// Bảng Xếp Hạng Chuyên Cần & Thành Tích Tinh Gọn — Danh Sách Xếp Hạng Trực Quan, Bộ Lọc Đa Chiều
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Trophy, Flame, Clock, Zap, Calendar,
-  ChevronRight, Crown, Search,
-  X, Phone, Mail, MapPin, Bike
+  ChevronRight, Search, X, Phone, Mail, MapPin, Bike
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import HeaderActions from '../components/HeaderActions';
+import ImageLightbox from '../components/ImageLightbox';
 
 const TIMEFRAMES = [
   { id: 'today', label: '☀️ Hôm nay', desc: 'Đua top trực tiếp sáng nay' },
   { id: 'day', label: '📅 Theo ngày', desc: 'Chọn ngày cụ thể bất kỳ' },
-  { id: 'week', label: '📆 Theo tuần', desc: 'Vinh danh tuần này / tuần chọn' },
+  { id: 'week', label: '📆 Theo tuần', desc: 'Xếp hạng tuần này / tuần chọn' },
   { id: 'month', label: '🗓️ Theo tháng', desc: 'Nhân viên chăm chỉ của tháng' },
-  { id: 'year', label: '📊 Năm nay', desc: 'Bảng vàng tổng kết năm' },
-  { id: 'all', label: '👑 Toàn thời gian', desc: 'Kỷ lục từ trước đến nay' },
+  { id: 'year', label: '📊 Năm nay', desc: 'Bảng tổng kết năm' },
+  { id: 'all', label: '👑 Toàn thời gian', desc: 'Kỷ lục tích lũy hệ thống' },
 ];
 
 const CATEGORIES = [
@@ -72,7 +71,7 @@ export default function LeaderboardPage() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [departmentId, setDepartmentId] = useState('all');
   const [departments, setDepartments] = useState([]);
-  const [data, setData] = useState({ top3: [], rankings: [], myRank: null });
+  const [data, setData] = useState({ rankings: [], myRank: null });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
@@ -150,10 +149,6 @@ export default function LeaderboardPage() {
     );
   });
 
-  const top1 = data.top3?.[0] || null;
-  const top2 = data.top3?.[1] || null;
-  const top3 = data.top3?.[2] || null;
-
   // Shift day helper
   const shiftSelectedDay = (offsetDays) => {
     const [y, m, d] = selectedDate.split('-').map(Number);
@@ -173,6 +168,7 @@ export default function LeaderboardPage() {
   };
 
   const activeWeekInfo = getWeekRange(selectedWeekDate);
+  const activeCategory = CATEGORIES.find(c => c.id === category);
 
   return (
     <div className="page" style={{ paddingBottom: '90px' }}>
@@ -390,147 +386,28 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Podium Top 3 View */}
-        {!loading && top1 && (
-          <div
-            className="card animate-fade-in"
-            style={{
-              padding: '24px 16px 16px',
-              marginBottom: '16px',
-              background: 'linear-gradient(180deg, var(--bg-raised) 0%, var(--bg-card) 100%)',
-              border: '1px solid var(--border)',
-              borderRadius: '16px',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: '18px' }}>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800, color: '#f59e0b' }}>
-                🌟 BỤC VINH DANH TOP 3 🌟
-              </div>
-              <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 600 }}>
-                {CATEGORIES.find(c => c.id === category)?.label} · {
-                  timeframe === 'day' ? `Ngày ${selectedDate.split('-').reverse().join('/')}`
-                  : timeframe === 'week' ? activeWeekInfo.displayLabel
-                  : TIMEFRAMES.find(t => t.id === timeframe)?.label
-                }
-              </div>
-            </div>
-
-            {/* Podium Container: Top 2 - Top 1 - Top 3 */}
-            <div className="podium-container">
-              {/* TOP 2 (SILVER) */}
-              {top2 ? (
-                <div
-                  className="podium-slot card--interactive"
-                  onClick={() => setViewingStaffDetail(top2)}
-                  style={{ cursor: 'pointer' }}
-                  title="Click để xem hồ sơ nhân sự"
-                >
-                  <div style={{ position: 'relative', marginBottom: '6px' }}>
-                    <img
-                      src={top2.avatar_url || '/logo.png'}
-                      alt=""
-                      style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #94a3b8', objectFit: 'cover' }}
-                      onError={e => { e.target.src = '/logo.png'; }}
-                    />
-                    <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#94a3b8', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '1px 5px', borderRadius: '10px' }}>
-                      #2 🥈
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '12.5px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                    {top2.full_name}
-                  </div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginTop: '2px' }}>
-                    {top2.displayValue}
-                  </div>
-                  <div style={{ height: '70px', width: '100%', background: 'linear-gradient(180deg, #94a3b8 0%, #64748b 100%)', borderRadius: '8px 8px 0 0', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '18px' }}>
-                    2
-                  </div>
-                </div>
-              ) : <div className="podium-slot" />}
-
-              {/* TOP 1 (GOLD CHAMPION) */}
-              <div
-                className="podium-slot podium-slot--top1 card--interactive"
-                onClick={() => setViewingStaffDetail(top1)}
-                style={{ cursor: 'pointer' }}
-                title="Click để xem hồ sơ Quán quân"
-              >
-                <Crown size={26} color="#eab308" style={{ marginBottom: '2px', filter: 'drop-shadow(0 2px 4px rgba(234,179,8,0.5))' }} />
-                <div style={{ position: 'relative', marginBottom: '6px' }}>
-                  <img
-                    src={top1.avatar_url || '/logo.png'}
-                    alt=""
-                    style={{ width: 54, height: 54, borderRadius: '50%', border: '3px solid #eab308', boxShadow: '0 0 16px rgba(234, 179, 8, 0.45)', objectFit: 'cover' }}
-                    onError={e => { e.target.src = '/logo.png'; }}
-                  />
-                  <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#eab308', color: '#000', fontSize: '11px', fontWeight: 900, padding: '1px 6px', borderRadius: '10px' }}>
-                    #1 👑
-                  </span>
-                </div>
-                <div style={{ fontWeight: 800, fontSize: '13.5px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                  {top1.full_name}
-                </div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#eab308', marginTop: '2px' }}>
-                  {top1.displayValue}
-                </div>
-                <div style={{ height: '95px', width: '100%', background: 'linear-gradient(180deg, #eab308 0%, #ca8a04 100%)', borderRadius: '10px 10px 0 0', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 900, fontSize: '24px', boxShadow: '0 4px 12px rgba(234,179,8,0.3)' }}>
-                  1
-                </div>
-              </div>
-
-              {/* TOP 3 (BRONZE) */}
-              {top3 ? (
-                <div
-                  className="podium-slot card--interactive"
-                  onClick={() => setViewingStaffDetail(top3)}
-                  style={{ cursor: 'pointer' }}
-                  title="Click để xem hồ sơ nhân sự"
-                >
-                  <div style={{ position: 'relative', marginBottom: '6px' }}>
-                    <img
-                      src={top3.avatar_url || '/logo.png'}
-                      alt=""
-                      style={{ width: 44, height: 44, borderRadius: '50%', border: '2.5px solid #d97706', objectFit: 'cover' }}
-                      onError={e => { e.target.src = '/logo.png'; }}
-                    />
-                    <span style={{ position: 'absolute', bottom: '-6px', right: '-4px', background: '#d97706', color: '#fff', fontSize: '10px', fontWeight: 800, padding: '1px 5px', borderRadius: '10px' }}>
-                      #3 🥉
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: '12.5px', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                    {top3.full_name}
-                  </div>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#d97706', marginTop: '2px' }}>
-                    {top3.displayValue}
-                  </div>
-                  <div style={{ height: '55px', width: '100%', background: 'linear-gradient(180deg, #d97706 0%, #b45309 100%)', borderRadius: '8px 8px 0 0', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: '16px' }}>
-                    3
-                  </div>
-                </div>
-              ) : <div className="podium-slot" />}
-            </div>
-          </div>
-        )}
-
         {/* Full Rankings Table (Top 1 to 100%) */}
         <div className="card animate-fade-in" style={{ padding: 0, borderRadius: '12px', border: '1px solid var(--border)', overflowX: 'auto' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
-              📋 Toàn Bộ Bảng Xếp Hạng ({filteredRankings.length} nhân sự)
-            </span>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
+                📋 Danh sách xếp hạng ({filteredRankings.length} nhân sự)
+              </span>
+              <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: `${activeCategory?.color || '#f59e0b'}20`, color: activeCategory?.color || '#f59e0b', fontWeight: 700 }}>
+                {activeCategory?.label}
+              </span>
+            </div>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              💡 Bấm vào nhân sự bất kỳ để xem hồ sơ chi tiết
+              💡 Bấm vào nhân sự để xem hồ sơ chi tiết
             </span>
           </div>
 
           {loading ? (
             <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[1, 2, 3, 4, 5].map(i => <div key={i} className="skeleton-card" style={{ height: '48px', borderRadius: '8px' }} />)}
+              {[1, 2, 3, 4, 5, 6].map(i => <div key={i} className="skeleton-card" style={{ height: '48px', borderRadius: '8px' }} />)}
             </div>
           ) : filteredRankings.length === 0 ? (
-            <div className="empty-state" style={{ padding: '24px' }}>
+            <div className="empty-state" style={{ padding: '32px 24px' }}>
               <div className="empty-state__icon">🏆</div>
               <div className="empty-state__title">Chưa có dữ liệu xếp hạng</div>
               <div className="empty-state__desc">Hãy thử chọn mốc thời gian hoặc phòng ban khác</div>
@@ -539,9 +416,9 @@ export default function LeaderboardPage() {
             <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800, fontSize: '12px' }}>
-                  <th style={{ padding: '10px 14px', width: '60px', textAlign: 'center' }}>HẠNG</th>
-                  <th style={{ padding: '10px 14px', minWidth: '180px' }}>NHÂN SỰ</th>
-                  <th style={{ padding: '10px 14px', width: '160px', textAlign: 'right' }}>THÀNH TÍCH</th>
+                  <th style={{ padding: '10px 14px', width: '70px', textAlign: 'center' }}>HẠNG</th>
+                  <th style={{ padding: '10px 14px', minWidth: '200px' }}>NHÂN SỰ & PHÒNG BAN</th>
+                  <th style={{ padding: '10px 14px', width: '180px', textAlign: 'right' }}>THÀNH TÍCH</th>
                 </tr>
               </thead>
               <tbody>
@@ -568,52 +445,70 @@ export default function LeaderboardPage() {
                       {/* Rank Column */}
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         {rankNumber === 1 ? (
-                          <span style={{ fontSize: '15px' }}>👑</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 900, color: '#eab308', fontSize: '13px' }}>
+                            🥇 1
+                          </span>
                         ) : rankNumber === 2 ? (
-                          <span style={{ fontSize: '15px' }}>🥈</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 800, color: '#94a3b8', fontSize: '13px' }}>
+                            🥈 2
+                          </span>
                         ) : rankNumber === 3 ? (
-                          <span style={{ fontSize: '15px' }}>🥉</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 800, color: '#d97706', fontSize: '13px' }}>
+                            🥉 3
+                          </span>
                         ) : (
                           <span
                             style={{
                               display: 'inline-block',
-                              width: '24px',
+                              minWidth: '24px',
                               height: '24px',
                               lineHeight: '24px',
-                              borderRadius: '50%',
+                              padding: '0 6px',
+                              borderRadius: '12px',
                               background: rankNumber <= 10 ? 'var(--primary-subtle, rgba(59, 130, 246, 0.15))' : 'var(--bg-input)',
                               color: rankNumber <= 10 ? 'var(--primary)' : 'var(--text-muted)',
                               fontWeight: 800,
                               fontSize: '11px',
                             }}
                           >
-                            {rankNumber}
+                            #{rankNumber}
                           </span>
                         )}
                       </td>
 
-                      {/* User Column */}
+                      {/* Staff & Department Column */}
                       <td style={{ padding: '10px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <img
                             src={r.avatar_url || '/logo.png'}
                             alt=""
-                            style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                            style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: rankNumber <= 3 ? `2px solid ${rankNumber === 1 ? '#eab308' : rankNumber === 2 ? '#94a3b8' : '#d97706'}` : '1px solid var(--border)' }}
                             onError={e => { e.target.src = '/logo.png'; }}
                           />
-                          <div style={{ fontWeight: isCurrent ? 800 : 700, color: isCurrent ? 'var(--primary)' : 'var(--text)', fontSize: '13.5px' }}>
-                            {r.full_name} {isCurrent && <span style={{ fontSize: '11px', color: 'var(--primary)' }}>(Tôi)</span>}
+                          <div>
+                            <div style={{ fontWeight: isCurrent ? 800 : 700, color: isCurrent ? 'var(--primary)' : 'var(--text)', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{r.full_name}</span>
+                              {isCurrent && (
+                                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: 'var(--primary)', color: '#fff', fontWeight: 800 }}>
+                                  Tôi
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🏢 {r.department_name || 'Văn Phòng'}</span>
+                              {r.position && <span>· {r.position}</span>}
+                            </div>
                           </div>
                         </div>
                       </td>
 
                       {/* Score / Achievement Column */}
                       <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                        <div style={{ fontWeight: 800, fontSize: '13px', color: rankNumber <= 3 ? '#eab308' : 'var(--primary)' }}>
+                        <div style={{ fontWeight: 800, fontSize: '13.5px', color: rankNumber <= 3 ? (rankNumber === 1 ? '#eab308' : rankNumber === 2 ? '#94a3b8' : '#d97706') : 'var(--primary)' }}>
                           {r.displayValue}
                         </div>
                         {r.subText && (
-                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                             {r.subText}
                           </div>
                         )}
@@ -747,7 +642,7 @@ export default function LeaderboardPage() {
               <div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Vị trí xếp hạng hiện tại:</div>
                 <div style={{ fontSize: '15px', fontWeight: 800, color: viewingStaffDetail.rank <= 3 ? '#eab308' : 'var(--primary)', marginTop: '2px' }}>
-                  {viewingStaffDetail.rank === 1 ? '👑 Quán Quân (#1)' : viewingStaffDetail.rank === 2 ? '🥈 Á Quân (#2)' : viewingStaffDetail.rank === 3 ? '🥉 Hạng 3' : `Hạng #${viewingStaffDetail.rank}`}
+                  {viewingStaffDetail.rank === 1 ? '🥇 Hạng 1' : viewingStaffDetail.rank === 2 ? '🥈 Hạng 2' : viewingStaffDetail.rank === 3 ? '🥉 Hạng 3' : `Hạng #${viewingStaffDetail.rank}`}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
