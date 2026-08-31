@@ -10,8 +10,10 @@ const {
 } = require('../utils/roleScope');
 
 const TYPE_LABELS = {
-  late: 'Đi muộn', early_leave: 'Về sớm', overtime: 'Tăng ca',
-  business_trip: 'Công tác/WFH', sick_leave: 'Nghỉ ốm', annual_leave: 'Nghỉ phép', other: 'Đơn từ'
+  late: 'Đi muộn', early_leave: 'Về sớm', forgot_checkout: 'Bổ sung giờ checkout', overtime: 'Tăng ca',
+  business_trip: 'Công tác trong nước', foreign_trip: 'Công tác nước ngoài', wfh: 'Work from home',
+  sick_leave: 'Nghỉ ốm', annual_leave: 'Nghỉ phép', unpaid_leave: 'Nghỉ không lương',
+  vehicle_update: 'Đổi thông tin gửi xe', other: 'Đơn từ'
 };
 
 // GET /api/notifications

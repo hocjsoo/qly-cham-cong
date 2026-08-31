@@ -35,6 +35,7 @@ const runTtsWeeklyScheduleTests = require('./unit/ttsWeeklySchedule.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
+const runRequestHttpPipelineTests = require('./integration/requestHttpPipeline.test');
 const runTtsScheduleHttpTests = require('./integration/ttsScheduleHttp.test');
 const runServerSecurityMiddlewareTests = require('./integration/serverSecurityMiddleware.test');
 
@@ -134,6 +135,7 @@ async function runAllTests() {
     runExpertRequestApprovalTests(assert);
     runExpertTimeDateAdjusterTests(assert);
     await runControllerIntegrationTests(assert);
+    await runRequestHttpPipelineTests(assert);
     await runTtsScheduleHttpTests(assert);
     await runServerSecurityMiddlewareTests(assert);
 

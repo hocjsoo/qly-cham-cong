@@ -8,10 +8,17 @@ const {
 } = require('../utils/roleScope');
 
 // Lấy hoặc tạo balance cho user trong năm hiện tại
-const getOrCreateBalance = async (userId, year) => {
-  let bal = await LeaveBalance.findOne({ user_id: userId, year });
+const getOrCreateBalance = async (userId, year, session = null) => {
+  let query = LeaveBalance.findOne({ user_id: userId, year });
+  if (session) query = query.session(session);
+  let bal = await query;
   if (!bal) {
-    bal = await LeaveBalance.create({ user_id: userId, year });
+    if (session) {
+      const created = await LeaveBalance.create([{ user_id: userId, year }], { session });
+      bal = created[0];
+    } else {
+      bal = await LeaveBalance.create({ user_id: userId, year });
+    }
   }
   return bal;
 };
@@ -103,51 +110,49 @@ const updateBalance = async (req, res) => {
 };
 
 // Internal: Trừ ngày phép khi đơn được duyệt
-const deductLeaveOnApproval = async (userId, type, startDate, endDate) => {
-  try {
-    const year = new Date(startDate).getFullYear();
-    const bal = await getOrCreateBalance(userId, year);
+const deductLeaveOnApproval = async (userId, type, startDate, endDate, session = null) => {
+  const year = new Date(startDate).getFullYear();
+  const bal = await getOrCreateBalance(userId, year, session);
 
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date((endDate || startDate) + 'T00:00:00');
-    const days = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date((endDate || startDate) + 'T00:00:00');
+  const days = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
 
-    if (type === 'annual_leave') {
-      bal.annual_leave_used = Math.min(bal.annual_leave_total, bal.annual_leave_used + days);
-    } else if (type === 'sick_leave') {
-      bal.sick_leave_used = Math.min(bal.sick_leave_total, bal.sick_leave_used + days);
-    }
-
-    await bal.save();
-    return { success: true, days_deducted: days };
-  } catch (err) {
-    console.error('DeductLeave error:', err);
-    return { success: false };
+  if (type === 'annual_leave') {
+    bal.annual_leave_used = Math.min(bal.annual_leave_total, bal.annual_leave_used + days);
+  } else if (type === 'sick_leave') {
+    bal.sick_leave_used = Math.min(bal.sick_leave_total, bal.sick_leave_used + days);
   }
+
+  if (session) {
+    await bal.save({ session });
+  } else {
+    await bal.save();
+  }
+  return { success: true, days_deducted: days };
 };
 
 // Internal: Hoàn lại ngày phép khi đơn bị hủy hoặc hoàn tác
-const revertLeaveOnUndo = async (userId, type, startDate, endDate) => {
-  try {
-    const year = new Date(startDate).getFullYear();
-    const bal = await getOrCreateBalance(userId, year);
+const revertLeaveOnUndo = async (userId, type, startDate, endDate, session = null) => {
+  const year = new Date(startDate).getFullYear();
+  const bal = await getOrCreateBalance(userId, year, session);
 
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date((endDate || startDate) + 'T00:00:00');
-    const days = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date((endDate || startDate) + 'T00:00:00');
+  const days = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
 
-    if (type === 'annual_leave') {
-      bal.annual_leave_used = Math.max(0, bal.annual_leave_used - days);
-    } else if (type === 'sick_leave') {
-      bal.sick_leave_used = Math.max(0, bal.sick_leave_used - days);
-    }
-
-    await bal.save();
-    return { success: true, days_reverted: days };
-  } catch (err) {
-    console.error('RevertLeave error:', err);
-    return { success: false };
+  if (type === 'annual_leave') {
+    bal.annual_leave_used = Math.max(0, bal.annual_leave_used - days);
+  } else if (type === 'sick_leave') {
+    bal.sick_leave_used = Math.max(0, bal.sick_leave_used - days);
   }
+
+  if (session) {
+    await bal.save({ session });
+  } else {
+    await bal.save();
+  }
+  return { success: true, days_reverted: days };
 };
 
 module.exports = { getMyBalance, getAllBalances, updateBalance, deductLeaveOnApproval, revertLeaveOnUndo };

@@ -4,7 +4,7 @@
 // Độc lập 100% không đụng vào Database
 // ==============================================
 
-const VALID_TYPES = ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'other'];
+const VALID_TYPES = ['late', 'early_leave', 'forgot_checkout', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'];
 
 function calculateLeaveDays(startDateStr, endDateStr) {
   const start = new Date(startDateStr);

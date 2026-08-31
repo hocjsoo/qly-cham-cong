@@ -10,7 +10,7 @@ const requestSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['late', 'early_leave', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'],
+      enum: ['late', 'early_leave', 'forgot_checkout', 'overtime', 'business_trip', 'foreign_trip', 'wfh', 'sick_leave', 'annual_leave', 'unpaid_leave', 'vehicle_update', 'other'],
       required: true,
     },
     start_date: {
@@ -35,6 +35,19 @@ const requestSchema = new mongoose.Schema(
     },
     proposed_vehicle_info: {
       type: String,
+      default: null,
+    },
+    project_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Project',
+      default: null,
+    },
+    project_name: {
+      type: String,
+      default: null,
+    },
+    snapshot_before: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
     reason: {
