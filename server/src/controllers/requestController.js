@@ -6,6 +6,7 @@ const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const TimesheetLock = require('../models/TimesheetLock');
 const SystemSetting = require('../models/SystemSetting');
+const { calculateOT, calculateAttendanceMetrics, normalizeHolidayMultiplier } = require('../utils/attendanceCalculations');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval, revertLeaveOnUndo } = require('./leaveBalanceController');
 const {
@@ -292,15 +293,7 @@ const createRequest = async (req, res) => {
         });
       }
 
-      // 3. Chặn đơn quá hạn 48 giờ thực tế tính từ thời điểm checkout đề xuất [P2]
-      const diffMs = currentVnDateTime.getTime() - proposedCheckoutDateTime.getTime();
-      if (diffMs > 48 * 60 * 60 * 1000) {
-        return res.status(400).json({
-          error: `Đơn bổ sung checkout chỉ được gửi trong vòng 48 giờ sau ca làm việc. Ngày ${start_date} đã quá hạn, vui lòng liên hệ Admin để xử lý.`
-        });
-      }
-
-      // 4. Kiểm tra Attendance của ngày đó
+      // 3. Kiểm tra Attendance của ngày đó
       const existingAtt = await Attendance.findOne({ user_id: userId, date: start_date });
       if (!existingAtt || !existingAtt.check_in_time) {
         return res.status(400).json({ error: `Ngày ${start_date} chưa có dữ liệu check-in để bổ sung giờ checkout.` });
@@ -312,7 +305,7 @@ const createRequest = async (req, res) => {
         return res.status(400).json({ error: `Ngày ${start_date} đã có dữ liệu checkout lúc ${formattedOut}. Không cần gửi đơn bổ sung.` });
       }
 
-      // 5. Kiểm tra giờ checkout đề xuất so với giờ check-in thực tế
+      // 4. Kiểm tra giờ checkout đề xuất so với giờ check-in thực tế
       const checkInDate = new Date(existingAtt.check_in_time);
       const checkInH = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
       const checkInM = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
@@ -322,6 +315,14 @@ const createRequest = async (req, res) => {
       if (outMinutes <= checkInMinutes) {
         return res.status(400).json({
           error: `Giờ checkout đề xuất (${proposedCheckoutTime}) phải sau giờ check-in (${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}).`
+        });
+      }
+
+      // 5. Chặn đơn quá hạn 48 giờ sau khi đã xác thực dữ liệu ca và thứ tự giờ hợp lệ.
+      const diffMs = currentVnDateTime.getTime() - proposedCheckoutDateTime.getTime();
+      if (diffMs > 48 * 60 * 60 * 1000) {
+        return res.status(400).json({
+          error: `Đơn bổ sung checkout chỉ được gửi trong vòng 48 giờ sau ca làm việc. Ngày ${start_date} đã quá hạn, vui lòng liên hệ Admin để xử lý.`
         });
       }
     }
@@ -768,23 +769,33 @@ const approveRequest = async (req, res) => {
       // Lấy cấu hình ca làm việc từ SystemSetting [P2]
       let settingQuery = SystemSetting.findOne({ key: 'global' });
       if (activeSession && typeof settingQuery.session === 'function') settingQuery = settingQuery.session(activeSession);
+      if (settingQuery && typeof settingQuery.select === 'function') {
+        settingQuery = settingQuery.select('work_end_time ot_start_time');
+      }
+      if (settingQuery && typeof settingQuery.lean === 'function') settingQuery = settingQuery.lean();
       const systemSetting = await settingQuery || {};
       const workEndTime = systemSetting.work_end_time || '18:30';
-      const [endShiftH, endShiftM] = workEndTime.split(':').map(Number);
-      const standardShiftEndMinutes = (isNaN(endShiftH) ? 18 : endShiftH) * 60 + (isNaN(endShiftM) ? 30 : endShiftM);
+      const otStartTime = systemSetting.ot_start_time || '18:30';
 
       // Tính toán số giờ OT nếu là đơn tăng ca
       let calculatedOtHours = 0;
       if (request.type === 'overtime') {
         if (request.start_time && request.end_time) {
-          const [sH, sM] = request.start_time.split(':').map(Number);
-          const [eH, eM] = request.end_time.split(':').map(Number);
-          const diffMinutes = (eH * 60 + eM) - (sH * 60 + sM);
-          if (diffMinutes > 0) {
-            calculatedOtHours = parseFloat((diffMinutes / 60).toFixed(1));
+          const otDate = targetDates[0] || request.start_date;
+          const startClock = request.start_time.length === 5 ? `${request.start_time}:00` : request.start_time;
+          const endClock = request.end_time.length === 5 ? `${request.end_time}:00` : request.end_time;
+          const startDateTime = new Date(`${otDate}T${startClock}+07:00`);
+          const endDateTime = new Date(`${otDate}T${endClock}+07:00`);
+          calculatedOtHours = calculateOT(startDateTime, endDateTime, otStartTime);
+          if (calculatedOtHours <= 0) {
+            const err = new Error(`Khoảng tăng ca phải có thời gian làm việc sau ${otStartTime}.`);
+            err.statusCode = 400;
+            throw err;
           }
+        } else {
+          // Giữ tương thích cho đơn legacy không lưu khoảng giờ.
+          calculatedOtHours = 2.0;
         }
-        if (calculatedOtHours <= 0) calculatedOtHours = 2.0;
       }
 
       // Đồng bộ tất cả ngày trong targetDates vào Bảng Chấm Công (Attendance)
@@ -794,33 +805,26 @@ const approveRequest = async (req, res) => {
         let att = await attItemQuery;
 
         if (att) {
+          const currentWorkUnits = Number(att.work_units);
+          const holidayWorkUnits = [1.5, 2, 3].includes(currentWorkUnits)
+            ? normalizeHolidayMultiplier(currentWorkUnits)
+            : null;
+
           if (request.type === 'forgot_checkout') {
             const proposedTime = request.end_time || request.start_time || workEndTime;
             const [outH, outM] = proposedTime.split(':').map(Number);
             const checkOutDate = new Date(`${d}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
             att.check_out_time = checkOutDate;
 
-            // Tính toán tổng số giờ làm việc
-            if (att.check_in_time) {
-              const inTime = new Date(att.check_in_time).getTime();
-              const outTime = checkOutDate.getTime();
-              const diffHours = Math.max(0, (outTime - inTime) / (1000 * 60 * 60));
-              att.total_hours = parseFloat(diffHours.toFixed(2));
-            } else {
-              att.total_hours = 8.5;
-            }
-
-            // Tính toán Về sớm hoặc OT theo cấu hình ca SystemSetting [P2]
-            const outMinutes = outH * 60 + outM;
-            if (outMinutes <= standardShiftEndMinutes) {
-              att.ot_hours = 0;
-              att.is_early_leave = outMinutes < standardShiftEndMinutes;
-              att.early_minutes = Math.max(0, standardShiftEndMinutes - outMinutes);
-            } else {
-              att.is_early_leave = false;
-              att.early_minutes = 0;
-              att.ot_hours = parseFloat(((outMinutes - standardShiftEndMinutes) / 60).toFixed(1));
-            }
+            // Tạm thời tổng giờ vẫn là checkout - check-in (chưa trừ nghỉ trưa).
+            const metrics = calculateAttendanceMetrics(att.check_in_time, checkOutDate, {
+              workEndTime,
+              otStartTime,
+            });
+            att.total_hours = metrics.totalHours;
+            att.ot_hours = metrics.otHours;
+            att.is_early_leave = metrics.isEarlyLeave;
+            att.early_minutes = metrics.earlyMinutes;
 
             att.status = 'present';
             if (att.work_units == null || att.work_units === 0) {
@@ -834,13 +838,13 @@ const approveRequest = async (req, res) => {
             att.late_tier = 'on_time';
             att.is_early_leave = false;
             att.early_minutes = 0;
-            att.work_units = 1.0;
-            att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type] || request.type}: ${request.reason}) - Hoàn đủ 1.0 công`;
+            att.work_units = holidayWorkUnits ?? 1.0;
+            att.notes = `Đã duyệt đơn (${TYPE_LABELS[request.type] || request.type}: ${request.reason}) - Hoàn ${holidayWorkUnits ?? 1.0} công`;
             await att.save(activeSession ? { session: activeSession } : undefined);
           } else if (['business_trip', 'foreign_trip'].includes(request.type)) {
             att.check_in_type = 'site';
             att.status = 'present';
-            att.work_units = 1.0;
+            att.work_units = holidayWorkUnits ?? 1.0;
             att.is_late = false;
             att.late_minutes = 0;
             att.late_tier = 'on_time';
@@ -850,7 +854,7 @@ const approveRequest = async (req, res) => {
           } else if (request.type === 'wfh') {
             att.check_in_type = 'wfh';
             att.status = 'present';
-            att.work_units = 1.0;
+            att.work_units = holidayWorkUnits ?? 1.0;
             att.is_late = false;
             att.late_minutes = 0;
             att.late_tier = 'on_time';
@@ -876,8 +880,9 @@ const approveRequest = async (req, res) => {
             att.notes = `Đã duyệt nghỉ không lương (KL: ${request.reason})`;
             await att.save(activeSession ? { session: activeSession } : undefined);
           } else if (request.type === 'overtime') {
-            att.ot_hours = (att.ot_hours || 0) + calculatedOtHours;
-            att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt tăng ca OT +${calculatedOtHours}h (${request.reason})`;
+            // Giờ OT được Admin duyệt là giá trị cuối cùng, không cộng lặp với OT tự động.
+            att.ot_hours = calculatedOtHours;
+            att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt tăng ca OT ${calculatedOtHours}h (${request.reason})`;
             await att.save(activeSession ? { session: activeSession } : undefined);
           }
         } else {

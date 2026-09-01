@@ -16,6 +16,12 @@ const SYMBOL_TO_STATUS_MAP = {
   '0.75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '0,5x': { total_hours: 4, work_units: 0.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '0.5x': { total_hours: 4, work_units: 0.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
+  '1,5x': { total_hours: 8, work_units: 1.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,5x' },
+  '1.5x': { total_hours: 8, work_units: 1.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,5x' },
+  '2x': { total_hours: 8, work_units: 2, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 2x' },
+  '2.0x': { total_hours: 8, work_units: 2, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 2x' },
+  '3x': { total_hours: 8, work_units: 3, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 3x' },
+  '3.0x': { total_hours: 8, work_units: 3, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 3x' },
   'CT1': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác trong nước (CT1)' },
   'CT2': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'site', status: 'present', notes: 'Công tác nước ngoài (CT2)' },
   'WFH': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'wfh', status: 'present', notes: 'Work from home (WFH)' },
@@ -24,6 +30,44 @@ const SYMBOL_TO_STATUS_MAP = {
   'KL': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Nghỉ không lương (KL)' },
   'K': { total_hours: 0, work_units: 0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'absent', notes: 'Khác (K)' },
   'L': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
+};
+
+const HOLIDAY_WORK_MULTIPLIERS = new Set([1.5, 2, 3]);
+const formatWorkUnitSymbol = workUnits => {
+  const normalized = Number(workUnits);
+  if (normalized === 1.5) return '1,5x';
+  if (normalized === 2) return '2x';
+  if (normalized === 3) return '3x';
+  return null;
+};
+
+// Resolve structured attendance fields before falling back to legacy free-text notes.
+// This prevents stale notes (for example an old WFH reason) from overriding a later
+// Admin-approved status/work_units value.
+const resolveStructuredTimesheetSymbol = (attendance, isHoliday = false) => {
+  if (!attendance) return isHoliday ? 'L' : '';
+
+  const workUnits = Number(attendance.work_units);
+  const notes = String(attendance.notes || '').toUpperCase();
+  const hasRecordedWork = Boolean(attendance.check_in_time) || attendance.status === 'present';
+  const multiplierSymbol = HOLIDAY_WORK_MULTIPLIERS.has(workUnits)
+    ? formatWorkUnitSymbol(workUnits)
+    : null;
+
+  if (multiplierSymbol && (attendance.status !== 'holiday' || hasRecordedWork)) return multiplierSymbol;
+  if (attendance.status === 'holiday') return 'L';
+  if (attendance.status === 'leave') {
+    if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) return 'KL';
+    if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) return 'O';
+    return 'P';
+  }
+  if (attendance.status === 'half_day' || workUnits === 0.5) return '0,5x';
+  if (attendance.check_in_type === 'client') return 'CT2';
+  if (attendance.check_in_type === 'site') return 'CT1';
+  if (attendance.check_in_type === 'wfh') return 'WFH';
+  if (workUnits === 0.75) return '0,75x';
+  if (workUnits === 1) return 'x';
+  return null;
 };
 
 // Helper kiểm tra topology MongoDB:
@@ -78,7 +122,7 @@ const getFullMatrix = async (req, res) => {
           { end_date: { $gte: startDateStr, $lte: endDateStr } },
           { date: { $lte: startDateStr }, end_date: { $gte: endDateStr } }
         ]
-      }).lean(),
+      }).select('name date end_date is_paid work_multiplier').lean(),
     ]);
 
     // Xây dựng bản đồ ngày nghỉ lễ trong tháng
@@ -105,7 +149,7 @@ const getFullMatrix = async (req, res) => {
       }
     });
 
-    const workEndTime = settings?.work_end_time || '17:30';
+    const workEndTime = settings?.work_end_time || '18:30';
     const [endH, endM] = workEndTime.split(':').map(Number);
     const endMinutesLimit = endH * 60 + endM;
 
@@ -136,6 +180,9 @@ const getFullMatrix = async (req, res) => {
         isHoliday: Boolean(hol),
         holidayName: hol ? hol.name : null,
         isPaidHoliday: hol ? Boolean(hol.is_paid) : false,
+        holidayWorkMultiplier: hol
+          ? (HOLIDAY_WORK_MULTIPLIERS.has(Number(hol.work_multiplier)) ? Number(hol.work_multiplier) : 1.5)
+          : null,
       });
     }
 
@@ -205,48 +252,38 @@ const getFullMatrix = async (req, res) => {
         // Source of Truth: Dữ liệu chấm công hiện tại trong Attendance (bao gồm cả khi Admin đã sửa hoặc đơn từ mới duyệt)
         if (att) {
           const notes = (att.notes || '').toUpperCase();
-          if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) {
-            symbol = 'CT2';
-            ct_foreign += 1;
-          } else if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || notes.includes('[CT1]') || (att.check_in_type === 'site')) {
-            symbol = 'CT1';
-            ct_domestic += 1;
-          } else if (att.check_in_type === 'wfh' || notes.includes('WFH') || notes.includes('[WFH]')) {
-            symbol = 'WFH';
-            wfh += 1;
-          } else if (att.status === 'leave' || notes.includes('NGHỈ PHÉP') || notes.includes('(P)') || notes.includes('[P]')) {
-            symbol = 'P';
-            annual_leave += 1;
-          } else if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) {
-            symbol = 'O';
-            sick_leave += 1;
-          } else if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) {
-            symbol = 'KL';
-            unpaid_leave += 1;
-          } else if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) {
-            symbol = 'K';
-            other_leave += 1;
-          } else if (att.status === 'holiday' || notes.includes('NGHỈ LỄ') || notes.includes('(L)') || notes.includes('[L]')) {
-            symbol = 'L';
-          } else if (att.work_units === 0.75 || notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) {
-            symbol = '0,75x';
-            nlv_office += 0.75;
-          } else if (att.work_units === 0.5 || att.status === 'half_day' || notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) {
-            symbol = '0,5x';
-            nlv_office += 0.5;
-          } else if (notes.includes('[X]') || att.work_units === 1.0 || att.total_hours >= 7.5) {
-            symbol = 'x';
-            nlv_office += 1;
-          } else if (att.total_hours >= 5.5) {
-            symbol = '0,75x';
-            nlv_office += 0.75;
-          } else if (att.total_hours >= 3.5) {
-            symbol = '0,5x';
-            nlv_office += 0.5;
-          } else if (att.total_hours > 0) {
-            symbol = '0,5x';
-            nlv_office += 0.5;
+          symbol = resolveStructuredTimesheetSymbol(att, hd.isHoliday);
+
+          // Backward compatibility for legacy rows that encoded their category
+          // only in notes. Structured status/work_units above always wins.
+          if (symbol === null) {
+            if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) symbol = 'CT2';
+            else if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || notes.includes('[CT1]')) symbol = 'CT1';
+            else if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) symbol = 'O';
+            else if (notes.includes('NGHỈ PHÉP') || notes.includes('(P)') || notes.includes('[P]')) symbol = 'P';
+            else if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) symbol = 'KL';
+            else if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) symbol = 'K';
+            else if (notes.includes('NGHỈ LỄ') || notes.includes('(L)') || notes.includes('[L]')) symbol = 'L';
+            else if (notes.includes('WFH') || notes.includes('[WFH]')) symbol = 'WFH';
+            else if (notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) symbol = '0,75x';
+            else if (notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) symbol = '0,5x';
+            else if (notes.includes('[X]') || att.total_hours >= 7.5) symbol = 'x';
+            else if (att.total_hours >= 5.5) symbol = '0,75x';
+            else if (att.total_hours > 0) symbol = '0,5x';
+            else symbol = '';
           }
+
+          if (symbol === 'CT2') ct_foreign += 1;
+          else if (symbol === 'CT1') ct_domestic += 1;
+          else if (symbol === 'WFH') wfh += 1;
+          else if (symbol === 'P') annual_leave += 1;
+          else if (symbol === 'O') sick_leave += 1;
+          else if (symbol === 'KL') unpaid_leave += 1;
+          else if (symbol === 'K') other_leave += 1;
+          else if (['1,5x', '2x', '3x'].includes(symbol)) nlv_office += Number(att.work_units) || 0;
+          else if (symbol === 'x') nlv_office += 1;
+          else if (symbol === '0,75x') nlv_office += 0.75;
+          else if (symbol === '0,5x') nlv_office += 0.5;
         } else if (hd.isHoliday) {
           // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
           symbol = 'L';
@@ -272,6 +309,7 @@ const getFullMatrix = async (req, res) => {
           check_in_time: formatTimeHHMM(att?.check_in_time),
           check_out_time: formatTimeHHMM(att?.check_out_time),
           total_hours: att?.total_hours || 0,
+          work_units: Number(att?.work_units) || 0,
           ot_hours: att?.ot_hours || 0,
           is_late: Boolean(att?.is_late),
           late_minutes: att?.late_minutes || 0,
@@ -403,7 +441,7 @@ const overrideCell = async (req, res) => {
   // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
   if (rawSymbol !== '' && !SYMBOL_TO_STATUS_MAP[rawSymbol]) {
     return res.status(400).json({
-      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận các ký hiệu: x, 0,75x, 0,5x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
+      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận: x, 0,75x, 0,5x, 1,5x, 2x, 3x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
     });
   }
 
@@ -1000,4 +1038,7 @@ module.exports = {
   overrideCell,
   getAuditLogs,
   getAuditLogDetail,
+  SYMBOL_TO_STATUS_MAP,
+  formatWorkUnitSymbol,
+  resolveStructuredTimesheetSymbol,
 };

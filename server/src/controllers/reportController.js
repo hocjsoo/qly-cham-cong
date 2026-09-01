@@ -86,6 +86,7 @@ const getMonthlyReport = async (req, res) => {
       const totalDays = recs.length;
       const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
       const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const totalWorkUnits = parseFloat(recs.reduce((s, r) => s + (Number(r.work_units) || 0), 0).toFixed(2));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
       const leaveDays = leaves.length;
 
@@ -101,6 +102,7 @@ const getMonthlyReport = async (req, res) => {
         leave_days: leaveDays,
         total_hours: totalHours,
         ot_hours: otHours,
+        total_work_units: totalWorkUnits,
         total_late_minutes: totalLateMinutes,
       };
     });
@@ -111,6 +113,7 @@ const getMonthlyReport = async (req, res) => {
       total_attendance_days: report.reduce((s, r) => s + r.total_days, 0),
       total_hours: parseFloat(report.reduce((s, r) => s + r.total_hours, 0).toFixed(1)),
       total_ot_hours: parseFloat(report.reduce((s, r) => s + r.ot_hours, 0).toFixed(1)),
+      total_work_units: parseFloat(report.reduce((s, r) => s + r.total_work_units, 0).toFixed(2)),
       total_late_cases: report.reduce((s, r) => s + r.late_days, 0),
     };
 
@@ -320,9 +323,12 @@ const getPayroll = async (req, res) => {
       const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
 
-      // Tính ngày công quy đổi
+      // work_units là nguồn dữ liệu có cấu trúc cho ngày công, bao gồm hệ số
+      // ngày lễ 1.5x/2x/3x. Không suy ngược ngày công từ số giờ làm.
       const regularHours = Math.max(0, totalHours - otHours);
-      const attendanceDays = parseFloat((regularHours / WORK_HOURS_PER_DAY).toFixed(1));
+      const attendanceDays = parseFloat(recs.reduce((sum, record) => (
+        sum + (Number(record.work_units) || 0)
+      ), 0).toFixed(2));
       const otEquivalentDays = parseFloat((otHours * OT_MULTIPLIER / WORK_HOURS_PER_DAY).toFixed(1));
 
       // Phạt muộn: muộn nhẹ(1-10p) = 0.25 ngày, muộn(11-30p) = 0.5 ngày, muộn nhiều(>30p) = 1 ngày
@@ -410,6 +416,7 @@ const getIndividualDetailReport = async (req, res) => {
     let lateMinutes = 0;
     let earlyCount = 0;
     let earlyMinutes = 0;
+    let totalWorkUnits = 0;
 
     const leaveCounts = { V: 0, OM: 0, TS: 0, R: 0, Ro: 0, P: 0, F: 0, CO: 0, CD: 0, H: 0, CT: 0, Le: 0 };
 
@@ -442,6 +449,9 @@ const getIndividualDetailReport = async (req, res) => {
       const hrs = att?.total_hours || 0;
       const ot = att?.ot_hours || 0;
       const lateM = att?.late_minutes || 0;
+      const workUnits = Number(att?.work_units) || 0;
+
+      totalWorkUnits += workUnits;
 
       if (isWeekend) workHoursWeekend += hrs;
       else workHoursNormal += hrs;
@@ -482,6 +492,7 @@ const getIndividualDetailReport = async (req, res) => {
         lateMins: lateM > 0 ? lateM : '',
         earlyMins: '',
         workCredit: hrs > 0 ? (hrs >= 7.5 ? 8 : hrs >= 5.5 ? 6.5 : hrs >= 3.5 ? 4 : hrs) : (hrs === 0 ? 0 : ''),
+        workUnits,
         totalHours: hrs,
         ot1: ot > 0 && !isWeekend ? ot : '',
         ot2: ot > 0 && isWeekend ? ot : '',
@@ -505,6 +516,7 @@ const getIndividualDetailReport = async (req, res) => {
         work_hours_normal: parseFloat(workHoursNormal.toFixed(1)),
         work_hours_weekend: parseFloat(workHoursWeekend.toFixed(1)),
         total_work_hours: parseFloat(totalWorkHours.toFixed(1)),
+        total_work_units: parseFloat(totalWorkUnits.toFixed(2)),
         ot1_hours: parseFloat(ot1Hours.toFixed(1)),
         ot2_hours: parseFloat(ot2Hours.toFixed(1)),
         ot3_hours: parseFloat(ot3Hours.toFixed(1)),
@@ -826,4 +838,3 @@ module.exports = {
   getIndividualDetailReport,
   getLeaderboard,
 };
-

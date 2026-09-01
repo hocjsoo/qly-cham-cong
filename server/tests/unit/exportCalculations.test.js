@@ -64,6 +64,7 @@ function aggregateMonthlyStaffTimesheet(dailyRecords) {
 
 async function runExportTests(assert) {
   console.log('\n📑 [TEST SUITE: EXCEL EXPORT & SUMMARY CALCULATIONS]');
+  const productionGetTimesheetSymbol = exportController.__test.getTimesheetSymbol;
 
   // TC-EXP-01: Ánh xạ ký hiệu theo số giờ công làm việc
   assert(getTimesheetSymbol({ total_hours: 8.0 }) === 'x', 'TC-EXP-01.1: 8.0h -> Ký hiệu "x" (đủ 1 ngày công)');
@@ -95,6 +96,16 @@ async function runExportTests(assert) {
   assert(summary.wfh === 1 && summary.ct_domestic === 1 && summary.annual_leave === 1 && summary.unpaid_leave === 1,
     'TC-EXP-03.2: Đúng 1 ngày WFH, 1 CT1, 1 phép năm (P), 1 nghỉ không lương (KL)');
   assert(summary.totalWorkingDays === 5.5, 'TC-EXP-03.3: Tổng công hưởng lương tính cả phép & WFH = 5.5 ngày công');
+  assert(
+    productionGetTimesheetSymbol({ status: 'present', work_units: 1.5 }) === '1,5x'
+      && productionGetTimesheetSymbol({ status: 'present', work_units: 2 }) === '2x'
+      && productionGetTimesheetSymbol({ status: 'present', work_units: 3 }) === '3x',
+    'TC-EXP-03.4: Excel production xuất đúng ký hiệu công ngày lễ 1,5x / 2x / 3x'
+  );
+  assert(
+    productionGetTimesheetSymbol({ status: 'leave', work_units: 1, check_in_type: 'office', notes: 'Sửa WFH thành nghỉ phép' }) === 'P',
+    'TC-EXP-03.5: Excel production ưu tiên status cấu trúc, không hiển thị nhầm WFH từ note audit cũ'
+  );
 
   const workbookInput = {
     users: [{

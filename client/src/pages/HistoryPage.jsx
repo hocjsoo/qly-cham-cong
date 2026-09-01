@@ -1,7 +1,7 @@
 // src/pages/HistoryPage.jsx
 // Lịch sử chấm công — Xem theo Tuần / Tháng / Năm, Chế độ Lịch Ô (Calendar Grid View), Xem Chi Tiết Ngày, Admin Override
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, Info, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -30,12 +30,23 @@ const TYPE_MAP = {
   office: '🏢 Văn phòng', site: '🏗️ Công trình', client: '👔 Khách hàng', wfh: '🏠 WFH',
 };
 const TYPE_SHORT = { office: 'VP', site: 'CT', client: 'KH', wfh: 'WFH' };
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+const normalizeHolidayMultiplier = value => (
+  HOLIDAY_WORK_MULTIPLIERS.includes(Number(value)) ? Number(value) : 1.5
+);
+const formatHolidayWorkSymbol = value => {
+  const multiplier = normalizeHolidayMultiplier(value);
+  return multiplier === 1.5 ? '1,5x' : `${multiplier}x`;
+};
 
 // Ký hiệu bảng chấm công chuẩn theo mẫu ET_Staff 2026
 const TIMESHEET_SYMBOLS = [
   { code: 'x', label: 'Đủ công (1.0)', color: 'var(--green)' },
   { code: '0.75x', label: '3/4 công', color: 'var(--green)' },
   { code: '0.5x', label: '1/2 công', color: 'var(--yellow)' },
+  { code: '1,5x', label: 'Ngày lễ (1.5)', color: 'var(--holiday-work)' },
+  { code: '2x', label: 'Ngày lễ (2.0)', color: 'var(--holiday-work)' },
+  { code: '3x', label: 'Ngày lễ (3.0)', color: 'var(--holiday-work)' },
   { code: 'CT1', label: 'CT Trong nước', color: 'var(--blue)' },
   { code: 'CT2', label: 'CT Nước ngoài', color: 'var(--blue)' },
   { code: 'WFH', label: 'Work form home', color: 'var(--primary)' },
@@ -47,6 +58,7 @@ const TIMESHEET_SYMBOLS = [
 
 function getTimesheetSymbol(rec) {
   if (!rec) return '—';
+  if (HOLIDAY_WORK_MULTIPLIERS.includes(Number(rec.work_units))) return formatHolidayWorkSymbol(rec.work_units);
   if (rec.check_in_type === 'wfh') return 'WFH';
   if (rec.check_in_type === 'site') return 'CT1';
   if (rec.check_in_type === 'client') return 'CT2';
@@ -82,7 +94,7 @@ export default function HistoryPage() {
   // Holidays list & modal management
   const [holidays, setHolidays] = useState([]);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
-  const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', note: '' });
+  const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', work_multiplier: 1.5, note: '' });
   const [submittingHoliday, setSubmittingHoliday] = useState(false);
 
   // Policy Info Card Toggle
@@ -96,6 +108,7 @@ export default function HistoryPage() {
   const [settings, setSettings] = useState({
     work_start_time: '09:00',
     work_end_time: '18:30',
+    ot_start_time: '18:30',
     minor_late_mins: 30,
     medium_late_mins: 60,
   });
@@ -109,6 +122,7 @@ export default function HistoryPage() {
         setSettings({
           work_start_time: r.data.work_start_time || '09:00',
           work_end_time: r.data.work_end_time || '18:30',
+          ot_start_time: r.data.ot_start_time || '18:30',
           minor_late_mins: r.data.minor_late_mins ?? 30,
           medium_late_mins: r.data.medium_late_mins ?? 60,
         });
@@ -120,17 +134,32 @@ export default function HistoryPage() {
     api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, [year]);
 
+  const holidayByDate = useMemo(() => {
+    const lookup = new Map();
+    holidays.forEach(holiday => {
+      const start = new Date(`${holiday.date}T00:00:00Z`);
+      const end = new Date(`${holiday.end_date || holiday.date}T00:00:00Z`);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return;
+      let daysMapped = 0;
+      for (let cursor = start; cursor <= end && daysMapped < 370; cursor = new Date(cursor.getTime() + 86400000)) {
+        lookup.set(cursor.toISOString().slice(0, 10), holiday);
+        daysMapped += 1;
+      }
+    });
+    return lookup;
+  }, [holidays]);
+
   useEffect(() => {
     fetchHolidays();
   }, [fetchHolidays]);
 
   const handleOpenCreateHoliday = (dateStr) => {
-    setHolidayForm({ id: null, name: '', date: dateStr, end_date: dateStr, note: '' });
+    setHolidayForm({ id: null, name: '', date: dateStr, end_date: dateStr, work_multiplier: 1.5, note: '' });
     setShowHolidayModal(true);
   };
 
   const handleOpenEditHoliday = (hObj) => {
-    setHolidayForm({ id: hObj._id, name: hObj.name, date: hObj.date, end_date: hObj.end_date || hObj.date, note: hObj.note || '' });
+    setHolidayForm({ id: hObj._id, name: hObj.name, date: hObj.date, end_date: hObj.end_date || hObj.date, work_multiplier: normalizeHolidayMultiplier(hObj.work_multiplier), note: hObj.note || '' });
     setShowHolidayModal(true);
   };
 
@@ -139,17 +168,25 @@ export default function HistoryPage() {
       toast.error('Vui lòng nhập tên ngày lễ và ngày bắt đầu');
       return;
     }
+    const workMultiplier = Number(holidayForm.work_multiplier);
+    if (!HOLIDAY_WORK_MULTIPLIERS.includes(workMultiplier)) {
+      toast.error('Hệ số công ngày lễ không hợp lệ');
+      return;
+    }
     setSubmittingHoliday(true);
     try {
-      if (holidayForm.id) {
-        await api.delete(`/holidays/${holidayForm.id}`);
-      }
-      await api.post('/holidays', {
+      const payload = {
         name: holidayForm.name,
         date: holidayForm.date,
         end_date: holidayForm.end_date || holidayForm.date,
+        work_multiplier: workMultiplier,
         note: holidayForm.note,
-      });
+      };
+      if (holidayForm.id) {
+        await api.put(`/holidays/${holidayForm.id}`, payload);
+      } else {
+        await api.post('/holidays', payload);
+      }
       toast.success('Đã cập nhật ngày nghỉ lễ & phát thông báo toàn công ty! 🎉');
       setShowHolidayModal(false);
       fetchHolidays();
@@ -236,7 +273,7 @@ export default function HistoryPage() {
   };
 
   const adjustTimeString = (timeStr, deltaMinutes) => {
-    if (!timeStr) timeStr = '08:30';
+    if (!timeStr) timeStr = '09:00';
     const parts = timeStr.split(':').map(Number);
     let totalMins = (parts[0] || 0) * 60 + (parts[1] || 0) + deltaMinutes;
     if (totalMins < 0) totalMins = 0;
@@ -246,7 +283,7 @@ export default function HistoryPage() {
     return `${hh}:${mm}`;
   };
 
-  const computeLiveSummary = (inTime, outTime, workEndTime = '18:30') => {
+  const computeLiveSummary = (inTime, outTime, workEndTime = '18:30', otStartTime = '18:30') => {
     if (!inTime || !outTime) return null;
     const [inH, inM] = inTime.split(':').map(Number);
     const [outH, outM] = outTime.split(':').map(Number);
@@ -256,19 +293,19 @@ export default function HistoryPage() {
     const diffMins = outMins - inMins;
     const totalHours = parseFloat((diffMins / 60).toFixed(1));
 
-    const [endH, endM] = (workEndTime || '18:30').split(':').map(Number);
-    const endMins = endH * 60 + endM;
+    const [otH, otM] = (otStartTime || '18:30').split(':').map(Number);
+    const otStartMins = otH * 60 + otM;
     let otHours = 0;
-    if (outMins > endMins) {
-      otHours = parseFloat(((outMins - endMins) / 60).toFixed(1));
+    if (outMins > otStartMins) {
+      otHours = parseFloat(((outMins - otStartMins) / 60).toFixed(1));
     }
     return { totalHours, otHours };
   };
 
   const handleOpenOverride = (rec) => {
     setOverrideRecord(rec);
-    const inTime = extractVNTime(rec.check_in_time) || '08:30';
-    const outTime = extractVNTime(rec.check_out_time) || '17:30';
+    const inTime = extractVNTime(rec.check_in_time) || '09:00';
+    const outTime = extractVNTime(rec.check_out_time) || '18:30';
     setOverrideForm({
       date: rec.date || (rec.check_in_time ? new Date(rec.check_in_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''),
       check_in_time: inTime,
@@ -632,9 +669,11 @@ export default function HistoryPage() {
                     const dayRecs = item.records || [];
                     const rec = dayRecs[0];
                     const hasAtt = dayRecs.length > 0;
+                    const workedRec = dayRecs.find(record => Boolean(record.check_in_time)) || rec;
+                    const hasWorked = Boolean(workedRec?.check_in_time);
                     const isLate = dayRecs.some(r => r.is_late);
                     const isOt = dayRecs.some(r => r.ot_hours > 0);
-                    const holidayObj = holidays.find(h => item.dateStr >= h.date && item.dateStr <= (h.end_date || h.date));
+                    const holidayObj = holidayByDate.get(item.dateStr);
                     const isHoliday = Boolean(holidayObj);
 
                     let bg = 'var(--bg-raised)';
@@ -671,7 +710,11 @@ export default function HistoryPage() {
                       >
                         <span style={{ fontSize: '13px', fontWeight: 700, color: textColor }}>{item.day}</span>
 
-                        {isHoliday ? (
+                        {isHoliday && hasWorked ? (
+                          <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--holiday-work)', marginTop: '2px' }} title={`${holidayObj?.name}: ${formatHolidayWorkSymbol(workedRec?.work_units || holidayObj?.work_multiplier)}`}>
+                            {getTimesheetSymbol(workedRec)} {isOt && '🔥'}
+                          </div>
+                        ) : isHoliday ? (
                           <div style={{ fontSize: '9px', fontWeight: 700, color: '#8b5cf6', marginTop: '2px' }} title={holidayObj?.name}>
                             🏖️ {holidayObj?.name?.slice(0, 8)}..
                           </div>
@@ -807,7 +850,7 @@ export default function HistoryPage() {
             </div>
 
             {(() => {
-              const currentHoliday = holidays.find(h => selectedDayDate >= h.date && selectedDayDate <= (h.end_date || h.date));
+              const currentHoliday = holidayByDate.get(selectedDayDate);
               const dayRecs = records.filter(r => (r.date === selectedDayDate || r.check_in_time?.startsWith(selectedDayDate)));
 
               return (
@@ -822,6 +865,9 @@ export default function HistoryPage() {
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                         Áp dụng: <strong style={{ color: 'var(--text)' }}>{currentHoliday.date}</strong> {currentHoliday.end_date && currentHoliday.end_date !== currentHoliday.date ? `→ ${currentHoliday.end_date}` : ''}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--holiday-work)', fontWeight: 800 }}>
+                        Đi làm ngày lễ: {formatHolidayWorkSymbol(currentHoliday.work_multiplier)} công
                       </div>
 
                       {/* Full Pre-formatted Announcement Content */}
@@ -958,7 +1004,12 @@ export default function HistoryPage() {
 
       {/* Admin Override Sheet */}
       {overrideRecord && (() => {
-        const liveStats = computeLiveSummary(overrideForm.check_in_time, overrideForm.check_out_time, settings?.work_end_time || '18:30');
+        const liveStats = computeLiveSummary(
+          overrideForm.check_in_time,
+          overrideForm.check_out_time,
+          settings?.work_end_time || '18:30',
+          settings?.ot_start_time || '18:30'
+        );
 
         const shiftFormDate = (offsetDays) => {
           const base = overrideForm.date || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
@@ -1067,11 +1118,11 @@ export default function HistoryPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {[
-                    { label: '🏢 Chuẩn 08:30 - 17:30 (8h)', in: '08:30', out: '17:30', late: false },
+                    { label: '🏢 Chuẩn 09:00 - 18:30', in: '09:00', out: '18:30', late: false },
                     { label: '🏢 Chuẩn 09:00 - 18:30 (ET)', in: '09:00', out: '18:30', late: false },
-                    { label: '🔥 Tăng ca 08:30 - 20:00', in: '08:30', out: '20:00', late: false },
-                    { label: '🌓 Sáng 08:30 - 12:00', in: '08:30', out: '12:00', late: false },
-                    { label: '🌔 Chiều 13:30 - 17:30', in: '13:30', out: '17:30', late: false },
+                    { label: '🔥 Tăng ca 09:00 - 20:00', in: '09:00', out: '20:00', late: false },
+                    { label: '🌓 Sáng 09:00 - 12:00', in: '09:00', out: '12:00', late: false },
+                    { label: '🌔 Chiều 13:30 - 18:30', in: '13:30', out: '18:30', late: false },
                   ].map((p, idx) => (
                     <button
                       key={idx}
@@ -1355,6 +1406,20 @@ export default function HistoryPage() {
                 </h3>
               </div>
               <button onClick={() => setShowHolidayModal(false)} className="btn btn--ghost" style={{ padding: '4px 8px' }}><X size={18} /></button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="history-holiday-work-multiplier">Hệ số công khi đi làm ngày lễ</label>
+              <select
+                id="history-holiday-work-multiplier"
+                className="form-select"
+                value={normalizeHolidayMultiplier(holidayForm.work_multiplier)}
+                onChange={e => setHolidayForm({ ...holidayForm, work_multiplier: Number(e.target.value) })}
+              >
+                {HOLIDAY_WORK_MULTIPLIERS.map(multiplier => (
+                  <option key={multiplier} value={multiplier}>{formatHolidayWorkSymbol(multiplier)} công</option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">

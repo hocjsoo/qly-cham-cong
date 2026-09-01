@@ -773,19 +773,23 @@ export default function RequestsPage() {
 
                       <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                         {item.selfie_url ? (
-                          <div
+                          <button
+                            type="button"
+                            aria-label={`Xem ảnh selfie của ${empName}`}
                             onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${empName} (${formatDate(item.date)})` })}
-                            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }}
+                            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, padding: 0, border: 0, background: 'transparent', borderRadius: '12px' }}
                           >
                             <img
                               src={item.selfie_url}
                               alt="Selfie"
+                              loading="lazy"
+                              decoding="async"
                               style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}` }}
                             />
                             <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
                               <ZoomIn size={10} /> Xem
                             </div>
-                          </div>
+                          </button>
                         ) : (
                           <div style={{ width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)', color: 'var(--text-muted)', fontSize: '10.5px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '6px', flexShrink: 0, border: '1px dashed var(--border)' }}>
                             <Camera size={18} style={{ marginBottom: '2px' }} />
@@ -1021,13 +1025,21 @@ export default function RequestsPage() {
                       {/* Attachment Photo Thumbnail */}
                       {r.attachment_url && (
                         <div style={{ margin: '8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <img
-                            src={r.attachment_url}
-                            alt="Minh chứng"
+                          <button
+                            type="button"
+                            aria-label={`Xem ảnh minh chứng đính kèm của ${displayName}`}
                             onClick={() => setFullAvatarImage({ url: r.attachment_url, title: `Minh chứng đính kèm: ${displayName}` })}
-                            style={{ width: '64px', height: '64px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--primary)', cursor: 'pointer' }}
+                            style={{ width: '64px', height: '64px', padding: 0, borderRadius: '10px', border: '2px solid var(--primary)', background: 'transparent', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
                             title="Click để phóng to ảnh"
-                          />
+                          >
+                            <img
+                              src={r.attachment_url}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </button>
                           <div style={{ fontSize: '11.5px', color: 'var(--primary)', fontWeight: 600 }}>
                             📸 Ảnh minh chứng đính kèm (Click để xem)
                           </div>
@@ -1442,13 +1454,20 @@ export default function RequestsPage() {
               </label>
 
               {attachmentUrl ? (
-                <div style={{ position: 'relative', display: 'inline-block', marginTop: '4px' }}>
+                <button
+                  type="button"
+                  aria-label="Xem lớn ảnh minh chứng đang chọn"
+                  onClick={() => setFullAvatarImage({ url: attachmentUrl, title: 'Ảnh minh chứng đang chọn' })}
+                  style={{ position: 'relative', display: 'inline-block', marginTop: '4px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer', borderRadius: '10px' }}
+                >
                   <img
                     src={attachmentUrl}
-                    alt="Preview"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
                     style={{ width: '84px', height: '84px', borderRadius: '10px', objectFit: 'cover', border: '2px solid var(--primary)' }}
                   />
-                </div>
+                </button>
               ) : (
                 <label style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
@@ -1685,8 +1704,7 @@ export default function RequestsPage() {
       {/* 9. Lightbox Photo View */}
       {fullAvatarImage && (
         <ImageLightbox
-          src={fullAvatarImage.url}
-          alt={fullAvatarImage.title}
+          image={fullAvatarImage}
           onClose={() => setFullAvatarImage(null)}
         />
       )}

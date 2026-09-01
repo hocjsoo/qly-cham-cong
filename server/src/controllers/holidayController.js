@@ -2,22 +2,43 @@
 const Holiday = require('../models/Holiday');
 const Notification = require('../models/Notification');
 
+const ALLOWED_WORK_MULTIPLIERS = new Set([1.5, 2, 3]);
+const normalizeHolidayMultiplier = value => {
+  const parsed = Number(value);
+  return ALLOWED_WORK_MULTIPLIERS.has(parsed) ? parsed : null;
+};
+
 // GET /api/holidays
 const getHolidays = async (req, res) => {
   try {
     const year = parseInt(req.query.year) || new Date().getFullYear();
     const month = req.query.month ? String(req.query.month).padStart(2, '0') : null;
-    let query = { date: { $regex: `^${year}` } };
-    if (month) {
-      query = {
-        $or: [
-          { date: { $regex: `^${year}-${month}` } },
-          { end_date: { $regex: `^${year}-${month}` } }
-        ]
+    const periodStart = month ? `${year}-${month}-01` : `${year}-01-01`;
+    const periodEnd = month
+      ? `${year}-${month}-${String(new Date(year, Number(month), 0).getDate()).padStart(2, '0')}`
+      : `${year}-12-31`;
+    // Match every holiday range that overlaps the requested period. These range
+    // predicates can use the date/end_date indexes and avoid per-document regex scans.
+    const query = {
+      $or: [
+        { date: { $gte: periodStart, $lte: periodEnd } },
+        { end_date: { $gte: periodStart, $lte: periodEnd } },
+        { date: { $lte: periodStart }, end_date: { $gte: periodEnd } },
+      ],
+    };
+    const holidays = await Holiday.find(query)
+      .select('name date end_date is_paid work_multiplier note created_by created_at updated_at')
+      .sort({ date: 1 })
+      .lean();
+    // Legacy documents may not contain work_multiplier. Expose the safe default
+    // in the DTO without writing to the database from this GET request.
+    res.json(holidays.map(holiday => {
+      const value = typeof holiday.toObject === 'function' ? holiday.toObject() : holiday;
+      return {
+        ...value,
+        work_multiplier: normalizeHolidayMultiplier(value.work_multiplier) || 1.5,
       };
-    }
-    const holidays = await Holiday.find(query).sort({ date: 1 });
-    res.json(holidays);
+    }));
   } catch (error) {
     console.error('GetHolidays error:', error);
     res.status(500).json({ error: 'Lỗi lấy danh sách ngày nghỉ lễ.' });
@@ -26,13 +47,18 @@ const getHolidays = async (req, res) => {
 
 // POST /api/holidays
 const createHoliday = async (req, res) => {
-  const { name, date, end_date, is_paid = false, note, send_notification = true } = req.body;
+  const { name, date, end_date, is_paid = false, work_multiplier = 1.5, note, send_notification = true } = req.body;
   if (!name || !date) return res.status(400).json({ error: 'Tên ngày lễ và ngày bắt đầu là bắt buộc.' });
+  const normalizedMultiplier = normalizeHolidayMultiplier(work_multiplier);
+  if (normalizedMultiplier === null) {
+    return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 2 hoặc 3.' });
+  }
 
   try {
     const holiday = await Holiday.create({
       name: name.trim(), date, end_date: end_date || date,
-      is_paid: Boolean(is_paid), note: note?.trim() || null, created_by: req.user._id,
+      is_paid: Boolean(is_paid), work_multiplier: normalizedMultiplier,
+      note: note?.trim() || null, created_by: req.user._id,
     });
 
     if (send_notification) {
@@ -66,16 +92,23 @@ const createHoliday = async (req, res) => {
 
 // PUT /api/holidays/:id
 const updateHoliday = async (req, res) => {
-  const { name, date, end_date, is_paid, note, send_notification = false } = req.body;
+  const { name, date, end_date, is_paid, work_multiplier, note, send_notification = false } = req.body;
   try {
     const updateData = {};
     if (name) updateData.name = name.trim();
     if (date) updateData.date = date;
     if (end_date !== undefined) updateData.end_date = end_date || date;
     if (is_paid !== undefined) updateData.is_paid = Boolean(is_paid);
+    if (work_multiplier !== undefined) {
+      const normalizedMultiplier = normalizeHolidayMultiplier(work_multiplier);
+      if (normalizedMultiplier === null) {
+        return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 2 hoặc 3.' });
+      }
+      updateData.work_multiplier = normalizedMultiplier;
+    }
     if (note !== undefined) updateData.note = note?.trim() || null;
 
-    const holiday = await Holiday.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    const holiday = await Holiday.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
     if (!holiday) return res.status(404).json({ error: 'Không tìm thấy ngày lễ.' });
 
     if (send_notification) {
@@ -120,9 +153,9 @@ const seedVietnamHolidays = async (req, res) => {
     const year = parseInt(req.query.year) || new Date().getFullYear();
 
     const fixedHolidays = [
-      { date: `${year}-01-01`, end_date: `${year}-01-01`, name: 'Tet Duong lich', is_paid: false },
-      { date: `${year}-04-30`, end_date: `${year}-05-01`, name: 'Ngay Giai phong mien Nam & Quoc te Lao dong', is_paid: false },
-      { date: `${year}-09-02`, end_date: `${year}-09-02`, name: 'Quoc khanh', is_paid: false },
+      { date: `${year}-01-01`, end_date: `${year}-01-01`, name: 'Tet Duong lich', is_paid: false, work_multiplier: 1.5 },
+      { date: `${year}-04-30`, end_date: `${year}-05-01`, name: 'Ngay Giai phong mien Nam & Quoc te Lao dong', is_paid: false, work_multiplier: 1.5 },
+      { date: `${year}-09-02`, end_date: `${year}-09-02`, name: 'Quoc khanh', is_paid: false, work_multiplier: 1.5 },
     ];
 
     const tetDates = {
@@ -132,12 +165,12 @@ const seedVietnamHolidays = async (req, res) => {
       2027: { start: '2027-02-06', end: '2027-02-12' },
     };
     if (tetDates[year]) {
-      fixedHolidays.push({ date: tetDates[year].start, end_date: tetDates[year].end, name: 'Tet Nguyen Dan', is_paid: false });
+      fixedHolidays.push({ date: tetDates[year].start, end_date: tetDates[year].end, name: 'Tet Nguyen Dan', is_paid: false, work_multiplier: 1.5 });
     }
 
     const giotoHV = { 2024: '2024-04-18', 2025: '2025-04-07', 2026: '2026-03-28', 2027: '2027-04-15' };
     if (giotoHV[year]) {
-      fixedHolidays.push({ date: giotoHV[year], end_date: giotoHV[year], name: 'Gio To Hung Vuong', is_paid: false });
+      fixedHolidays.push({ date: giotoHV[year], end_date: giotoHV[year], name: 'Gio To Hung Vuong', is_paid: false, work_multiplier: 1.5 });
     }
 
     let added = 0, skipped = 0;
@@ -156,4 +189,11 @@ const seedVietnamHolidays = async (req, res) => {
   }
 };
 
-module.exports = { getHolidays, createHoliday, updateHoliday, deleteHoliday, seedVietnamHolidays };
+module.exports = {
+  getHolidays,
+  createHoliday,
+  updateHoliday,
+  deleteHoliday,
+  seedVietnamHolidays,
+  normalizeHolidayMultiplier,
+};

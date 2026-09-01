@@ -20,6 +20,7 @@ const DeviceSession = require('../../src/models/DeviceSession');
 const Project = require('../../src/models/Project');
 const AttendanceAuditLog = require('../../src/models/AttendanceAuditLog');
 const TimesheetLock = require('../../src/models/TimesheetLock');
+const Holiday = require('../../src/models/Holiday');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_key_123456';
 
@@ -64,6 +65,7 @@ async function runControllerIntegrationTests(assert) {
   const originalLockFindOne = TimesheetLock.findOne;
   const originalLockFindOneAndUpdate = TimesheetLock.findOneAndUpdate;
   const originalLockUpdateOne = TimesheetLock.updateOne;
+  const originalHolidayFindOne = Holiday.findOne;
   TimesheetLock.findOne = async () => null;
   TimesheetLock.findOneAndUpdate = async () => ({ is_locked: false });
   TimesheetLock.updateOne = async () => ({ acknowledged: true });
@@ -248,6 +250,10 @@ async function runControllerIntegrationTests(assert) {
       office_longitude: 105.8542,
       default_gps_radius_meters: 250,
     });
+  };
+
+  Holiday.findOne = function() {
+    return createQueryChain(null);
   };
 
   OfficeLocation.find = function() {
@@ -2009,6 +2015,7 @@ async function runControllerIntegrationTests(assert) {
     TimesheetLock.findOne = originalLockFindOne;
     TimesheetLock.findOneAndUpdate = originalLockFindOneAndUpdate;
     TimesheetLock.updateOne = originalLockUpdateOne;
+    Holiday.findOne = originalHolidayFindOne;
     if (originalMongooseStartSession) {
       mongoose.startSession = originalMongooseStartSession;
     } else {

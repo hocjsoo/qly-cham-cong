@@ -4,6 +4,12 @@
 // & Cơ chế Khóa Bảng công (Timesheet Lock)
 // ==============================================
 
+const {
+  SYMBOL_TO_STATUS_MAP: PRODUCTION_SYMBOL_MAP,
+  formatWorkUnitSymbol,
+  resolveStructuredTimesheetSymbol,
+} = require('../../src/controllers/timesheetLockController');
+
 const SYMBOL_TO_STATUS_MAP = {
   'x': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '0,75x': { total_hours: 6, work_units: 0.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
@@ -214,6 +220,30 @@ function runTimesheetTests(assert) {
   const lockedMonthCheck = checkTimesheetLock([{ user_id: null, month: 8, year: 2026, is_locked: true }], 'user_001', 8, 2026);
   assert(lockedMonthCheck.isLocked === true,
     'TC-TIME-10: Tháng đã chốt khóa (is_locked=true) được bảo vệ toàn vẹn không bị tự động sửa đổi');
+
+  // TC-TIME-11: Kiểm thử trực tiếp implementation production cho công ngày lễ 1,5x / 2x / 3x
+  assert(
+    PRODUCTION_SYMBOL_MAP['1,5x']?.work_units === 1.5
+      && PRODUCTION_SYMBOL_MAP['2x']?.work_units === 2
+      && PRODUCTION_SYMBOL_MAP['3x']?.work_units === 3
+      && formatWorkUnitSymbol(1.5) === '1,5x'
+      && formatWorkUnitSymbol(2) === '2x'
+      && formatWorkUnitSymbol(3) === '3x',
+    'TC-TIME-11: Production override/map hỗ trợ đúng hệ số ngày lễ 1,5x / 2x / 3x'
+  );
+
+  // TC-TIME-12: Dữ liệu có cấu trúc là source of truth, không để note WFH cũ ghi đè P mới
+  assert(
+    resolveStructuredTimesheetSymbol({ status: 'leave', work_units: 1, check_in_type: 'office', notes: 'Sửa: chuyển WFH thành nghỉ phép' }) === 'P',
+    'TC-TIME-12.1: Trạng thái leave đã duyệt hiển thị P dù audit note còn chữ WFH'
+  );
+  assert(
+    resolveStructuredTimesheetSymbol({ status: 'present', work_units: 1.5, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '1,5x'
+      && resolveStructuredTimesheetSymbol({ status: 'present', work_units: 2, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '2x'
+      && resolveStructuredTimesheetSymbol({ status: 'present', work_units: 3, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '3x'
+      && resolveStructuredTimesheetSymbol(null, true) === 'L',
+    'TC-TIME-12.2: Ngày lễ có chấm công hiển thị hệ số; không chấm công hiển thị L'
+  );
 }
 
 module.exports = runTimesheetTests;

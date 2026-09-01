@@ -20,6 +20,11 @@ const holidaySchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Nghỉ lễ không hưởng lương
     },
+    work_multiplier: {
+      type: Number,
+      enum: [1.5, 2, 3],
+      default: 1.5,
+    },
     note: {
       type: String,
       default: null,
@@ -36,5 +41,7 @@ const holidaySchema = new mongoose.Schema(
 );
 
 holidaySchema.index({ date: 1 });
+// Các truy vấn khoảng ngày lễ dùng cả điểm bắt đầu và kết thúc.
+holidaySchema.index({ end_date: 1 });
 
 module.exports = mongoose.model('Holiday', holidaySchema);

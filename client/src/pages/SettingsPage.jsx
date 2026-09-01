@@ -22,6 +22,13 @@ const WORKING_DAYS_OPTIONS = [
   { key: 'Thu', label: 'T5' }, { key: 'Fri', label: 'T6' }, { key: 'Sat', label: 'T7' }, { key: 'Sun', label: 'CN' },
 ];
 
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+const normalizeHolidayMultiplier = value => (
+  HOLIDAY_WORK_MULTIPLIERS.includes(Number(value)) ? Number(value) : 1.5
+);
+const formatHolidayMultiplier = value => `${normalizeHolidayMultiplier(value).toLocaleString('vi-VN')}x`;
+const createEmptyHolidayForm = () => ({ id: null, name: '', date: '', end_date: '', work_multiplier: 1.5, send_notification: true });
+
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
     <div className="modal-overlay">
@@ -62,7 +69,7 @@ export default function SettingsPage() {
   const [showLocModal, setShowLocModal] = useState(false);
   const [locForm, setLocForm] = useState({ name: '', address: '', lat: '', lng: '', radius_m: 100 });
 
-  const [holidayForm, setHolidayForm] = useState({ id: null, name: '', date: '', end_date: '', send_notification: true });
+  const [holidayForm, setHolidayForm] = useState(createEmptyHolidayForm);
   const [showHolidayForm, setShowHolidayForm] = useState(false);
   const [seedingHolidays, setSeedingHolidays] = useState(false);
 
@@ -80,13 +87,13 @@ export default function SettingsPage() {
       } else if (tab === 'shift') {
         const { data } = await api.get('/settings');
         setShiftForm({
-          work_start_time: data.work_start_time || '08:30',
-          work_end_time: data.work_end_time || '17:30',
+          work_start_time: data.work_start_time || '09:00',
+          work_end_time: data.work_end_time || '18:30',
           lunch_break_start: data.lunch_break_start || '12:00',
           lunch_break_end: data.lunch_break_end || '13:00',
-          minor_late_mins: data.minor_late_mins ?? 10,
-          medium_late_mins: data.medium_late_mins ?? 30,
-          ot_start_time: data.ot_start_time || '18:00',
+          minor_late_mins: data.minor_late_mins ?? 30,
+          medium_late_mins: data.medium_late_mins ?? 60,
+          ot_start_time: data.ot_start_time || '18:30',
           ot_mode: data.ot_mode || 'manual',
           working_days: data.working_days || ['Mon','Tue','Wed','Thu','Fri','Sat'],
           company_name: normalizeCompanyName(data.company_name),
@@ -183,16 +190,19 @@ export default function SettingsPage() {
 
   const handleSaveHoliday = async () => {
     if (!holidayForm.name.trim() || !holidayForm.date) { toast.error('Tên và ngày là bắt buộc'); return; }
+    const workMultiplier = Number(holidayForm.work_multiplier);
+    if (!HOLIDAY_WORK_MULTIPLIERS.includes(workMultiplier)) { toast.error('Hệ số công ngày lễ không hợp lệ'); return; }
     setSubmitting(true);
     try {
+      const payload = { ...holidayForm, work_multiplier: workMultiplier, end_date: holidayForm.end_date || holidayForm.date };
       if (holidayForm.id) {
-        await api.put(`/holidays/${holidayForm.id}`, { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
+        await api.put(`/holidays/${holidayForm.id}`, payload);
         toast.success('Đã cập nhật ngày lễ!');
       } else {
-        await api.post('/holidays', { ...holidayForm, end_date: holidayForm.end_date || holidayForm.date });
+        await api.post('/holidays', payload);
         toast.success('Đã thêm ngày lễ!');
       }
-      setHolidayForm({ id: null, name: '', date: '', end_date: '', send_notification: true });
+      setHolidayForm(createEmptyHolidayForm());
       setShowHolidayForm(false);
       loadData();
     } catch (err) { toast.error(err?.response?.data?.error || 'Lỗi lưu ngày lễ'); }
@@ -583,7 +593,13 @@ export default function SettingsPage() {
                   <button onClick={handleSeedVietnamHolidays} disabled={seedingHolidays} className="btn btn--ghost" style={{ padding: '6px 10px', fontSize: '11px' }}>
                     {seedingHolidays ? <span className="spinner" /> : '🇻🇳 Nap le VN'}
                   </button>
-                  <button onClick={() => setShowHolidayForm(p => !p)} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                  <button onClick={() => {
+                    if (showHolidayForm) setShowHolidayForm(false);
+                    else {
+                      setHolidayForm(createEmptyHolidayForm());
+                      setShowHolidayForm(true);
+                    }
+                  }} className="btn btn--primary" style={{ padding: '6px 12px', fontSize: '12px' }}>
                     <Plus size={14} /> Them
                   </button>
                 </div>
@@ -605,6 +621,23 @@ export default function SettingsPage() {
                   <div className="form-group">
                     <label className="form-label">Đến ngày</label>
                     <input type="date" className="form-input" style={{ fontSize: '13px' }} value={holidayForm.end_date} onChange={e => setHolidayForm(p => ({...p, end_date: e.target.value}))} />
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: '10px' }}>
+                  <label className="form-label" htmlFor="holiday-work-multiplier">Hệ số công khi đi làm ngày lễ</label>
+                  <select
+                    id="holiday-work-multiplier"
+                    className="form-select"
+                    value={normalizeHolidayMultiplier(holidayForm.work_multiplier)}
+                    onChange={e => setHolidayForm(p => ({ ...p, work_multiplier: Number(e.target.value) }))}
+                    style={{ fontSize: '13px' }}
+                  >
+                    {HOLIDAY_WORK_MULTIPLIERS.map(multiplier => (
+                      <option key={multiplier} value={multiplier}>{formatHolidayMultiplier(multiplier)} công</option>
+                    ))}
+                  </select>
+                  <div style={{ marginTop: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    Chỉ áp dụng khi nhân viên thực sự chấm công trong ngày lễ.
                   </div>
                 </div>
                 <div style={{ marginBottom: '12px' }}>
@@ -641,13 +674,25 @@ export default function SettingsPage() {
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                       {h.date}{h.end_date && h.end_date !== h.date ? ` - ${h.end_date}` : ''}
                       <span className="badge badge--neutral" style={{ marginLeft: '8px', fontSize: '10px', padding: '1px 5px' }}>Nghỉ lễ</span>
+                      <span className="badge badge--success" style={{ marginLeft: '6px', fontSize: '10px', padding: '1px 5px' }}>
+                        Đi làm: {formatHolidayMultiplier(h.work_multiplier)}
+                      </span>
                     </div>
                   </div>
                   {isAdmin && (
                     <div style={{ display: 'flex', gap: '4px' }}>
                       <button
                         onClick={() => {
-                          setHolidayForm({ id: h._id, name: h.name, date: h.date, end_date: h.end_date || h.date, is_paid: h.is_paid || false, note: h.note || '' });
+                          setHolidayForm({
+                            id: h._id,
+                            name: h.name,
+                            date: h.date,
+                            end_date: h.end_date || h.date,
+                            work_multiplier: normalizeHolidayMultiplier(h.work_multiplier),
+                            send_notification: h.send_notification ?? true,
+                            is_paid: h.is_paid || false,
+                            note: h.note || '',
+                          });
                           setShowHolidayForm(true);
                         }}
                         style={iconBtn('var(--primary)')}

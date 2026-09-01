@@ -10,11 +10,23 @@ const {
 
 function getTimesheetSymbol(rec) {
   if (!rec) return '';
+  const workUnits = Number(rec.work_units);
   const notes = (rec.notes || '').toUpperCase();
+  if (workUnits === 1.5) return '1,5x';
+  if (workUnits === 2) return '2x';
+  if (workUnits === 3) return '3x';
+  if (rec.status === 'holiday') return 'L';
+  if (rec.status === 'leave') {
+    if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) return 'KL';
+    if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) return 'O';
+    return 'P';
+  }
+  if (rec.check_in_type === 'client') return 'CT2';
+  if (rec.check_in_type === 'site') return 'CT1';
+  if (rec.check_in_type === 'wfh') return 'WFH';
   if (notes.includes('CT2') || notes.includes('NƯỚC NGOÀI') || notes.includes('[CT2]')) return 'CT2';
-  if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || notes.includes('[CT1]') || rec.check_in_type === 'site') return 'CT1';
-  if (rec.check_in_type === 'wfh' || notes.includes('WFH') || notes.includes('[WFH]')) return 'WFH';
-  if (rec.status === 'leave' || notes.includes('NGHỈ PHÉP') || notes.includes('(P)') || notes.includes('[P]')) return 'P';
+  if (notes.includes('CT1') || notes.includes('TRONG NƯỚC') || notes.includes('[CT1]')) return 'CT1';
+  if (notes.includes('NGHỈ PHÉP') || notes.includes('(P)') || notes.includes('[P]')) return 'P';
   if (notes.includes('NGHỈ ỐM') || notes.includes('(O)') || notes.includes('[O]')) return 'O';
   if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) return 'KL';
   if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) return 'K';
@@ -75,6 +87,9 @@ const createSummaryRows = ({ users, attendances, month, year }) => {
       else if (symbol === 'x') totals.office += 1;
       else if (symbol === '0,75x') totals.office += 0.75;
       else if (symbol === '0,5x') totals.office += 0.5;
+      else if (symbol === '1,5x' || symbol === '2x' || symbol === '3x') {
+        totals.office += Number(attendanceByDate.get(`${monthStr}-${columnKey}`)?.work_units) || 0;
+      }
     }
 
     return {

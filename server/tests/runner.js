@@ -20,6 +20,7 @@ const runDeviceFraudTests = require('./unit/deviceFingerprint.test');
 const runUserManagementTests = require('./unit/userManagement.test');
 const runCorrectionTests = require('./unit/correctionWorkflow.test');
 const runHolidayTests = require('./unit/holidayMatrix.test');
+const runHolidayMultiplierTests = require('./unit/holidayMultiplier.test');
 const runProjectSiteTests = require('./unit/projectSite.test');
 const runNotificationTests = require('./unit/notificationBroadcast.test');
 const runDashboardStatsTests = require('./unit/dashboardStats.test');
@@ -108,6 +109,7 @@ async function runAllTests() {
     runUserManagementTests(assert);
     runCorrectionTests(assert);
     runHolidayTests(assert);
+    await runHolidayMultiplierTests(assert);
     runProjectSiteTests(assert);
     runNotificationTests(assert);
     runDashboardStatsTests(assert);

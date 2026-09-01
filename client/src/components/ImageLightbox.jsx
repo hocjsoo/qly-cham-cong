@@ -39,6 +39,9 @@ export default function ImageLightbox({ image, onClose }) {
   const [rotation, setRotation] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const triggerRef = useRef(typeof document !== "undefined" ? document.activeElement : null);
 
   const changeZoom = (nextZoom) => {
     const value = Math.min(4, Math.max(0.5, Number(nextZoom.toFixed(2))));
@@ -61,8 +64,40 @@ export default function ImageLightbox({ image, onClose }) {
   }, [image?.url]);
 
   useEffect(() => {
+    const trigger = triggerRef.current;
+    const frameId = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (trigger && typeof trigger.focus === "function") trigger.focus();
+    };
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = Array.from(dialogRef.current?.querySelectorAll(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) || []);
+        if (focusable.length === 0) {
+          event.preventDefault();
+          closeButtonRef.current?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
       if (event.key === "+" || event.key === "=") changeZoom(zoom + 0.25);
       if (event.key === "-") changeZoom(zoom - 0.25);
       if (event.key === "0") resetView();
@@ -87,6 +122,7 @@ export default function ImageLightbox({ image, onClose }) {
 
   return createPortal(
     <div
+      ref={dialogRef}
       className="image-lightbox"
       role="dialog"
       aria-modal="true"
@@ -116,7 +152,7 @@ export default function ImageLightbox({ image, onClose }) {
           <button className="image-lightbox__button" type="button" onClick={() => rotate(90)} aria-label="Xoay ảnh 90°" title="Xoay ảnh 90° (R)" style={viewerButtonStyle}><RotateCw size={17} /></button>
           <button className="image-lightbox__button" type="button" onClick={resetView} aria-label="Đặt lại kích thước" title="Đặt lại (0)" style={viewerButtonStyle}><RotateCcw size={17} /></button>
           <button className="image-lightbox__button" type="button" onClick={handleDownload} aria-label="Tải ảnh về" title="Tải ảnh về máy" style={viewerButtonStyle}><Download size={17} /></button>
-          <button className="image-lightbox__button" type="button" onClick={onClose} aria-label="Đóng" title="Đóng (Esc)" style={{ ...viewerButtonStyle, background: "rgba(239, 68, 68, 0.4)", borderColor: "rgba(239, 68, 68, 0.6)" }}><X size={20} /></button>
+          <button ref={closeButtonRef} className="image-lightbox__button" type="button" onClick={onClose} aria-label="Đóng" title="Đóng (Esc)" style={{ ...viewerButtonStyle, background: "rgba(239, 68, 68, 0.4)", borderColor: "rgba(239, 68, 68, 0.6)" }}><X size={20} /></button>
         </div>
       </div>
 

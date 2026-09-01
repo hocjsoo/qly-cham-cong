@@ -8,6 +8,13 @@ const DeviceRegistry = require('../models/DeviceRegistry');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const TimesheetLock = require('../models/TimesheetLock');
 const User = require('../models/User');
+const Holiday = require('../models/Holiday');
+const {
+  calculateRawTotalHours,
+  calculateOT,
+  calculateAttendanceMetrics,
+  normalizeHolidayMultiplier,
+} = require('../utils/attendanceCalculations');
 const {
   isLeaderRole,
   buildLeaderUserScope,
@@ -107,30 +114,6 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
   }
 }
 
-// Helper tính giờ tăng ca (OT) dựa theo giờ kết thúc ca làm làm việc (mặc định 18:30 hoặc trong Cài đặt hệ thống)
-function calculateOT(checkInDate, checkOutDate, workEndTime = '18:30') {
-  if (!checkInDate || !checkOutDate) return 0;
-  const checkIn = new Date(checkInDate);
-  const checkOut = new Date(checkOutDate);
-  if (isNaN(checkIn.getTime()) || isNaN(checkOut.getTime()) || checkOut <= checkIn) return 0;
-
-  // Lấy chuỗi ngày YYYY-MM-DD theo múi giờ Việt Nam Asia/Ho_Chi_Minh
-  const dateStr = checkOut.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-  const timePart = (workEndTime && workEndTime.includes(':')) ? workEndTime.trim() : '18:30';
-  const [endH, endM] = timePart.split(':').map(s => String(s).padStart(2, '0'));
-
-  // Mốc bắt đầu tính OT chuẩn trong múi giờ +07:00
-  const otThreshold = new Date(`${dateStr}T${endH}:${endM}:00+07:00`);
-
-  if (checkOut > otThreshold) {
-    const otStartMs = Math.max(checkIn.getTime(), otThreshold.getTime());
-    const otMs = checkOut.getTime() - otStartMs;
-    const otHours = parseFloat((otMs / (1000 * 60 * 60)).toFixed(1));
-    return Math.max(0, otHours);
-  }
-  return 0;
-}
-
 // POST /api/attendance/checkin
 const checkIn = async (req, res) => {
   const {
@@ -161,22 +144,49 @@ const checkIn = async (req, res) => {
   }
 
   try {
-    const settings = await SystemSetting.findOne({ key: 'global' }) || {
-      work_start_time: '09:00',
-      minor_late_mins: 30,
-      medium_late_mins: 60,
-    };
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-
-    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     const [dYear, dMonth] = dateStr.split('-').map(Number);
-    const activeLock = await TimesheetLock.findOne({
+
+    let settingsQuery = SystemSetting.findOne({ key: 'global' });
+    if (settingsQuery && typeof settingsQuery.select === 'function') {
+      settingsQuery = settingsQuery.select('work_start_time minor_late_mins medium_late_mins default_gps_radius_meters');
+    }
+    if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
+
+    let holidayQuery = Holiday.findOne({
+      $or: [
+        { date: dateStr },
+        { date: { $lte: dateStr }, end_date: { $gte: dateStr } },
+      ],
+    });
+    if (holidayQuery && typeof holidayQuery.select === 'function') {
+      holidayQuery = holidayQuery.select('date end_date work_multiplier');
+    }
+    if (holidayQuery && typeof holidayQuery.lean === 'function') holidayQuery = holidayQuery.lean();
+
+    let lockQuery = TimesheetLock.findOne({
       month: dMonth,
       year: dYear,
       is_locked: true,
       $or: [{ user_id: null }, { user_id: userId }]
     });
+    if (lockQuery && typeof lockQuery.select === 'function') lockQuery = lockQuery.select('user_id');
+    if (lockQuery && typeof lockQuery.lean === 'function') lockQuery = lockQuery.lean();
+
+    // Ba truy vấn độc lập chạy song song để giảm một vòng chờ database khi check-in.
+    const [settingsResult, activeHoliday, activeLock] = await Promise.all([
+      settingsQuery,
+      holidayQuery,
+      lockQuery,
+    ]);
+    const settings = settingsResult || {
+      work_start_time: '09:00',
+      minor_late_mins: 30,
+      medium_late_mins: 60,
+    };
+
+    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     if (activeLock) {
       return res.status(403).json({
         error: activeLock.user_id === null
@@ -186,47 +196,38 @@ const checkIn = async (req, res) => {
     }
 
     const clientIP = getClientIP(req);
-    const effectiveHardwareUuid = hardware_uuid || device_fingerprint || null;
+    const rawHardwareUuid = hardware_uuid || device_fingerprint;
+    const effectiveHardwareUuid = typeof rawHardwareUuid === 'string' && rawHardwareUuid.trim()
+      ? rawHardwareUuid.trim()
+      : null;
 
     let isFlagged = false;
     const flagReasons = [];
 
     // --- Chống gian lận: Kiểm tra thiết bị trùng trong ngày ---
     if (effectiveHardwareUuid) {
-      const todayRegLogs = await DeviceRegistry.find({
+      let attendanceMatchQuery = Attendance.findOne({
+        date: dateStr,
         hardware_uuid: effectiveHardwareUuid,
-        date: dateStr,
         user_id: { $ne: userId },
-      }).populate('user_id', 'full_name employee_code email');
-
-      const todayAttLogs = await Attendance.find({
-        date: dateStr,
-        user_id: { $ne: userId },
-      }).populate('user_id', 'full_name employee_code email');
-
-      const otherRegLogs = todayRegLogs.filter(r => r.user_id && r.user_id._id.toString() !== userId.toString());
-      const otherAttLogs = todayAttLogs.filter(a => {
-        if (!a.user_id || a.user_id._id.toString() === userId.toString()) return false;
-        const sameHardware = a.hardware_uuid === effectiveHardwareUuid;
-        const sameIPInNote = clientIP && a.check_in_note?.includes(`IP: ${clientIP}`);
-        return sameHardware || sameIPInNote;
       });
+      if (attendanceMatchQuery && typeof attendanceMatchQuery.select === 'function') {
+        attendanceMatchQuery = attendanceMatchQuery.select('_id');
+      }
+      if (attendanceMatchQuery && typeof attendanceMatchQuery.lean === 'function') attendanceMatchQuery = attendanceMatchQuery.lean();
 
-      const otherUserLogs = [...otherRegLogs, ...otherAttLogs];
+      // IP chỉ được lưu làm metadata audit; không bao giờ là tín hiệu đủ để kết luận trùng thiết bị.
+      const attendanceMatch = await attendanceMatchQuery;
 
-      if (otherUserLogs.length > 0) {
+      if (attendanceMatch) {
         isFlagged = true;
         flagReasons.push('MULTI_ACCOUNT_SAME_DEVICE');
 
-        const otherUserObj = otherUserLogs[0]?.user_id;
-        const otherName = typeof otherUserObj === 'object' ? otherUserObj?.full_name : 'tài khoản khác';
-
         if (!selfie_url && !step_up_confirmed) {
           return res.status(400).json({
-            error: `🚨 CẢNH BÁO GIAN LẬN: Máy tính/Điện thoại này (IP: ${clientIP}) vừa được dùng bởi [${otherName || 'tài khoản khác'}] để chấm công hôm nay. Phát hiện thao tác trên Tab ẩn danh / Trình duyệt khác! Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.`,
+            error: '🚨 Thiết bị này đã được dùng cho tài khoản khác trong ngày. Vui lòng chụp ảnh khuôn mặt xác thực để tiếp tục.',
             step_up_required: true,
             reason: 'MULTI_ACCOUNT_SAME_DEVICE',
-            other_user: otherName,
           });
         }
       }
@@ -386,7 +387,9 @@ const checkIn = async (req, res) => {
 
     const checkInMode = selfie_url ? 'photo' : 'gps';
     const isExemptType = ['wfh', 'site', 'client'].includes(validCheckInType);
-    const finalWorkUnits = isExemptType ? 1.0 : (lateInfo.work_units ?? 1.0);
+    const finalWorkUnits = activeHoliday
+      ? normalizeHolidayMultiplier(activeHoliday.work_multiplier)
+      : (isExemptType ? 1.0 : (lateInfo.work_units ?? 1.0));
 
     if (attendance) {
       attendance.check_in_time = now;
@@ -506,12 +509,38 @@ const checkOut = async (req, res) => {
 
     // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     const [dYear, dMonth] = dateStr.split('-').map(Number);
-    const activeLock = await TimesheetLock.findOne({
+    let lockQuery = TimesheetLock.findOne({
       month: dMonth,
       year: dYear,
       is_locked: true,
       $or: [{ user_id: null }, { user_id: userId }]
     });
+    if (lockQuery && typeof lockQuery.select === 'function') lockQuery = lockQuery.select('user_id');
+    if (lockQuery && typeof lockQuery.lean === 'function') lockQuery = lockQuery.lean();
+
+    const attendanceQuery = Attendance.findOne({ user_id: userId, date: dateStr });
+    let settingsQuery = SystemSetting.findOne({ key: 'global' });
+    if (settingsQuery && typeof settingsQuery.select === 'function') {
+      settingsQuery = settingsQuery.select('work_end_time ot_start_time');
+    }
+    if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
+
+    let holidayQuery = Holiday.findOne({
+      $or: [
+        { date: dateStr },
+        { date: { $lte: dateStr }, end_date: { $gte: dateStr } },
+      ],
+    });
+    if (holidayQuery && typeof holidayQuery.select === 'function') holidayQuery = holidayQuery.select('work_multiplier');
+    if (holidayQuery && typeof holidayQuery.lean === 'function') holidayQuery = holidayQuery.lean();
+
+    // Các truy vấn độc lập chạy song song để giảm độ trễ checkout.
+    const [activeLock, attendance, settings, activeHoliday] = await Promise.all([
+      lockQuery,
+      attendanceQuery,
+      settingsQuery,
+      holidayQuery,
+    ]);
     if (activeLock) {
       return res.status(403).json({
         error: activeLock.user_id === null
@@ -520,18 +549,16 @@ const checkOut = async (req, res) => {
       });
     }
 
-    const attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     if (!attendance || !attendance.check_in_time) {
       return res.status(400).json({ error: 'Bạn chưa check-in hôm nay.' });
     }
-
-    const settings = await SystemSetting.findOne({ key: 'global' });
-    const workEndTime = settings?.work_end_time || '17:30';
+    const workEndTime = settings?.work_end_time || '18:30';
+    const otStartTime = settings?.ot_start_time || '18:30';
 
     const checkInTime = new Date(attendance.check_in_time);
-    const diffMs = now - checkInTime;
-    const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
-    const otHours = calculateOT(checkInTime, now, workEndTime);
+    const metrics = calculateAttendanceMetrics(checkInTime, now, { workEndTime, otStartTime });
+    const totalHours = metrics.totalHours;
+    const otHours = metrics.otHours;
 
     // Kiểm tra khoảng cách với các văn phòng hoạt động khi Check-out
     let distanceMeters = null;
@@ -578,16 +605,8 @@ const checkOut = async (req, res) => {
     ].filter(Boolean).join(' | ');
 
     // Tính toán về sớm (Early Leave) so với giờ kết thúc ca làm việc
-    const [endH, endM] = (workEndTime || '17:30').split(':').map(Number);
-    const coVN = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-    const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
-    const endMinutes = endH * 60 + endM;
-    let isEarlyLeave = false;
-    let earlyMinutes = 0;
-    if (coMinutes < endMinutes - 4) {
-      isEarlyLeave = true;
-      earlyMinutes = endMinutes - coMinutes;
-    }
+    const isEarlyLeave = metrics.isEarlyLeave;
+    const earlyMinutes = metrics.earlyMinutes;
 
     attendance.check_out_time = now;
     attendance.check_out_lat = parseFloat(lat);
@@ -595,6 +614,7 @@ const checkOut = async (req, res) => {
     attendance.check_out_note = combinedNote;
     attendance.total_hours = Math.max(0, totalHours);
     attendance.ot_hours = Math.max(0, otHours);
+    if (activeHoliday) attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
     attendance.is_early_leave = isEarlyLeave;
     attendance.early_minutes = earlyMinutes;
     await attendance.save();
@@ -698,19 +718,6 @@ const getHistory = async (req, res) => {
       .populate('user_id', 'full_name employee_code avatar_url email')
       .sort({ date: -1 });
 
-    const settings = await SystemSetting.findOne({ key: 'global' });
-    const workEndTime = settings?.work_end_time || '17:30';
-
-    for (const r of records) {
-      if (r.check_in_time && r.check_out_time) {
-        const correctOt = calculateOT(r.check_in_time, r.check_out_time, workEndTime);
-        if (r.ot_hours !== correctOt) {
-          r.ot_hours = correctOt;
-          await Attendance.updateOne({ _id: r._id }, { ot_hours: correctOt });
-        }
-      }
-    }
-
     const presentDays = records.filter(r => !r.is_late).length;
     const lateDays = records.filter(r => r.is_late).length;
     const totalHours = parseFloat(records.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
@@ -765,8 +772,6 @@ const overrideAttendance = async (req, res) => {
       attendance = await Attendance.findOne({ user_id, date });
     }
 
-    const settings = await SystemSetting.findOne({ key: 'global' }) || { work_start_time: '09:00', work_end_time: '18:30' };
-
     if (!attendance) {
       if (!user_id || !date) {
         return res.status(400).json({ error: 'Cần truyền user_id và date để tạo bản ghi mới.' });
@@ -779,6 +784,25 @@ const overrideAttendance = async (req, res) => {
     }
 
     const targetDate = date || attendance.date;
+
+    let settingsQuery = SystemSetting.findOne({ key: 'global' });
+    if (settingsQuery && typeof settingsQuery.select === 'function') {
+      settingsQuery = settingsQuery.select('work_start_time work_end_time ot_start_time');
+    }
+    if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
+
+    let holidayQuery = Holiday.findOne({
+      $or: [
+        { date: targetDate },
+        { date: { $lte: targetDate }, end_date: { $gte: targetDate } },
+      ],
+    });
+    if (holidayQuery && typeof holidayQuery.select === 'function') holidayQuery = holidayQuery.select('work_multiplier');
+    if (holidayQuery && typeof holidayQuery.lean === 'function') holidayQuery = holidayQuery.lean();
+
+    const [settingsResult, activeHoliday] = await Promise.all([settingsQuery, holidayQuery]);
+    const settings = settingsResult || { work_start_time: '09:00', work_end_time: '18:30', ot_start_time: '18:30' };
+    const holidayWorkUnits = activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : null;
 
     // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     const [dYear, dMonth] = targetDate.split('-').map(Number);
@@ -834,9 +858,10 @@ const overrideAttendance = async (req, res) => {
       const effectiveType = check_in_type || attendance.check_in_type || 'office';
       const isExempt = ['wfh', 'site', 'client'].includes(effectiveType);
       const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = upperNotes.includes('[X]') || upperNotes.includes('[0,75X]') || upperNotes.includes('[0.75X]') || upperNotes.includes('[0,5X]') || upperNotes.includes('[0.5X]');
+      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
+        .some(symbol => upperNotes.includes(symbol));
       if (!hasExplicitSymbolOverride) {
-        attendance.work_units = isExempt ? 1.0 : (lateInfo.work_units ?? 1.0);
+        attendance.work_units = holidayWorkUnits ?? (isExempt ? 1.0 : (lateInfo.work_units ?? 1.0));
       }
     } else if (is_late !== undefined) {
       attendance.is_late = Boolean(is_late);
@@ -849,31 +874,24 @@ const overrideAttendance = async (req, res) => {
       attendance.check_in_type = check_in_type;
       const isExempt = ['wfh', 'site', 'client'].includes(check_in_type);
       const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = upperNotes.includes('[X]') || upperNotes.includes('[0,75X]') || upperNotes.includes('[0.75X]') || upperNotes.includes('[0,5X]') || upperNotes.includes('[0.5X]');
-      if (isExempt && !hasExplicitSymbolOverride) {
-        attendance.work_units = 1.0;
+      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
+        .some(symbol => upperNotes.includes(symbol));
+      if (!hasExplicitSymbolOverride && (holidayWorkUnits !== null || isExempt)) {
+        attendance.work_units = holidayWorkUnits ?? 1.0;
       }
     }
     if (notes) attendance.notes = notes;
     if (status) attendance.status = status;
 
     if (attendance.check_in_time && attendance.check_out_time) {
-      const diffMs = new Date(attendance.check_out_time) - new Date(attendance.check_in_time);
-      const totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(1));
-      attendance.total_hours = Math.max(0, totalHours);
-      attendance.ot_hours = calculateOT(attendance.check_in_time, attendance.check_out_time, settings?.work_end_time || '18:30');
-
-      const [endH, endM] = (settings?.work_end_time || '18:30').split(':').map(Number);
-      const coVN = new Date(new Date(attendance.check_out_time).toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-      const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
-      const endMinutes = endH * 60 + endM;
-      if (coMinutes < endMinutes - 4) {
-        attendance.is_early_leave = true;
-        attendance.early_minutes = endMinutes - coMinutes;
-      } else {
-        attendance.is_early_leave = false;
-        attendance.early_minutes = 0;
-      }
+      const metrics = calculateAttendanceMetrics(attendance.check_in_time, attendance.check_out_time, {
+        workEndTime: settings?.work_end_time || '18:30',
+        otStartTime: settings?.ot_start_time || '18:30',
+      });
+      attendance.total_hours = metrics.totalHours;
+      attendance.ot_hours = metrics.otHours;
+      attendance.is_early_leave = metrics.isEarlyLeave;
+      attendance.early_minutes = metrics.earlyMinutes;
     }
 
     await attendance.save();
@@ -1152,5 +1170,5 @@ const verifyFlaggedAttendance = async (req, res) => {
 module.exports = {
   checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
   overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance,
-  calculateLateTier, calculateOT
+  calculateLateTier, calculateOT, calculateRawTotalHours, calculateAttendanceMetrics, normalizeHolidayMultiplier
 };

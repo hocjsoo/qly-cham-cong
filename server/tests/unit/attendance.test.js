@@ -4,7 +4,12 @@
 // Chuẩn múi giờ Việt Nam +07:00 (Asia/Ho_Chi_Minh)
 // ==============================================
 
-const { calculateLateTier, calculateOT } = require('../../src/controllers/attendanceController');
+const {
+  calculateLateTier,
+  calculateOT,
+  calculateRawTotalHours,
+  calculateAttendanceMetrics,
+} = require('../../src/controllers/attendanceController');
 
 function runAttendanceTests(assert) {
   console.log('\n⏰ [TEST SUITE: ATTENDANCE RULES, LATE TIERS & OT (MỐC 09:30:00)]');
@@ -81,6 +86,23 @@ function runAttendanceTests(assert) {
   const ot3 = calculateOT('2026-08-31T18:00:00+07:00', '2026-08-31T09:00:00+07:00', '18:30');
   const ot4 = calculateOT(null, null, '18:30');
   assert(ot3 === 0 && ot4 === 0, 'TC-ATT-13: Check-out không hợp lệ hoặc null -> Trả về 0h an toàn');
+
+  // TC-ATT-14: Đúng 18:30 chưa phát sinh OT; 20:54 chỉ tính phần sau 18:30 (= 2.4h)
+  const otAtBoundary = calculateOT('2026-08-31T09:54:00+07:00', '2026-08-31T18:30:00+07:00', '18:30');
+  const otAfterBoundary = calculateOT('2026-08-31T09:54:00+07:00', '2026-08-31T20:54:00+07:00', '18:30');
+  assert(otAtBoundary === 0 && otAfterBoundary === 2.4,
+    'TC-ATT-14: OT bắt đầu sau 18:30; checkout 20:54 chỉ tính 2.4h OT');
+
+  // TC-ATT-15: Theo quyết định nghiệp vụ hiện tại, tổng giờ là khoảng thời gian thô và chưa trừ giờ nghỉ trưa
+  const rawHours = calculateRawTotalHours('2026-08-31T09:54:00+07:00', '2026-08-31T20:54:00+07:00');
+  assert(rawHours === 11,
+    'TC-ATT-15: Tổng giờ 09:54 -> 20:54 là 11.0h (chưa trừ thời gian nghỉ trưa)');
+
+  // TC-ATT-16: Về sớm dùng mốc nghiêm ngặt 18:30, không còn grace period 4 phút
+  const early = calculateAttendanceMetrics('2026-08-31T09:00:00+07:00', '2026-08-31T18:29:00+07:00');
+  const onTime = calculateAttendanceMetrics('2026-08-31T09:00:00+07:00', '2026-08-31T18:30:00+07:00');
+  assert(early.isEarlyLeave === true && early.earlyMinutes === 1 && onTime.isEarlyLeave === false && onTime.earlyMinutes === 0,
+    'TC-ATT-16: 18:29 là về sớm 1 phút; đúng 18:30 là đủ giờ và không có OT');
 }
 
 module.exports = runAttendanceTests;

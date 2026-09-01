@@ -162,5 +162,8 @@ const attendanceSchema = new mongoose.Schema(
 
 // Ràng buộc 1 user chỉ 1 bản ghi/ngày
 attendanceSchema.index({ user_id: 1, date: 1 }, { unique: true });
+// Exact same-device lookup for the daily anti-fraud guard. IP is deliberately
+// excluded because many employees legitimately share one office/Wi-Fi IP.
+attendanceSchema.index({ date: 1, hardware_uuid: 1, user_id: 1 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

@@ -51,13 +51,13 @@ const seedInitialData = async () => {
         work_end_time: '18:30',
         lunch_break_start: '12:00',
         lunch_break_end: '13:00',
-        ot_start_time: '18:00',
+        ot_start_time: '18:30',
         ot_mode: 'manual',         // OT do giam doc xet cuoi thang
-        minor_late_mins: 10,
-        medium_late_mins: 30,
+        minor_late_mins: 30,
+        medium_late_mins: 60,
         working_days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], // Lam ca T7, nghi CN
       });
-      console.log('🌱 Seeded global system settings (8:30 - 17:30, Mon-Sat, OT manual mode)');
+      console.log('🌱 Seeded global system settings (09:00 - 18:30, Mon-Sat, OT manual mode)');
     } else {
       // Update existing settings to add working_days Sat if not set
       const existing = await SystemSetting.findOne({ key: 'global' });

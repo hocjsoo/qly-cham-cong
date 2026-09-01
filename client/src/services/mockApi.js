@@ -116,6 +116,42 @@ const INITIAL_MOCK_EXPENSES = [
   },
 ];
 
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+
+function normalizeHolidayMultiplier(value) {
+  const multiplier = Number(value);
+  return HOLIDAY_WORK_MULTIPLIERS.includes(multiplier) ? multiplier : 1.5;
+}
+
+function getVnClockParts(value = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(value);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    hour: Number(values.hour || 0),
+    minute: Number(values.minute || 0),
+    second: Number(values.second || 0),
+  };
+}
+
+function getVnThreshold(dateStr, time, fallback = '18:30') {
+  const normalizedTime = /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(time || '').trim())
+    ? String(time).trim()
+    : fallback;
+  return new Date(`${dateStr}T${normalizedTime}:00+07:00`);
+}
+
+function createMockHttpError(message, status = 400) {
+  const error = new Error(message);
+  error.response = { status, data: { error: message } };
+  return error;
+}
+
 function getMockStorage(key, initialData) {
   const data = localStorage.getItem(`mock_${key}`);
   if (!data) {
@@ -182,7 +218,24 @@ export async function mockRequest(method, url, data = {}) {
     const user = userStr ? JSON.parse(userStr) : users[0];
 
     const now = new Date();
-    const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 45);
+    const clock = getVnClockParts(now);
+    const currentSeconds = (clock.hour * 3600) + (clock.minute * 60) + clock.second;
+    const settings = getMockStorage('system_settings', {
+      work_start_time: '09:00',
+      work_end_time: '18:30',
+      ot_start_time: '18:30',
+    });
+    const workStart = String(settings.work_start_time || '09:00').split(':').map(Number);
+    const workStartSeconds = ((workStart[0] || 9) * 3600) + ((workStart[1] || 0) * 60);
+    const isExemptFromLate = ['wfh', 'site', 'client'].includes(data.type || 'office');
+    const isLate = !isExemptFromLate && currentSeconds > workStartSeconds;
+    const isAfterWorkUnitCutoff = !isExemptFromLate && currentSeconds > ((9 * 3600) + (30 * 60));
+    const holidays = getMockStorage('holidays', []);
+    const activeHoliday = holidays.find(holiday => {
+      const startDate = String(holiday.date || '');
+      const endDate = String(holiday.end_date || holiday.date || '');
+      return startDate <= todayStr && todayStr <= endDate;
+    });
 
     const newRec = {
       id: `att-${Date.now()}`,
@@ -195,7 +248,10 @@ export async function mockRequest(method, url, data = {}) {
       check_in_type: data.type || 'office',
       check_in_note: data.note || '',
       is_late: isLate,
+      late_minutes: isLate ? Math.max(0, Math.floor((currentSeconds - workStartSeconds) / 60)) : 0,
       status: isLate ? 'late' : 'present',
+      work_units: activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : (isAfterWorkUnitCutoff ? 0.75 : 1),
+      holiday_id: activeHoliday?._id || null,
     };
 
     const updated = [newRec, ...attendance.filter((a) => !(a.user_id === (user._id || user.id) && a.date === todayStr))];
@@ -211,11 +267,34 @@ export async function mockRequest(method, url, data = {}) {
 
     const rec = attendance.find((a) => a.user_id === (user._id || user.id) && a.date === todayStr);
     if (rec) {
-      rec.check_out_time = new Date().toISOString();
-      rec.total_hours = 8.0;
+      const checkOut = new Date();
+      const checkIn = new Date(rec.check_in_time);
+      const settings = getMockStorage('system_settings', {
+        work_start_time: '09:00',
+        work_end_time: '18:30',
+        ot_start_time: '18:30',
+      });
+      const workEndThreshold = getVnThreshold(todayStr, settings.work_end_time, '18:30');
+      const otThreshold = getVnThreshold(todayStr, settings.ot_start_time, '18:30');
+      const totalHours = Number.isNaN(checkIn.getTime()) || checkOut <= checkIn
+        ? 0
+        : Number(((checkOut.getTime() - checkIn.getTime()) / 3600000).toFixed(1));
+      const otHours = checkOut <= otThreshold
+        ? 0
+        : Number(((checkOut.getTime() - Math.max(checkIn.getTime(), otThreshold.getTime())) / 3600000).toFixed(1));
+      const isEarlyLeave = checkOut < workEndThreshold;
+
+      rec.check_out_time = checkOut.toISOString();
+      rec.total_hours = totalHours;
+      rec.ot_hours = Math.max(0, otHours);
+      rec.is_early_leave = isEarlyLeave;
+      rec.early_minutes = isEarlyLeave
+        ? Math.max(0, Math.ceil((workEndThreshold.getTime() - checkOut.getTime()) / 60000))
+        : 0;
       setMockStorage('attendance', attendance);
+      return { data: { message: 'Check-out thành công! (Offline Mode)', total_hours: totalHours, attendance: rec } };
     }
-    return { data: { message: 'Check-out thành công! (Offline Mode)', total_hours: 8.0 } };
+    throw createMockHttpError('Không tìm thấy dữ liệu check-in hôm nay.', 404);
   }
 
   // === HISTORY ===
@@ -382,6 +461,76 @@ export async function mockRequest(method, url, data = {}) {
     return { data: { message: 'Cập nhật nhân viên thành công!', user: u } };
   }
 
+  // === HOLIDAYS ===
+  if (url.includes('/holidays')) {
+    const holidays = getMockStorage('holidays', []);
+    const pathOnly = url.split('?')[0];
+    const params = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '');
+
+    if (pathOnly.endsWith('/seed-vietnam') && method === 'post') {
+      const year = Number(params.get('year')) || new Date().getFullYear();
+      const seeded = [
+        { name: 'Tết Dương lịch', date: `${year}-01-01`, end_date: `${year}-01-01` },
+        { name: 'Quốc khánh', date: `${year}-09-02`, end_date: `${year}-09-02` },
+      ].map((holiday, index) => ({
+        _id: `holiday-seed-${year}-${index}`,
+        ...holiday,
+        work_multiplier: 1.5,
+      }));
+      seeded.forEach(holiday => {
+        if (!holidays.some(item => item.date === holiday.date && item.name === holiday.name)) holidays.push(holiday);
+      });
+      setMockStorage('holidays', holidays);
+      return { data: { message: `Đã nạp ngày lễ Việt Nam năm ${year}!`, holidays: seeded } };
+    }
+
+    if (method === 'get') {
+      const year = params.get('year');
+      const yearStart = year ? `${year}-01-01` : '';
+      const yearEnd = year ? `${year}-12-31` : '';
+      const filtered = year
+        ? holidays.filter(holiday => String(holiday.date || '') <= yearEnd && String(holiday.end_date || holiday.date || '') >= yearStart)
+        : holidays;
+      return { data: filtered.map(holiday => ({ ...holiday, work_multiplier: normalizeHolidayMultiplier(holiday.work_multiplier) })) };
+    }
+
+    if (method === 'post') {
+      const multiplier = Number(data.work_multiplier ?? 1.5);
+      if (!HOLIDAY_WORK_MULTIPLIERS.includes(multiplier)) throw createMockHttpError('Hệ số công ngày lễ không hợp lệ.', 400);
+      const holiday = {
+        ...data,
+        _id: `holiday-${Date.now()}`,
+        end_date: data.end_date || data.date,
+        work_multiplier: multiplier,
+      };
+      holidays.push(holiday);
+      setMockStorage('holidays', holidays);
+      return { data: { message: 'Đã thêm ngày nghỉ lễ thành công!', holiday } };
+    }
+
+    if (method === 'put') {
+      const id = pathOnly.split('/').pop();
+      const holiday = holidays.find(item => String(item._id || item.id) === String(id));
+      if (!holiday) throw createMockHttpError('Không tìm thấy ngày lễ.', 404);
+      const multiplier = Number(data.work_multiplier ?? holiday.work_multiplier ?? 1.5);
+      if (!HOLIDAY_WORK_MULTIPLIERS.includes(multiplier)) throw createMockHttpError('Hệ số công ngày lễ không hợp lệ.', 400);
+      Object.assign(holiday, data, {
+        end_date: data.end_date || data.date || holiday.end_date || holiday.date,
+        work_multiplier: multiplier,
+      });
+      setMockStorage('holidays', holidays);
+      return { data: { message: 'Đã cập nhật ngày nghỉ lễ thành công!', holiday } };
+    }
+
+    if (method === 'delete') {
+      const id = pathOnly.split('/').pop();
+      const nextHolidays = holidays.filter(item => String(item._id || item.id) !== String(id));
+      if (nextHolidays.length === holidays.length) throw createMockHttpError('Không tìm thấy ngày lễ.', 404);
+      setMockStorage('holidays', nextHolidays);
+      return { data: { message: 'Đã xóa ngày nghỉ lễ thành công!' } };
+    }
+  }
+
   // === SYSTEM SETTINGS ===
   if (url.includes('/settings')) {
     let systemSettings = getMockStorage('system_settings', {
@@ -389,6 +538,7 @@ export async function mockRequest(method, url, data = {}) {
       company_logo_url: '/logo.png',
       work_start_time: '09:00',
       work_end_time: '18:30',
+      ot_start_time: '18:30',
       minor_late_mins: 30,
       medium_late_mins: 60,
     });

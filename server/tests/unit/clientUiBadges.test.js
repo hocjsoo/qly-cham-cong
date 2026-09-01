@@ -363,6 +363,44 @@ async function runClientUiBadgesTests(assert) {
   } finally {
     global.window = originalWindow;
   }
+
+  // TC-UI-BDG-22: Ảnh minh chứng trong đơn từ mở được bằng lightbox và có đủ keyboard/focus semantics
+  const requestsPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/RequestsPage.jsx'),
+    'utf8'
+  );
+  assert(
+    requestsPage.includes('<ImageLightbox')
+      && requestsPage.includes('image={fullAvatarImage}')
+      && !requestsPage.includes('src={fullAvatarImage}')
+      && requestsPage.includes('loading="lazy"')
+      && requestsPage.includes('aria-label={`Xem ảnh minh chứng đính kèm')
+      && imageLightbox.includes('dialogRef.current?.querySelectorAll')
+      && imageLightbox.includes('trigger.focus()'),
+    'TC-UI-BDG-22: Ảnh minh chứng đơn bấm mở được, lazy-load, trap focus và trả focus về nút gốc'
+  );
+
+  // TC-UI-BDG-23: Cấu hình hệ số ngày lễ đồng bộ Settings/History/Report và Mock API
+  const settingsPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/SettingsPage.jsx'),
+    'utf8'
+  );
+  const historyPage = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/pages/HistoryPage.jsx'),
+    'utf8'
+  );
+  const mockApi = fs.readFileSync(
+    path.resolve(__dirname, '../../../client/src/services/mockApi.js'),
+    'utf8'
+  );
+  assert(
+    settingsPage.includes('work_multiplier')
+      && historyPage.includes('work_multiplier')
+      && reportPage.includes('HOLIDAY_WORK_UNITS')
+      && reportPage.includes("new Set([1.5, 2, 3])")
+      && mockApi.includes('HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3]'),
+    'TC-UI-BDG-23: UI và Mock API đồng bộ hệ số ngày lễ 1,5x / 2x / 3x'
+  );
 }
 
 module.exports = runClientUiBadgesTests;

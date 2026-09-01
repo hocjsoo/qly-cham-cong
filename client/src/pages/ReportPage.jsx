@@ -24,6 +24,19 @@ import {
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
+const HOLIDAY_WORK_UNITS = new Set([1.5, 2, 3]);
+const HOLIDAY_WORK_SYMBOLS = new Set(['1,5x', '1.5x', '2x', '2.0x', '3x', '3.0x']);
+
+const formatHolidayWorkSymbol = value => {
+  const units = Number(value);
+  if (!HOLIDAY_WORK_UNITS.has(units)) return '';
+  return units === 1.5 ? '1,5x' : `${units}x`;
+};
+
+// Prefer the numeric DTO field for holiday multipliers; never infer payroll data from free-text notes.
+const resolveTimesheetSymbol = day => formatHolidayWorkSymbol(day?.work_units) || day?.symbol || '';
+const isHolidayWorkSymbol = symbol => HOLIDAY_WORK_SYMBOLS.has(String(symbol || ''));
+
 // Confirm Dialog Component
 function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = true, onConfirm, onCancel }) {
   const dialogRef = useRef(null);
@@ -393,6 +406,11 @@ export default function ReportPage() {
     });
   }, [matrixData, searchQuery, deptFilter, attendanceFilter, staffTypeFilter]);
 
+  const headerDayByDay = useMemo(
+    () => new Map((matrixData?.header_days || []).map(headerDay => [headerDay.day, headerDay])),
+    [matrixData?.header_days]
+  );
+
   // Đảm bảo tọa độ focus ma trận luôn hợp lệ khi lọc danh sách hoặc đổi tháng (Tránh mất điểm Tab)
   useEffect(() => {
     if (displayedStaffRows.length > 0) {
@@ -557,7 +575,7 @@ export default function ReportPage() {
   // Sửa Ô Công & Xác Nhận Giờ OT Có Ghi Lý Do
   const handleSaveCellOverride = async () => {
     if (!selectedCell) return;
-    const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
+    const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', '1,5x', '2x', '3x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
     if (!VALID_SYMBOLS.includes(cellSymbol)) {
       toast.error('Vui lòng chọn Ký hiệu công hợp lệ');
       return;
@@ -985,6 +1003,8 @@ export default function ReportPage() {
 
                 if (isBlank) {
                   color = 'var(--text-muted)';
+                } else if (isHolidayWorkSymbol(symbol)) {
+                  bg = 'rgba(236, 72, 153, 0.15)'; color = 'var(--holiday-work)';
                 } else if (symbol === 'x' || symbol === '1.0x') {
                   bg = 'var(--green-soft)'; color = 'var(--green)';
                 } else if (symbol === '0,75x' || symbol === '0.75x') {
@@ -1137,6 +1157,7 @@ export default function ReportPage() {
                                 {selectedMobileWeek.map((headerDay, slot) => {
                                   if (!headerDay) return <div key={`empty-${slot}`} className="timesheet-mobile-day is-empty" />;
                                   const dayData = r.days.find(day => day.day === headerDay.day);
+                                  const daySymbol = resolveTimesheetSymbol(dayData);
                                   const isSunday = headerDay.weekday === 'CN' || headerDay.isSunday;
                                   return (
                                     <button
@@ -1151,7 +1172,7 @@ export default function ReportPage() {
                                           user_id: r.id, staff_name: r.full_name, staff_code: r.code,
                                           department_name: r.department_name, dateStr: dayData.dateStr,
                                           day: dayData.day, weekday: headerDay.weekday,
-                                          current_symbol: dayData.symbol, check_in_time: dayData.check_in_time,
+                                          current_symbol: daySymbol, check_in_time: dayData.check_in_time,
                                           check_out_time: dayData.check_out_time, total_hours: dayData.total_hours,
                                           ot_hours: dayData.ot_hours, is_late: dayData.is_late,
                                           late_minutes: dayData.late_minutes, is_early_leave: dayData.is_early_leave,
@@ -1161,14 +1182,14 @@ export default function ReportPage() {
                                           holiday_name: headerDay?.holidayName || null,
                                           is_locked: r.is_locked,
                                         });
-                                        setCellSymbol(dayData?.symbol || (headerDay?.isHoliday ? 'L' : ''));
+                                        setCellSymbol(daySymbol || (headerDay?.isHoliday ? 'L' : ''));
                                         setCellOtHours(dayData.ot_hours || 0);
                                         setCellReason('');
                                       }}
-                                      aria-label={`${r.full_name}, ngày ${headerDay.day}: ${dayData?.symbol || (isSunday ? 'Chủ nhật' : 'Trống')}${dayData?.ot_hours > 0 ? `, tăng ca ${dayData.ot_hours} giờ` : ''}`}
+                                      aria-label={`${r.full_name}, ngày ${headerDay.day}: ${daySymbol || (isSunday ? 'Chủ nhật' : 'Trống')}${dayData?.ot_hours > 0 ? `, tăng ca ${dayData.ot_hours} giờ` : ''}`}
                                     >
                                       <span>{headerDay.weekday}<small>{String(headerDay.day).padStart(2, '0')}</small></span>
-                                      <b>{renderDaySymbol(dayData?.symbol, isSunday, dayData?.ot_hours)}</b>
+                                      <b>{renderDaySymbol(daySymbol, isSunday, dayData?.ot_hours)}</b>
                                     </button>
                                   );
                                 })}
@@ -1224,7 +1245,8 @@ export default function ReportPage() {
                                   <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))', gap: '4px' }}>
                                       {r.days.map((d, dayIdx) => {
-                                        const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
+                                        const hdObj = headerDayByDay.get(d.day);
+                                        const daySymbol = resolveTimesheetSymbol(d);
                                         const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                                         const isModified = d.is_modified;
                                         const isLate = d.is_late;
@@ -1237,49 +1259,53 @@ export default function ReportPage() {
                                         let cellBoxShadow = undefined;
                                         let dayColor = isSun ? '#ef4444' : 'var(--text-muted)';
                                         let symbolColor = 'var(--text-muted)';
-                                        let cellOpacity = (d.symbol && d.symbol !== '—') || hasOt ? 1 : 0.55;
+                                        let cellOpacity = (daySymbol && daySymbol !== '—') || hasOt ? 1 : 0.55;
 
-                                        if (d.symbol && d.symbol !== '—') {
+                                        if (daySymbol && daySymbol !== '—') {
                                           cellOpacity = 1;
                                           dayColor = isSun ? '#ef4444' : 'var(--text-secondary)';
 
-                                          if (d.symbol === 'x' || d.symbol === '1.0x') {
+                                          if (isHolidayWorkSymbol(daySymbol)) {
+                                            bg = 'rgba(236, 72, 153, 0.12)';
+                                            border = '1px solid rgba(190, 24, 93, 0.45)';
+                                            symbolColor = 'var(--holiday-work)';
+                                          } else if (daySymbol === 'x' || daySymbol === '1.0x') {
                                             bg = 'rgba(16, 185, 129, 0.08)';
                                             border = '1px solid rgba(16, 185, 129, 0.35)';
                                             symbolColor = '#10b981';
-                                          } else if (d.symbol === '0,75x' || d.symbol === '0.75x') {
+                                          } else if (daySymbol === '0,75x' || daySymbol === '0.75x') {
                                             bg = 'rgba(16, 185, 129, 0.08)';
                                             border = '1px solid rgba(16, 185, 129, 0.35)';
                                             symbolColor = '#059669';
-                                          } else if (d.symbol === '0,5x' || d.symbol === '0.5x') {
+                                          } else if (daySymbol === '0,5x' || daySymbol === '0.5x') {
                                             bg = 'rgba(245, 158, 11, 0.08)';
                                             border = '1px solid rgba(245, 158, 11, 0.35)';
                                             symbolColor = '#d97706';
-                                          } else if (d.symbol === 'CT1') {
+                                          } else if (daySymbol === 'CT1') {
                                             bg = 'rgba(59, 130, 246, 0.08)';
                                             border = '1px solid rgba(59, 130, 246, 0.35)';
                                             symbolColor = '#3b82f6';
-                                          } else if (d.symbol === 'CT2') {
+                                          } else if (daySymbol === 'CT2') {
                                             bg = 'rgba(139, 92, 246, 0.08)';
                                             border = '1px solid rgba(139, 92, 246, 0.35)';
                                             symbolColor = '#8b5cf6';
-                                          } else if (d.symbol === 'WFH') {
+                                          } else if (daySymbol === 'WFH') {
                                             bg = 'rgba(6, 182, 212, 0.08)';
                                             border = '1px solid rgba(6, 182, 212, 0.35)';
                                             symbolColor = '#06b6d4';
-                                          } else if (d.symbol === 'P') {
+                                          } else if (daySymbol === 'P') {
                                             bg = 'rgba(139, 92, 246, 0.08)';
                                             border = '1px solid rgba(139, 92, 246, 0.35)';
                                             symbolColor = '#8b5cf6';
-                                          } else if (d.symbol === 'O') {
+                                          } else if (daySymbol === 'O') {
                                             bg = 'rgba(239, 68, 68, 0.08)';
                                             border = '1px solid rgba(239, 68, 68, 0.35)';
                                             symbolColor = '#ef4444';
-                                          } else if (d.symbol === 'KL' || d.symbol === 'K') {
+                                          } else if (daySymbol === 'KL' || daySymbol === 'K') {
                                             bg = 'rgba(100, 116, 139, 0.08)';
                                             border = '1px solid rgba(100, 116, 139, 0.3)';
                                             symbolColor = '#64748b';
-                                          } else if (d.symbol === 'L') {
+                                          } else if (daySymbol === 'L') {
                                             bg = 'rgba(236, 72, 153, 0.12)';
                                             border = '1px solid rgba(236, 72, 153, 0.4)';
                                             symbolColor = '#db2777';
@@ -1316,7 +1342,7 @@ export default function ReportPage() {
                                             dateStr: d.dateStr,
                                             day: d.day,
                                             weekday: hdObj?.weekday,
-                                            current_symbol: d.symbol,
+                                            current_symbol: daySymbol,
                                             check_in_time: d.check_in_time,
                                             check_out_time: d.check_out_time,
                                             total_hours: d.total_hours,
@@ -1333,7 +1359,7 @@ export default function ReportPage() {
                                             holiday_name: hdObj?.holidayName || null,
                                             is_locked: r.is_locked
                                           });
-                                          setCellSymbol(d.symbol || (hdObj?.isHoliday ? 'L' : ''));
+                                          setCellSymbol(daySymbol || (hdObj?.isHoliday ? 'L' : ''));
                                           setCellOtHours(d.ot_hours || 0);
                                           setCellReason('');
                                         };
@@ -1360,7 +1386,7 @@ export default function ReportPage() {
                                           weekday: hdObj?.weekday,
                                           dateStr: d.dateStr,
                                           staffName: r.full_name,
-                                          symbol: d.symbol,
+                                          symbol: daySymbol,
                                           isSunday: isSun,
                                           isHoliday: hdObj?.isHoliday,
                                           holidayName: hdObj?.holidayName,
@@ -1396,11 +1422,11 @@ export default function ReportPage() {
                                               cursor: 'pointer',
                                               transition: 'all 0.15s ease'
                                             }}
-                                            title={isSun && !hasOt && !d.symbol ? `${d.dateStr}: Chủ nhật để trống` : `${d.dateStr}: [${d.symbol || (isSun ? 'Chủ nhật' : 'Không công')}]${d.is_late ? ` (⚠️ Muộn ${d.late_minutes}p)` : ''}${d.is_early_leave ? ` (🚪 Sớm ${d.early_minutes}p)` : ''}${hasOt ? ` (🔥 OT: ${otHoursNum}h)` : ''}`}
+                                            title={isSun && !hasOt && !daySymbol ? `${d.dateStr}: Chủ nhật để trống` : `${d.dateStr}: [${daySymbol || (isSun ? 'Chủ nhật' : 'Không công')}]${d.is_late ? ` (⚠️ Muộn ${d.late_minutes}p)` : ''}${d.is_early_leave ? ` (🚪 Sớm ${d.early_minutes}p)` : ''}${hasOt ? ` (🔥 OT: ${otHoursNum}h)` : ''}`}
                                           >
                                             <div style={{ fontSize: '9px', fontWeight: 600, color: dayColor }}>{d.day}</div>
                                             <div style={{ fontSize: '11px', fontWeight: 800, color: symbolColor, marginTop: '1px' }}>
-                                              {d.symbol ? d.symbol : (isSun ? '' : '—')}
+                                              {daySymbol || (isSun ? '' : '—')}
                                             </div>
                                             {(isLate || hasOt) && (
                                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', marginTop: '1px' }}>
@@ -1529,6 +1555,7 @@ export default function ReportPage() {
                           </div>
                           <div className="timesheet-legend">
                             <span className="timesheet-legend__item is-green"><i />x · 0,5x · 0,75x</span>
+                            <span className="timesheet-legend__item is-holiday-work"><i />1,5x · 2x · 3x ngày lễ</span>
                             <span className="timesheet-legend__item is-blue"><i />CT1 · CT2 · WFH</span>
                             <span className="timesheet-legend__item is-purple"><i />P · O · KL · K</span>
                             <span className="timesheet-legend__item is-red"><i />CN để trống</span>
@@ -1623,7 +1650,8 @@ export default function ReportPage() {
 
                               {/* Day Cell Symbols */}
                               {showDayColumns && r.days.map((d, dayIdx) => {
-                                const hdObj = matrixData.header_days.find(hd => hd.day === d.day);
+                                const hdObj = headerDayByDay.get(d.day);
+                                const daySymbol = resolveTimesheetSymbol(d);
                                 const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                                 const isHol = hdObj?.isHoliday;
                                 const isInteractive = true;
@@ -1641,7 +1669,7 @@ export default function ReportPage() {
                                     dateStr: d.dateStr,
                                     day: d.day,
                                     weekday: hdObj?.weekday,
-                                    current_symbol: d.symbol,
+                                    current_symbol: daySymbol,
                                     check_in_time: d.check_in_time,
                                     check_out_time: d.check_out_time,
                                     total_hours: d.total_hours,
@@ -1658,7 +1686,7 @@ export default function ReportPage() {
                                     holiday_name: hdObj?.holidayName || null,
                                     is_locked: r.is_locked
                                   });
-                                  setCellSymbol(d.symbol || (isHol ? 'L' : ''));
+                                  setCellSymbol(daySymbol || (isHol ? 'L' : ''));
                                   setCellOtHours(d.ot_hours || 0);
                                   setCellReason('');
                                 };
@@ -1668,7 +1696,7 @@ export default function ReportPage() {
                                   weekday: hdObj?.weekday,
                                   dateStr: d.dateStr,
                                   staffName: r.full_name,
-                                  symbol: d.symbol,
+                                  symbol: daySymbol,
                                   isSunday: isSun,
                                   isHoliday: isHol,
                                   holidayName: hdObj?.holidayName,
@@ -1728,9 +1756,9 @@ export default function ReportPage() {
                                       style={{
                                         cursor: 'pointer',
                                       }}
-                                      title={isSun && !d.ot_hours && !d.symbol ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${d.symbol || (isSun ? 'Chủ nhật' : '—')}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj?.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
+                                      title={isSun && !d.ot_hours && !daySymbol ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${daySymbol || (isSun ? 'Chủ nhật' : '—')}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj?.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
                                     >
-                                      {renderDaySymbol(d.symbol, isSun, d.ot_hours)}
+                                      {renderDaySymbol(daySymbol, isSun, d.ot_hours)}
                                     </button>
                                   </td>
                                 );
@@ -1947,7 +1975,8 @@ export default function ReportPage() {
                     <td style={{ padding: '8px 6px', border: '1px solid #cbd5e1' }}>{renderPdfSum(r.other_leave, '#64748b')}</td>
 
                     {r.days.map(d => {
-                      const hdObj = matrixData?.header_days?.find(hd => hd.day === d.day);
+                      const hdObj = headerDayByDay.get(d.day);
+                      const daySymbol = resolveTimesheetSymbol(d);
                       const isSun = hdObj?.weekday === 'CN' || hdObj?.isSunday;
                       return (
                         <td
@@ -1955,17 +1984,18 @@ export default function ReportPage() {
                           style={{
                             padding: '6px 4px', fontWeight: 800, border: '1px solid #cbd5e1',
                             background: isSun ? '#fef2f2' : d.ot_hours > 0 ? '#fff7ed' : 'transparent',
-                            color: d.symbol === 'x' || d.symbol === '0,75x' ? '#059669' :
-                                   d.symbol === '0,5x' ? '#d97706' :
-                                   d.symbol === 'CT1' ? '#2563eb' :
-                                   d.symbol === 'CT2' ? '#7c3aed' :
-                                   d.symbol === 'WFH' ? '#0891b2' :
-                                   d.symbol === 'P' ? '#7c3aed' :
-                                   d.symbol === 'O' ? '#dc2626' :
-                                   d.symbol === 'KL' ? '#475569' : '#0f172a'
+                            color: isHolidayWorkSymbol(daySymbol) ? '#be185d' :
+                                   daySymbol === 'x' || daySymbol === '0,75x' ? '#059669' :
+                                   daySymbol === '0,5x' ? '#d97706' :
+                                   daySymbol === 'CT1' ? '#2563eb' :
+                                   daySymbol === 'CT2' ? '#7c3aed' :
+                                   daySymbol === 'WFH' ? '#0891b2' :
+                                   daySymbol === 'P' ? '#7c3aed' :
+                                   daySymbol === 'O' ? '#dc2626' :
+                                   daySymbol === 'KL' ? '#475569' : '#0f172a'
                           }}
                         >
-                          {d.symbol || '—'}
+                          {daySymbol || '—'}
                           {d.ot_hours > 0 && (
                             <div style={{ fontSize: '7.5px', color: '#c2410c', fontWeight: 900, marginTop: '1px' }}>
                               +{d.ot_hours}h
@@ -2293,7 +2323,7 @@ export default function ReportPage() {
                   <div style={{ marginTop: '3px' }}>
                     <span
                       className={`badge ${
-                        ['x', '0,75x', '0,5x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
+                        ['x', '0,75x', '0,5x', '1,5x', '1.5x', '2x', '2.0x', '3x', '3.0x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
                         ['P', 'O'].includes(selectedCell.current_symbol) ? 'badge--warning' :
                         ['KL', 'K'].includes(selectedCell.current_symbol) ? 'badge--danger' : 'badge--neutral'
                       }`}
@@ -2401,6 +2431,9 @@ export default function ReportPage() {
                       <option value="x">x : Đủ 1 công (1.0)</option>
                       <option value="0,75x">0,75x : 3/4 công (0.75)</option>
                       <option value="0,5x">0,5x : 1/2 công (0.5)</option>
+                      <option value="1,5x">1,5x : Đi làm ngày lễ (1.5)</option>
+                      <option value="2x">2x : Đi làm ngày lễ (2.0)</option>
+                      <option value="3x">3x : Đi làm ngày lễ (3.0)</option>
                       <option value="CT1">CT1 : CT Trong nước (1.0)</option>
                       <option value="CT2">CT2 : CT Nước ngoài (1.0)</option>
                       <option value="WFH">WFH : Work from home (1.0)</option>

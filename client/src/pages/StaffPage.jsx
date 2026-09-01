@@ -105,8 +105,8 @@ export default function StaffPage() {
   const [overrideUser, setOverrideUser] = useState(null);
   const [overrideForm, setOverrideForm] = useState({
     date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-    check_in_time: '08:30',
-    check_out_time: '17:30',
+    check_in_time: '09:00',
+    check_out_time: '18:30',
     check_in_type: 'office',
     is_late: false,
     notes: '',
@@ -163,7 +163,7 @@ export default function StaffPage() {
   };
 
   const adjustTimeString = (timeStr, deltaMinutes) => {
-    if (!timeStr) timeStr = '08:30';
+    if (!timeStr) timeStr = '09:00';
     const parts = timeStr.split(':').map(Number);
     let totalMins = (parts[0] || 0) * 60 + (parts[1] || 0) + deltaMinutes;
     if (totalMins < 0) totalMins = 0;
@@ -196,8 +196,8 @@ export default function StaffPage() {
     setOverrideUser(user);
     setOverrideForm({
       date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
-      check_in_time: '08:30',
-      check_out_time: '17:30',
+      check_in_time: '09:00',
+      check_out_time: '18:30',
       check_in_type: 'office',
       is_late: false,
       notes: 'Admin điều chỉnh giờ công',
@@ -1327,11 +1327,11 @@ export default function StaffPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {[
-                    { label: '🏢 Chuẩn 08:30 - 17:30 (8h)', in: '08:30', out: '17:30', late: false },
+                    { label: '🏢 Chuẩn 09:00 - 18:30', in: '09:00', out: '18:30', late: false },
                     { label: '🏢 Chuẩn 09:00 - 18:30 (ET)', in: '09:00', out: '18:30', late: false },
-                    { label: '🔥 Tăng ca 08:30 - 20:00', in: '08:30', out: '20:00', late: false },
-                    { label: '🌓 Sáng 08:30 - 12:00', in: '08:30', out: '12:00', late: false },
-                    { label: '🌔 Chiều 13:30 - 17:30', in: '13:30', out: '17:30', late: false },
+                    { label: '🔥 Tăng ca 09:00 - 20:00', in: '09:00', out: '20:00', late: false },
+                    { label: '🌓 Sáng 09:00 - 12:00', in: '09:00', out: '12:00', late: false },
+                    { label: '🌔 Chiều 13:30 - 18:30', in: '13:30', out: '18:30', late: false },
                   ].map((p, idx) => (
                     <button
                       key={idx}
