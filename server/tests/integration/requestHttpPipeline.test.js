@@ -41,6 +41,7 @@ const createChain = (data, onSessionCall) => {
     select() { return chain; },
     populate() { return chain; },
     sort() { return chain; },
+    skip() { return chain; },
     limit() { return chain; },
     lean() { return Promise.resolve(data); },
     distinct() { return Promise.resolve(data); },
@@ -97,6 +98,8 @@ async function runRequestHttpPipelineTests(assert) {
   const origAttCreate = Attendance.create;
   const origReqFindOne = Request.findOne;
   const origReqFindById = Request.findById;
+  const origReqFind = Request.find;
+  const origReqCountDocuments = Request.countDocuments;
   const origReqCreate = Request.create;
   const origLockFindOne = TimesheetLock.findOne;
   const origLockFindOneAndUpdate = TimesheetLock.findOneAndUpdate;
@@ -624,6 +627,50 @@ async function runRequestHttpPipelineTests(assert) {
       mongoose.startSession = async () => mockSessionInstance;
     }
 
+    // TC-REQ-HTTP-17: Danh sách phân trang chỉ trả metadata ảnh, không đẩy Base64 nặng về client
+    Request.find = () => createChain([{
+      _id: 'req_attachment_01',
+      user_id: mockEmployee,
+      type: 'other',
+      start_date: '2026-08-30',
+      reason: 'Có ảnh minh chứng',
+      status: 'pending',
+      attachment_url: 'data:image/png;base64,very-large-payload',
+      snapshot_before: { private: 'large-snapshot' },
+      toObject() { return { ...this }; },
+    }]);
+    Request.countDocuments = async () => 1;
+
+    const resRequestList = await request(app)
+      .get('/api/requests/my-requests?page=1&limit=20')
+      .set('Authorization', `Bearer ${employeeToken}`);
+
+    assert(
+      resRequestList.status === 200 &&
+      resRequestList.body.requests?.length === 1 &&
+      resRequestList.body.requests[0].has_attachment === true &&
+      !Object.hasOwn(resRequestList.body.requests[0], 'attachment_url') &&
+      !Object.hasOwn(resRequestList.body.requests[0], 'snapshot_before') &&
+      resRequestList.body.pagination?.total === 1,
+      'TC-REQ-HTTP-17: Danh sách đơn phân trang loại Base64/snapshot, chỉ trả has_attachment nhẹ'
+    );
+
+    // TC-REQ-HTTP-18: Chủ đơn tải ảnh theo nhu cầu qua endpoint bảo vệ riêng
+    Request.findById = () => createChain({
+      _id: 'req_attachment_01',
+      user_id: mockEmployee._id,
+      attachment_url: 'data:image/png;base64,on-demand-image',
+    });
+    const resAttachment = await request(app)
+      .get('/api/requests/req_attachment_01/attachment')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    assert(
+      resAttachment.status === 200 &&
+      resAttachment.body.attachment_url === 'data:image/png;base64,on-demand-image' &&
+      String(resAttachment.headers['cache-control'] || '').includes('private'),
+      'TC-REQ-HTTP-18: Ảnh minh chứng chỉ được tải theo nhu cầu bởi chủ đơn qua endpoint riêng'
+    );
+
   } finally {
     User.findById = origUserFindById;
     User.find = origUserFind;
@@ -631,6 +678,8 @@ async function runRequestHttpPipelineTests(assert) {
     Attendance.create = origAttCreate;
     Request.findOne = origReqFindOne;
     Request.findById = origReqFindById;
+    Request.find = origReqFind;
+    Request.countDocuments = origReqCountDocuments;
     Request.create = origReqCreate;
     TimesheetLock.findOne = origLockFindOne;
     TimesheetLock.findOneAndUpdate = origLockFindOneAndUpdate;

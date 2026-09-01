@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock,
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
+import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
 
@@ -72,6 +73,7 @@ function getTimesheetSymbol(rec) {
 
 export default function HistoryPage() {
   const { user } = useAuthStore();
+  const storedSettings = useSettingsStore(state => state.settings);
   const isAdmin = user?.role === 'admin';
   const isAdminOrManager = ['admin', 'leader', 'manager'].includes(user?.role);
 
@@ -105,31 +107,17 @@ export default function HistoryPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
 
   // Settings for dynamic working hours & late rules (Default 09:00 - 18:30)
-  const [settings, setSettings] = useState({
+  const settings = storedSettings || {
     work_start_time: '09:00',
     work_end_time: '18:30',
     ot_start_time: '18:30',
     minor_late_mins: 30,
     medium_late_mins: 60,
-  });
+  };
 
   const startTime = settings?.work_start_time || '09:00';
   const endTime = settings?.work_end_time || '18:30';
   const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
-  useEffect(() => {
-    api.get('/settings').then(r => {
-      if (r.data) {
-        setSettings({
-          work_start_time: r.data.work_start_time || '09:00',
-          work_end_time: r.data.work_end_time || '18:30',
-          ot_start_time: r.data.ot_start_time || '18:30',
-          minor_late_mins: r.data.minor_late_mins ?? 30,
-          medium_late_mins: r.data.medium_late_mins ?? 60,
-        });
-      }
-    }).catch(() => {});
-  }, []);
-
   const fetchHolidays = useCallback(() => {
     api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, [year]);

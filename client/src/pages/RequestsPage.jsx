@@ -1,5 +1,5 @@
 import ImageLightbox from "../components/ImageLightbox";
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Edit2, X, Check, FileText, Clock, CheckCircle2, XCircle,
@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
+import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
 
 function ConfirmDialog({ title, message, confirmLabel = 'Xác nhận', danger = true, onConfirm, onCancel }) {
@@ -202,6 +203,8 @@ export default function RequestsPage() {
   const initialTab = searchParams.get('tab') || 'mine';
 
   const { user } = useAuthStore();
+  const systemSettings = useSettingsStore(state => state.settings);
+  const updateSettingsState = useSettingsStore(state => state.updateSettingsState);
   const isAdmin = user?.role === 'admin';
   const isManager = user?.role === 'admin' || user?.role === 'manager' || user?.role === 'leader';
 
@@ -216,6 +219,8 @@ export default function RequestsPage() {
   const [pendingList, setPendingList] = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [requestPage, setRequestPage] = useState(1);
+  const [requestPagination, setRequestPagination] = useState({ page: 1, total: 0, totalPages: 1 });
 
   // Modals
   const [showForm, setShowForm] = useState(false);
@@ -245,12 +250,15 @@ export default function RequestsPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState(''); // 'YYYY-MM'
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Reject Request Modal State
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
+  const [attachmentLoadingId, setAttachmentLoadingId] = useState(null);
+  const attachmentCacheRef = useRef(new Map());
 
   // Create Request Form State
   const [type, setType] = useState('annual_leave');
@@ -270,25 +278,19 @@ export default function RequestsPage() {
   const [vehicleParkingLocation, setVehicleParkingLocation] = useState('Tòa 17T10 Nguyễn Thị Định');
 
   // Load Guidelines from settings
-  const loadSystemGuidelines = async () => {
-    try {
-      const { data } = await api.get("/settings");
-      if (data && data.request_guidelines && typeof data.request_guidelines === "object") {
-        const merged = { ...DEFAULT_REQUEST_GUIDELINES, ...data.request_guidelines };
-        setGuidelines(merged);
-        setDraftGuidelines(merged);
-      }
-    } catch {}
-  };
-
   useEffect(() => {
-    loadSystemGuidelines();
-  }, []);
+    if (systemSettings?.request_guidelines && typeof systemSettings.request_guidelines === 'object') {
+      const merged = { ...DEFAULT_REQUEST_GUIDELINES, ...systemSettings.request_guidelines };
+      setGuidelines(merged);
+      setDraftGuidelines(merged);
+    }
+  }, [systemSettings]);
 
   const handleSaveGuidelines = async () => {
     setSavingGuidelines(true);
     try {
-      await api.put("/settings", { request_guidelines: draftGuidelines });
+      const { data } = await api.put("/settings", { request_guidelines: draftGuidelines });
+      updateSettingsState(data?.settings || data || { ...systemSettings, request_guidelines: draftGuidelines });
       setGuidelines(draftGuidelines);
       toast.success("Đã cập nhật quy định đơn từ thành công! 💾");
       setShowEditGuidelinesModal(false);
@@ -303,19 +305,62 @@ export default function RequestsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      const params = new URLSearchParams({ page: String(requestPage), limit: '20' });
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+      if (monthFilter) params.set('month', monthFilter);
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (tab === 'mine') {
-        const { data } = await api.get('/requests/my-requests');
-        setMineList(Array.isArray(data) ? data : []);
+        const { data } = await api.get(`/requests/my-requests?${params}`);
+        setMineList(Array.isArray(data) ? data : (data?.requests || []));
+        setRequestPagination(data?.pagination || { page: 1, total: Array.isArray(data) ? data.length : 0, totalPages: 1 });
       } else if (tab === 'pending' || tab === 'history') {
-        const { data } = await api.get('/requests/pending');
-        setPendingList(Array.isArray(data) ? data : []);
+        params.set('status', tab === 'pending' ? 'pending' : 'history');
+        const { data } = await api.get(`/requests/pending?${params}`);
+        setPendingList(Array.isArray(data) ? data : (data?.requests || []));
+        setRequestPagination(data?.pagination || { page: 1, total: Array.isArray(data) ? data.length : 0, totalPages: 1 });
       }
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi tải danh sách đơn');
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [debouncedSearch, monthFilter, requestPage, statusFilter, tab, typeFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setRequestPage(1);
+  }, [tab, statusFilter, typeFilter, monthFilter, debouncedSearch]);
+
+  const handleOpenRequestAttachment = useCallback(async (request, displayName) => {
+    const requestId = request?._id || request?.id;
+    if (!requestId) return;
+    const cached = attachmentCacheRef.current.get(String(requestId));
+    if (cached) {
+      setFullAvatarImage({ url: cached, title: `Minh chứng đính kèm: ${displayName}` });
+      return;
+    }
+    if (request.attachment_url) {
+      attachmentCacheRef.current.set(String(requestId), request.attachment_url);
+      setFullAvatarImage({ url: request.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
+      return;
+    }
+    try {
+      setAttachmentLoadingId(String(requestId));
+      const { data } = await api.get(`/requests/${requestId}/attachment`);
+      if (!data?.attachment_url) throw new Error('missing attachment');
+      attachmentCacheRef.current.set(String(requestId), data.attachment_url);
+      setFullAvatarImage({ url: data.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Không tải được ảnh minh chứng');
+    } finally {
+      setAttachmentLoadingId(null);
+    }
+  }, []);
 
   // Flagged Attendance loader
   const fetchFlagged = useCallback(async (targetStatus) => {
@@ -751,7 +796,7 @@ export default function RequestsPage() {
                   return (
                     <div
                       key={item._id}
-                      className="card animate-fade-in"
+                      className="card request-list-card animate-fade-in"
                       style={{
                         padding: '16px', borderRadius: '14px',
                         borderLeft: `4px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
@@ -1023,25 +1068,22 @@ export default function RequestsPage() {
                       </div>
 
                       {/* Attachment Photo Thumbnail */}
-                      {r.attachment_url && (
+                      {(r.has_attachment || r.attachment_url) && (
                         <div style={{ margin: '8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <button
                             type="button"
                             aria-label={`Xem ảnh minh chứng đính kèm của ${displayName}`}
-                            onClick={() => setFullAvatarImage({ url: r.attachment_url, title: `Minh chứng đính kèm: ${displayName}` })}
-                            style={{ width: '64px', height: '64px', padding: 0, borderRadius: '10px', border: '2px solid var(--primary)', background: 'transparent', cursor: 'pointer', overflow: 'hidden', flexShrink: 0 }}
-                            title="Click để phóng to ảnh"
+                            onClick={() => handleOpenRequestAttachment(r, displayName)}
+                            disabled={attachmentLoadingId === String(r._id || r.id)}
+                            className="btn btn--ghost"
+                            style={{ padding: '8px 12px', color: 'var(--primary)', fontWeight: 700 }}
+                            title="Tải và mở ảnh minh chứng"
                           >
-                            <img
-                              src={r.attachment_url}
-                              alt=""
-                              loading="lazy"
-                              decoding="async"
-                              style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-                            />
+                            <Camera size={16} />
+                            {attachmentLoadingId === String(r._id || r.id) ? 'Đang tải ảnh...' : 'Xem ảnh minh chứng'}
                           </button>
                           <div style={{ fontSize: '11.5px', color: 'var(--primary)', fontWeight: 600 }}>
-                            📸 Ảnh minh chứng đính kèm (Click để xem)
+                            Ảnh chỉ tải khi bạn bấm xem
                           </div>
                         </div>
                       )}
@@ -1122,6 +1164,19 @@ export default function RequestsPage() {
                     </div>
                   );
                 })}
+                {requestPagination.totalPages > 1 && (
+                  <div className="card" style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                    <button type="button" className="btn btn--ghost" disabled={requestPage <= 1 || loading} onClick={() => setRequestPage(page => Math.max(1, page - 1))}>
+                      ‹ Trang trước
+                    </button>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                      Trang {requestPagination.page} / {requestPagination.totalPages} · {requestPagination.total} đơn
+                    </span>
+                    <button type="button" className="btn btn--ghost" disabled={requestPage >= requestPagination.totalPages || loading} onClick={() => setRequestPage(page => page + 1)}>
+                      Trang sau ›
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

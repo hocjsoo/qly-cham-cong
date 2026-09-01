@@ -5,8 +5,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Download, BarChart3, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, FileType, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -439,11 +437,12 @@ export default function ReportPage() {
     const scroller = matrixTableScrollRef.current;
     if (!scroller) return undefined;
 
+    let scheduledFrame = 0;
     const updateScrollMetrics = () => {
       const rect = scroller.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
       const hasHorizontalOverflow = scroller.scrollWidth > scroller.clientWidth + 1;
-      setMatrixScrollMetrics({
+      const nextMetrics = {
         scrollWidth: scroller.scrollWidth,
         clientWidth: scroller.clientWidth,
         left: Math.max(0, rect.left),
@@ -451,24 +450,40 @@ export default function ReportPage() {
         showFloating: hasHorizontalOverflow
           && rect.top < viewportHeight - 24
           && rect.bottom > viewportHeight,
+      };
+      setMatrixScrollMetrics(previous => (
+        previous.scrollWidth === nextMetrics.scrollWidth
+        && previous.clientWidth === nextMetrics.clientWidth
+        && Math.abs(previous.left - nextMetrics.left) < 1
+        && Math.abs(previous.width - nextMetrics.width) < 1
+        && previous.showFloating === nextMetrics.showFloating
+          ? previous
+          : nextMetrics
+      ));
+    };
+
+    const scheduleMetricsUpdate = () => {
+      if (scheduledFrame) return;
+      scheduledFrame = window.requestAnimationFrame(() => {
+        scheduledFrame = 0;
+        updateScrollMetrics();
       });
     };
 
-    updateScrollMetrics();
-    const frameId = window.requestAnimationFrame(updateScrollMetrics);
+    scheduleMetricsUpdate();
     const resizeObserver = typeof ResizeObserver !== 'undefined'
-      ? new ResizeObserver(updateScrollMetrics)
+      ? new ResizeObserver(scheduleMetricsUpdate)
       : null;
     resizeObserver?.observe(scroller);
     if (scroller.firstElementChild) resizeObserver?.observe(scroller.firstElementChild);
-    window.addEventListener('resize', updateScrollMetrics);
-    window.addEventListener('scroll', updateScrollMetrics, { passive: true });
+    window.addEventListener('resize', scheduleMetricsUpdate);
+    window.addEventListener('scroll', scheduleMetricsUpdate, { passive: true });
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      if (scheduledFrame) window.cancelAnimationFrame(scheduledFrame);
       resizeObserver?.disconnect();
-      window.removeEventListener('resize', updateScrollMetrics);
-      window.removeEventListener('scroll', updateScrollMetrics);
+      window.removeEventListener('resize', scheduleMetricsUpdate);
+      window.removeEventListener('scroll', scheduleMetricsUpdate);
     };
   }, [matrixData, viewMode, tableDisplayMode, displayedStaffRows.length]);
 
@@ -703,6 +718,10 @@ export default function ReportPage() {
 
     setTimeout(async () => {
       try {
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+          import('html2canvas'),
+          import('jspdf'),
+        ]);
         const canvas = await html2canvas(printEl, {
           scale: 2.5, // 2.5x ultra-sharp resolution
           useCORS: true,

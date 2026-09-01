@@ -16,6 +16,25 @@ const TYPE_ICONS = {
   announcement: { icon: '📢', bg: '#8b5cf6' },
 };
 
+const notificationCache = new Map();
+const notificationRequests = new Map();
+
+const loadNotificationsCached = async (userKey, force = false) => {
+  const key = String(userKey || 'anonymous');
+  const cached = notificationCache.get(key);
+  if (!force && cached && Date.now() - cached.loadedAt < 30000) return cached.data;
+  if (notificationRequests.has(key)) return notificationRequests.get(key);
+
+  const request = api.get('/notifications')
+    .then(({ data }) => {
+      notificationCache.set(key, { data, loadedAt: Date.now() });
+      return data;
+    })
+    .finally(() => notificationRequests.delete(key));
+  notificationRequests.set(key, request);
+  return request;
+};
+
 function formatTimeAgo(isoString) {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -55,13 +74,13 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 20000); // Polling 20s
+    const interval = setInterval(() => fetchNotifications(true), 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (force = false) => {
     try {
-      const { data } = await api.get('/notifications');
+      const data = await loadNotificationsCached(user?._id || user?.id, force);
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
     } catch {

@@ -14,6 +14,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
+import useSettingsStore from '../stores/settingsStore';
+import { fetchPendingCountCached } from '../services/pendingCountCache';
 import HeaderActions from '../components/HeaderActions';
 import { exportAttendanceToCSV } from '../utils/exportCsv';
 
@@ -65,6 +67,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const systemSettings = useSettingsStore(state => state.settings);
+  const updateSettingsState = useSettingsStore(state => state.updateSettingsState);
   const isAdminOrLeader = user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager';
   const [data, setData] = useState(null);
   const [allProjects, setAllProjects] = useState([]);
@@ -193,7 +197,7 @@ export default function DashboardPage() {
 
       const [d, p, projRes] = await Promise.all([
         api.get('/dashboard/today'),
-        api.get('/dashboard/pending-count'),
+        fetchPendingCountCached(),
         api.get('/projects?active_only=true&compact=true').catch(() => ({ data: [] })),
       ]);
       const resData = d?.data;
@@ -203,7 +207,7 @@ export default function DashboardPage() {
         console.warn('Dashboard received invalid payload:', resData);
         setData(createEmptyDashboard());
       }
-      setPendingCount(typeof p?.data?.pending_count === 'number' ? p.data.pending_count : 0);
+      setPendingCount(Number(p) || 0);
       setAllProjects(Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []));
       setLastRefresh(new Date());
       fetchFlagged();
@@ -239,17 +243,22 @@ export default function DashboardPage() {
       setHolidays(monthHols);
     }).catch(() => {});
     api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    api.get('/settings').then(r => {
-      const s = r.data?.settings || r.data || {};
-      if (s.anniversary_display_mode) setAnnivDisplayMode(s.anniversary_display_mode);
-      if (s.anniversary_display_days) setAnnivDisplayDays(s.anniversary_display_days);
-    }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (systemSettings?.anniversary_display_mode) setAnnivDisplayMode(systemSettings.anniversary_display_mode);
+    if (systemSettings?.anniversary_display_days) setAnnivDisplayDays(systemSettings.anniversary_display_days);
+  }, [systemSettings]);
 
   const handleSaveAnnivSettings = async () => {
     setSavingAnnivSettings(true);
     try {
-      await api.put('/settings', {
+      const { data: updatedSettings } = await api.put('/settings', {
+        anniversary_display_mode: annivDisplayMode,
+        anniversary_display_days: annivDisplayDays,
+      });
+      updateSettingsState(updatedSettings?.settings || updatedSettings || {
+        ...systemSettings,
         anniversary_display_mode: annivDisplayMode,
         anniversary_display_days: annivDisplayDays,
       });

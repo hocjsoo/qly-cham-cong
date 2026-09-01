@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getMyRequests, createRequest, getPendingRequests, approveRequest, rejectRequest, revertRequest, deleteRequest
+  getMyRequests, getRequestAttachment, createRequest, getPendingRequests, approveRequest, rejectRequest, revertRequest, deleteRequest
 } = require('../controllers/requestController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
@@ -18,6 +18,9 @@ router.post('/', createRequest);
 
 // GET /api/requests/pending - Đơn chờ duyệt [Leader, Admin]
 router.get('/pending', requireRole('admin', 'manager'), getPendingRequests);
+
+// Ảnh minh chứng được tải theo nhu cầu, không nhúng vào payload danh sách
+router.get('/:id/attachment', getRequestAttachment);
 
 // PUT & PATCH /api/requests/:id/approve - [Admin, Leader, Manager]
 router.put('/:id/approve', requireRole('admin', 'manager'), approveRequest);

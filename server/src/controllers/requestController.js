@@ -33,6 +33,37 @@ const TYPE_LABELS = {
   other: 'Khác (K)',
 };
 
+const getRequestPagination = query => {
+  const enabled = query?.page !== undefined || query?.limit !== undefined;
+  const page = Math.max(1, Number.parseInt(query?.page, 10) || 1);
+  const limit = Math.min(50, Math.max(10, Number.parseInt(query?.limit, 10) || 20));
+  return { enabled, page, limit, skip: (page - 1) * limit };
+};
+
+const escapeRegex = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const toRequestListItem = (request, fallbackUser = {}, { includeHeavyFields = false } = {}) => {
+  const obj = request?.toObject ? request.toObject() : request;
+  const hasAttachment = Boolean(obj?.attachment_url);
+  const { attachment_url: _attachmentUrl, snapshot_before: _snapshotBefore, ...safeObj } = obj || {};
+  return {
+    ...safeObj,
+    ...(includeHeavyFields ? { attachment_url: obj?.attachment_url, snapshot_before: obj?.snapshot_before } : {}),
+    id: obj?._id,
+    has_attachment: hasAttachment,
+    user_name: obj?.user_id?.full_name || fallbackUser.full_name || 'Nhân viên',
+    user_avatar: obj?.user_id?.avatar_url || fallbackUser.avatar_url,
+    user_code: obj?.user_id?.employee_code || fallbackUser.employee_code || 'NV',
+    email: obj?.user_id?.email || fallbackUser.email,
+    phone: obj?.user_id?.phone || fallbackUser.phone,
+    position: obj?.user_id?.position || fallbackUser.position || 'Nhân viên',
+    department_name: obj?.user_id?.department_id?.name || 'Văn Phòng',
+    join_date: obj?.user_id?.join_date || (obj?.user_id?.start_year ? `Năm ${obj.user_id.start_year}` : ''),
+    parking_location: obj?.user_id?.parking_location,
+    vehicle_info: obj?.user_id?.vehicle_info,
+  };
+};
+
 // Helper kiểm tra topology MongoDB theo chính sách Fail-Closed tuyệt đối [P1, P2]:
 // - Mọi môi trường kết nối thật (Atlas, ReplicaSet, Sharded, Standalone, Development, Production) đều BẮT BUỘC ACID Transaction (Fail-Closed)
 // - Chỉ in-memory unit test runner (NODE_ENV === 'test' khi không có kết nối DB thực) mới được miễn transaction
@@ -184,14 +215,23 @@ const guardTimesheetLocksInTx = async (dates, userId, session) => {
 
 // GET /api/requests
 const getMyRequests = async (req, res) => {
-  const { status, type } = req.query;
+  const { status, type, month, search } = req.query;
 
   try {
     const filter = { user_id: req.user._id };
     if (status) filter.status = status;
     if (type) filter.type = type;
+    if (/^\d{4}-\d{2}$/.test(month || '')) filter.start_date = { $regex: `^${month}` };
+    const searchText = String(search || '').trim();
+    const matchesOwner = searchText && [req.user.full_name, req.user.employee_code]
+      .some(value => String(value || '').toLowerCase().includes(searchText.toLowerCase()));
+    if (searchText && !matchesOwner) {
+      const regex = new RegExp(escapeRegex(searchText), 'i');
+      filter.$or = [{ reason: regex }, { project_name: regex }, { proposed_vehicle_info: regex }];
+    }
 
-    const requests = await Request.find(filter)
+    const pagination = getRequestPagination(req.query);
+    let requestQuery = Request.find(filter)
       .populate({
         path: 'user_id',
         select: 'full_name email phone department_id department_ids avatar_url employee_code position role join_date start_year parking_location vehicle_info employment_status',
@@ -200,25 +240,27 @@ const getMyRequests = async (req, res) => {
       .populate('approved_by', 'full_name')
       .sort({ created_at: -1 });
 
-    const formatted = requests.map(r => {
-      const obj = r.toObject ? r.toObject() : r;
-      return {
-        ...obj,
-        id: obj._id,
-        user_name: obj.user_id?.full_name || req.user.full_name,
-        user_avatar: obj.user_id?.avatar_url || req.user.avatar_url,
-        user_code: obj.user_id?.employee_code || req.user.employee_code,
-        email: obj.user_id?.email || req.user.email,
-        phone: obj.user_id?.phone || req.user.phone,
-        position: obj.user_id?.position || req.user.position,
-        department_name: obj.user_id?.department_id?.name || 'Văn Phòng',
-        join_date: obj.user_id?.join_date || (obj.user_id?.start_year ? `Năm ${obj.user_id?.start_year}` : ''),
-        parking_location: obj.user_id?.parking_location,
-        vehicle_info: obj.user_id?.vehicle_info,
-      };
-    });
+    if (pagination.enabled) {
+      requestQuery = requestQuery.skip(pagination.skip).limit(pagination.limit);
+    }
 
-    res.json(formatted);
+    const [requests, total] = await Promise.all([
+      requestQuery,
+      pagination.enabled ? Request.countDocuments(filter) : Promise.resolve(0),
+    ]);
+
+    const formatted = requests.map(r => toRequestListItem(r, req.user, { includeHeavyFields: !pagination.enabled }));
+
+    if (!pagination.enabled) return res.json(formatted);
+    return res.json({
+      requests: formatted,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+      },
+    });
   } catch (error) {
     console.error('GetMyRequests error:', error);
     res.status(500).json({ error: 'Lỗi lấy danh sách đơn.' });
@@ -415,10 +457,30 @@ const getPendingRequests = async (req, res) => {
       return res.status(403).json({ error: 'Chỉ Admin hoặc Leader mới có quyền xem đơn chờ duyệt.' });
     }
 
-    const targetUsers = await User.find(filter).select('_id');
+    const targetUsers = await User.find(filter).select('_id full_name employee_code');
     const targetUserIds = targetUsers.map(u => u._id);
 
-    const requests = await Request.find({ user_id: { $in: targetUserIds } })
+    const requestFilter = { user_id: { $in: targetUserIds } };
+    if (req.query.status === 'pending') requestFilter.status = 'pending';
+    if (req.query.status === 'history') requestFilter.status = { $ne: 'pending' };
+    if (req.query.type) requestFilter.type = req.query.type;
+    if (/^\d{4}-\d{2}$/.test(req.query.month || '')) requestFilter.start_date = { $regex: `^${req.query.month}` };
+    const searchText = String(req.query.search || '').trim();
+    if (searchText) {
+      const regex = new RegExp(escapeRegex(searchText), 'i');
+      const matchingUserIds = targetUsers
+        .filter(target => [target.full_name, target.employee_code]
+          .some(value => String(value || '').toLowerCase().includes(searchText.toLowerCase())))
+        .map(target => target._id);
+      requestFilter.$or = [
+        { user_id: { $in: matchingUserIds } },
+        { reason: regex },
+        { project_name: regex },
+        { proposed_vehicle_info: regex },
+      ];
+    }
+    const pagination = getRequestPagination(req.query);
+    let requestQuery = Request.find(requestFilter)
       .populate({
         path: 'user_id',
         select: 'full_name email phone department_id department_ids avatar_url employee_code position role join_date start_year parking_location vehicle_info employment_status',
@@ -427,28 +489,52 @@ const getPendingRequests = async (req, res) => {
       .populate('approved_by', 'full_name')
       .sort({ created_at: -1 });
 
-    const formatted = requests.map(r => {
-      const obj = r.toObject ? r.toObject() : r;
-      return {
-        ...obj,
-        id: obj._id,
-        user_name: obj.user_id?.full_name || 'Nhân viên',
-        user_avatar: obj.user_id?.avatar_url,
-        user_code: obj.user_id?.employee_code || 'NV',
-        email: obj.user_id?.email,
-        phone: obj.user_id?.phone,
-        position: obj.user_id?.position || 'Nhân viên',
-        department_name: obj.user_id?.department_id?.name || 'Văn Phòng',
-        join_date: obj.user_id?.join_date || (obj.user_id?.start_year ? `Năm ${obj.user_id?.start_year}` : ''),
-        parking_location: obj.user_id?.parking_location,
-        vehicle_info: obj.user_id?.vehicle_info,
-      };
-    });
+    if (pagination.enabled) {
+      requestQuery = requestQuery.skip(pagination.skip).limit(pagination.limit);
+    }
 
-    res.json(formatted);
+    const [requests, total] = await Promise.all([
+      requestQuery,
+      pagination.enabled ? Request.countDocuments(requestFilter) : Promise.resolve(0),
+    ]);
+
+    const formatted = requests.map(r => toRequestListItem(r, {}, { includeHeavyFields: !pagination.enabled }));
+
+    if (!pagination.enabled) return res.json(formatted);
+    return res.json({
+      requests: formatted,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+      },
+    });
   } catch (error) {
     console.error('GetPendingRequests error:', error);
     res.status(500).json({ error: 'Lỗi lấy danh sách đơn chờ duyệt.' });
+  }
+};
+
+// GET /api/requests/:id/attachment - Chỉ tải ảnh lớn khi người dùng yêu cầu xem
+const getRequestAttachment = async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id).select('user_id attachment_url');
+    if (!request) return res.status(404).json({ error: 'Không tìm thấy đơn.' });
+
+    const ownerId = String(request.user_id?._id || request.user_id || '');
+    const actorId = String(req.user?._id || '');
+    const canView = ownerId === actorId
+      || req.user?.role === 'admin'
+      || (isLeaderRole(req.user) && await canManageUserId(req.user, ownerId));
+    if (!canView) return res.status(403).json({ error: 'Bạn không có quyền xem ảnh minh chứng này.' });
+    if (!request.attachment_url) return res.status(404).json({ error: 'Đơn này không có ảnh minh chứng.' });
+
+    res.set('Cache-Control', 'private, max-age=300');
+    return res.json({ attachment_url: request.attachment_url });
+  } catch (error) {
+    console.error('GetRequestAttachment error:', error);
+    return res.status(500).json({ error: 'Lỗi tải ảnh minh chứng.' });
   }
 };
 
@@ -1510,6 +1596,7 @@ const deleteRequest = async (req, res) => {
 
 module.exports = {
   getMyRequests,
+  getRequestAttachment,
   createRequest,
   getPendingRequests,
   approveRequest,

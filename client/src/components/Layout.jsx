@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Mail, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
-import api from '../services/api';
+import { fetchPendingCountCached } from '../services/pendingCountCache';
+import { prefetchRoute } from '../utils/routePrefetch';
 
 import useSettingsStore from '../stores/settingsStore';
 
@@ -29,8 +30,7 @@ export default function Layout() {
 
   const fetchPendingCount = async () => {
     try {
-      const { data } = await api.get('/dashboard/pending-count');
-      setPendingCount(data.pending_count || 0);
+      setPendingCount(await fetchPendingCountCached());
     } catch {}
   };
 
@@ -107,6 +107,8 @@ export default function Layout() {
             <NavLink
               key={t.to}
               to={t.to}
+              onPointerEnter={() => prefetchRoute(t.to)}
+              onFocus={() => prefetchRoute(t.to)}
               className={({ isActive }) => `desktop-nav__item${isActive ? ' active' : ''}`}
             >
               <t.icon size={20} strokeWidth={1.8} />
@@ -137,6 +139,8 @@ export default function Layout() {
           <NavLink
             key={t.to}
             to={t.to}
+            onPointerDown={() => prefetchRoute(t.to)}
+            onFocus={() => prefetchRoute(t.to)}
             className={({ isActive }) => `bottom-nav__item${isActive ? ' active' : ''}`}
             style={{ position: 'relative' }}
           >

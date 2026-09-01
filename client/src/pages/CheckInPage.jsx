@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
+import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 
@@ -51,8 +52,27 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+function LiveClock() {
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <>
+      <div className="checkin-hero__date">
+        {clock.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+      </div>
+      <div className="checkin-hero__time">
+        {clock.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+      </div>
+    </>
+  );
+}
+
 export default function CheckInPage() {
   const { user } = useAuthStore();
+  const fetchSystemSettings = useSettingsStore(state => state.fetchSettings);
   const navigate = useNavigate();
 
   const [today, setToday] = useState(null);
@@ -77,7 +97,7 @@ export default function CheckInPage() {
   const [selectedProject, setSelectedProject] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [now, setNow] = useState(new Date());
+  const [isAfterOtThreshold, setIsAfterOtThreshold] = useState(() => new Date().getHours() >= 18);
 
   // GPS state
   const [gpsPosition, setGpsPosition] = useState(null);  // { lat, lng, accuracy }
@@ -101,8 +121,12 @@ export default function CheckInPage() {
   const [explanationType, setExplanationType] = useState('late');
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const updateOtThreshold = () => {
+      const nextValue = new Date().getHours() >= 18;
+      setIsAfterOtThreshold(previous => previous === nextValue ? previous : nextValue);
+    };
+    const timer = setInterval(updateOtThreshold, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   const loadData = useCallback(async () => {
@@ -113,7 +137,7 @@ export default function CheckInPage() {
 
       const [todayRes, settingsRes, projRes, locRes, annRes, bdayRes, annivRes, holRes, dutyRes] = await Promise.all([
         api.get('/attendance/today'),
-        api.get('/settings'),
+        fetchSystemSettings().then(data => ({ data })),
         api.get('/projects?active_only=true'),
         api.get('/locations'),
         api.get('/announcements/pinned').catch(() => ({ data: [] })),
@@ -178,7 +202,7 @@ export default function CheckInPage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [fetchSystemSettings, user]);
 
   const acquireGPS = useCallback(() => {
     if (!navigator.geolocation) {
@@ -413,13 +437,10 @@ export default function CheckInPage() {
     ? distanceFromOffice <= targetOffice.radius_m
     : null;
 
-  const timeStr = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-
   const att = today;
   const isCheckedIn = Boolean(att?.check_in_time);
   const isCheckedOut = Boolean(att?.check_out_time);
-  const isOtNow = isCheckedIn && !isCheckedOut && now.getHours() >= 18;
+  const isOtNow = isCheckedIn && !isCheckedOut && isAfterOtThreshold;
   const lateConfig = LATE_TIERS[att?.late_tier] || (att?.is_late ? LATE_TIERS.late_medium : LATE_TIERS.on_time);
 
   const openDutyStaffProfile = person => {
@@ -699,12 +720,7 @@ export default function CheckInPage() {
 
               {/* Clock Hero Card */}
               <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
-                <div className="checkin-hero__date">
-                  {dateStr}
-                </div>
-                <div className="checkin-hero__time">
-                  {timeStr}
-                </div>
+                <LiveClock />
 
                 {loading ? (
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Đang tải...</div>
