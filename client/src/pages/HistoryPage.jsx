@@ -1014,12 +1014,13 @@ export default function HistoryPage() {
           setOverrideForm({ ...overrideForm, date: newDateStr });
         };
 
-        const applyPreset = (inT, outT, isLateVal = false) => {
+        const applyPreset = (inT, outT, isLateVal = false, isOvernight = false) => {
           setOverrideForm({
             ...overrideForm,
             check_in_time: inT,
             check_out_time: outT,
-            is_late: isLateVal
+            is_late: isLateVal,
+            is_overnight_checkout: isOvernight
           });
         };
 
@@ -1115,13 +1116,14 @@ export default function HistoryPage() {
                     { label: '🏢 Chuẩn 09:00 - 18:30', in: '09:00', out: '18:30', late: false },
                     { label: '🏢 Chuẩn 09:00 - 18:30 (ET)', in: '09:00', out: '18:30', late: false },
                     { label: '🔥 Tăng ca 09:00 - 20:00', in: '09:00', out: '20:00', late: false },
+                    { label: '🌙 Xuyên đêm 09:00 - 01:30 (hôm sau)', in: '09:00', out: '01:30', late: false, overnight: true },
                     { label: '🌓 Sáng 09:00 - 12:00', in: '09:00', out: '12:00', late: false },
                     { label: '🌔 Chiều 13:30 - 18:30', in: '13:30', out: '18:30', late: false },
                   ].map((p, idx) => (
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => applyPreset(p.in, p.out, p.late)}
+                      onClick={() => applyPreset(p.in, p.out, p.late, p.overnight || false)}
                       className="btn btn--ghost"
                       style={{
                         fontSize: '11.5px',
@@ -1203,9 +1205,25 @@ export default function HistoryPage() {
 
                 {/* 🔴 Giờ ra (Check-out) */}
                 <div className="form-group" style={{ margin: 0 }}>
-                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>🔴 Giờ ra (Check-out)</span>
-                    <span style={{ fontSize: '11px', color: 'var(--red)', fontWeight: 700 }}>{overrideForm.check_out_time || '—'}</span>
+                  <label className="form-label" style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>🔴 Giờ ra</span>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideForm({ ...overrideForm, is_overnight_checkout: !overrideForm.is_overnight_checkout })}
+                      className="btn btn--ghost"
+                      style={{
+                        fontSize: '11px',
+                        padding: '1px 8px',
+                        borderRadius: '12px',
+                        height: '22px',
+                        background: overrideForm.is_overnight_checkout ? 'rgba(139, 92, 246, 0.2)' : 'var(--bg-raised)',
+                        color: overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--text-muted)',
+                        borderColor: overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--border)',
+                        fontWeight: 700
+                      }}
+                    >
+                      {overrideForm.is_overnight_checkout ? '🌙 Ra ca hôm sau' : '☀️ Cùng ngày'}
+                    </button>
                   </label>
 
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -1221,7 +1239,15 @@ export default function HistoryPage() {
                     <input
                       type="time"
                       className="form-input"
-                      style={{ fontSize: '15px', fontWeight: 800, padding: '6px 8px', height: '38px', textAlign: 'center', flex: 1 }}
+                      style={{
+                        fontSize: '15px',
+                        fontWeight: 800,
+                        padding: '6px 8px',
+                        height: '38px',
+                        textAlign: 'center',
+                        flex: 1,
+                        borderColor: overrideForm.is_overnight_checkout ? '#8b5cf6' : undefined
+                      }}
                       value={overrideForm.check_out_time}
                       onChange={e => {
                         const newOut = e.target.value;
@@ -1245,22 +1271,46 @@ export default function HistoryPage() {
                     </button>
                   </div>
 
-                  {/* Check-out Quick Chips */}
+                  {/* Chips giờ tan thông thường */}
                   <div style={{ display: 'flex', gap: '4px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    {['12:00', '17:30', '18:00', '18:30', '19:00', '20:00'].map(t => (
+                    {['18:30', '19:00', '20:00', '21:00', '22:00'].map(t => (
                       <button
                         key={t}
                         type="button"
-                        onClick={() => setOverrideForm({ ...overrideForm, check_out_time: t })}
+                        onClick={() => setOverrideForm({ ...overrideForm, check_out_time: t, is_overnight_checkout: false })}
                         className="btn btn--ghost"
                         style={{
                           fontSize: '11px',
                           padding: '2px 6px',
                           borderRadius: '4px',
-                          background: overrideForm.check_out_time === t ? 'var(--primary-soft)' : 'transparent',
-                          color: overrideForm.check_out_time === t ? 'var(--primary)' : 'var(--text-muted)',
-                          borderColor: overrideForm.check_out_time === t ? 'var(--primary)' : 'var(--border)',
-                          fontWeight: overrideForm.check_out_time === t ? 700 : 500
+                          background: overrideForm.check_out_time === t && !overrideForm.is_overnight_checkout ? 'var(--primary-soft)' : 'transparent',
+                          color: overrideForm.check_out_time === t && !overrideForm.is_overnight_checkout ? 'var(--primary)' : 'var(--text-muted)',
+                          borderColor: overrideForm.check_out_time === t && !overrideForm.is_overnight_checkout ? 'var(--primary)' : 'var(--border)',
+                          fontWeight: overrideForm.check_out_time === t && !overrideForm.is_overnight_checkout ? 700 : 500
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Chips OT rạng sáng hôm sau */}
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '10.5px', color: '#8b5cf6', fontWeight: 800 }}>🌙 Hôm sau:</span>
+                    {['00:00', '00:30', '01:00', '01:30', '02:00', '03:00'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setOverrideForm({ ...overrideForm, check_out_time: t, is_overnight_checkout: true })}
+                        className="btn btn--ghost"
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: overrideForm.check_out_time === t && overrideForm.is_overnight_checkout ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+                          color: overrideForm.check_out_time === t && overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--text-muted)',
+                          borderColor: overrideForm.check_out_time === t && overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--border)',
+                          fontWeight: overrideForm.check_out_time === t && overrideForm.is_overnight_checkout ? 700 : 500
                         }}
                       >
                         {t}
@@ -1346,40 +1396,6 @@ export default function HistoryPage() {
                     </span>
                   </label>
                 </div>
-              </div>
-
-                            {/* 🌙 Toggle Ca làm việc xuyên đêm */}
-              <div style={{ marginBottom: '14px' }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    background: overrideForm.is_overnight_checkout ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-input)',
-                    border: overrideForm.is_overnight_checkout ? '1px solid #8b5cf6' : '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '8px 12px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={overrideForm.is_overnight_checkout}
-                      onChange={e => setOverrideForm({ ...overrideForm, is_overnight_checkout: e.target.checked })}
-                      style={{ width: '16px', height: '16px', accentColor: '#8b5cf6' }}
-                    />
-                    <span style={{ fontSize: '12.5px', fontWeight: overrideForm.is_overnight_checkout ? 700 : 500, color: overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--text)' }}>
-                      🌙 Ra ca rạng sáng hôm sau (OT qua 0h)
-                    </span>
-                  </div>
-                  {overrideForm.is_overnight_checkout && (
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)', padding: '2px 8px', borderRadius: '12px' }}>
-                      Qua đêm
-                    </span>
-                  )}
-                </label>
               </div>
 
               {/* Lý do điều chỉnh */}
