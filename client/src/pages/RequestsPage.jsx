@@ -1598,7 +1598,16 @@ export default function RequestsPage() {
                       type="time"
                       className="form-input"
                       value={endTime || startTime}
-                      onChange={e => { setEndTime(e.target.value); setStartTime(e.target.value); }}
+                      onChange={e => {
+                        const newTime = e.target.value;
+                        setEndTime(newTime);
+                        setStartTime(newTime);
+                        // Auto-detect rạng sáng hôm sau (00:00 - 06:00)
+                        if (newTime && newTime < '06:00') {
+                          setIsOvernightCheckout(true);
+                          setEndDate(getNextDayString(startDate));
+                        }
+                      }}
                       onClick={e => e.target.showPicker && e.target.showPicker()}
                     />
                   </div>
@@ -1741,7 +1750,13 @@ export default function RequestsPage() {
                         type="time"
                         className="form-input"
                         value={endTime}
-                        onChange={e => setEndTime(e.target.value)}
+                        onChange={e => {
+                          const newEnd = e.target.value;
+                          setEndTime(newEnd);
+                          if (type === 'overtime' && newEnd && startTime && newEnd < startTime) {
+                            setEndDate(getNextDayString(startDate));
+                          }
+                        }}
                         onClick={e => e.target.showPicker && e.target.showPicker()}
                       />
                     </div>

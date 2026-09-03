@@ -892,15 +892,23 @@ const approveRequest = async (req, res) => {
       const workEndTime = systemSetting.work_end_time || '18:30';
       const otStartTime = systemSetting.ot_start_time || '18:30';
 
-      // Tính toán số giờ OT nếu là đơn tăng ca
+      // Tính toán số giờ OT nếu là đơn tăng ca (Hỗ trợ ca OT xuyên đêm qua 0h)
       let calculatedOtHours = 0;
       if (request.type === 'overtime') {
         if (request.start_time && request.end_time) {
-          const otDate = targetDates[0] || request.start_date;
+          const otStartDate = targetDates[0] || request.start_date;
+          let otEndDate = request.end_date || otStartDate;
           const startClock = request.start_time.length === 5 ? `${request.start_time}:00` : request.start_time;
           const endClock = request.end_time.length === 5 ? `${request.end_time}:00` : request.end_time;
-          const startDateTime = new Date(`${otDate}T${startClock}+07:00`);
-          const endDateTime = new Date(`${otDate}T${endClock}+07:00`);
+          
+          if (endClock < startClock && otEndDate === otStartDate) {
+            const nextDt = new Date(otStartDate + 'T00:00:00+07:00');
+            nextDt.setDate(nextDt.getDate() + 1);
+            otEndDate = nextDt.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+          }
+          
+          const startDateTime = new Date(`${otStartDate}T${startClock}+07:00`);
+          const endDateTime = new Date(`${otEndDate}T${endClock}+07:00`);
           calculatedOtHours = calculateOT(startDateTime, endDateTime, otStartTime);
           if (calculatedOtHours <= 0) {
             const err = new Error(`Khoảng tăng ca phải có thời gian làm việc sau ${otStartTime}.`);
