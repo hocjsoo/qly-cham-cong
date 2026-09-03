@@ -1461,6 +1461,8 @@ const overrideAttendance = async (req, res) => {
       });
     }
 
+    const snapshotBefore = attendance.isNew ? null : (attendance.toObject ? attendance.toObject() : { ...attendance });
+
     const targetDate = date || attendance.date;
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
@@ -1600,6 +1602,28 @@ const overrideAttendance = async (req, res) => {
     }
 
     await attendance.save();
+
+    // Ghi nhận Audit Log minh bạch cho hành động điều chỉnh dữ liệu chấm công của Admin
+    try {
+      const targetUser = await User.findById(attendance.user_id);
+      await AttendanceAuditLog.create({
+        attendance_id: attendance._id,
+        user_id: attendance.user_id,
+        user_name: targetUser ? targetUser.full_name : 'Nhân viên',
+        date: attendance.date,
+        old_symbol: snapshotBefore ? (snapshotBefore.notes || String(snapshotBefore.total_hours || 0) + 'h') : '—',
+        new_symbol: notes || String(attendance.total_hours || 0) + 'h',
+        reason: notes || 'Admin điều chỉnh dữ liệu chấm công',
+        modified_by: req.user._id,
+        modified_by_name: req.user.full_name || 'Admin',
+        modified_at: new Date(),
+        snapshot_before: snapshotBefore,
+        snapshot_after: attendance.toObject ? attendance.toObject() : attendance,
+      });
+    } catch (auditErr) {
+      console.warn('Lỗi ghi audit log khi override công:', auditErr);
+    }
+
     res.json({ message: 'Đã cập nhật bản ghi chấm công thành công! ✅', attendance });
   } catch (error) {
     console.error('OverrideAttendance error:', error);
