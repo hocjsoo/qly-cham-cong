@@ -286,9 +286,10 @@ export default function HistoryPage() {
 
     const [otH, otM] = (otStartTime || '18:30').split(':').map(Number);
     const otStartMins = otH * 60 + otM;
+    const effectiveOtStartMins = Math.max(inMins, otStartMins);
     let otHours = 0;
-    if (outMins > otStartMins) {
-      otHours = parseFloat(((outMins - otStartMins) / 60).toFixed(2));
+    if (outMins > effectiveOtStartMins) {
+      otHours = parseFloat(((outMins - effectiveOtStartMins) / 60).toFixed(2));
     }
     return { totalHours, otHours };
   };
@@ -297,7 +298,7 @@ export default function HistoryPage() {
     setOverrideRecord(rec);
     const inTime = extractVNTime(rec.check_in_time) || '09:00';
     const outTime = extractVNTime(rec.check_out_time) || '18:30';
-    const isOvernight = Boolean(rec.is_overnight || rec.is_overnight_checkout);
+    const isOvernight = Boolean(rec.is_overnight || rec.is_overnight_checkout || (inTime && outTime && outTime < inTime));
     setOverrideForm({
       date: rec.date || (rec.check_in_time ? new Date(rec.check_in_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''),
       check_in_time: inTime,
@@ -666,6 +667,7 @@ export default function HistoryPage() {
                     const hasWorked = Boolean(workedRec?.check_in_time);
                     const isLate = dayRecs.some(r => r.is_late);
                     const isOt = dayRecs.some(r => r.ot_hours > 0);
+                    const isOvernight = dayRecs.some(r => r.is_overnight || r.is_overnight_checkout);
                     const holidayObj = holidayByDate.get(item.dateStr);
                     const isHoliday = Boolean(holidayObj);
 
@@ -705,7 +707,7 @@ export default function HistoryPage() {
 
                         {isHoliday && hasWorked ? (
                           <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--holiday-work)', marginTop: '2px' }} title={`${holidayObj?.name}: ${formatHolidayWorkSymbol(workedRec?.work_units || holidayObj?.work_multiplier)}`}>
-                            {getTimesheetSymbol(workedRec)} {isOt && '🔥'}
+                            {getTimesheetSymbol(workedRec)} {isOt && '🔥'} {isOvernight && '🌙'}
                           </div>
                         ) : isHoliday ? (
                           <div style={{ fontSize: '9px', fontWeight: 700, color: '#8b5cf6', marginTop: '2px' }} title={holidayObj?.name}>
@@ -713,7 +715,7 @@ export default function HistoryPage() {
                           </div>
                         ) : hasAtt ? (
                           <div style={{ fontSize: '10px', fontWeight: 700, color: textColor, marginTop: '2px' }}>
-                            {dayRecs.length > 1 ? `👥 ${dayRecs.length}` : getTimesheetSymbol(rec)} {isOt && '🔥'}
+                            {dayRecs.length > 1 ? `👥 ${dayRecs.length}` : getTimesheetSymbol(rec)} {isOt && '🔥'} {isOvernight && '🌙'}
                           </div>
                         ) : (
                           <span style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>—</span>
@@ -756,9 +758,14 @@ export default function HistoryPage() {
                         {date.getDate()}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                        <div style={{ fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px' }}>
                           {r.user_id?.full_name ? <span style={{ fontWeight: 700, color: 'var(--primary)', marginRight: '6px' }}>{r.user_id.full_name}:</span> : null}
-                          {fmt(r.check_in_time)} → {fmt(r.check_out_time)}
+                          <span>{fmt(r.check_in_time)} → {fmt(r.check_out_time)}</span>
+                          {r.is_overnight && (
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.15)', padding: '1px 5px', borderRadius: '6px', marginLeft: '4px' }}>
+                              🌙 Hôm sau
+                            </span>
+                          )}
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                           {dayStr} · {TYPE_MAP[r.check_in_type] || r.check_in_type || '—'} · {r.total_hours || 0}h
@@ -802,7 +809,14 @@ export default function HistoryPage() {
                       <tr key={i} style={{ borderBottom: '1px solid var(--border-muted)', background: i % 2 === 0 ? 'transparent' : 'var(--bg-raised)' }}>
                         <td style={{ padding: '6px 8px', fontWeight: 600 }}>{r.date}</td>
                         <td style={{ padding: '6px 8px', color: 'var(--green)' }}>{fmt(r.check_in_time)}</td>
-                        <td style={{ padding: '6px 8px' }}>{fmt(r.check_out_time)}</td>
+                        <td style={{ padding: '6px 8px' }}>
+                          {fmt(r.check_out_time)}
+                          {r.is_overnight && (
+                            <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#8b5cf6', marginLeft: '3px' }} title="Ra ca rạng sáng hôm sau">
+                              🌙+1
+                            </span>
+                          )}
+                        </td>
                         <td style={{ padding: '6px 8px' }}>{TYPE_SHORT[r.check_in_type] || '—'}</td>
                         <td style={{ padding: '6px 8px' }}>{r.total_hours || 0}h</td>
                         <td style={{ padding: '6px 8px', color: 'var(--blue)' }}>{r.ot_hours > 0 ? `${r.ot_hours}h` : '—'}</td>
@@ -934,9 +948,18 @@ export default function HistoryPage() {
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ VÀO</div>
                               <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--green)' }}>{fmt(selectedDayRecord.check_in_time)}</div>
                             </div>
-                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ RA</div>
-                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>{fmt(selectedDayRecord.check_out_time)}</div>
+                            <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: selectedDayRecord.is_overnight ? '1px solid #8b5cf6' : '1px solid var(--border)' }}>
+                              <div style={{ fontSize: '10px', color: selectedDayRecord.is_overnight ? '#8b5cf6' : 'var(--text-muted)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>GIỜ RA</span>
+                                {selectedDayRecord.is_overnight && (
+                                  <span style={{ fontSize: '9px', fontWeight: 700, background: 'rgba(139, 92, 246, 0.18)', color: '#8b5cf6', padding: '1px 5px', borderRadius: '6px' }}>
+                                    🌙 Hôm sau
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: selectedDayRecord.is_overnight ? '#8b5cf6' : 'var(--text)' }}>
+                                {fmt(selectedDayRecord.check_out_time)}
+                              </div>
                             </div>
                           </div>
 
@@ -1235,7 +1258,15 @@ export default function HistoryPage() {
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <button
                       type="button"
-                      onClick={() => setOverrideForm({ ...overrideForm, check_out_time: adjustTimeString(overrideForm.check_out_time, -15) })}
+                      onClick={() => {
+                        const newOut = adjustTimeString(overrideForm.check_out_time, -15);
+                        const autoOvernight = newOut && overrideForm.check_in_time && newOut < overrideForm.check_in_time;
+                        setOverrideForm({
+                          ...overrideForm,
+                          check_out_time: newOut,
+                          is_overnight_checkout: autoOvernight ? true : overrideForm.is_overnight_checkout
+                        });
+                      }}
                       className="btn btn--ghost"
                       style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
                       title="Giảm 15 phút"
@@ -1268,7 +1299,15 @@ export default function HistoryPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setOverrideForm({ ...overrideForm, check_out_time: adjustTimeString(overrideForm.check_out_time, 15) })}
+                      onClick={() => {
+                        const newOut = adjustTimeString(overrideForm.check_out_time, 15);
+                        const autoOvernight = newOut && overrideForm.check_in_time && newOut < overrideForm.check_in_time;
+                        setOverrideForm({
+                          ...overrideForm,
+                          check_out_time: newOut,
+                          is_overnight_checkout: autoOvernight ? true : overrideForm.is_overnight_checkout
+                        });
+                      }}
                       className="btn btn--ghost"
                       style={{ padding: '6px 8px', fontSize: '11.5px', height: '38px' }}
                       title="Tăng 15 phút"

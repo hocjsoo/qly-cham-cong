@@ -1089,6 +1089,28 @@ const approveRequest = async (req, res) => {
               activeSession ? [createData] : createData,
               activeSession ? { session: activeSession } : undefined
             );
+          } else if (request.type === 'overtime') {
+            const createData = {
+              user_id: request.user_id,
+              date: d,
+              check_in_type: 'office',
+              status: 'present',
+              total_hours: calculatedOtHours,
+              work_units: 0,
+              ot_hours: calculatedOtHours,
+              ot_hours_proposed: calculatedOtHours,
+              ot_status: 'approved',
+              ot_approved_by: req.user._id,
+              ot_approved_at: new Date(),
+              is_late: false,
+              late_minutes: 0,
+              late_tier: 'on_time',
+              notes: `Được duyệt tăng ca OT ${calculatedOtHours}h (${request.reason})`,
+            };
+            await Attendance.create(
+              activeSession ? [createData] : createData,
+              activeSession ? { session: activeSession } : undefined
+            );
           }
         }
       }

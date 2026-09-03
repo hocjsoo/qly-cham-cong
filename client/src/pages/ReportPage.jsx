@@ -1777,7 +1777,7 @@ export default function ReportPage() {
                                       style={{
                                         cursor: 'pointer',
                                       }}
-                                      title={isSun && !d.ot_hours && !daySymbol ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${daySymbol || (isSun ? 'Chủ nhật' : '—')}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj?.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
+                                      title={isSun && !d.ot_hours && !daySymbol ? `${d.dateStr} (${r.full_name}): Chủ nhật để trống` : `${d.dateStr} (${r.full_name}): [${daySymbol || (isSun ? 'Chủ nhật' : '—')}]${isHol ? ` · 🏖️ Nghỉ Lễ: ${hdObj?.holidayName || 'Ngày lễ'}` : ''}${d.is_late ? ` · ⚠️ Muộn ${d.late_minutes}p` : ''}${d.is_early_leave ? ` · 🚪 Về sớm ${d.early_minutes}p` : ''}${d.ot_hours > 0 ? ` · 🔥 OT ${d.ot_hours}h` : ''}${d.check_in_time ? ` (${d.check_in_time} ➔ ${d.check_out_time || '?'}${d.is_overnight ? ' 🌙 Hôm sau' : ''})` : ''}${isAdmin ? ' — Bấm để xem/sửa' : ' — Bấm để xem'}`}
                                     >
                                       {renderDaySymbol(daySymbol, isSun, d.ot_hours)}
                                     </button>
@@ -2349,8 +2349,13 @@ export default function ReportPage() {
               <div className="card" style={{ padding: '10px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginBottom: '3px' }}>🕒 Giờ Check-in / Out</div>
                 {selectedCell.check_in_time || selectedCell.check_out_time ? (
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)' }}>
-                    {selectedCell.check_in_time || 'Chưa vào'} ➔ {selectedCell.check_out_time || 'Chưa ra'}
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    <span>{selectedCell.check_in_time || 'Chưa vào'} ➔ {selectedCell.check_out_time || 'Chưa ra'}</span>
+                    {selectedCell.is_overnight && (
+                      <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.15)', padding: '1px 5px', borderRadius: '6px' }}>
+                        🌙 Hôm sau
+                      </span>
+                    )}
                   </div>
                 ) : (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
