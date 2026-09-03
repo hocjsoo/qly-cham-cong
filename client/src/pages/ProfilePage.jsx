@@ -2,7 +2,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/ProfilePage.jsx
 // Trang cá nhân — Xem thông tin, Quản lý ngày phép tồn, Đổi mật khẩu, Gửi yêu cầu đổi thông tin xe duyệt bởi Admin
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { LogOut, Lock, User, Mail, Phone, Building2, Shield, ChevronRight, Edit3, X, Camera, Bike, Clock, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -55,11 +55,22 @@ export default function ProfilePage() {
   const [confirmPass, setConfirmPass] = useState('');
   const [submittingPass, setSubmittingPass] = useState(false);
 
+  const checkPendingVehicleRequest = useCallback(async () => {
+    try {
+      const { data } = await api.get('/requests?type=vehicle_update&status=pending');
+      if (Array.isArray(data) && data.length > 0) {
+        setPendingVehicleReq(data[0]);
+      } else {
+        setPendingVehicleReq(null);
+      }
+    } catch {}
+  }, []);
+
   // Fetch freshest profile from DB on mount
   useEffect(() => {
     if (fetchMe) fetchMe();
     checkPendingVehicleRequest();
-  }, [fetchMe]);
+  }, [fetchMe, checkPendingVehicleRequest]);
 
   // Sync state with user data
   useEffect(() => {
@@ -76,17 +87,6 @@ export default function ProfilePage() {
       setReqVehicleInfo(user.vehicle_info || user.license_plate || '');
     }
   }, [user]);
-
-  const checkPendingVehicleRequest = async () => {
-    try {
-      const { data } = await api.get('/requests?type=vehicle_update&status=pending');
-      if (Array.isArray(data) && data.length > 0) {
-        setPendingVehicleReq(data[0]);
-      } else {
-        setPendingVehicleReq(null);
-      }
-    } catch {}
-  };
 
   const handleLogout = () => {
     logout();

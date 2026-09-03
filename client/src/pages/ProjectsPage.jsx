@@ -2,7 +2,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // client/src/pages/ProjectsPage.jsx
 // Quản Lý Dự Án / Công Trình — Khớp 100% Mẫu Bảng Excel THÔNG TIN NS+DA
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Edit2, Trash2, FolderKanban, LayoutList, LayoutGrid, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -103,12 +103,7 @@ export default function ProjectsPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchProjects();
-    fetchStaff();
-  }, []);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get('/projects');
@@ -118,9 +113,9 @@ export default function ProjectsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
     try {
       const { data } = await api.get('/users?active_only=true').catch(() => ({ data: [] }));
       const users = Array.isArray(data) ? data : (data?.users || []);
@@ -132,7 +127,12 @@ export default function ProjectsPage() {
     } catch {
       setStaffList([]);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+    fetchStaff();
+  }, [fetchProjects, fetchStaff]);
 
   const handleOpenCreate = () => {
     setEditingProject(null);

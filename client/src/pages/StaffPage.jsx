@@ -115,17 +115,7 @@ export default function StaffPage() {
   // Confirm dialog state
   const [confirm, setConfirm] = useState(null); // { title, message, onConfirm, confirmLabel, danger }
 
-  useEffect(() => { loadData(); }, []);
-
-  useEffect(() => {
-    if (viewingStaffDetail?._id) {
-      loadUserDevices(viewingStaffDetail._id);
-    } else {
-      setUserDevices(null);
-    }
-  }, [loadUserDevices, viewingStaffDetail]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [resUsers, resDepts] = await Promise.all([
@@ -137,7 +127,17 @@ export default function StaffPage() {
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi tải danh sách nhân viên');
     } finally { setLoading(false); }
-  };
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (viewingStaffDetail?._id) {
+      loadUserDevices(viewingStaffDetail._id);
+    } else {
+      setUserDevices(null);
+    }
+  }, [loadUserDevices, viewingStaffDetail]);
 
   const handleSendRecoveryOtp = async (user) => {
     if (!user?.email) {

@@ -2,7 +2,7 @@ import { createPortal } from "react-dom";
 // client/src/components/NotificationCenter.jsx
 // Facebook-Style Notification Center Engine — Floating Dropdown & Bottom Sheet
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, X, Megaphone, AlertTriangle, Send, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -72,13 +72,7 @@ export default function NotificationCenter() {
   });
   const [submittingBroadcast, setSubmittingBroadcast] = useState(false);
 
-  useEffect(() => {
-    fetchNotifications();
-    const interval = setInterval(() => fetchNotifications(true), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchNotifications = async (force = false) => {
+  const fetchNotifications = useCallback(async (force = false) => {
     try {
       const data = await loadNotificationsCached(user?._id || user?.id, force);
       setNotifications(data.notifications || []);
@@ -86,7 +80,13 @@ export default function NotificationCenter() {
     } catch {
       // Silent error
     }
-  };
+  }, [user?._id, user?.id]);
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(() => fetchNotifications(true), 60000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
 
   const handleItemClick = async (notif) => {
     try {

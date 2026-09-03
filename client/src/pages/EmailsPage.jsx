@@ -1,7 +1,7 @@
 // client/src/pages/EmailsPage.jsx
 // Trang Soạn & Gửi Email Tùy Chỉnh Toàn Màn Hình (2 Cột Soạn Thảo & Live Preview Song Song) — Admin Only
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import DOMPurify from "dompurify";
 import { Send, Eye, Edit3, Users, ShieldAlert, Sparkles, CheckSquare, Square, ShieldCheck, Search, Lock } from "lucide-react";
@@ -171,9 +171,21 @@ export default function EmailsPage() {
   };
 
 
+  const fetchInitialData = useCallback(async () => {
+    try {
+      const { data } = await api.get("/users");
+      const list = data || [];
+      setStaffList(list);
+      const activeIds = list.filter(isEligibleRecipient).map(s => String(s._id || s.id));
+      setSelectedRecipientIds(activeIds);
+    } catch {
+      toast.error("Lỗi tải danh sách nhân sự");
+    }
+  }, []);
+
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [fetchInitialData]);
 
   useEffect(() => {
     if (!showConfirmModal) return undefined;
@@ -195,18 +207,6 @@ export default function EmailsPage() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showConfirmModal]);
-
-  const fetchInitialData = async () => {
-    try {
-      const { data } = await api.get("/users");
-      const list = data || [];
-      setStaffList(list);
-      const activeIds = list.filter(isEligibleRecipient).map(s => String(s._id || s.id));
-      setSelectedRecipientIds(activeIds);
-    } catch {
-      toast.error("Lỗi tải danh sách nhân sự");
-    }
-  };
 
   const handleApplyTemplate = (tplId) => {
     const tpl = PRESET_TEMPLATES.find(t => t.id === tplId);

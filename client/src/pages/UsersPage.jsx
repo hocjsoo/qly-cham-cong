@@ -1,7 +1,7 @@
 // src/pages/UsersPage.jsx
 // Trang quản lý nhân viên (Dành riêng cho Admin) — Đầy đủ Department & Manager assignment
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { UserPlus, Search, Edit2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -15,8 +15,12 @@ const ROLE_LABELS = {
 const DEPARTMENTS = [
   'Kiến trúc',
   'Kết cấu',
-  'Nội thất',
-  'Hành chính',
+  'MEP',
+  'Dự toán',
+  'Thi công',
+  'Hành chính - Nhân sự',
+  'Kế toán',
+  'Ban Giám đốc',
 ];
 
 export default function UsersPage() {
@@ -34,9 +38,7 @@ export default function UsersPage() {
     phone: '', is_active: true, department_name: 'Kiến trúc',
   });
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/users');
@@ -46,7 +48,9 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const handleOpenAdd = () => {
     setEditUser(null);

@@ -1,7 +1,7 @@
 // src/components/Layout.jsx
 // Layout wrapper — Responsive Desktop Sidebar & Mobile Bottom Navigation
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Mail, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
@@ -20,19 +20,19 @@ export default function Layout() {
   const isAdmin = user?.role === 'admin';
   const [pendingCount, setPendingCount] = useState(0);
 
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      setPendingCount(await fetchPendingCountCached());
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (!isStaff) {
       fetchPendingCount();
       const interval = setInterval(fetchPendingCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [isStaff, user]);
-
-  const fetchPendingCount = async () => {
-    try {
-      setPendingCount(await fetchPendingCountCached());
-    } catch {}
-  };
+  }, [isStaff, user, fetchPendingCount]);
 
   const isStaffExempt = isStaff && Boolean(user?.is_attendance_exempt);
 

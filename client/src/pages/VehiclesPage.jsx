@@ -2,7 +2,7 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/VehiclesPage.jsx
 // Trang Quản Lý Phương Tiện & Gửi Xe (Tòa 17T10) — Chuyên Biệt Cho Admin & Leader
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Edit2, Download, Bike, Phone, X, LayoutList, LayoutGrid, Mail, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -56,11 +56,7 @@ export default function VehiclesPage() {
   const [editForm, setEditForm] = useState({ parking_location: '', vehicle_info: '' });
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [resUsers, resDepts] = await Promise.all([
@@ -77,7 +73,11 @@ export default function VehiclesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const openQuickEdit = (staffMember) => {
     setEditingStaff(staffMember);
