@@ -224,18 +224,21 @@ const getFullMatrix = async (req, res) => {
             total_late_minutes += Number(att.late_minutes) || 0;
           }
 
-          // Kiểm tra về sớm (is_early_leave)
+          // Kiểm tra về sớm (is_early_leave) - Loại trừ tuyệt đối ca làm việc xuyên đêm hoặc ca đã đủ công
           if (att.is_early_leave) {
             is_early_leave = true;
             early_minutes = Number(att.early_minutes) || 0;
-          } else if (att.check_out_time) {
+          } else if (att.check_out_time && !att.is_overnight && (att.total_hours || 0) < 8) {
             const coDate = new Date(att.check_out_time);
             if (!isNaN(coDate.getTime())) {
-              const coVN = new Date(coDate.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
-              const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
-              if (coMinutes < endMinutesLimit - 4) {
-                is_early_leave = true;
-                early_minutes = endMinutesLimit - coMinutes;
+              const coDateStr = coDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+              if (coDateStr === hd.dateStr) {
+                const coVN = new Date(coDate.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+                const coMinutes = coVN.getHours() * 60 + coVN.getMinutes();
+                if (coMinutes < endMinutesLimit - 4) {
+                  is_early_leave = true;
+                  early_minutes = endMinutesLimit - coMinutes;
+                }
               }
             }
           }
@@ -804,6 +807,8 @@ const overrideCell = async (req, res) => {
         }
         attendance.is_late = targetConfig.is_late;
         attendance.late_tier = targetConfig.late_tier;
+        attendance.is_early_leave = false;
+        attendance.early_minutes = 0;
         attendance.check_in_type = targetConfig.check_in_type;
         attendance.status = targetConfig.status;
         attendance.notes = noteContent;
@@ -831,6 +836,8 @@ const overrideCell = async (req, res) => {
           ot_hours_proposed: confirmedOtHours,
           is_late: targetConfig.is_late,
           late_tier: targetConfig.late_tier,
+          is_early_leave: false,
+          early_minutes: 0,
           check_in_type: targetConfig.check_in_type,
           status: targetConfig.status,
           notes: noteContent,

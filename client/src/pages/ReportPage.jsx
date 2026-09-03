@@ -1194,16 +1194,17 @@ export default function ReportPage() {
                                           day: dayData.day, weekday: headerDay.weekday,
                                           current_symbol: daySymbol, check_in_time: dayData.check_in_time,
                                           check_out_time: dayData.check_out_time, total_hours: dayData.total_hours,
-                                          ot_hours: dayData.ot_hours, is_late: dayData.is_late,
-                                          late_minutes: dayData.late_minutes, is_early_leave: dayData.is_early_leave,
-                                          early_minutes: dayData.early_minutes, status: dayData.status,
-                                          notes: dayData.notes, check_in_type: dayData.check_in_type,
+                                          is_overnight: dayData.is_overnight,
+                                          ot_hours: dayData.ot_hours, ot_hours_proposed: dayData.ot_hours_proposed,
+                                          is_late: dayData.is_late, late_minutes: dayData.late_minutes,
+                                          is_early_leave: dayData.is_early_leave, early_minutes: dayData.early_minutes,
+                                          status: dayData.status, notes: dayData.notes, check_in_type: dayData.check_in_type,
                                           is_modified: dayData.is_modified, audit_logs: dayData.audit_logs || [],
                                           holiday_name: headerDay?.holidayName || null,
                                           is_locked: r.is_locked,
                                         });
                                         setCellSymbol(daySymbol || (headerDay?.isHoliday ? 'L' : ''));
-                                        setCellOtHours(dayData.ot_hours || 0);
+                                        setCellOtHours(dayData.ot_hours || dayData.ot_hours_proposed || 0);
                                         setCellReason('');
                                       }}
                                       aria-label={`${r.full_name}, ngày ${headerDay.day}: ${daySymbol || (isSunday ? 'Chủ nhật' : 'Trống')}${dayData?.ot_hours > 0 ? `, tăng ca ${dayData.ot_hours} giờ` : ''}`}
@@ -1366,7 +1367,9 @@ export default function ReportPage() {
                                             check_in_time: d.check_in_time,
                                             check_out_time: d.check_out_time,
                                             total_hours: d.total_hours,
+                                            is_overnight: d.is_overnight,
                                             ot_hours: d.ot_hours,
+                                            ot_hours_proposed: d.ot_hours_proposed,
                                             is_late: d.is_late,
                                             late_minutes: d.late_minutes,
                                             is_early_leave: d.is_early_leave,
@@ -1380,7 +1383,7 @@ export default function ReportPage() {
                                             is_locked: r.is_locked
                                           });
                                           setCellSymbol(daySymbol || (hdObj?.isHoliday ? 'L' : ''));
-                                          setCellOtHours(d.ot_hours || 0);
+                                          setCellOtHours(d.ot_hours || d.ot_hours_proposed || 0);
                                           setCellReason('');
                                         };
 
@@ -1693,7 +1696,9 @@ export default function ReportPage() {
                                     check_in_time: d.check_in_time,
                                     check_out_time: d.check_out_time,
                                     total_hours: d.total_hours,
+                                    is_overnight: d.is_overnight,
                                     ot_hours: d.ot_hours,
+                                    ot_hours_proposed: d.ot_hours_proposed,
                                     is_late: d.is_late,
                                     late_minutes: d.late_minutes,
                                     is_early_leave: d.is_early_leave,
@@ -1707,7 +1712,7 @@ export default function ReportPage() {
                                     is_locked: r.is_locked
                                   });
                                   setCellSymbol(daySymbol || (isHol ? 'L' : ''));
-                                  setCellOtHours(d.ot_hours || 0);
+                                  setCellOtHours(d.ot_hours || d.ot_hours_proposed || 0);
                                   setCellReason('');
                                 };
 
@@ -2363,7 +2368,7 @@ export default function ReportPage() {
                     ⚠️ Muộn {selectedCell.late_minutes} phút
                   </div>
                 )}
-                {selectedCell.is_early_leave && (
+                {selectedCell.is_early_leave && !selectedCell.is_overnight && (selectedCell.total_hours || 0) < 8 && (
                   <div style={{ fontSize: '10.5px', color: 'var(--red)', fontWeight: 700, marginTop: '2px' }}>
                     🚪 Về sớm {selectedCell.early_minutes} phút
                   </div>
@@ -2453,14 +2458,25 @@ export default function ReportPage() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      🔥 Giờ OT (Tăng ca)
+                    <label className="form-label" style={{ fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>🔥 Giờ OT (Tăng ca)</span>
+                      {selectedCell.ot_hours_proposed > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setCellOtHours(selectedCell.ot_hours_proposed)}
+                          className="btn btn--ghost"
+                          style={{ fontSize: '10.5px', padding: '1px 6px', height: '20px', color: 'var(--primary)', borderColor: 'var(--primary)', fontWeight: 700 }}
+                          title="Bấm để dùng giờ OT đề xuất của ca"
+                        >
+                          Đề xuất: {selectedCell.ot_hours_proposed}h
+                        </button>
+                      )}
                     </label>
                     <input
                       type="number"
-                      step="0.5"
+                      step="0.1"
                       min="0"
-                      max="12"
+                      max="16"
                       className="form-input"
                       value={cellOtHours}
                       onChange={e => setCellOtHours(e.target.value)}

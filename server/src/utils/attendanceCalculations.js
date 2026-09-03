@@ -66,10 +66,10 @@ const calculateAttendanceMetrics = (
 ) => {
   const checkIn = new Date(checkInDate);
   const checkOut = new Date(checkOutDate);
+  const isOvernight = isOvernightShift(checkIn, checkOut);
   const workEndThreshold = buildVnThreshold(checkIn, workEndTime, '18:30');
   const isValidCheckOut = !Number.isNaN(checkOut.getTime());
-  const isEarlyLeave = Boolean(isValidCheckOut && workEndThreshold && checkOut < workEndThreshold);
-  const isOvernight = isOvernightShift(checkIn, checkOut);
+  const isEarlyLeave = Boolean(!isOvernight && isValidCheckOut && workEndThreshold && checkOut < workEndThreshold);
 
   return {
     totalHours: calculateRawTotalHours(checkIn, checkOut, totalPrecision),
