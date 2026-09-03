@@ -1371,12 +1371,12 @@ export default function HistoryPage() {
                       style={{ width: '16px', height: '16px', accentColor: '#8b5cf6' }}
                     />
                     <span style={{ fontSize: '12.5px', fontWeight: overrideForm.is_overnight_checkout ? 700 : 500, color: overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--text)' }}>
-                      🌙 Ra ca ngày hôm sau (+1 ngày / OT Xuyên đêm)
+                      🌙 Ra ca rạng sáng hôm sau (OT qua 0h)
                     </span>
                   </div>
                   {overrideForm.is_overnight_checkout && (
                     <span style={{ fontSize: '11px', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)', padding: '2px 8px', borderRadius: '12px' }}>
-                      +1 ngày
+                      Qua đêm
                     </span>
                   )}
                 </label>
