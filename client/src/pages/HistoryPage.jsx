@@ -90,7 +90,7 @@ export default function HistoryPage() {
 
   // Admin Override Modal
   const [overrideRecord, setOverrideRecord] = useState(null);
-  const [overrideForm, setOverrideForm] = useState({ check_in_time: '', check_out_time: '', is_late: false, notes: '' });
+  const [overrideForm, setOverrideForm] = useState({ check_in_time: '', check_out_time: '', is_late: false, is_overnight_checkout: false, notes: '' });
   const [submittingOverride, setSubmittingOverride] = useState(false);
 
   // Holidays list & modal management
@@ -297,12 +297,14 @@ export default function HistoryPage() {
     setOverrideRecord(rec);
     const inTime = extractVNTime(rec.check_in_time) || '09:00';
     const outTime = extractVNTime(rec.check_out_time) || '18:30';
+    const isOvernight = Boolean(rec.is_overnight || rec.is_overnight_checkout);
     setOverrideForm({
       date: rec.date || (rec.check_in_time ? new Date(rec.check_in_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : ''),
       check_in_time: inTime,
       check_out_time: outTime,
       check_in_type: rec.check_in_type || 'office',
       is_late: Boolean(rec.is_late),
+      is_overnight_checkout: isOvernight,
       notes: rec.notes || 'Đã sửa bởi Admin',
     });
   };
@@ -999,7 +1001,8 @@ export default function HistoryPage() {
           overrideForm.check_in_time,
           overrideForm.check_out_time,
           settings?.work_end_time || '18:30',
-          settings?.ot_start_time || '18:30'
+          settings?.ot_start_time || '18:30',
+          overrideForm.is_overnight_checkout
         );
 
         const shiftFormDate = (offsetDays) => {
@@ -1220,7 +1223,15 @@ export default function HistoryPage() {
                       className="form-input"
                       style={{ fontSize: '15px', fontWeight: 800, padding: '6px 8px', height: '38px', textAlign: 'center', flex: 1 }}
                       value={overrideForm.check_out_time}
-                      onChange={e => setOverrideForm({ ...overrideForm, check_out_time: e.target.value })}
+                      onChange={e => {
+                        const newOut = e.target.value;
+                        const autoOvernight = newOut && overrideForm.check_in_time && newOut < overrideForm.check_in_time;
+                        setOverrideForm({
+                          ...overrideForm,
+                          check_out_time: newOut,
+                          is_overnight_checkout: autoOvernight ? true : overrideForm.is_overnight_checkout
+                        });
+                      }}
                       onClick={e => e.target.showPicker && e.target.showPicker()}
                     />
                     <button
@@ -1335,6 +1346,40 @@ export default function HistoryPage() {
                     </span>
                   </label>
                 </div>
+              </div>
+
+                            {/* 🌙 Toggle Ca làm việc xuyên đêm */}
+              <div style={{ marginBottom: '14px' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    background: overrideForm.is_overnight_checkout ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-input)',
+                    border: overrideForm.is_overnight_checkout ? '1px solid #8b5cf6' : '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '8px 12px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={overrideForm.is_overnight_checkout}
+                      onChange={e => setOverrideForm({ ...overrideForm, is_overnight_checkout: e.target.checked })}
+                      style={{ width: '16px', height: '16px', accentColor: '#8b5cf6' }}
+                    />
+                    <span style={{ fontSize: '12.5px', fontWeight: overrideForm.is_overnight_checkout ? 700 : 500, color: overrideForm.is_overnight_checkout ? '#8b5cf6' : 'var(--text)' }}>
+                      🌙 Ra ca ngày hôm sau (+1 ngày / OT Xuyên đêm)
+                    </span>
+                  </div>
+                  {overrideForm.is_overnight_checkout && (
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.18)', padding: '2px 8px', borderRadius: '12px' }}>
+                      +1 ngày
+                    </span>
+                  )}
+                </label>
               </div>
 
               {/* Lý do điều chỉnh */}
