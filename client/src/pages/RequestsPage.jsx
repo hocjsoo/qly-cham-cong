@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Edit2, X, Check, FileText, Clock, CheckCircle2, XCircle,
-  Calendar, Sparkles, Search, Camera, AlertTriangle, Bike, RotateCcw,
-  Trash2, RefreshCw, ZoomIn, Info, ShieldAlert, ChevronRight, MapPin, Building
+  Sparkles, Search, Camera, AlertTriangle, Bike, RotateCcw,
+  Trash2, RefreshCw, ZoomIn, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -190,6 +190,17 @@ const formatDate = (iso) => {
   return new Date(iso + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const formatTime = (dateVal) => {
+  if (!dateVal) return '—';
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+  } catch {
+    return '—';
+  }
+};
+
 const REJECT_REASONS_SUGGESTIONS = [
   'Ảnh Selfie không rõ mặt / Không hợp lệ',
   'Vị trí ngoài văn phòng không báo trước',
@@ -199,7 +210,7 @@ const REJECT_REASONS_SUGGESTIONS = [
 ];
 
 export default function RequestsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'mine';
 
   const { user } = useAuthStore();
