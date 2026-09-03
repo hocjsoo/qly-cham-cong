@@ -290,8 +290,23 @@ const createRequest = async (req, res) => {
       return res.status(400).json({ error: 'Lý do giải trình quá ngắn.' });
     }
 
-    // [P1] Cưỡng chế end_date = start_date cho đơn forgot_checkout để tránh sửa dải nhiều ngày trái phép
-    const finalEndDate = (type === 'forgot_checkout') ? start_date : (end_date || start_date);
+    // [P1] Cưỡng chế end_date cho đơn forgot_checkout: Nếu truyền ngày hôm sau (+1 ngày) thì nhận, ngược lại cưỡng chế về start_date
+    let finalEndDate = start_date;
+    if (type === 'forgot_checkout') {
+      if (end_date && end_date !== start_date) {
+        const startDt = new Date(start_date + 'T00:00:00+07:00');
+        const nextDt = new Date(startDt);
+        nextDt.setDate(nextDt.getDate() + 1);
+        const nextDtStr = nextDt.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+        if (end_date === nextDtStr) {
+          finalEndDate = end_date;
+        } else {
+          finalEndDate = start_date;
+        }
+      }
+    } else {
+      finalEndDate = end_date || start_date;
+    }
 
     // Kiểm tra trùng đơn ngày này (ngoại trừ vehicle_update có thể gửi nếu chưa duyệt)
     const existing = await Request.findOne({
@@ -323,7 +338,7 @@ const createRequest = async (req, res) => {
       const vnDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
       const currentVnDateTime = new Date(`${vnDateStr}T${vnTimeStr}+07:00`);
 
-      const proposedCheckoutDateTime = new Date(`${start_date}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
+      const proposedCheckoutDateTime = new Date(`${finalEndDate}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
       if (isNaN(proposedCheckoutDateTime.getTime())) {
         return res.status(400).json({ error: 'Ngày hoặc giờ checkout đề xuất không hợp lệ.' });
       }
@@ -331,7 +346,7 @@ const createRequest = async (req, res) => {
       // 2. Chặn giờ checkout trong tương lai (kể cả trong cùng ngày hôm nay) [P2]
       if (proposedCheckoutDateTime.getTime() > currentVnDateTime.getTime()) {
         return res.status(400).json({
-          error: `Giờ checkout đề xuất (${start_date} ${proposedCheckoutTime}) không được vượt quá thời gian hiện tại (${vnDateStr} ${vnTimeStr.substring(0, 5)}).`
+          error: `Giờ checkout đề xuất (${finalEndDate} ${proposedCheckoutTime}) không được vượt quá thời gian hiện tại (${vnDateStr} ${vnTimeStr.substring(0, 5)}).`
         });
       }
 
@@ -351,16 +366,15 @@ const createRequest = async (req, res) => {
       const checkInDate = new Date(existingAtt.check_in_time);
       const checkInH = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
       const checkInM = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
-      const checkInMinutes = checkInH * 60 + checkInM;
-      const outMinutes = outH * 60 + outM;
+      const checkInStr = `${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}`;
 
-      if (outMinutes <= checkInMinutes) {
+      if (proposedCheckoutDateTime.getTime() <= checkInDate.getTime()) {
         return res.status(400).json({
-          error: `Giờ checkout đề xuất (${proposedCheckoutTime}) phải sau giờ check-in (${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}).`
+          error: `Giờ checkout đề xuất (${proposedCheckoutTime}) phải sau giờ check-in (${checkInStr}).`
         });
       }
 
-      // 5. Chặn đơn quá hạn 48 giờ sau khi đã xác thực dữ liệu ca và thứ tự giờ hợp lệ.
+      // 5. Chặn đơn quá hạn 48 giờ sau khi đã xác thực dữ liệu ca và thứ tự giờ hợp lệ
       const diffMs = currentVnDateTime.getTime() - proposedCheckoutDateTime.getTime();
       if (diffMs > 48 * 60 * 60 * 1000) {
         return res.status(400).json({
@@ -581,6 +595,13 @@ const restoreRequestSnapshot = async (request, session = null) => {
           att.work_units = rec.doc.work_units;
           att.total_hours = rec.doc.total_hours;
           att.ot_hours = rec.doc.ot_hours;
+          att.is_overnight = Boolean(rec.doc.is_overnight);
+          att.ot_hours_proposed = rec.doc.ot_hours_proposed || 0;
+          att.ot_status = rec.doc.ot_status || 'none';
+          att.ot_approved_by = rec.doc.ot_approved_by || null;
+          att.ot_approved_at = rec.doc.ot_approved_at || null;
+          att.ot_reviewer_note = rec.doc.ot_reviewer_note || null;
+          att.ot_adjustment_reason = rec.doc.ot_adjustment_reason || null;
           att.is_late = rec.doc.is_late;
           att.late_minutes = rec.doc.late_minutes;
           att.late_tier = rec.doc.late_tier;
@@ -775,17 +796,18 @@ const approveRequest = async (req, res) => {
         }
 
         // [P1] Re-check giờ checkout đề xuất so với giờ check-in thực tế
+        const proposedTime = request.end_time || request.start_time || '18:30';
+        const [outH, outM] = proposedTime.split(':').map(Number);
+        const targetEndDate = request.end_date || request.start_date;
+        const proposedCheckoutDateTime = new Date(`${targetEndDate}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
+
         const checkInDate = new Date(existingAtt.check_in_time);
         const checkInH = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
         const checkInM = parseInt(checkInDate.toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }), 10);
-        const checkInMinutes = checkInH * 60 + checkInM;
+        const checkInStr = `${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}`;
 
-        const proposedTime = request.end_time || request.start_time || '18:30';
-        const [outH, outM] = proposedTime.split(':').map(Number);
-        const outMinutes = outH * 60 + outM;
-
-        if (outMinutes <= checkInMinutes) {
-          const err = new Error(`Giờ checkout đề xuất (${proposedTime}) phải sau giờ check-in thực tế (${String(checkInH).padStart(2, '0')}:${String(checkInM).padStart(2, '0')}).`);
+        if (proposedCheckoutDateTime.getTime() <= checkInDate.getTime()) {
+          const err = new Error(`Giờ checkout đề xuất (${proposedTime}) phải sau giờ check-in thực tế (${checkInStr}).`);
           err.statusCode = 400;
           throw err;
         }
@@ -807,6 +829,13 @@ const approveRequest = async (req, res) => {
               work_units: existingAtt.work_units,
               total_hours: existingAtt.total_hours,
               ot_hours: existingAtt.ot_hours,
+              is_overnight: existingAtt.is_overnight,
+              ot_hours_proposed: existingAtt.ot_hours_proposed,
+              ot_status: existingAtt.ot_status,
+              ot_approved_by: existingAtt.ot_approved_by,
+              ot_approved_at: existingAtt.ot_approved_at,
+              ot_reviewer_note: existingAtt.ot_reviewer_note,
+              ot_adjustment_reason: existingAtt.ot_adjustment_reason,
               is_late: existingAtt.is_late,
               late_minutes: existingAtt.late_minutes,
               late_tier: existingAtt.late_tier,
@@ -899,16 +928,22 @@ const approveRequest = async (req, res) => {
           if (request.type === 'forgot_checkout') {
             const proposedTime = request.end_time || request.start_time || workEndTime;
             const [outH, outM] = proposedTime.split(':').map(Number);
-            const checkOutDate = new Date(`${d}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
+            const targetEndDate = request.end_date || d;
+            const isOvernight = targetEndDate > d;
+            const checkOutDate = new Date(`${targetEndDate}T${String(outH).padStart(2, '0')}:${String(outM).padStart(2, '0')}:00+07:00`);
             att.check_out_time = checkOutDate;
 
-            // Tạm thời tổng giờ vẫn là checkout - check-in (chưa trừ nghỉ trưa).
             const metrics = calculateAttendanceMetrics(att.check_in_time, checkOutDate, {
               workEndTime,
               otStartTime,
             });
             att.total_hours = metrics.totalHours;
             att.ot_hours = metrics.otHours;
+            att.ot_hours_proposed = metrics.otHours;
+            att.is_overnight = isOvernight;
+            att.ot_status = metrics.otHours > 0 ? 'approved' : 'none';
+            att.ot_approved_by = req.user._id;
+            att.ot_approved_at = new Date();
             att.is_early_leave = metrics.isEarlyLeave;
             att.early_minutes = metrics.earlyMinutes;
 
@@ -916,7 +951,8 @@ const approveRequest = async (req, res) => {
             if (att.work_units == null || att.work_units === 0) {
               att.work_units = (att.is_late && att.late_minutes > 30) ? 0.75 : 1.0;
             }
-            att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt bổ sung checkout ${proposedTime} (${request.reason})`;
+            const timeLabel = isOvernight ? `${d} ➔ ${targetEndDate} ${proposedTime}` : proposedTime;
+            att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt bổ sung checkout ${timeLabel} (${request.reason})`;
             await att.save(activeSession ? { session: activeSession } : undefined);
           } else if (['late', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
             att.is_late = false;
@@ -968,6 +1004,10 @@ const approveRequest = async (req, res) => {
           } else if (request.type === 'overtime') {
             // Giờ OT được Admin duyệt là giá trị cuối cùng, không cộng lặp với OT tự động.
             att.ot_hours = calculatedOtHours;
+            att.ot_status = 'approved';
+            att.ot_approved_by = req.user._id;
+            att.ot_approved_at = new Date();
+            if (!att.ot_hours_proposed) att.ot_hours_proposed = calculatedOtHours;
             att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt tăng ca OT ${calculatedOtHours}h (${request.reason})`;
             await att.save(activeSession ? { session: activeSession } : undefined);
           }

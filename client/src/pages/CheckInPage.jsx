@@ -76,6 +76,8 @@ export default function CheckInPage() {
   const navigate = useNavigate();
 
   const [today, setToday] = useState(null);
+  const [activeShift, setActiveShift] = useState(null);
+  const [isOvernightShiftActive, setIsOvernightShiftActive] = useState(false);
   const [office, setOffice] = useState(null);
   const [offices, setOffices] = useState([]);
   const [projects, setProjects] = useState([]);
@@ -147,6 +149,8 @@ export default function CheckInPage() {
         api.get(`/tts-schedules?week_start=${getCurrentWeekStart()}`).catch(() => ({ data: null })),
       ]);
       setToday(todayRes.data.attendance || null);
+      setActiveShift(todayRes.data.active_shift || null);
+      setIsOvernightShiftActive(Boolean(todayRes.data.is_active_overnight_shift));
       setSettings(settingsRes.data?.settings || settingsRes.data || null);
       setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
       setBirthdays(bdayRes.data?.birthdays || []);
@@ -718,6 +722,27 @@ export default function CheckInPage() {
                 </div>
               )}
 
+              {/* Banner Ca làm việc xuyên ngày từ hôm trước */}
+              {isOvernightShiftActive && activeShift && (
+                <div className="card animate-fade-in" style={{
+                  marginBottom: '14px', padding: '14px 16px',
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                  border: '1.5px solid var(--primary)',
+                  borderRadius: '12px',
+                  display: 'flex', alignItems: 'center', gap: '12px'
+                }}>
+                  <span style={{ fontSize: '24px' }}>🌙</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
+                      Bạn đang trong ca làm việc xuyên ngày từ ngày {activeShift.date}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      Bắt đầu lúc: <strong>{new Date(activeShift.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</strong>. Bạn chưa checkout ca này. Bấm nút Checkout bên dưới để hoàn thành ca.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Clock Hero Card */}
               <div className="checkin-hero animate-fade-in" style={{ marginBottom: '16px' }}>
                 <LiveClock />
@@ -725,14 +750,35 @@ export default function CheckInPage() {
                 {loading ? (
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Đang tải...</div>
                 ) : isCheckedOut ? (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', fontWeight: 600 }}>
-                    <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h - {att.work_units || 1.0} công)
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: 'var(--primary-soft)', color: 'var(--primary)', fontSize: '13px', fontWeight: 600 }}>
+                      <CheckCircle size={16} /> Đã hoàn thành ca làm ({att.total_hours}h - {att.work_units || 1.0} công){att.is_overnight ? ' (+1 ngày)' : ''}
+                    </div>
+                    {att.is_overnight && att.ot_status === 'pending_approval' && (
+                      <span className="badge badge--warning" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                        ⏳ OT đề xuất: {att.ot_hours_proposed || 0}h (Chờ Admin duyệt)
+                      </span>
+                    )}
+                    {att.is_overnight && att.ot_status === 'approved' && (
+                      <span className="badge badge--success" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                        ✅ Đã duyệt {att.ot_hours || 0}h OT
+                      </span>
+                    )}
+                    {att.is_overnight && att.ot_status === 'rejected' && (
+                      <span className="badge badge--danger" style={{ fontSize: '11px', padding: '2px 8px' }}>
+                        ❌ OT không được duyệt (Công chuẩn: {att.work_units || 1.0})
+                      </span>
+                    )}
                   </div>
                 ) : isCheckedIn ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '20px', background: isOtNow ? 'var(--blue-soft)' : 'var(--green-soft)', color: isOtNow ? 'var(--blue)' : 'var(--green)', fontSize: '13px', fontWeight: 600 }}>
                       {isOtNow ? <Flame size={16} /> : <Clock size={16} />}
-                      {isOtNow ? `🔥 ĐANG TĂNG CA (OT) từ ${fmt(att.check_in_time)}` : `Đang làm việc từ ${fmt(att.check_in_time)}`}
+                      {isOvernightShiftActive
+                        ? `🌙 Đang làm ca từ ngày ${activeShift?.date || ''} (${fmt(att.check_in_time)})`
+                        : isOtNow
+                          ? `🔥 ĐANG TĂNG CA (OT) từ ${fmt(att.check_in_time)}`
+                          : `Đang làm việc từ ${fmt(att.check_in_time)}`}
                     </div>
                     <span className={`badge ${lateConfig.cls}`}>{lateConfig.icon} {lateConfig.label}</span>
                   </div>
@@ -915,7 +961,11 @@ export default function CheckInPage() {
                     className="btn btn--full btn--lg"
                     style={{ background: 'var(--red)', color: '#fff', border: 'none', opacity: !gpsPosition ? 0.6 : 1, padding: '14px', fontSize: '15px', fontWeight: 800 }}
                   >
-                    {submitting ? <span className="spinner" /> : <><LogOut size={16} /> CHECK-OUT KẾT THÚC CA</>}
+                    {submitting ? <span className="spinner" /> : isOvernightShiftActive ? (
+                      <><LogOut size={16} /> CHECK-OUT KẾT THÚC CA (TỪ NGÀY {activeShift?.date})</>
+                    ) : (
+                      <><LogOut size={16} /> CHECK-OUT KẾT THÚC CA</>
+                    )}
                   </button>
                 </div>
               ) : null}

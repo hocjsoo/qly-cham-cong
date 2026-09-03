@@ -66,6 +66,40 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Ca làm việc xuyên ngày (kết thúc ở ngày tiếp theo)
+    is_overnight: {
+      type: Boolean,
+      default: false,
+    },
+    // Số giờ OT tạm tính (được đề xuất khi checkout ca xuyên ngày, chờ Admin duyệt)
+    ot_hours_proposed: {
+      type: Number,
+      default: 0,
+    },
+    // Trạng thái phê duyệt OT: 'none' | 'auto_approved' | 'pending_approval' | 'approved' | 'rejected'
+    ot_status: {
+      type: String,
+      enum: ['none', 'auto_approved', 'pending_approval', 'approved', 'rejected'],
+      default: 'none',
+      index: true,
+    },
+    ot_approved_by: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    ot_approved_at: {
+      type: Date,
+      default: null,
+    },
+    ot_reviewer_note: {
+      type: String,
+      default: null,
+    },
+    ot_adjustment_reason: {
+      type: String,
+      default: null,
+    },
     is_late: {
       type: Boolean,
       default: false,

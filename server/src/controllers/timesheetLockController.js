@@ -216,7 +216,7 @@ const getFullMatrix = async (req, res) => {
         let early_minutes = 0;
 
         if (att) {
-          if (att.ot_hours > 0) {
+          if (att.ot_hours > 0 && att.ot_status !== 'pending_approval') {
             total_ot_hours += Number(att.ot_hours) || 0;
           }
           if (att.is_late) {
@@ -310,7 +310,10 @@ const getFullMatrix = async (req, res) => {
           check_out_time: formatTimeHHMM(att?.check_out_time),
           total_hours: att?.total_hours || 0,
           work_units: Number(att?.work_units) || 0,
-          ot_hours: att?.ot_hours || 0,
+          ot_hours: (att?.ot_status === 'pending_approval' ? 0 : (att?.ot_hours || 0)),
+          ot_hours_proposed: att?.ot_hours_proposed || 0,
+          ot_status: att?.ot_status || 'none',
+          is_overnight: Boolean(att?.is_overnight),
           is_late: Boolean(att?.is_late),
           late_minutes: att?.late_minutes || 0,
           is_early_leave: Boolean(is_early_leave),
@@ -732,6 +735,12 @@ const overrideCell = async (req, res) => {
         attendance.total_hours = targetConfig.total_hours; // 0
         attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 0; // 0
         attendance.ot_hours = confirmedOtHours;
+        attendance.ot_status = confirmedOtHours > 0 ? 'approved' : 'none';
+        if (confirmedOtHours > 0) {
+          attendance.ot_approved_by = req.user._id;
+          attendance.ot_approved_at = new Date();
+          if (!attendance.ot_hours_proposed) attendance.ot_hours_proposed = confirmedOtHours;
+        }
         attendance.is_late = false;
         attendance.late_minutes = 0;
         attendance.late_tier = 'on_time';
@@ -759,6 +768,10 @@ const overrideCell = async (req, res) => {
           total_hours: targetConfig.total_hours, // 0
           work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 0, // 0
           ot_hours: confirmedOtHours,
+          ot_status: confirmedOtHours > 0 ? 'approved' : 'none',
+          ot_approved_by: confirmedOtHours > 0 ? req.user._id : null,
+          ot_approved_at: confirmedOtHours > 0 ? new Date() : null,
+          ot_hours_proposed: confirmedOtHours,
           is_late: false,
           late_minutes: 0,
           late_tier: 'on_time',
@@ -783,6 +796,12 @@ const overrideCell = async (req, res) => {
         attendance.total_hours = targetConfig.total_hours;
         attendance.work_units = targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0;
         attendance.ot_hours = confirmedOtHours;
+        attendance.ot_status = confirmedOtHours > 0 ? 'approved' : (attendance.is_overnight ? 'rejected' : 'none');
+        if (confirmedOtHours > 0) {
+          attendance.ot_approved_by = req.user._id;
+          attendance.ot_approved_at = new Date();
+          if (!attendance.ot_hours_proposed) attendance.ot_hours_proposed = confirmedOtHours;
+        }
         attendance.is_late = targetConfig.is_late;
         attendance.late_tier = targetConfig.late_tier;
         attendance.check_in_type = targetConfig.check_in_type;
@@ -806,6 +825,10 @@ const overrideCell = async (req, res) => {
           total_hours: targetConfig.total_hours,
           work_units: targetConfig.work_units !== undefined ? targetConfig.work_units : 1.0,
           ot_hours: confirmedOtHours,
+          ot_status: confirmedOtHours > 0 ? 'approved' : 'none',
+          ot_approved_by: confirmedOtHours > 0 ? req.user._id : null,
+          ot_approved_at: confirmedOtHours > 0 ? new Date() : null,
+          ot_hours_proposed: confirmedOtHours,
           is_late: targetConfig.is_late,
           late_tier: targetConfig.late_tier,
           check_in_type: targetConfig.check_in_type,

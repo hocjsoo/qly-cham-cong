@@ -106,7 +106,7 @@ const createSummaryRows = ({ users, attendances, month, year }) => {
       Khác: Number(totals.otherLeave.toFixed(2)),
       'Muộn (lượt)': records.filter(record => record.is_late).length,
       'Sớm (lượt)': records.filter(record => record.is_early_leave).length,
-      'Tổng giờ OT': Number(records.reduce((sum, record) => sum + (record.ot_hours || 0), 0).toFixed(1)),
+      'Tổng giờ OT': Number(records.reduce((sum, record) => sum + (record.ot_status === 'pending_approval' ? 0 : (record.ot_hours || 0)), 0).toFixed(1)),
       ...daySymbols,
     };
   });

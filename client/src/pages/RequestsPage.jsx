@@ -277,6 +277,23 @@ export default function RequestsPage() {
   const [vehicleColor, setVehicleColor] = useState('');
   const [vehicleParkingLocation, setVehicleParkingLocation] = useState('Tòa 17T10 Nguyễn Thị Định');
 
+  // Overnight OT Approval State (Admin only)
+  const [pendingOtList, setPendingOtList] = useState([]);
+  const [loadingPendingOt, setLoadingPendingOt] = useState(false);
+  const [otReviewModal, setOtReviewModal] = useState(null); // { item, mode: 'adjust' | 'reject' }
+  const [otHoursInput, setOtHoursInput] = useState('');
+  const [otAdjustmentReason, setOtAdjustmentReason] = useState('');
+  const [otReviewerNote, setOtReviewerNote] = useState('');
+  const [submittingOt, setSubmittingOt] = useState(false);
+  const [isOvernightCheckout, setIsOvernightCheckout] = useState(false);
+
+  const getNextDayString = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00+07:00');
+    d.setDate(d.getDate() + 1);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  };
+
   // Load Guidelines from settings
   useEffect(() => {
     if (systemSettings?.request_guidelines && typeof systemSettings.request_guidelines === 'object') {
@@ -383,12 +400,14 @@ export default function RequestsPage() {
 
   useEffect(() => {
     loadData();
+    if (isAdmin) fetchPendingOt();
     api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-  }, [loadData]);
+  }, [loadData, isAdmin, fetchPendingOt]);
 
   useEffect(() => {
     if (isManager && tab === 'flagged') fetchFlagged();
-  }, [fetchFlagged, isManager, tab]);
+    if (isAdmin && (tab === 'overnight_ot' || tab === 'pending')) fetchPendingOt();
+  }, [fetchFlagged, fetchPendingOt, isAdmin, isManager, tab]);
 
   useEffect(() => {
     const queryType = searchParams.get('type');
@@ -546,6 +565,84 @@ export default function RequestsPage() {
         }
       }
     });
+  };
+
+  // Overnight OT Approval Handlers (Admin Only)
+  const fetchPendingOt = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingPendingOt(true);
+    try {
+      const res = await api.get('/attendance/pending-ot');
+      setPendingOtList(res.data?.pending_ot || []);
+    } catch (err) {
+      console.error('Fetch pending OT error:', err);
+    } finally {
+      setLoadingPendingOt(false);
+    }
+  }, [isAdmin]);
+
+  const handleQuickApproveOt = async (item) => {
+    try {
+      await api.put(`/attendance/${item.id}/approve-ot`, {
+        approved_hours: item.ot_hours_proposed,
+        reviewer_note: 'Admin duyệt số giờ OT đề xuất',
+      });
+      toast.success(`Đã duyệt ${item.ot_hours_proposed}h OT cho ${item.user_name}! ✅`);
+      fetchPendingOt();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi phê duyệt OT.');
+    }
+  };
+
+  const handleOpenAdjustOtModal = (item) => {
+    setOtReviewModal({ item, mode: 'adjust' });
+    setOtHoursInput(String(item.ot_hours_proposed));
+    setOtAdjustmentReason('');
+    setOtReviewerNote('Admin điều chỉnh số giờ OT ca xuyên ngày');
+  };
+
+  const handleOpenRejectOtModal = (item) => {
+    setOtReviewModal({ item, mode: 'reject' });
+    setOtReviewerNote('Không đủ điều kiện tính OT ca xuyên ngày');
+  };
+
+  const handleSubmitOtReview = async () => {
+    if (!otReviewModal) return;
+    const { item, mode } = otReviewModal;
+    setSubmittingOt(true);
+
+    try {
+      if (mode === 'adjust') {
+        const numHours = parseFloat(otHoursInput);
+        if (isNaN(numHours) || numHours < 0) {
+          toast.error('Số giờ OT không hợp lệ.');
+          setSubmittingOt(false);
+          return;
+        }
+        if (Math.abs(numHours - (item.ot_hours_proposed || 0)) > 0.05 && !otAdjustmentReason.trim()) {
+          toast.error('Vui lòng nhập lý do khi điều chỉnh số giờ OT khác với đề xuất.');
+          setSubmittingOt(false);
+          return;
+        }
+        await api.put(`/attendance/${item.id}/approve-ot`, {
+          approved_hours: numHours,
+          adjustment_reason: otAdjustmentReason.trim(),
+          reviewer_note: otReviewerNote.trim(),
+        });
+        toast.success(`Đã duyệt ${numHours}h OT cho ${item.user_name}! ✅`);
+      } else {
+        await api.put(`/attendance/${item.id}/reject-ot`, {
+          reviewer_note: otReviewerNote.trim() || 'Admin từ chối OT ca xuyên ngày',
+        });
+        toast.success(`Đã từ chối OT ca xuyên ngày của ${item.user_name}! ❌`);
+      }
+      setOtReviewModal(null);
+      fetchPendingOt();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý OT.');
+    } finally {
+      setSubmittingOt(false);
+    }
   };
 
   // Flagged verification handlers
@@ -713,6 +810,23 @@ export default function RequestsPage() {
             >
               <span>🛡️ Cảnh báo & Selfie</span>
               {flaggedCounts.pending > 0 && <span className="badge badge--warning" style={{ fontSize: '10px', padding: '1px 6px' }}>{flaggedCounts.pending}</span>}
+            </button>
+          )}
+
+          {isAdmin && (
+            <button
+              onClick={() => { setTab('overnight_ot'); fetchPendingOt(); }}
+              style={{
+                flex: 1, padding: '9px 10px', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                background: tab === 'overnight_ot' ? 'var(--bg-card)' : 'transparent',
+                color: tab === 'overnight_ot' ? 'var(--yellow)' : 'var(--text-secondary)',
+                boxShadow: tab === 'overnight_ot' ? 'var(--shadow-xs)' : 'none',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+              }}
+            >
+              <span>🌙 Duyệt OT</span>
+              {pendingOtList.length > 0 && <span className="badge badge--warning" style={{ fontSize: '10px', padding: '1px 6px' }}>{pendingOtList.length}</span>}
             </button>
           )}
         </div>
@@ -903,6 +1017,106 @@ export default function RequestsPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        ) : tab === 'overnight_ot' ? (
+          /* =========================================================================
+             OVERNIGHT SHIFT OT APPROVAL MODULE (ADMIN ONLY)
+             ========================================================================= */
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🌙 Phê Duyệt OT Ca Làm Việc Xuyên Ngày
+                </h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Chỉ Quản trị viên (Admin) mới có quyền duyệt số giờ tăng ca cho các ca làm việc kết thúc vào ngày hôm sau.
+                </div>
+              </div>
+              <button onClick={fetchPendingOt} className="btn btn--secondary" style={{ padding: '7px 12px', fontSize: '12px' }}>
+                <RotateCcw size={14} /> Làm mới
+              </button>
+            </div>
+
+            {loadingPendingOt ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                Đang tải danh sách OT chờ duyệt...
+              </div>
+            ) : pendingOtList.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '48px 20px' }}>
+                <div style={{ fontSize: '36px', marginBottom: '10px' }}>🎉</div>
+                <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text)' }}>Không có ca OT xuyên ngày nào chờ duyệt</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Tất cả các ca làm việc xuyên ngày đều đã được kiểm tra và xử lý xong.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {pendingOtList.map(item => (
+                  <div key={item.id} className="card animate-fade-in" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <div style={{
+                          width: '42px', height: '42px', borderRadius: '50%', background: 'var(--primary-soft)',
+                          color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontWeight: 800, fontSize: '14px', flexShrink: 0
+                        }}>
+                          {item.user_avatar ? (
+                            <img src={item.user_avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            item.user_name?.[0]?.toUpperCase() || 'N'
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text)' }}>
+                            {item.user_name} <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500 }}>({item.user_code})</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>📅 Ca ngày: <strong>{formatDate(item.date)}</strong></span>
+                            <span>•</span>
+                            <span>⏱️ <strong>{formatTime(item.check_in_time)}</strong> ➔ <strong>{formatTime(item.check_out_time)}</strong> (+1 ngày)</span>
+                            <span>•</span>
+                            <span>⏳ Tổng làm: <strong>{item.total_hours}h</strong></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>OT đề xuất</div>
+                          <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--yellow)' }}>
+                            {item.ot_hours_proposed} giờ
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => handleOpenRejectOtModal(item)}
+                        className="btn btn--ghost"
+                        style={{ color: 'var(--red)', fontSize: '12px', padding: '6px 12px', fontWeight: 700 }}
+                      >
+                        <X size={14} /> Từ chối OT (Giữ công)
+                      </button>
+                      <button
+                        onClick={() => handleOpenAdjustOtModal(item)}
+                        className="btn btn--secondary"
+                        style={{ fontSize: '12px', padding: '6px 12px', fontWeight: 700 }}
+                      >
+                        ✏️ Sửa số giờ & Duyệt
+                      </button>
+                      <button
+                        onClick={() => handleQuickApproveOt(item)}
+                        className="btn btn--primary"
+                        style={{ fontSize: '12px', padding: '6px 14px', fontWeight: 800 }}
+                      >
+                        <Check size={14} /> Duyệt {item.ot_hours_proposed}h OT
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -1324,12 +1538,16 @@ export default function RequestsPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                   <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ fontWeight: 700 }}>📅 Ngày quên checkout *</label>
+                    <label className="form-label" style={{ fontWeight: 700 }}>📅 Ngày ca bắt đầu *</label>
                     <input
                       type="date"
                       className="form-input"
                       value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
+                      onChange={e => {
+                        const newStart = e.target.value;
+                        setStartDate(newStart);
+                        setEndDate(isOvernightCheckout ? getNextDayString(newStart) : newStart);
+                      }}
                       onClick={e => e.target.showPicker && e.target.showPicker()}
                     />
                   </div>
@@ -1344,8 +1562,31 @@ export default function RequestsPage() {
                     />
                   </div>
                 </div>
+
+                {/* Tùy chọn checkout ngày hôm sau (+1 ngày) cho ca làm việc xuyên đêm */}
+                <div style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: isOvernightCheckout ? 'var(--primary)' : 'var(--text)' }}>
+                    <input
+                      type="checkbox"
+                      checked={isOvernightCheckout}
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        setIsOvernightCheckout(checked);
+                        setEndDate(checked ? getNextDayString(startDate) : startDate);
+                      }}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <span>🌙 Ca làm việc xuyên ngày (Checkout vào sáng/trưa hôm sau)</span>
+                  </label>
+                  {isOvernightCheckout && (
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--primary)', fontWeight: 600 }}>
+                      ➔ Ngày checkout thực tế ghi nhận: <strong>{endDate || getNextDayString(startDate)}</strong> (+1 ngày)
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                  💡 <strong>Lưu ý:</strong> Đơn chỉ gửi thành công khi ngày làm việc đó bạn <strong>đã check-in</strong> nhưng <strong>chưa checkout</strong>. Khi Admin/Leader duyệt, hệ thống sẽ tự động cập nhật giờ ra và tính toán lại tổng giờ làm, OT hoặc Về sớm.
+                  💡 <strong>Lưu ý:</strong> Đơn chỉ gửi thành công khi ngày làm việc đó bạn <strong>đã check-in</strong> nhưng <strong>chưa checkout</strong>. Đối với ca xuyên ngày, hệ thống sẽ tự động đối chiếu sang ngày hôm sau và tính OT cho khoảng thời gian sau 18:30 của ngày bắt đầu ca.
                 </div>
               </div>
             ) : type === 'vehicle_update' ? (
@@ -1762,6 +2003,93 @@ export default function RequestsPage() {
           image={fullAvatarImage}
           onClose={() => setFullAvatarImage(null)}
         />
+      )}
+
+      {/* 9.5 Modal Duyệt / Điều Chỉnh / Từ Chối OT Xuyên Ngày (Admin Only) */}
+      {otReviewModal && (
+        <div className="modal-overlay" onClick={() => setOtReviewModal(null)}>
+          <div className="modal-sheet animate-slide-up" style={{ maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text)' }}>
+                {otReviewModal.mode === 'adjust' ? '✏️ Điều chỉnh & Duyệt số giờ OT' : '❌ Từ chối tính OT ca xuyên ngày'}
+              </div>
+              <button className="btn btn--ghost" onClick={() => setOtReviewModal(null)} style={{ padding: '4px' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '14px', background: 'var(--bg-raised)', padding: '12px', borderRadius: '10px', fontSize: '12.5px' }}>
+              <div>Nhân sự: <strong>{otReviewModal.item.user_name}</strong> ({otReviewModal.item.user_code})</div>
+              <div style={{ marginTop: '4px' }}>Ca ngày: <strong>{formatDate(otReviewModal.item.date)}</strong> ({formatTime(otReviewModal.item.check_in_time)} ➔ {formatTime(otReviewModal.item.check_out_time)} +1 ngày)</div>
+              <div style={{ marginTop: '4px' }}>OT đề xuất: <strong style={{ color: 'var(--yellow)' }}>{otReviewModal.item.ot_hours_proposed} giờ</strong></div>
+            </div>
+
+            {otReviewModal.mode === 'adjust' ? (
+              <>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Số giờ OT được duyệt (giờ) *</label>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="24"
+                    className="form-input"
+                    value={otHoursInput}
+                    onChange={e => setOtHoursInput(e.target.value)}
+                  />
+                </div>
+                {Math.abs(parseFloat(otHoursInput || 0) - (otReviewModal.item.ot_hours_proposed || 0)) > 0.05 && (
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontWeight: 700, color: 'var(--yellow)' }}>
+                      Lý do điều chỉnh (Bắt buộc khi đổi số giờ) *
+                    </label>
+                    <textarea
+                      className="form-input"
+                      rows={2}
+                      placeholder="Nhập lý do tại sao tăng/giảm số giờ OT đề xuất..."
+                      value={otAdjustmentReason}
+                      onChange={e => setOtAdjustmentReason(e.target.value)}
+                    />
+                  </div>
+                )}
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Ghi chú phê duyệt</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={otReviewerNote}
+                    onChange={e => setOtReviewerNote(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: 700 }}>Lý do từ chối tính OT *</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="Nhập lý do từ chối tính OT (Ca làm việc vẫn bảo toàn 1.0 công cơ bản)..."
+                  value={otReviewerNote}
+                  onChange={e => setOtReviewerNote(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+              <button className="btn btn--ghost" onClick={() => setOtReviewModal(null)} disabled={submittingOt}>
+                Hủy
+              </button>
+              <button
+                className={`btn ${otReviewModal.mode === 'adjust' ? 'btn--primary' : 'btn--danger'}`}
+                onClick={handleSubmitOtReview}
+                disabled={submittingOt}
+                style={{ fontWeight: 800 }}
+              >
+                {submittingOt ? 'Đang xử lý...' : otReviewModal.mode === 'adjust' ? 'Xác nhận Duyệt OT' : 'Xác nhận Từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 10. Confirmation Modal Dialog */}

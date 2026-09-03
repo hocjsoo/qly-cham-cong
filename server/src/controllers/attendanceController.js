@@ -9,11 +9,15 @@ const AttendanceAuditLog = require('../models/AttendanceAuditLog');
 const TimesheetLock = require('../models/TimesheetLock');
 const User = require('../models/User');
 const Holiday = require('../models/Holiday');
+const Notification = require('../models/Notification');
 const {
   calculateRawTotalHours,
   calculateOT,
   calculateAttendanceMetrics,
   normalizeHolidayMultiplier,
+  getVnDateString,
+  isOvernightShift,
+  formatDurationHoursMinutes,
 } = require('../utils/attendanceCalculations');
 const {
   isLeaderRole,
@@ -37,6 +41,17 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
 
 const getClientIP = (req) => {
   return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress || '127.0.0.1';
+};
+
+const getTopologyStatus = () => {
+  const readyState = mongoose.connection?.readyState;
+  const isTestEnv = Boolean(process.env.NODE_ENV === 'test');
+  const topology = mongoose.connection?.client?.topology;
+
+  if (isTestEnv && !topology && readyState !== 1) {
+    return { readyState, isTestEnv: true, requiresTransaction: false };
+  }
+  return { readyState, isTestEnv: false, requiresTransaction: true };
 };
 
 // Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
@@ -75,7 +90,6 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
   const diffMins = Math.floor(diffMs / (1000 * 60));
 
   // Mốc cutoff giảm công ĐỘC LẬP cố định 09:30:00 (chuẩn múi giờ VN +07:00)
-  // Tuyệt đối không phụ thuộc vào minor_late_mins cảnh báo cũ (vốn có thể là 10p trong seed hoặc DB cũ)
   const cutoff0930Ms = new Date(`${dateStr}T09:30:00+07:00`).getTime();
 
   // Tier cảnh báo muộn nhẹ / muộn vừa (phục vụ hiển thị nhãn)
@@ -92,7 +106,6 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
       credit_symbol: 'x'
     };
   } else if (checkIn.getTime() <= cutoff0930Ms) {
-    // Check-in từ sau giờ ca (09:00:01) đến đúng 09:30:00: VẪN TÍNH 1 CÔNG (x), hiển thị cảnh báo muộn (+diffMins phút)
     return {
       is_late: true,
       late_minutes: diffMins,
@@ -102,7 +115,6 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
       credit_symbol: 'x'
     };
   } else {
-    // Check-in sau 09:30:00 (từ 09:30:01 trở đi): Tự động tính 0.75 công (0,75x), ghi nhận chính xác số phút đi muộn
     return {
       is_late: true,
       late_minutes: diffMins,
@@ -174,12 +186,12 @@ const checkIn = async (req, res) => {
     if (lockQuery && typeof lockQuery.select === 'function') lockQuery = lockQuery.select('user_id');
     if (lockQuery && typeof lockQuery.lean === 'function') lockQuery = lockQuery.lean();
 
-    // Ba truy vấn độc lập chạy song song để giảm một vòng chờ database khi check-in.
     const [settingsResult, activeHoliday, activeLock] = await Promise.all([
       settingsQuery,
       holidayQuery,
       lockQuery,
     ]);
+
     const settings = settingsResult || {
       work_start_time: '09:00',
       minor_late_mins: 30,
@@ -376,7 +388,6 @@ const checkIn = async (req, res) => {
       settings.medium_late_mins ?? 60
     );
 
-    let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     const combinedNote = [
       note,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
@@ -391,6 +402,7 @@ const checkIn = async (req, res) => {
       ? normalizeHolidayMultiplier(activeHoliday.work_multiplier)
       : (isExemptType ? 1.0 : (lateInfo.work_units ?? 1.0));
 
+    let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
     if (attendance) {
       attendance.check_in_time = now;
       if (userLat) attendance.check_in_lat = userLat;
@@ -467,10 +479,22 @@ const checkIn = async (req, res) => {
             hardware_uuid: effectiveHardwareUuid || null,
             is_flagged: isFlagged,
             flag_reasons: flagReasons,
+            selfie_url: selfie_url || null,
             verification_status: isFlagged ? 'pending_review' : 'auto_approved',
           },
           { new: true }
         );
+        return res.json({
+          message: isFlagged
+            ? `Đã cập nhật check-in (Đang chờ Ban Giám Đốc xác nhận)`
+            : `Đã cập nhật check-in hôm nay (${lateInfo.label})`,
+          attendance,
+          late_info: lateInfo,
+          distance_meters: distanceMeters,
+          far_warning: farWarning,
+          device_warning: deviceWarning,
+          is_flagged: isFlagged,
+        });
       } else {
         throw createErr;
       }
@@ -506,19 +530,74 @@ const checkOut = async (req, res) => {
   try {
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-
-    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     const [dYear, dMonth] = dateStr.split('-').map(Number);
-    let lockQuery = TimesheetLock.findOne({
+
+    let initialLockQuery = TimesheetLock.findOne({
       month: dMonth,
       year: dYear,
+      is_locked: true,
+      $or: [{ user_id: null }, { user_id: userId }]
+    });
+    if (initialLockQuery && typeof initialLockQuery.select === 'function') initialLockQuery = initialLockQuery.select('user_id');
+    if (initialLockQuery && typeof initialLockQuery.lean === 'function') initialLockQuery = initialLockQuery.lean();
+
+    const initialLock = await initialLockQuery;
+    if (initialLock) {
+      return res.status(403).json({
+        error: initialLock.user_id === null
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể thực hiện check-out.`
+          : `Bảng công của bạn trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể thực hiện check-out.`
+      });
+    }
+
+    // 1. Tìm ca đang mở: Ưu tiên ca hôm nay, nếu không có thì tìm ca chưa đóng gần nhất trong 48h
+    let attendance = await Attendance.findOne({ user_id: userId, date: dateStr, check_in_time: { $ne: null }, check_out_time: null });
+
+    if (!attendance) {
+      const unclosedShifts = await Attendance.find({
+        user_id: userId,
+        check_in_time: { $ne: null },
+        check_out_time: null,
+      }).sort({ date: -1 });
+
+      if (unclosedShifts.length === 0) {
+        const todayRecord = await Attendance.findOne({ user_id: userId, date: dateStr });
+        if (todayRecord && todayRecord.check_out_time) {
+          return res.status(400).json({ error: 'Bạn đã check-out ca làm việc hôm nay rồi.' });
+        }
+        return res.status(400).json({ error: 'Bạn chưa check-in hôm nay.' });
+      }
+
+      if (unclosedShifts.length > 1) {
+        return res.status(400).json({
+          error: 'Hệ thống phát hiện bạn có nhiều hơn 1 ca làm việc chưa hoàn tất checkout. Vui lòng gửi đơn "Bổ sung giờ checkout" hoặc liên hệ Admin để xử lý.',
+          require_request: true,
+        });
+      }
+
+      attendance = unclosedShifts[0];
+      const diffHours = (now.getTime() - new Date(attendance.check_in_time).getTime()) / (1000 * 60 * 60);
+      if (diffHours > 48) {
+        return res.status(400).json({
+          error: `Ca làm việc từ ngày ${attendance.date} đã vượt quá 48 giờ. Vui lòng gửi đơn "Bổ sung giờ checkout" để Admin phê duyệt.`,
+          require_request: true,
+        });
+      }
+    }
+
+    const shiftDate = attendance.date;
+    const [sYear, sMonth] = shiftDate.split('-').map(Number);
+
+    // Kiểm tra bảng công tháng của ca làm việc có bị chốt khóa hay không (nếu khác tháng/năm hiện tại)
+    let lockQuery = TimesheetLock.findOne({
+      month: sMonth,
+      year: sYear,
       is_locked: true,
       $or: [{ user_id: null }, { user_id: userId }]
     });
     if (lockQuery && typeof lockQuery.select === 'function') lockQuery = lockQuery.select('user_id');
     if (lockQuery && typeof lockQuery.lean === 'function') lockQuery = lockQuery.lean();
 
-    const attendanceQuery = Attendance.findOne({ user_id: userId, date: dateStr });
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
       settingsQuery = settingsQuery.select('work_end_time ot_start_time');
@@ -527,31 +606,27 @@ const checkOut = async (req, res) => {
 
     let holidayQuery = Holiday.findOne({
       $or: [
-        { date: dateStr },
-        { date: { $lte: dateStr }, end_date: { $gte: dateStr } },
+        { date: shiftDate },
+        { date: { $lte: shiftDate }, end_date: { $gte: shiftDate } },
       ],
     });
     if (holidayQuery && typeof holidayQuery.select === 'function') holidayQuery = holidayQuery.select('work_multiplier');
     if (holidayQuery && typeof holidayQuery.lean === 'function') holidayQuery = holidayQuery.lean();
 
-    // Các truy vấn độc lập chạy song song để giảm độ trễ checkout.
-    const [activeLock, attendance, settings, activeHoliday] = await Promise.all([
+    const [activeLock, settings, activeHoliday] = await Promise.all([
       lockQuery,
-      attendanceQuery,
       settingsQuery,
       holidayQuery,
     ]);
+
     if (activeLock) {
       return res.status(403).json({
         error: activeLock.user_id === null
-          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể thực hiện check-out.`
-          : `Bảng công của bạn trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể thực hiện check-out.`
+          ? `Bảng công Tháng ${sMonth}/${sYear} đã bị chốt khóa toàn cục. Không thể thực hiện check-out ca ngày ${shiftDate}.`
+          : `Bảng công của bạn trong Tháng ${sMonth}/${sYear} đã bị khóa. Không thể thực hiện check-out ca ngày ${shiftDate}.`
       });
     }
 
-    if (!attendance || !attendance.check_in_time) {
-      return res.status(400).json({ error: 'Bạn chưa check-in hôm nay.' });
-    }
     const workEndTime = settings?.work_end_time || '18:30';
     const otStartTime = settings?.ot_start_time || '18:30';
 
@@ -559,6 +634,7 @@ const checkOut = async (req, res) => {
     const metrics = calculateAttendanceMetrics(checkInTime, now, { workEndTime, otStartTime });
     const totalHours = metrics.totalHours;
     const otHours = metrics.otHours;
+    const isOvernight = metrics.isOvernight;
 
     // Kiểm tra khoảng cách với các văn phòng hoạt động khi Check-out
     let distanceMeters = null;
@@ -600,31 +676,57 @@ const checkOut = async (req, res) => {
     const clientIP = getClientIP(req);
     const combinedNote = [
       note,
+      isOvernight ? `Ca xuyên ngày (${shiftDate} ➔ ${dateStr})` : null,
       distanceMeters !== null ? `Cách VP: ${distanceMeters}m` : null,
       `IP: ${clientIP}`,
     ].filter(Boolean).join(' | ');
-
-    // Tính toán về sớm (Early Leave) so với giờ kết thúc ca làm việc
-    const isEarlyLeave = metrics.isEarlyLeave;
-    const earlyMinutes = metrics.earlyMinutes;
 
     attendance.check_out_time = now;
     attendance.check_out_lat = parseFloat(lat);
     attendance.check_out_lng = parseFloat(lng);
     attendance.check_out_note = combinedNote;
     attendance.total_hours = Math.max(0, totalHours);
-    attendance.ot_hours = Math.max(0, otHours);
+    attendance.is_early_leave = metrics.isEarlyLeave;
+    attendance.early_minutes = metrics.earlyMinutes;
+    attendance.is_overnight = isOvernight;
+
     if (activeHoliday) attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
-    attendance.is_early_leave = isEarlyLeave;
-    attendance.early_minutes = earlyMinutes;
+
+    // Phân định rõ ràng OT xuyên ngày (chờ Admin duyệt) vs OT cùng ngày
+    if (isOvernight) {
+      if (otHours > 0) {
+        attendance.ot_hours_proposed = otHours;
+        attendance.ot_hours = 0; // Chưa duyệt -> 0h chính thức
+        attendance.ot_status = 'pending_approval';
+        attendance.ot_approved_by = null;
+        attendance.ot_approved_at = null;
+      } else {
+        attendance.ot_hours_proposed = 0;
+        attendance.ot_hours = 0;
+        attendance.ot_status = 'none';
+      }
+    } else {
+      attendance.ot_hours = otHours;
+      attendance.ot_hours_proposed = otHours;
+      attendance.ot_status = otHours > 0 ? 'auto_approved' : 'none';
+    }
+
     await attendance.save();
 
+    const otMsg = isOvernight && otHours > 0
+      ? ` (OT tạm tính: ${otHours}h — Chờ Admin duyệt)`
+      : (otHours > 0 ? ` (OT: ${otHours}h)` : '');
+    const shiftDateMsg = isOvernight ? ` ca ngày ${shiftDate}` : '';
+
     res.json({
-      message: `Check-out thành công! Tổng ${totalHours}h (OT: ${otHours}h) ${outsideOfficeRadius ? '📍 (Check-out ngoài VP)' : '✅'}`,
+      message: `Check-out${shiftDateMsg} thành công! Tổng ${totalHours}h${otMsg} ${outsideOfficeRadius ? '📍 (Check-out ngoài VP)' : '✅'}`,
       attendance,
       outside_office_radius: outsideOfficeRadius,
       distance_meters: distanceMeters,
       suggest_explanation: outsideOfficeRadius,
+      is_overnight: isOvernight,
+      ot_status: attendance.ot_status,
+      ot_hours_proposed: attendance.ot_hours_proposed,
     });
 
   } catch (error) {
@@ -637,15 +739,42 @@ const checkOut = async (req, res) => {
 const getTodayStatus = async (req, res) => {
   try {
     const userId = req.user._id;
-    const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-    const attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
+    let activeShift = null;
+
+    // Nếu hôm nay chưa check-in: tìm ca đang mở từ hôm trước trong phạm vi 48h
+    if (!attendance || !attendance.check_in_time) {
+      const openShifts = await Attendance.find({
+        user_id: userId,
+        date: { $ne: dateStr },
+        check_in_time: { $ne: null },
+        check_out_time: null,
+      }).sort({ date: -1 });
+
+      if (openShifts.length === 1) {
+        const candidate = openShifts[0];
+        const diffHours = (now.getTime() - new Date(candidate.check_in_time).getTime()) / (1000 * 60 * 60);
+        if (diffHours <= 48) {
+          activeShift = candidate;
+          if (!attendance) {
+            attendance = candidate;
+          }
+        }
+      }
+    }
+
     const activeOffices = await OfficeLocation.find({ is_active: true });
     res.json({
       attendance,
+      active_shift: activeShift,
+      is_active_overnight_shift: Boolean(activeShift && activeShift.date !== dateStr),
       offices: activeOffices.map(l => ({ _id: l._id, name: l.name, radius_m: l.radius_m, lat: l.lat, lng: l.lng })),
       office: activeOffices[0] ? { name: activeOffices[0].name, radius_m: activeOffices[0].radius_m, lat: activeOffices[0].lat, lng: activeOffices[0].lng } : null
     });
   } catch (error) {
+    console.error('GetTodayStatus error:', error);
     res.status(500).json({ error: 'Lỗi lấy trạng thái hôm nay.' });
   }
 };
@@ -667,21 +796,18 @@ const getHistory = async (req, res) => {
         }
         userQueryFilter = { user_id: req.query.user_id };
       } else {
-        // Nếu là Leader / Manager và user_id là 'all' hoặc không truyền -> lấy toàn bộ nhân viên thuộc phòng ban
         if (isLeaderRole(req.user)) {
           const userIds = await User.find(
             buildLeaderUserScope(req.user, { includeSelf: true })
           ).distinct('_id');
           userQueryFilter = { user_id: { $in: userIds } };
         } else if (req.query.user_id === 'all') {
-          // Admin xem tất cả nhân viên hệ thống
           userQueryFilter = {};
         }
       }
     }
 
     if (mode === 'year') {
-      // Trả về dữ liệu 12 tháng trong năm cho màn hình xem theo Năm
       const yearlyRecords = await Attendance.find({
         ...userQueryFilter,
         date: { $regex: `^${y}-` }
@@ -694,7 +820,7 @@ const getHistory = async (req, res) => {
         const presentDays = monthRecs.filter(r => !r.is_late).length;
         const lateDays = monthRecs.filter(r => r.is_late).length;
         const totalHours = parseFloat(monthRecs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
-        const otHours = parseFloat(monthRecs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+        const otHours = parseFloat(monthRecs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
         return {
           month: monthNum,
           label: `Tháng ${monthNum}`,
@@ -709,19 +835,19 @@ const getHistory = async (req, res) => {
       return res.json({ year: y, mode: 'year', months: monthsData });
     }
 
-    // Default month mode
     const monthStr = `${y}-${String(m).padStart(2, '0')}`;
     const records = await Attendance.find({
       ...userQueryFilter,
       date: { $regex: `^${monthStr}` }
     })
       .populate('user_id', 'full_name employee_code avatar_url email')
+      .populate('ot_approved_by', 'full_name')
       .sort({ date: -1 });
 
     const presentDays = records.filter(r => !r.is_late).length;
     const lateDays = records.filter(r => r.is_late).length;
     const totalHours = parseFloat(records.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
-    const totalOt = parseFloat(records.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+    const totalOt = parseFloat(records.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
 
     res.json({
       summary: { present_days: presentDays, late_days: lateDays, total_hours: totalHours, total_ot_hours: totalOt, total_days: records.length },
@@ -729,44 +855,572 @@ const getHistory = async (req, res) => {
     });
   } catch (error) {
     console.error('GetHistory error:', error);
-    res.status(500).json({ error: 'Lỗi lấy lịch sử.' });
+    res.status(500).json({ error: 'Lỗi tải lịch sử chấm công.' });
   }
 };
 
 // GET /api/attendance/record?user_id=...&date=YYYY-MM-DD
 const getRecordByUserAndDate = async (req, res) => {
-  const { user_id, date } = req.query;
   try {
-    if (!date) {
-      return res.status(400).json({ error: 'Ngày chấm công là bắt buộc.' });
+    const { user_id, date } = req.query;
+    if (!user_id || !date) {
+      return res.status(400).json({ error: 'Thiếu user_id hoặc date.' });
     }
 
-    const targetUserId = user_id || req.user._id;
-    const isSelf = String(targetUserId) === String(req.user._id);
-    if (!isSelf && req.user.role !== 'admin') {
-      const canView = isLeaderRole(req.user) && await canManageUserId(req.user, targetUserId);
-      if (!canView) {
-        return res.status(403).json({ error: 'Bạn không có quyền xem bản ghi chấm công này.' });
+    const isSelf = String(req.user._id) === String(user_id);
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
+
+    if (!isSelf && !isAdmin) {
+      if (!isLeader || !(await canManageUserId(req.user, user_id))) {
+        return res.status(403).json({ error: 'Bạn không có quyền xem bản ghi chấm công của nhân sự này.' });
       }
     }
 
-    const attendance = await Attendance.findOne({ user_id: targetUserId, date }).populate('user_id', 'full_name email');
-    res.json({ attendance });
+    const record = await Attendance.findOne({ user_id, date })
+      .populate('user_id', 'full_name employee_code avatar_url email department_id position')
+      .populate('ot_approved_by', 'full_name');
+
+    res.json({ record });
   } catch (error) {
-    res.status(500).json({ error: 'Lỗi tìm bản ghi chấm công.' });
+    console.error('GetRecordByUserAndDate error:', error);
+    res.status(500).json({ error: 'Lỗi lấy bản ghi chấm công.' });
   }
 };
 
-// PUT /api/attendance/override/:id - CHỈ ADMIN sửa hoặc tạo mới bản ghi chấm công
+// GET /api/attendance/pending-ot — Admin lấy danh sách ca có OT xuyên ngày chờ duyệt
+const getPendingOvernightOt = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Chỉ Admin mới có quyền xem danh sách OT xuyên ngày chờ duyệt.' });
+    }
+
+    const records = await Attendance.find({
+      ot_status: 'pending_approval',
+    })
+      .populate('user_id', 'full_name employee_code avatar_url email department_id position')
+      .sort({ date: -1, created_at: -1 });
+
+    const formatted = records.map(r => {
+      const obj = r.toObject ? r.toObject() : r;
+      return {
+        ...obj,
+        id: obj._id,
+        user_name: obj.user_id?.full_name || 'Nhân viên',
+        user_code: obj.user_id?.employee_code || 'NV',
+        user_avatar: obj.user_id?.avatar_url,
+      };
+    });
+
+    res.json({ pending_ot: formatted, count: formatted.length });
+  } catch (error) {
+    console.error('GetPendingOvernightOt error:', error);
+    res.status(500).json({ error: 'Lỗi tải danh sách OT chờ duyệt.' });
+  }
+};
+
+// PUT /api/attendance/:id/approve-ot — Admin duyệt / điều chỉnh số giờ OT ca xuyên ngày
+const approveOvernightOt = async (req, res) => {
+  const { id } = req.params;
+  const { approved_hours, reviewer_note, adjustment_reason } = req.body;
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Quản trị viên (Admin) mới có quyền duyệt OT ca xuyên ngày.' });
+  }
+
+  try {
+    const initialAtt = await Attendance.findById(id);
+    if (!initialAtt) {
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
+    }
+
+    if (!initialAtt.is_overnight) {
+      return res.status(400).json({ error: 'Bản ghi này không phải ca làm việc xuyên ngày.' });
+    }
+
+    if (initialAtt.ot_status === 'approved') {
+      return res.status(409).json({ error: 'Ca làm việc này đã được phê duyệt OT trước đó.' });
+    }
+
+    if (initialAtt.ot_status === 'rejected') {
+      return res.status(409).json({ error: 'Ca làm việc này đã bị từ chối OT trước đó.' });
+    }
+
+    if (initialAtt.ot_status !== 'pending_approval') {
+      return res.status(400).json({ error: 'Ca làm việc không ở trạng thái chờ duyệt OT.' });
+    }
+
+    const proposed = Number(initialAtt.ot_hours_proposed) || 0;
+    let finalOt = proposed;
+    if (approved_hours !== undefined && approved_hours !== null && approved_hours !== '') {
+      const parsed = parseFloat(approved_hours);
+      if (isNaN(parsed) || parsed < 0 || parsed > 24) {
+        return res.status(400).json({ error: 'Số giờ OT phê duyệt không hợp lệ.' });
+      }
+      finalOt = Number(parsed.toFixed(2));
+      if (Math.abs(finalOt - proposed) > 0.05) {
+        if (!adjustment_reason || !adjustment_reason.trim()) {
+          return res.status(400).json({
+            error: 'Vui lòng nhập lý do điều chỉnh khi số giờ OT duyệt khác với số giờ đề xuất.'
+          });
+        }
+      }
+    }
+
+    const [dYear, dMonth] = initialAtt.date.split('-').map(Number);
+
+    await TimesheetLock.updateOne(
+      { month: dMonth, year: dYear, user_id: null },
+      { $setOnInsert: { month: dMonth, year: dYear, user_id: null, is_locked: false, guard_version: 0 } },
+      { upsert: true }
+    ).catch(e => { if (e.code !== 11000) throw e; });
+
+    if (initialAtt.user_id) {
+      await TimesheetLock.updateOne(
+        { month: dMonth, year: dYear, user_id: initialAtt.user_id },
+        { $setOnInsert: { month: dMonth, year: dYear, user_id: initialAtt.user_id, is_locked: false, guard_version: 0 } },
+        { upsert: true }
+      ).catch(e => { if (e.code !== 11000) throw e; });
+    }
+
+    const topologyStatus = getTopologyStatus();
+    let session = null;
+    let useCallbackTx = false;
+    let hasManualTx = false;
+
+    if (topologyStatus.requiresTransaction) {
+      if (topologyStatus.readyState !== 1 || typeof mongoose.startSession !== 'function') {
+        return res.status(500).json({
+          error: `Lỗi kết nối cơ sở dữ liệu: Không thể khởi tạo giao dịch an toàn (readyState: ${topologyStatus.readyState}). Yêu cầu bị hủy theo chính sách Fail-Closed.`,
+        });
+      }
+      session = await mongoose.startSession();
+      if (!session) {
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Phiên giao dịch MongoDB khởi tạo không thành công (null session).',
+        });
+      }
+      useCallbackTx = typeof session.withTransaction === 'function';
+      hasManualTx = typeof session.startTransaction === 'function' && typeof session.commitTransaction === 'function';
+      if (!useCallbackTx && !hasManualTx) {
+        try { await session.endSession(); } catch (_) {}
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Phiên giao dịch thiếu phương thức transaction hợp lệ.',
+        });
+      }
+    } else if (topologyStatus.isTestEnv && typeof mongoose.startSession === 'function') {
+      try {
+        session = await mongoose.startSession();
+        useCallbackTx = Boolean(session && typeof session.withTransaction === 'function');
+        hasManualTx = Boolean(session && typeof session.startTransaction === 'function' && typeof session.commitTransaction === 'function');
+      } catch (_) {
+        session = null;
+        useCallbackTx = false;
+        hasManualTx = false;
+      }
+    }
+
+    let isCommitted = false;
+    let updatedDoc = null;
+
+    const executeMutation = async (activeSession) => {
+      // 1. Guard TimesheetLock inside transaction
+      if (typeof TimesheetLock.findOneAndUpdate === 'function') {
+        const updateOptions = { upsert: false, new: true };
+        if (activeSession) updateOptions.session = activeSession;
+
+        const globalGuard = await TimesheetLock.findOneAndUpdate(
+          { month: dMonth, year: dYear, user_id: null, is_locked: { $ne: true } },
+          { $inc: { guard_version: 1 }, $set: { last_verified_at: new Date() } },
+          updateOptions
+        );
+        if (!globalGuard || globalGuard.is_locked) {
+          const lockErr = new Error(`Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể duyệt điều chỉnh OT.`);
+          lockErr.statusCode = 403;
+          throw lockErr;
+        }
+
+        if (initialAtt.user_id) {
+          const userGuard = await TimesheetLock.findOneAndUpdate(
+            { month: dMonth, year: dYear, user_id: initialAtt.user_id, is_locked: { $ne: true } },
+            { $inc: { guard_version: 1 }, $set: { last_verified_at: new Date() } },
+            updateOptions
+          );
+          if (!userGuard || userGuard.is_locked) {
+            const lockErr = new Error(`Bảng công của nhân viên trong Tháng ${dMonth}/${dYear} đã bị chốt khóa. Không thể duyệt điều chỉnh OT.`);
+            lockErr.statusCode = 403;
+            throw lockErr;
+          }
+        }
+      } else {
+        const lockQuery = TimesheetLock.findOne({
+          month: dMonth,
+          year: dYear,
+          is_locked: true,
+          $or: [{ user_id: null }, { user_id: initialAtt.user_id }],
+        });
+        if (activeSession && typeof lockQuery.session === 'function') lockQuery.session(activeSession);
+        const lock = await lockQuery;
+        if (lock) {
+          const lockErr = new Error(`Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa. Không thể duyệt điều chỉnh OT.`);
+          lockErr.statusCode = 403;
+          throw lockErr;
+        }
+      }
+
+      // 2. Fetch and update Attendance inside transaction
+      let attQuery = Attendance.findOne({ _id: id, ot_status: 'pending_approval' });
+      if (activeSession && typeof attQuery.session === 'function') attQuery = attQuery.session(activeSession);
+      const attendance = await attQuery;
+
+      if (!attendance) {
+        const err = new Error('Không tìm thấy bản ghi hoặc ca đã được xử lý trước đó.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      attendance.ot_hours = finalOt;
+      attendance.ot_status = 'approved';
+      attendance.ot_approved_by = req.user._id;
+      attendance.ot_approved_at = new Date();
+      attendance.ot_reviewer_note = reviewer_note ? reviewer_note.trim() : 'Admin đã duyệt OT ca xuyên ngày';
+      if (adjustment_reason) {
+        attendance.ot_adjustment_reason = adjustment_reason.trim();
+      }
+
+      await attendance.save(activeSession ? { session: activeSession } : {});
+
+      // 3. Atomically record audit log inside same transaction
+      let userQuery = User.findById(attendance.user_id);
+      if (activeSession && typeof userQuery.session === 'function') userQuery = userQuery.session(activeSession);
+      const targetUser = await userQuery;
+
+      const auditPayload = {
+        attendance_id: attendance._id,
+        user_id: attendance.user_id,
+        user_name: targetUser ? targetUser.full_name : 'Nhân sự',
+        date: attendance.date,
+        old_symbol: `OT đề xuất: ${attendance.ot_hours_proposed}h`,
+        new_symbol: `OT duyệt: ${finalOt}h`,
+        reason: adjustment_reason || reviewer_note || 'Admin duyệt số giờ OT ca xuyên ngày',
+        modified_by: req.user._id,
+        modified_by_name: req.user.full_name,
+        modified_at: new Date(),
+      };
+
+      await AttendanceAuditLog.create(
+        activeSession ? [auditPayload] : auditPayload,
+        activeSession ? { session: activeSession } : undefined
+      );
+
+      updatedDoc = attendance;
+    };
+
+    try {
+      if (session && useCallbackTx) {
+        await session.withTransaction(async () => {
+          await executeMutation(session);
+        });
+        isCommitted = true;
+      } else if (session && hasManualTx) {
+        await session.startTransaction();
+        await executeMutation(session);
+        await session.commitTransaction();
+        isCommitted = true;
+      } else if (topologyStatus.isTestEnv) {
+        await executeMutation(null);
+        isCommitted = true;
+      } else {
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Thiếu cơ chế transaction khả dụng trên MongoDB. Yêu cầu bị hủy theo chính sách Fail-Closed.',
+        });
+      }
+    } catch (txErr) {
+      if (session && hasManualTx && !useCallbackTx && !isCommitted) {
+        try { await session.abortTransaction(); } catch (_) {}
+      }
+      throw txErr;
+    } finally {
+      if (session) {
+        try { await session.endSession(); } catch (_) {}
+      }
+    }
+
+    try {
+      await Notification.create({
+        user_id: updatedDoc.user_id,
+        title: '🔥 OT xuyên ngày của bạn đã được duyệt!',
+        message: `Admin đã duyệt ${finalOt}h tăng ca (OT) cho ca làm việc ngày ${updatedDoc.date}.${reviewer_note ? ` Ghi chú: ${reviewer_note}` : ''}`,
+        type: 'attendance',
+        link: '/history',
+      });
+    } catch (_) {}
+
+    const populated = await Attendance.findById(id)
+      .populate('user_id', 'full_name employee_code avatar_url')
+      .populate('ot_approved_by', 'full_name');
+
+    return res.json({
+      message: `Đã duyệt ${finalOt}h OT xuyên ngày thành công! ✅`,
+      attendance: populated,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('ApproveOvernightOt error:', error);
+    res.status(500).json({ error: error.message || 'Lỗi phê duyệt OT ca xuyên ngày.' });
+  }
+};
+
+// PUT /api/attendance/:id/reject-ot — Admin từ chối OT ca xuyên ngày
+const rejectOvernightOt = async (req, res) => {
+  const { id } = req.params;
+  const { reviewer_note } = req.body;
+
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Chỉ Quản trị viên (Admin) mới có quyền từ chối OT ca xuyên ngày.' });
+  }
+
+  try {
+    const initialAtt = await Attendance.findById(id);
+    if (!initialAtt) {
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
+    }
+
+    if (!initialAtt.is_overnight) {
+      return res.status(400).json({ error: 'Bản ghi này không phải ca làm việc xuyên ngày.' });
+    }
+
+    if (initialAtt.ot_status === 'approved') {
+      return res.status(409).json({ error: 'Ca làm việc này đã được phê duyệt OT trước đó.' });
+    }
+
+    if (initialAtt.ot_status === 'rejected') {
+      return res.status(409).json({ error: 'Ca làm việc này đã bị từ chối OT trước đó.' });
+    }
+
+    if (initialAtt.ot_status !== 'pending_approval') {
+      return res.status(400).json({ error: 'Ca làm việc không ở trạng thái chờ duyệt OT.' });
+    }
+
+    const [dYear, dMonth] = initialAtt.date.split('-').map(Number);
+
+    await TimesheetLock.updateOne(
+      { month: dMonth, year: dYear, user_id: null },
+      { $setOnInsert: { month: dMonth, year: dYear, user_id: null, is_locked: false, guard_version: 0 } },
+      { upsert: true }
+    ).catch(e => { if (e.code !== 11000) throw e; });
+
+    if (initialAtt.user_id) {
+      await TimesheetLock.updateOne(
+        { month: dMonth, year: dYear, user_id: initialAtt.user_id },
+        { $setOnInsert: { month: dMonth, year: dYear, user_id: initialAtt.user_id, is_locked: false, guard_version: 0 } },
+        { upsert: true }
+      ).catch(e => { if (e.code !== 11000) throw e; });
+    }
+
+    const topologyStatus = getTopologyStatus();
+    let session = null;
+    let useCallbackTx = false;
+    let hasManualTx = false;
+
+    if (topologyStatus.requiresTransaction) {
+      if (topologyStatus.readyState !== 1 || typeof mongoose.startSession !== 'function') {
+        return res.status(500).json({
+          error: `Lỗi kết nối cơ sở dữ liệu: Không thể khởi tạo giao dịch an toàn (readyState: ${topologyStatus.readyState}). Yêu cầu bị hủy theo chính sách Fail-Closed.`,
+        });
+      }
+      session = await mongoose.startSession();
+      if (!session) {
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Phiên giao dịch MongoDB khởi tạo không thành công (null session).',
+        });
+      }
+      useCallbackTx = typeof session.withTransaction === 'function';
+      hasManualTx = typeof session.startTransaction === 'function' && typeof session.commitTransaction === 'function';
+      if (!useCallbackTx && !hasManualTx) {
+        try { await session.endSession(); } catch (_) {}
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Phiên giao dịch thiếu phương thức transaction hợp lệ.',
+        });
+      }
+    } else if (topologyStatus.isTestEnv && typeof mongoose.startSession === 'function') {
+      try {
+        session = await mongoose.startSession();
+        useCallbackTx = Boolean(session && typeof session.withTransaction === 'function');
+        hasManualTx = Boolean(session && typeof session.startTransaction === 'function' && typeof session.commitTransaction === 'function');
+      } catch (_) {
+        session = null;
+        useCallbackTx = false;
+        hasManualTx = false;
+      }
+    }
+
+    let isCommitted = false;
+    let updatedDoc = null;
+
+    const executeMutation = async (activeSession) => {
+      // 1. Guard TimesheetLock inside transaction
+      if (typeof TimesheetLock.findOneAndUpdate === 'function') {
+        const updateOptions = { upsert: false, new: true };
+        if (activeSession) updateOptions.session = activeSession;
+
+        const globalGuard = await TimesheetLock.findOneAndUpdate(
+          { month: dMonth, year: dYear, user_id: null, is_locked: { $ne: true } },
+          { $inc: { guard_version: 1 }, $set: { last_verified_at: new Date() } },
+          updateOptions
+        );
+        if (!globalGuard || globalGuard.is_locked) {
+          const lockErr = new Error(`Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa. Không thể từ chối OT.`);
+          lockErr.statusCode = 403;
+          throw lockErr;
+        }
+
+        if (initialAtt.user_id) {
+          const userGuard = await TimesheetLock.findOneAndUpdate(
+            { month: dMonth, year: dYear, user_id: initialAtt.user_id, is_locked: { $ne: true } },
+            { $inc: { guard_version: 1 }, $set: { last_verified_at: new Date() } },
+            updateOptions
+          );
+          if (!userGuard || userGuard.is_locked) {
+            const lockErr = new Error(`Bảng công của nhân viên trong Tháng ${dMonth}/${dYear} đã bị chốt khóa. Không thể từ chối OT.`);
+            lockErr.statusCode = 403;
+            throw lockErr;
+          }
+        }
+      } else {
+        const lockQuery = TimesheetLock.findOne({
+          month: dMonth,
+          year: dYear,
+          is_locked: true,
+          $or: [{ user_id: null }, { user_id: initialAtt.user_id }],
+        });
+        if (activeSession && typeof lockQuery.session === 'function') lockQuery.session(activeSession);
+        const lock = await lockQuery;
+        if (lock) {
+          const lockErr = new Error(`Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa. Không thể từ chối OT.`);
+          lockErr.statusCode = 403;
+          throw lockErr;
+        }
+      }
+
+      // 2. Fetch and update Attendance inside transaction
+      let attQuery = Attendance.findOne({ _id: id, ot_status: 'pending_approval' });
+      if (activeSession && typeof attQuery.session === 'function') attQuery = attQuery.session(activeSession);
+      const attendance = await attQuery;
+
+      if (!attendance) {
+        const err = new Error('Không tìm thấy bản ghi hoặc ca đã được xử lý trước đó.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      attendance.ot_hours = 0;
+      attendance.ot_status = 'rejected';
+      attendance.ot_approved_by = req.user._id;
+      attendance.ot_approved_at = new Date();
+      attendance.ot_reviewer_note = reviewer_note ? reviewer_note.trim() : 'Từ chối OT ca xuyên ngày';
+
+      await attendance.save(activeSession ? { session: activeSession } : {});
+
+      // 3. Atomically record audit log inside same transaction
+      let userQuery = User.findById(attendance.user_id);
+      if (activeSession && typeof userQuery.session === 'function') userQuery = userQuery.session(activeSession);
+      const targetUser = await userQuery;
+
+      const auditPayload = {
+        attendance_id: attendance._id,
+        user_id: attendance.user_id,
+        user_name: targetUser ? targetUser.full_name : 'Nhân sự',
+        date: attendance.date,
+        old_symbol: `OT đề xuất: ${attendance.ot_hours_proposed}h`,
+        new_symbol: 'OT: 0h (Từ chối)',
+        reason: reviewer_note || 'Admin từ chối OT ca xuyên ngày',
+        modified_by: req.user._id,
+        modified_by_name: req.user.full_name,
+        modified_at: new Date(),
+      };
+
+      await AttendanceAuditLog.create(
+        activeSession ? [auditPayload] : auditPayload,
+        activeSession ? { session: activeSession } : undefined
+      );
+
+      updatedDoc = attendance;
+    };
+
+    try {
+      if (session && useCallbackTx) {
+        await session.withTransaction(async () => {
+          await executeMutation(session);
+        });
+        isCommitted = true;
+      } else if (session && hasManualTx) {
+        await session.startTransaction();
+        await executeMutation(session);
+        await session.commitTransaction();
+        isCommitted = true;
+      } else if (topologyStatus.isTestEnv) {
+        await executeMutation(null);
+        isCommitted = true;
+      } else {
+        return res.status(500).json({
+          error: 'Lỗi thiết lập giao dịch: Thiếu cơ chế transaction khả dụng trên MongoDB. Yêu cầu bị hủy theo chính sách Fail-Closed.',
+        });
+      }
+    } catch (txErr) {
+      if (session && hasManualTx && !useCallbackTx && !isCommitted) {
+        try { await session.abortTransaction(); } catch (_) {}
+      }
+      throw txErr;
+    } finally {
+      if (session) {
+        try { await session.endSession(); } catch (_) {}
+      }
+    }
+
+    try {
+      await Notification.create({
+        user_id: updatedDoc.user_id,
+        title: '❌ OT xuyên ngày không được duyệt',
+        message: `Admin đã từ chối tính OT cho ca làm việc ngày ${updatedDoc.date}.${reviewer_note ? ` Lý do: ${reviewer_note}` : ''}`,
+        type: 'attendance',
+        link: '/history',
+      });
+    } catch (_) {}
+
+    const populated = await Attendance.findById(id)
+      .populate('user_id', 'full_name employee_code avatar_url')
+      .populate('ot_approved_by', 'full_name');
+
+    return res.json({
+      message: 'Đã từ chối OT ca xuyên ngày thành công (Bảo toàn giờ công chuẩn) ❌',
+      attendance: populated,
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
+    console.error('RejectOvernightOt error:', error);
+    res.status(500).json({ error: error.message || 'Lỗi từ chối OT ca xuyên ngày.' });
+  }
+};
+
+// PUT /api/attendance/override/:id — CHỈ ADMIN có quyền sửa giờ công
 const overrideAttendance = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Chỉ Admin mới có quyền điều chỉnh bản ghi chấm công.' });
   }
+
   const { id } = req.params;
-  const { user_id, date, check_in_time, check_out_time, check_in_type = 'office', is_late, notes, status } = req.body;
+  const {
+    check_in_time, check_out_time, check_in_type, notes, status, is_late, user_id, date, ot_hours, ot_status
+  } = req.body;
+
   try {
     let attendance = null;
-    if (id !== 'new') {
+    if (id && id !== 'new') {
       attendance = await Attendance.findById(id);
     } else if (user_id && date) {
       attendance = await Attendance.findOne({ user_id, date });
@@ -779,7 +1433,8 @@ const overrideAttendance = async (req, res) => {
       attendance = new Attendance({
         user_id,
         date,
-        check_in_type,
+        status: status || 'present',
+        check_in_type: check_in_type || 'office',
       });
     }
 
@@ -804,39 +1459,33 @@ const overrideAttendance = async (req, res) => {
     const settings = settingsResult || { work_start_time: '09:00', work_end_time: '18:30', ot_start_time: '18:30' };
     const holidayWorkUnits = activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : null;
 
-    // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
     const [dYear, dMonth] = targetDate.split('-').map(Number);
     const targetUserId = user_id || attendance.user_id;
+
     const activeLock = await TimesheetLock.findOne({
       month: dMonth,
       year: dYear,
       is_locked: true,
       $or: [{ user_id: null }, { user_id: targetUserId }]
     });
+
     if (activeLock) {
       return res.status(403).json({
         error: activeLock.user_id === null
-          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể sửa giờ chấm công.`
-          : `Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể sửa giờ chấm công.`
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể điều chỉnh dữ liệu chấm công.`
+          : `Bảng công của nhân viên trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể điều chỉnh dữ liệu chấm công.`
       });
     }
 
     const parseVNTime = (tVal) => {
       if (!tVal) return null;
-      if (tVal instanceof Date) return tVal;
       if (typeof tVal === 'string') {
         const s = tVal.trim();
-        // Case HH:mm or HH:mm:ss
-        if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
-          const parts = s.split(':');
-          const hh = String(parts[0]).padStart(2, '0');
-          const mm = String(parts[1]).padStart(2, '0');
-          const ss = parts[2] ? String(parts[2]).padStart(2, '0') : '00';
-          return new Date(`${targetDate}T${hh}:${mm}:${ss}+07:00`);
+        if (/^\d{2}:\d{2}$/.test(s)) {
+          return new Date(`${targetDate}T${s}:00+07:00`);
         }
-        // Case YYYY-MM-DDTHH:mm without timezone -> append +07:00
-        if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) {
-          return new Date(`${s}+07:00`);
+        if (/^\d{2}:\d{2}:\d{2}$/.test(s)) {
+          return new Date(`${targetDate}T${s}+07:00`);
         }
         return new Date(s);
       }
@@ -854,7 +1503,6 @@ const overrideAttendance = async (req, res) => {
       attendance.late_minutes = lateInfo.late_minutes;
       attendance.late_tier = lateInfo.late_tier;
 
-      // Đồng bộ lại work_units theo giờ mới nếu ca chưa bị Admin override ký hiệu công rõ ràng
       const effectiveType = check_in_type || attendance.check_in_type || 'office';
       const isExempt = ['wfh', 'site', 'client'].includes(effectiveType);
       const upperNotes = (notes || attendance.notes || '').toUpperCase();
@@ -889,9 +1537,29 @@ const overrideAttendance = async (req, res) => {
         otStartTime: settings?.ot_start_time || '18:30',
       });
       attendance.total_hours = metrics.totalHours;
-      attendance.ot_hours = metrics.otHours;
       attendance.is_early_leave = metrics.isEarlyLeave;
       attendance.early_minutes = metrics.earlyMinutes;
+      attendance.is_overnight = metrics.isOvernight;
+
+      if (ot_hours !== undefined && ot_hours !== null && ot_hours !== '') {
+        const numOt = parseFloat(ot_hours);
+        attendance.ot_hours = isNaN(numOt) ? 0 : Math.max(0, numOt);
+        attendance.ot_status = ot_status || 'approved';
+        attendance.ot_approved_by = req.user._id;
+        attendance.ot_approved_at = new Date();
+      } else {
+        if (metrics.isOvernight) {
+          attendance.ot_hours_proposed = metrics.otHours;
+          if (attendance.ot_status !== 'approved') {
+            attendance.ot_hours = 0;
+            attendance.ot_status = metrics.otHours > 0 ? 'pending_approval' : 'none';
+          }
+        } else {
+          attendance.ot_hours = metrics.otHours;
+          attendance.ot_hours_proposed = metrics.otHours;
+          attendance.ot_status = metrics.otHours > 0 ? 'auto_approved' : 'none';
+        }
+      }
     }
 
     await attendance.save();
@@ -939,110 +1607,92 @@ const deleteAttendance = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Chỉ Admin mới có quyền xóa bản ghi chấm công.' });
   }
+
   const { id } = req.params;
   try {
     const attendance = await Attendance.findById(id);
     if (!attendance) {
-      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công cần xóa.' });
+      return res.status(404).json({ error: 'Không tìm thấy bản ghi chấm công.' });
     }
 
-    if (attendance.date) {
-      const [dYear, dMonth] = attendance.date.split('-').map(Number);
-      const activeLock = await TimesheetLock.findOne({
-        month: dMonth,
-        year: dYear,
-        is_locked: true,
-        $or: [{ user_id: null }, { user_id: attendance.user_id }]
+    const { date, user_id } = attendance;
+    const [dYear, dMonth] = date.split('-').map(Number);
+    const activeLock = await TimesheetLock.findOne({
+      month: dMonth,
+      year: dYear,
+      is_locked: true,
+      $or: [{ user_id: null }, { user_id }]
+    });
+
+    if (activeLock) {
+      return res.status(403).json({
+        error: activeLock.user_id === null
+          ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể xóa dữ liệu chấm công.`
+          : `Bảng công của nhân viên trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể xóa dữ liệu chấm công.`
       });
-      if (activeLock) {
-        return res.status(403).json({
-          error: activeLock.user_id === null
-            ? `Bảng công Tháng ${dMonth}/${dYear} đã bị chốt khóa toàn cục. Không thể xóa ca chấm công.`
-            : `Bảng công của nhân viên này trong Tháng ${dMonth}/${dYear} đã bị khóa. Không thể xóa ca chấm công.`
-        });
-      }
     }
 
     await deleteAttendanceAndLog({
       attendance,
       actor: req.user,
-      reason: 'Admin xóa bản ghi để nhân viên thực hiện chấm công lại',
+      reason: 'Admin xóa bản ghi chấm công để nhân viên thực hiện chấm công lại',
     });
 
-    res.json({ message: 'Đã xóa bản ghi chấm công thành công! Nhân viên có thể thực hiện chấm công lại.', id });
+    res.json({ message: 'Đã xóa bản ghi chấm công và giải phóng thiết bị thành công! ✅', id });
   } catch (error) {
     console.error('DeleteAttendance error:', error);
-    res.status(500).json({ error: 'Lỗi khi xóa bản ghi chấm công.' });
+    res.status(500).json({ error: 'Lỗi xóa bản ghi chấm công.' });
   }
 };
 
-// GET /api/attendance/flagged — Admin/Leader lấy danh sách chấm công nghi vấn / chờ duyệt Selfie / lịch sử lưu trữ
+// GET /api/attendance/flagged — Lấy danh sách chấm công nghi vấn / gắn cờ cảnh báo
 const getFlaggedAttendance = async (req, res) => {
   try {
-    const { status = 'all', has_photo } = req.query;
+    const { status, filter } = req.query;
+    let baseFilter = {};
 
-    let filter = {};
-
-    // Phân quyền cho Leader: chỉ thấy nhân sự cùng phòng ban nếu không phải Admin
     if (isLeaderRole(req.user)) {
-      const teamUserIds = await User.find(
+      const subordinateIds = await User.find(
         buildLeaderUserScope(req.user, { includeSelf: false })
       ).distinct('_id');
-      filter.user_id = { $in: teamUserIds };
+      baseFilter.user_id = { $in: subordinateIds };
     }
 
-    if (status === 'pending_review' || status === 'pending') {
-      filter.$and = filter.$and || [];
-      filter.$and.push({
-        $or: [
-          { verification_status: 'pending_review' },
-          { is_flagged: true, verification_status: { $ne: 'approved' } }
-        ]
-      });
+    let statusCondition = {};
+    if (status === 'pending') {
+      statusCondition = { $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] };
     } else if (status === 'approved') {
-      filter.verification_status = 'approved';
+      statusCondition = { verification_status: 'approved' };
     } else if (status === 'rejected') {
-      filter.verification_status = 'rejected';
-    } else if (status === 'photo') {
-      filter.selfie_url = { $ne: null, $nin: ['', 'null', 'undefined'] };
-    } else if (status === 'device') {
-      filter.$or = [
-        { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } },
-        { flag_reason: { $regex: /thiết bị|device/i } }
-      ];
-    } else {
-      // 'all': lấy toàn bộ các ca có gắn cờ cảnh báo, có ảnh selfie hoặc có trạng thái xác thực
-      filter.$and = filter.$and || [];
-      filter.$and.push({
+      statusCondition = { verification_status: 'rejected' };
+    }
+
+    let filterCondition = {};
+    if (filter === 'photo') {
+      filterCondition = { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } };
+    } else if (filter === 'device') {
+      filterCondition = {
         $or: [
-          { is_flagged: true },
-          { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
-          { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } },
-          { check_in_mode: 'photo' },
-          { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }
+          { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } },
+          { flag_reason: { $regex: /thiết bị|device/i } },
         ]
-      });
+      };
     }
 
-    if (has_photo === 'true') {
-      filter.selfie_url = { $ne: null, $nin: ['', 'null', 'undefined'] };
-    }
+    const queryFilter = { ...baseFilter, ...statusCondition, ...filterCondition };
 
-    const list = await Attendance.find(filter)
-      .populate('user_id', 'full_name employee_code code email department_id department_ids avatar_url role')
+    const list = await Attendance.find(queryFilter)
+      .populate('user_id', 'full_name employee_code code email department_id department_ids avatar_url role phone')
       .populate('reviewed_by', 'full_name')
-      .sort({ created_at: -1, createdAt: -1 });
+      .sort({ date: -1, created_at: -1 });
 
-    // Tính thống kê nhanh các nhóm trạng thái
-    const baseCountFilter = filter.user_id ? { user_id: filter.user_id } : {};
+    const baseCountFilter = { ...baseFilter };
     const allForensicFilter = {
       ...baseCountFilter,
       $or: [
         { is_flagged: true },
         { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
-        { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } },
-        { check_in_mode: 'photo' },
-        { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }
+        { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } }
       ]
     };
 
@@ -1072,10 +1722,10 @@ const getFlaggedAttendance = async (req, res) => {
   }
 };
 
-// PUT /api/attendance/approve-flagged/:id & /flagged/verify/:id — Admin/Leader duyệt / từ chối / hoàn tác / xóa
+// PUT /api/attendance/approve-flagged/:id & /flagged/verify/:id — Admin/Leader duyệt / từ chối selfie & cảnh báo
 const verifyFlaggedAttendance = async (req, res) => {
   const { id } = req.params;
-  const { action, reviewer_note, allow_recheckin, reset_today } = req.body; // action: 'approve' | 'reject' | 'revert' | 'delete'
+  const { action, reviewer_note, allow_recheckin, reset_today } = req.body;
   const allowReset = allow_recheckin ?? reset_today;
 
   try {
@@ -1099,7 +1749,6 @@ const verifyFlaggedAttendance = async (req, res) => {
       }
       await attendance.save();
 
-      // Đánh dấu thiết bị này là thiết bị tin cậy (Primary Device) trong DeviceSession
       if (attendance.user_id && attendance.hardware_uuid) {
         await DeviceSession.findOneAndUpdate(
           { user_id: attendance.user_id, device_fingerprint: attendance.hardware_uuid },
@@ -1115,7 +1764,6 @@ const verifyFlaggedAttendance = async (req, res) => {
       return res.json({ message: 'Đã duyệt ca chấm công thành công! ✅', attendance: populated });
     } else if (action === 'reject') {
       if (allowReset) {
-        // Xóa bản ghi chấm công & DeviceRegistry trong ngày để nhân viên được phép chấm lại kèm ghi nhận Audit Log
         await deleteAttendanceAndLog({
           attendance,
           actor: req.user,
@@ -1138,7 +1786,6 @@ const verifyFlaggedAttendance = async (req, res) => {
         return res.json({ message: 'Đã từ chối chấm công. Ca này bị đánh dấu không hợp lệ! ❌', attendance: populated });
       }
     } else if (action === 'revert') {
-      // Hoàn tác về trạng thái chờ duyệt (pending_review)
       attendance.verification_status = 'pending_review';
       attendance.is_flagged = true;
       attendance.reviewed_by = null;
@@ -1168,7 +1815,21 @@ const verifyFlaggedAttendance = async (req, res) => {
 };
 
 module.exports = {
-  checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
-  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance,
-  calculateLateTier, calculateOT, calculateRawTotalHours, calculateAttendanceMetrics, normalizeHolidayMultiplier
+  checkIn,
+  checkOut,
+  getTodayStatus,
+  getHistory,
+  getRecordByUserAndDate,
+  getPendingOvernightOt,
+  approveOvernightOt,
+  rejectOvernightOt,
+  overrideAttendance,
+  deleteAttendance,
+  getFlaggedAttendance,
+  verifyFlaggedAttendance,
+  calculateLateTier,
+  calculateOT,
+  calculateRawTotalHours,
+  calculateAttendanceMetrics,
+  normalizeHolidayMultiplier,
 };

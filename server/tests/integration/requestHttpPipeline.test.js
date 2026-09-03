@@ -229,6 +229,22 @@ async function runRequestHttpPipelineTests(assert) {
       'TC-REQ-HTTP-03: POST /api/requests - Chặn giờ checkout đề xuất sớm hơn giờ check-in (400)');
 
     // TC-REQ-HTTP-04: Chặn khi ngày đó đã có checkout thực tế
+    const RealDate = global.Date;
+    const fakeNow = new RealDate('2026-08-31T09:00:00+07:00');
+    class MockDate extends RealDate {
+      constructor(...args) {
+        if (args.length === 0) {
+          super(fakeNow.getTime());
+        } else {
+          super(...args);
+        }
+      }
+      static now() {
+        return fakeNow.getTime();
+      }
+    }
+    global.Date = MockDate;
+
     Attendance.findOne = () => createChain({
       user_id: mockEmployee._id,
       date: '2026-08-30',
@@ -269,7 +285,52 @@ async function runRequestHttpPipelineTests(assert) {
     assert(resValidCreate.status === 201,
       'TC-REQ-HTTP-05.1: POST /api/requests - Gửi đơn bổ sung checkout hợp lệ thành công (201)');
     assert(capturedDoc && capturedDoc.end_date === '2026-08-30',
-      'TC-REQ-HTTP-05.2: Cưỡng chế end_date = start_date cho đơn forgot_checkout');
+      'TC-REQ-HTTP-05.2: Cưỡng chế end_date = start_date cho đơn forgot_checkout cùng ngày');
+
+    // TC-REQ-HTTP-05.3: Chặn nộp đơn khi đã quá hạn 48 giờ sau ca làm việc
+    Attendance.findOne = () => createChain({
+      user_id: mockEmployee._id,
+      date: '2026-08-25',
+      check_in_time: '2026-08-25T09:00:00+07:00',
+      check_out_time: null,
+    });
+    const resExpired = await request(app)
+      .post('/api/requests')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        type: 'forgot_checkout',
+        start_date: '2026-08-25',
+        end_time: '18:30',
+        reason: 'Quên checkout 6 ngày trước',
+      });
+    assert(resExpired.status === 400 && resExpired.body.error?.includes('quá hạn'),
+      'TC-REQ-HTTP-05.3: Chặn nộp đơn bổ sung checkout khi đã quá hạn 48 giờ (400)');
+
+    // TC-REQ-HTTP-05.4: Gửi đơn forgot_checkout ca xuyên ngày (end_date = start_date + 1)
+    Attendance.findOne = () => createChain({
+      user_id: mockEmployee._id,
+      date: '2026-08-30',
+      check_in_time: '2026-08-30T18:00:00+07:00',
+      check_out_time: null,
+    });
+    let capturedOvernightDoc = null;
+    Request.create = async (doc) => { capturedOvernightDoc = doc; return { _id: 'req_valid_on_01', ...doc }; };
+    const resValidOvernight = await request(app)
+      .post('/api/requests')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        type: 'forgot_checkout',
+        start_date: '2026-08-30',
+        end_date: '2026-08-31',
+        end_time: '02:00',
+        reason: 'Làm việc xuyên đêm quên checkout',
+      });
+    assert(resValidOvernight.status === 201,
+      'TC-REQ-HTTP-05.4: POST /api/requests - Gửi đơn forgot_checkout ca xuyên ngày thành công (201)');
+    assert(capturedOvernightDoc && capturedOvernightDoc.end_date === '2026-08-31',
+      'TC-REQ-HTTP-05.5: Cho phép end_date là ngày hôm sau (+1) cho ca xuyên ngày');
+
+    global.Date = RealDate;
 
     // TC-REQ-HTTP-06: Leader bị CHẶN khi cố duyệt đơn forgot_checkout (Chỉ Admin mới có quyền)
     Request.findById = () => createChain({

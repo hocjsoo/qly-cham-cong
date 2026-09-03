@@ -33,6 +33,7 @@ const runVehicleParkingTests = require('./unit/vehicleParkingManagement.test');
 const { runExpenseManagementTests } = require('./unit/expenseManagement.test');
 const { runLeaderboardRankingTests } = require('./unit/leaderboardRanking.test');
 const runTtsWeeklyScheduleTests = require('./unit/ttsWeeklySchedule.test');
+const runOvernightShiftAndOtTests = require('./unit/overnightShiftAndOt.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
@@ -122,6 +123,7 @@ async function runAllTests() {
     await runExpenseManagementTests();
     runLeaderboardRankingTests();
     runTtsWeeklyScheduleTests(assert);
+    await runOvernightShiftAndOtTests(assert);
 
     // === PHẦN 2: FRONTEND UI & CLIENT STATE ===
     runClientAuthStoreTests(assert);

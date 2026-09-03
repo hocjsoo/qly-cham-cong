@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const {
   checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
+  getPendingOvernightOt, approveOvernightOt, rejectOvernightOt,
   overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance
 } = require('../controllers/attendanceController');
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -35,6 +36,17 @@ router.get('/history', getHistory);
 
 // GET /api/attendance/record?user_id=...&date=YYYY-MM-DD
 router.get('/record', getRecordByUserAndDate);
+
+// GET /api/attendance/pending-ot — Admin lấy danh sách OT xuyên ngày chờ duyệt
+router.get('/pending-ot', requireRole('admin'), getPendingOvernightOt);
+
+// PUT /api/attendance/:id/approve-ot & /overnight-ot/:id/approve — CHỈ ADMIN duyệt OT xuyên ngày
+router.put('/:id/approve-ot', requireRole('admin'), approveOvernightOt);
+router.put('/overnight-ot/:id/approve', requireRole('admin'), approveOvernightOt);
+
+// PUT /api/attendance/:id/reject-ot & /overnight-ot/:id/reject — CHỈ ADMIN từ chối OT xuyên ngày
+router.put('/:id/reject-ot', requireRole('admin'), rejectOvernightOt);
+router.put('/overnight-ot/:id/reject', requireRole('admin'), rejectOvernightOt);
 
 // GET /api/attendance/flagged — Admin/Leader lấy danh sách nghi vấn & selfie chờ duyệt
 router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);

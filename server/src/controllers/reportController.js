@@ -85,7 +85,7 @@ const getMonthlyReport = async (req, res) => {
       const lateDays = recs.filter(r => r.is_late).length;
       const totalDays = recs.length;
       const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
-      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const totalWorkUnits = parseFloat(recs.reduce((s, r) => s + (Number(r.work_units) || 0), 0).toFixed(2));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
       const leaveDays = leaves.length;
@@ -258,7 +258,7 @@ const getRanking = async (req, res) => {
       const lateDays = recs.filter(r => r.is_late).length;
       const onTimeDays = presentDays - lateDays;
       const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
-      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const punctualityRate = presentDays > 0 ? Math.round((onTimeDays / presentDays) * 100) : 0;
       // Score: punctuality 50% + attendance 30% + hours 20%
       const score = Math.round((punctualityRate * 0.5) + (Math.min(presentDays / 22, 1) * 100 * 0.3) + (Math.min(totalHours / 176, 1) * 100 * 0.2));
@@ -320,7 +320,7 @@ const getPayroll = async (req, res) => {
       const presentDays = recs.length;
       const lateDays = recs.filter(r => r.is_late).length;
       const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
-      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_hours || 0), 0).toFixed(1));
+      const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
 
       // work_units là nguồn dữ liệu có cấu trúc cho ngày công, bao gồm hệ số
@@ -447,7 +447,7 @@ const getIndividualDetailReport = async (req, res) => {
       const outStr = formatTimeStr(att?.check_out_time);
 
       const hrs = att?.total_hours || 0;
-      const ot = att?.ot_hours || 0;
+      const ot = att?.ot_status === 'pending_approval' ? 0 : (att?.ot_hours || 0);
       const lateM = att?.late_minutes || 0;
       const workUnits = Number(att?.work_units) || 0;
 
@@ -680,7 +680,7 @@ const getLeaderboard = async (req, res) => {
 
       userAtts.forEach(att => {
         const hrs = Number(att.total_hours) || Number(att.work_hours) || 0;
-        const ot = Number(att.ot_hours) || 0;
+        const ot = att.ot_status === 'pending_approval' ? 0 : (Number(att.ot_hours) || 0);
         totalWorkHours += hrs;
         totalOtHours += ot;
 
