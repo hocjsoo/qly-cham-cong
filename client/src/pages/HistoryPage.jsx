@@ -947,7 +947,13 @@ export default function HistoryPage() {
                             </div>
                             <div style={{ background: 'var(--bg-raised)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>GIỜ TĂNG CA (OT)</div>
-                              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--blue)' }}>{selectedDayRecord.ot_hours || 0} giờ</div>
+                              <div style={{ fontSize: '15px', fontWeight: 700, color: selectedDayRecord.ot_status === 'pending_approval' ? 'var(--yellow)' : 'var(--blue)' }}>
+                                {selectedDayRecord.ot_status === 'pending_approval' ? (
+                                  <span style={{ fontSize: '13px' }}>⏳ {selectedDayRecord.ot_hours_proposed || 0}h (Chờ duyệt)</span>
+                                ) : (
+                                  `${selectedDayRecord.ot_hours || 0} giờ`
+                                )}
+                              </div>
                             </div>
                           </div>
 

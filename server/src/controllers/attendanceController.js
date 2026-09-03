@@ -1583,20 +1583,18 @@ const overrideAttendance = async (req, res) => {
       if (ot_hours !== undefined && ot_hours !== null && ot_hours !== '') {
         const numOt = parseFloat(ot_hours);
         attendance.ot_hours = isNaN(numOt) ? 0 : Math.max(0, numOt);
+        attendance.ot_hours_proposed = attendance.ot_hours;
         attendance.ot_status = ot_status || 'approved';
         attendance.ot_approved_by = req.user._id;
         attendance.ot_approved_at = new Date();
       } else {
-        if (metrics.isOvernight) {
-          attendance.ot_hours_proposed = metrics.otHours;
-          if (attendance.ot_status !== 'approved') {
-            attendance.ot_hours = 0;
-            attendance.ot_status = metrics.otHours > 0 ? 'pending_approval' : 'none';
-          }
-        } else {
-          attendance.ot_hours = metrics.otHours;
-          attendance.ot_hours_proposed = metrics.otHours;
-          attendance.ot_status = metrics.otHours > 0 ? 'auto_approved' : 'none';
+        // Khi Admin trực tiếp sửa giờ làm việc, tự động tính và duyệt giờ OT tương ứng
+        attendance.ot_hours = metrics.otHours;
+        attendance.ot_hours_proposed = metrics.otHours;
+        attendance.ot_status = metrics.otHours > 0 ? 'approved' : 'none';
+        if (metrics.otHours > 0) {
+          attendance.ot_approved_by = req.user._id;
+          attendance.ot_approved_at = new Date();
         }
       }
     }

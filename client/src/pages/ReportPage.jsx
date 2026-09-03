@@ -596,11 +596,7 @@ export default function ReportPage() {
       toast.error('Vui lòng chọn Ký hiệu công hợp lệ');
       return;
     }
-    if (!cellReason.trim()) {
-      toast.error('Vui lòng nhập Lý do chỉnh sửa công');
-      return;
-    }
-
+    const effectiveReason = cellReason.trim() || 'Admin điều chỉnh công & xác nhận OT';
     setSubmittingCell(true);
     try {
       const parsedOt = Math.max(0, parseFloat(cellOtHours) || 0);
@@ -609,7 +605,7 @@ export default function ReportPage() {
         date: selectedCell.dateStr,
         new_symbol: cellSymbol,
         ot_hours: parsedOt,
-        reason: cellReason.trim(),
+        reason: effectiveReason,
       });
       toast.success(`Đã điều chỉnh ngày ${selectedCell.dateStr} thành [${cellSymbol}]${parsedOt > 0 ? ` (+${parsedOt}h OT)` : ''} & lưu lịch sử! ✅`);
       closeCellModal();
@@ -1204,7 +1200,7 @@ export default function ReportPage() {
                                           is_locked: r.is_locked,
                                         });
                                         setCellSymbol(daySymbol || (headerDay?.isHoliday ? 'L' : ''));
-                                        setCellOtHours(dayData.ot_hours || dayData.ot_hours_proposed || 0);
+                                        setCellOtHours(Math.round(((dayData.ot_hours || dayData.ot_hours_proposed || 0)) * 2) / 2);
                                         setCellReason('');
                                       }}
                                       aria-label={`${r.full_name}, ngày ${headerDay.day}: ${daySymbol || (isSunday ? 'Chủ nhật' : 'Trống')}${dayData?.ot_hours > 0 ? `, tăng ca ${dayData.ot_hours} giờ` : ''}`}
@@ -1383,7 +1379,7 @@ export default function ReportPage() {
                                             is_locked: r.is_locked
                                           });
                                           setCellSymbol(daySymbol || (hdObj?.isHoliday ? 'L' : ''));
-                                          setCellOtHours(d.ot_hours || d.ot_hours_proposed || 0);
+                                          setCellOtHours(Math.round(((d.ot_hours || d.ot_hours_proposed || 0)) * 2) / 2);
                                           setCellReason('');
                                         };
 
@@ -1712,7 +1708,7 @@ export default function ReportPage() {
                                     is_locked: r.is_locked
                                   });
                                   setCellSymbol(daySymbol || (isHol ? 'L' : ''));
-                                  setCellOtHours(d.ot_hours || d.ot_hours_proposed || 0);
+                                  setCellOtHours(Math.round(((d.ot_hours || d.ot_hours_proposed || 0)) * 2) / 2);
                                   setCellReason('');
                                 };
 
