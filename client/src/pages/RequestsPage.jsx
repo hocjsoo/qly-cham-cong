@@ -409,6 +409,20 @@ export default function RequestsPage() {
     }
   }, [flaggedTab]);
 
+  // Overnight OT Approval Loader (Admin Only)
+  const fetchPendingOt = useCallback(async () => {
+    if (!isAdmin) return;
+    setLoadingPendingOt(true);
+    try {
+      const res = await api.get('/attendance/pending-ot');
+      setPendingOtList(res.data?.pending_ot || []);
+    } catch (err) {
+      console.error('Fetch pending OT error:', err);
+    } finally {
+      setLoadingPendingOt(false);
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
     loadData();
     if (isAdmin) fetchPendingOt();
@@ -579,18 +593,6 @@ export default function RequestsPage() {
   };
 
   // Overnight OT Approval Handlers (Admin Only)
-  const fetchPendingOt = useCallback(async () => {
-    if (!isAdmin) return;
-    setLoadingPendingOt(true);
-    try {
-      const res = await api.get('/attendance/pending-ot');
-      setPendingOtList(res.data?.pending_ot || []);
-    } catch (err) {
-      console.error('Fetch pending OT error:', err);
-    } finally {
-      setLoadingPendingOt(false);
-    }
-  }, [isAdmin]);
 
   const handleQuickApproveOt = async (item) => {
     try {
