@@ -1438,7 +1438,7 @@ const overrideAttendance = async (req, res) => {
 
   const { id } = req.params;
   const {
-    check_in_time, check_out_time, check_in_type, notes, status, is_late, user_id, date, ot_hours, ot_status
+    check_in_time, check_out_time, check_out_date, is_overnight, is_overnight_checkout, check_in_type, notes, status, is_late, user_id, date, ot_hours, ot_status
   } = req.body;
 
   try {
@@ -1500,15 +1500,29 @@ const overrideAttendance = async (req, res) => {
       });
     }
 
-    const parseVNTime = (tVal) => {
+    // Hỗ trợ ngày checkout sang ngày hôm sau (+1 ngày) cho ca làm việc xuyên đêm
+    let effectiveEndDate = targetDate;
+    if (check_out_date) {
+      effectiveEndDate = check_out_date;
+    } else if (is_overnight || is_overnight_checkout) {
+      const baseDt = new Date(targetDate + "T00:00:00+07:00");
+      baseDt.setDate(baseDt.getDate() + 1);
+      effectiveEndDate = baseDt.toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+    }
+
+    const parseVNTime = (tVal, customDate = null) => {
       if (!tVal) return null;
-      if (typeof tVal === 'string') {
+      const baseDate = customDate || targetDate;
+      if (typeof tVal === "string") {
         const s = tVal.trim();
+        if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+          return new Date(s);
+        }
         if (/^\d{2}:\d{2}$/.test(s)) {
-          return new Date(`${targetDate}T${s}:00+07:00`);
+          return new Date(`${baseDate}T${s}:00+07:00`);
         }
         if (/^\d{2}:\d{2}:\d{2}$/.test(s)) {
-          return new Date(`${targetDate}T${s}+07:00`);
+          return new Date(`${baseDate}T${s}+07:00`);
         }
         return new Date(s);
       }
@@ -1539,7 +1553,7 @@ const overrideAttendance = async (req, res) => {
     }
 
     if (check_out_time) {
-      attendance.check_out_time = parseVNTime(check_out_time);
+      attendance.check_out_time = parseVNTime(check_out_time, effectiveEndDate);
     }
     if (check_in_type) {
       attendance.check_in_type = check_in_type;
@@ -1669,9 +1683,28 @@ const deleteAttendance = async (req, res) => {
 };
 
 // GET /api/attendance/flagged — Lấy danh sách chấm công nghi vấn / gắn cờ cảnh báo
+// GET /api/attendance/:id/selfie — Tải riêng ảnh selfie phân giải cao theo nhu cầu (On-Demand Loading)
+const getSelfiePhoto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let query = Attendance.findById(id);
+    if (query && typeof query.select === "function") query = query.select("selfie_url user_id");
+    if (query && typeof query.lean === "function") query = query.lean();
+    const doc = await query;
+    if (!doc || !doc.selfie_url) {
+      return res.status(404).json({ error: "Không tìm thấy ảnh selfie cho ca làm việc này." });
+    }
+    res.setHeader("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
+    return res.json({ selfie_url: doc.selfie_url });
+  } catch (err) {
+    console.error("GetSelfiePhoto error:", err);
+    return res.status(500).json({ error: "Lỗi tải ảnh selfie." });
+  }
+};
+
 const getFlaggedAttendance = async (req, res) => {
   try {
-    const { status, filter } = req.query;
+    const { status, filter, counts_only, page, limit } = req.query;
     let baseFilter = {};
 
     if (isLeaderRole(req.user)) {
@@ -1704,10 +1737,23 @@ const getFlaggedAttendance = async (req, res) => {
 
     const queryFilter = { ...baseFilter, ...statusCondition, ...filterCondition };
 
-    const list = await Attendance.find(queryFilter)
-      .populate('user_id', 'full_name employee_code code email department_id department_ids avatar_url role phone')
-      .populate('reviewed_by', 'full_name')
-      .sort({ date: -1, created_at: -1 });
+    let list = [];
+    if (counts_only !== "true") {
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 30));
+      const skipNum = (pageNum - 1) * limitNum;
+
+      let listQuery = Attendance.find(queryFilter)
+        .populate("user_id", "full_name employee_code code email department_id department_ids avatar_url role phone")
+        .populate("reviewed_by", "full_name")
+        .sort({ date: -1, created_at: -1 });
+
+      if (typeof listQuery.skip === "function") listQuery = listQuery.skip(skipNum);
+      if (typeof listQuery.limit === "function") listQuery = listQuery.limit(limitNum);
+      if (typeof listQuery.lean === "function") listQuery = listQuery.lean();
+
+      list = await listQuery;
+    }
 
     const baseCountFilter = { ...baseFilter };
     const allForensicFilter = {
@@ -1850,6 +1896,7 @@ module.exports = {
   deleteAttendance,
   getFlaggedAttendance,
   verifyFlaggedAttendance,
+  getSelfiePhoto,
   calculateLateTier,
   calculateOT,
   calculateRawTotalHours,

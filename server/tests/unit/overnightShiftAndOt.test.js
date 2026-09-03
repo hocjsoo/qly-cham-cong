@@ -476,6 +476,39 @@ async function runOvernightShiftAndOtTests(assert) {
       resCheckInOverlap.body.error?.includes('chưa checkout từ ngày 2026-09-01'),
       'TC-ON-14: Chặn check-in đè ca mới khi ca làm việc hôm trước chưa checkout (400 Bad Request)'
     );
+    // TC-ON-15: PUT /api/attendance/override/:id - Admin sửa giờ checkout xuyên ngày hôm sau (+1 ngày) tính đúng 6.05h OT
+    let savedOverrideDoc = null;
+    const mockOverrideDoc = {
+      _id: "att_override_01",
+      user_id: mockUserId,
+      date: "2026-09-02",
+      check_in_time: new Date("2026-09-02T09:28:00+07:00"),
+      check_out_time: null,
+      save: async function() { savedOverrideDoc = this; return this; }
+    };
+    Attendance.findById = () => createChain(mockOverrideDoc);
+    Attendance.findOne = () => createChain(mockOverrideDoc);
+
+    const resOverrideOvernight = await request(app)
+      .put("/api/attendance/override/att_override_01")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        user_id: mockUserId,
+        date: "2026-09-02",
+        check_in_time: "09:28",
+        check_out_time: "00:33",
+        is_overnight_checkout: true,
+        notes: "Admin điều chỉnh ca xuyên đêm sang ngày hôm sau",
+      });
+
+    assert(
+      resOverrideOvernight.status === 200 &&
+      resOverrideOvernight.body.attendance?.is_overnight === true &&
+      resOverrideOvernight.body.attendance?.total_hours === 15.1 &&
+      resOverrideOvernight.body.attendance?.ot_hours_proposed === 6.05,
+      "TC-ON-15: PUT /api/attendance/override/:id - Sửa giờ checkout sang hôm sau (+1 ngày) tính đúng 15.1h làm và 6.05h OT xuyên đêm"
+    );
+
     Attendance.findOne = prevAttFindOne;
   } finally {
     User.findById = origUserFindById;

@@ -149,7 +149,7 @@ export default function DashboardPage() {
       try {
         const queryStatus = targetTab === 'photo' ? 'all' : targetTab;
         const hasPhotoParam = targetTab === 'photo' ? '&has_photo=true' : '';
-        const { data } = await api.get(`/attendance/flagged?status=${queryStatus}${hasPhotoParam}`);
+        const { data } = await api.get(`/attendance/flagged?status=${queryStatus}${hasPhotoParam}&counts_only=true`);
         setFlaggedList(Array.isArray(data?.flagged) ? data.flagged : []);
         if (data?.counts) {
           setFlaggedCounts(data.counts);

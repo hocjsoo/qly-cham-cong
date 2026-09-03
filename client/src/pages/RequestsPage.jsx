@@ -364,6 +364,34 @@ export default function RequestsPage() {
     setRequestPage(1);
   }, [tab, statusFilter, typeFilter, monthFilter, debouncedSearch]);
 
+  const selfieCacheRef = useRef(new Map());
+
+  const handleOpenSelfiePhoto = useCallback(async (item, displayName, dateStr) => {
+    const recordId = item?._id || item?.id;
+    if (!recordId) return;
+    const cached = selfieCacheRef.current.get(String(recordId));
+    if (cached) {
+      setFullAvatarImage({ url: cached, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
+      return;
+    }
+    if (item.selfie_url) {
+      selfieCacheRef.current.set(String(recordId), item.selfie_url);
+      setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
+      return;
+    }
+    try {
+      const { data } = await api.get(`/attendance/${recordId}/selfie`);
+      if (data?.selfie_url) {
+        selfieCacheRef.current.set(String(recordId), data.selfie_url);
+        setFullAvatarImage({ url: data.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
+      } else {
+        toast.error("Không tìm thấy ảnh selfie");
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.error || "Không tải được ảnh selfie");
+    }
+  }, []);
+
   const handleOpenRequestAttachment = useCallback(async (request, displayName) => {
     const requestId = request?._id || request?.id;
     if (!requestId) return;
@@ -948,7 +976,7 @@ export default function RequestsPage() {
                           <button
                             type="button"
                             aria-label={`Xem ảnh selfie của ${empName}`}
-                            onClick={() => setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${empName} (${formatDate(item.date)})` })}
+                            onClick={() => handleOpenSelfiePhoto(item, empName, formatDate(item.date))}
                             style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, padding: 0, border: 0, background: 'transparent', borderRadius: '12px' }}
                           >
                             <img

@@ -271,12 +271,15 @@ export default function HistoryPage() {
     return `${hh}:${mm}`;
   };
 
-  const computeLiveSummary = (inTime, outTime, workEndTime = '18:30', otStartTime = '18:30') => {
+  const computeLiveSummary = (inTime, outTime, workEndTime = '18:30', otStartTime = '18:30', isOvernightCheckout = false) => {
     if (!inTime || !outTime) return null;
     const [inH, inM] = inTime.split(':').map(Number);
     const [outH, outM] = outTime.split(':').map(Number);
     const inMins = inH * 60 + inM;
-    const outMins = outH * 60 + outM;
+    let outMins = outH * 60 + outM;
+    if (isOvernightCheckout) {
+      outMins += 24 * 60; // Ca làm việc xuyên đêm sang ngày hôm sau (+1 ngày)
+    }
     if (outMins <= inMins) return { totalHours: 0, otHours: 0 };
     const diffMins = outMins - inMins;
     const totalHours = parseFloat((diffMins / 60).toFixed(1));
@@ -285,7 +288,7 @@ export default function HistoryPage() {
     const otStartMins = otH * 60 + otM;
     let otHours = 0;
     if (outMins > otStartMins) {
-      otHours = parseFloat(((outMins - otStartMins) / 60).toFixed(1));
+      otHours = parseFloat(((outMins - otStartMins) / 60).toFixed(2));
     }
     return { totalHours, otHours };
   };

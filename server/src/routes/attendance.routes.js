@@ -5,7 +5,7 @@ const router = express.Router();
 const {
   checkIn, checkOut, getTodayStatus, getHistory, getRecordByUserAndDate,
   getPendingOvernightOt, approveOvernightOt, rejectOvernightOt,
-  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance
+  overrideAttendance, deleteAttendance, getFlaggedAttendance, verifyFlaggedAttendance, getSelfiePhoto
 } = require('../controllers/attendanceController');
 const authMiddleware = require('../middlewares/authMiddleware');
 const { requireRole } = require('../middlewares/roleMiddleware');
@@ -50,6 +50,7 @@ router.put('/overnight-ot/:id/reject', requireRole('admin'), attendanceActionLim
 
 // GET /api/attendance/flagged — Admin/Leader lấy danh sách nghi vấn & selfie chờ duyệt
 router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);
+router.get('/:id/selfie', requireRole('admin', 'manager'), getSelfiePhoto);
 
 // PUT /api/attendance/flagged/verify/:id & /approve-flagged/:id — Admin/Leader duyệt / từ chối selfie & cảnh báo
 router.put('/flagged/verify/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);
