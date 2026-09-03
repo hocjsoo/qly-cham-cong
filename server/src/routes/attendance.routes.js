@@ -38,15 +38,15 @@ router.get('/history', getHistory);
 router.get('/record', getRecordByUserAndDate);
 
 // GET /api/attendance/pending-ot — Admin lấy danh sách OT xuyên ngày chờ duyệt
-router.get('/pending-ot', requireRole('admin'), getPendingOvernightOt);
+router.get('/pending-ot', requireRole('admin'), attendanceActionLimiter, getPendingOvernightOt);
 
 // PUT /api/attendance/:id/approve-ot & /overnight-ot/:id/approve — CHỈ ADMIN duyệt OT xuyên ngày
-router.put('/:id/approve-ot', requireRole('admin'), approveOvernightOt);
-router.put('/overnight-ot/:id/approve', requireRole('admin'), approveOvernightOt);
+router.put('/:id/approve-ot', requireRole('admin'), attendanceActionLimiter, approveOvernightOt);
+router.put('/overnight-ot/:id/approve', requireRole('admin'), attendanceActionLimiter, approveOvernightOt);
 
 // PUT /api/attendance/:id/reject-ot & /overnight-ot/:id/reject — CHỈ ADMIN từ chối OT xuyên ngày
-router.put('/:id/reject-ot', requireRole('admin'), rejectOvernightOt);
-router.put('/overnight-ot/:id/reject', requireRole('admin'), rejectOvernightOt);
+router.put('/:id/reject-ot', requireRole('admin'), attendanceActionLimiter, rejectOvernightOt);
+router.put('/overnight-ot/:id/reject', requireRole('admin'), attendanceActionLimiter, rejectOvernightOt);
 
 // GET /api/attendance/flagged — Admin/Leader lấy danh sách nghi vấn & selfie chờ duyệt
 router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);

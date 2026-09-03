@@ -26,6 +26,8 @@ const AttendanceAuditLog = require('../../src/models/AttendanceAuditLog');
 const TimesheetLock = require('../../src/models/TimesheetLock');
 const User = require('../../src/models/User');
 const Notification = require('../../src/models/Notification');
+const SystemSetting = require('../../src/models/SystemSetting');
+const Holiday = require('../../src/models/Holiday');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_test_123456';
 
@@ -181,6 +183,11 @@ async function runOvernightShiftAndOtTests(assert) {
   const origAuditCreate = AttendanceAuditLog.create;
   const origNotifCreate = Notification.create;
   const origMongooseStartSession = mongoose.startSession;
+  const origSettingFindOne = SystemSetting.findOne;
+  const origHolidayFindOne = Holiday.findOne;
+
+  SystemSetting.findOne = () => createChain({ work_start_time: '09:00', work_end_time: '18:30', minor_late_mins: 30, medium_late_mins: 60 });
+  Holiday.findOne = () => createChain(null);
 
   const mockSessionInstance = {
     startTransaction: async () => {},
@@ -224,6 +231,7 @@ async function runOvernightShiftAndOtTests(assert) {
     return createChain(mockEmployeeUser);
   };
 
+  TimesheetLock.findOne = () => createChain(null);
   TimesheetLock.updateOne = async () => ({ acknowledged: true });
   TimesheetLock.findOneAndUpdate = () => createChain({ guard_version: 1, is_locked: false });
 
@@ -439,6 +447,36 @@ async function runOvernightShiftAndOtTests(assert) {
       savedRejectAtt && savedRejectAtt.ot_status === 'rejected' && savedRejectAtt.ot_hours === 0 && savedRejectAtt.work_units === 1.0,
       'TC-ON-12.2: ot_status = rejected, ot_hours = 0 nhưng bảo toàn 1.0 công chuẩn'
     );
+
+    // TC-ON-14: Chặn check-in đè ca mới khi còn ca mở từ hôm trước (Edge case safety)
+    const prevAttFindOne = Attendance.findOne;
+    Attendance.findOne = (query) => {
+      if (query && query.date && query.date.$lt) {
+        return createChain({
+          _id: 'att_unclosed_yesterday',
+          date: '2026-09-01',
+          check_in_time: new Date(Date.now() - 12 * 60 * 60 * 1000),
+          check_out_time: null,
+        });
+      }
+      return prevAttFindOne ? prevAttFindOne(query) : createChain(null);
+    };
+
+    const resCheckInOverlap = await request(app)
+      .post('/api/attendance/checkin')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({
+        lat: 10.762622,
+        lng: 106.660172,
+        type: 'office',
+      });
+
+    assert(
+      resCheckInOverlap.status === 400 &&
+      resCheckInOverlap.body.error?.includes('chưa checkout từ ngày 2026-09-01'),
+      'TC-ON-14: Chặn check-in đè ca mới khi ca làm việc hôm trước chưa checkout (400 Bad Request)'
+    );
+    Attendance.findOne = prevAttFindOne;
   } finally {
     User.findById = origUserFindById;
     Attendance.find = origAttFind;
@@ -450,6 +488,8 @@ async function runOvernightShiftAndOtTests(assert) {
     AttendanceAuditLog.create = origAuditCreate;
     Notification.create = origNotifCreate;
     mongoose.startSession = origMongooseStartSession;
+    SystemSetting.findOne = origSettingFindOne;
+    Holiday.findOne = origHolidayFindOne;
   }
 
   // -------------------------------------------------------------------------

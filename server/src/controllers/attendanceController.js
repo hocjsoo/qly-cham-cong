@@ -207,6 +207,29 @@ const checkIn = async (req, res) => {
       });
     }
 
+    // Chặn check-in ca mới nếu đang có ca làm việc chưa checkout từ hôm trước trong vòng 48h
+    let openEarlierShiftQuery = Attendance.findOne({
+      user_id: userId,
+      date: { $lt: dateStr },
+      check_out_time: null,
+      check_in_time: { $gte: new Date(now.getTime() - 48 * 60 * 60 * 1000) },
+    });
+    if (openEarlierShiftQuery && typeof openEarlierShiftQuery.sort === 'function') {
+      openEarlierShiftQuery = openEarlierShiftQuery.sort({ date: -1 });
+    }
+    if (openEarlierShiftQuery && typeof openEarlierShiftQuery.lean === 'function') {
+      openEarlierShiftQuery = openEarlierShiftQuery.lean();
+    }
+    const openEarlierShift = await openEarlierShiftQuery;
+
+    if (openEarlierShift) {
+      return res.status(400).json({
+        error: `Bạn đang có ca làm việc chưa checkout từ ngày ${openEarlierShift.date}. Vui lòng checkout kết thúc ca cũ trước khi bắt đầu ca mới!`,
+        unclosed_shift_id: openEarlierShift._id,
+        unclosed_shift_date: openEarlierShift.date,
+      });
+    }
+
     const clientIP = getClientIP(req);
     const rawHardwareUuid = hardware_uuid || device_fingerprint;
     const effectiveHardwareUuid = typeof rawHardwareUuid === 'string' && rawHardwareUuid.trim()
@@ -758,7 +781,7 @@ const getTodayStatus = async (req, res) => {
         const diffHours = (now.getTime() - new Date(candidate.check_in_time).getTime()) / (1000 * 60 * 60);
         if (diffHours <= 48) {
           activeShift = candidate;
-          if (!attendance) {
+          if (!attendance || !attendance.check_in_time) {
             attendance = candidate;
           }
         }

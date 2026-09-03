@@ -367,6 +367,8 @@ export default function CheckInPage() {
       });
       toast.success(data.message);
       setToday(data.attendance);
+      setActiveShift(null);
+      setIsOvernightShiftActive(false);
 
       if (data.outside_office_radius || data.suggest_explanation) {
         toast((t) => (
@@ -441,7 +443,9 @@ export default function CheckInPage() {
     ? distanceFromOffice <= targetOffice.radius_m
     : null;
 
-  const att = today;
+  const att = (isOvernightShiftActive && activeShift?.check_in_time && !activeShift?.check_out_time)
+    ? activeShift
+    : today;
   const isCheckedIn = Boolean(att?.check_in_time);
   const isCheckedOut = Boolean(att?.check_out_time);
   const isOtNow = isCheckedIn && !isCheckedOut && isAfterOtThreshold;
