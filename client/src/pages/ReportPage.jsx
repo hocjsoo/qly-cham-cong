@@ -4,7 +4,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Download, BarChart3, Lock, Unlock, History, Edit2, CheckCircle2, X, AlertTriangle, FileSpreadsheet, FileText, UserCheck, FileType, Search, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { lazy, Suspense } from 'react';
+const LazyReportChart = lazy(() => import('../components/ReportTrendChart'));
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -1887,22 +1888,9 @@ export default function ReportPage() {
                     <BarChart3 size={18} color="var(--primary)" /> Biểu đồ xu hướng đúng giờ 6 tháng gần nhất
                   </div>
                   <div style={{ width: '100%', height: 260 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border-muted)" />
-                        <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
-                        <YAxis stroke="var(--text-secondary)" fontSize={12} domain={[0, 100]} />
-                        <Tooltip
-                          contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
-                          formatter={(val) => [`${val}%`, 'Tỷ lệ đúng giờ']}
-                        />
-                        <Bar dataKey="attendance_rate" fill="var(--primary)" radius={[6, 6, 0, 0]}>
-                          {trendData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={(entry.attendance_rate ?? entry.on_time_rate) >= 90 ? '#10b981' : (entry.attendance_rate ?? entry.on_time_rate) >= 80 ? '#3b82f6' : '#f59e0b'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <Suspense fallback={<div className="skeleton-card" style={{ height: 260, borderRadius: 12 }} />}>
+                      <LazyReportChart trendData={trendData} />
+                    </Suspense>
                   </div>
                 </div>
               );

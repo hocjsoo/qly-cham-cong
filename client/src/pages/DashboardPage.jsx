@@ -10,7 +10,8 @@ import {
   MapPin, ExternalLink, X, Search, AlertTriangle, TrendingUp, Gift, Bell, Megaphone,
   Edit3, Save, Trash2, Settings
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { lazy, Suspense } from 'react';
+const LazyDashboardChart = lazy(() => import('../components/DashboardTrendChart'));
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
@@ -850,18 +851,9 @@ export default function DashboardPage() {
               <TrendingUp size={14} color="var(--primary)" />
               <span style={{ fontSize: '12px', fontWeight: 600 }}>Xu hướng 6 tháng</span>
             </div>
-            <ResponsiveContainer width="100%" height={100}>
-              <BarChart data={trend.months} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="present" name="Có mặt" radius={[2, 2, 0, 0]}>
-                  {trend.months.map((_, i) => (
-                    <Cell key={i} fill={i === trend.months.length - 1 ? 'var(--primary)' : 'var(--green)'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <Suspense fallback={<div className="skeleton-card" style={{ height: 100, borderRadius: 8 }} />}>
+              <LazyDashboardChart months={trend.months} CustomTooltip={CustomTooltip} />
+            </Suspense>
           </div>
         )}
 
