@@ -27,7 +27,9 @@ export default class ErrorBoundary extends Component {
     const isChunkError = error?.message && (
       error.message.includes('Failed to fetch dynamically imported module') ||
       error.message.includes('Loading chunk') ||
-      error.message.includes('dynamically imported module')
+      error.message.includes('dynamically imported module') ||
+      error.message.includes('before initialization') ||
+      error.message.includes('is not defined')
     );
 
     if (isChunkError) {
