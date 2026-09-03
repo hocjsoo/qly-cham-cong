@@ -137,34 +137,16 @@ export default function CheckInPage() {
       const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
       const [yearVal, monthVal] = todayVN.split('-').map(Number);
 
-      const [todayRes, settingsRes, projRes, locRes, annRes, bdayRes, annivRes, holRes, dutyRes] = await Promise.all([
-        api.get('/attendance/today'),
+      const [todayRes, settingsRes, projRes, locRes] = await Promise.all([
+        api.get("/attendance/today"),
         fetchSystemSettings().then(data => ({ data })),
-        api.get('/projects?active_only=true'),
-        api.get('/locations'),
-        api.get('/announcements/pinned').catch(() => ({ data: [] })),
-        api.get(`/announcements/birthdays?month=${monthVal}`).catch(() => ({ data: { birthdays: [] } })),
-        api.get(`/announcements/anniversaries?month=${monthVal}`).catch(() => ({ data: { anniversaries: [] } })),
-        api.get(`/holidays?year=${yearVal}&month=${monthVal}`).catch(() => ({ data: [] })),
-        api.get(`/tts-schedules?week_start=${getCurrentWeekStart()}`).catch(() => ({ data: null })),
+        api.get("/projects?active_only=true"),
+        api.get("/locations"),
       ]);
       setToday(todayRes.data.attendance || null);
       setActiveShift(todayRes.data.active_shift || null);
       setIsOvernightShiftActive(Boolean(todayRes.data.is_active_overnight_shift));
       setSettings(settingsRes.data?.settings || settingsRes.data || null);
-      setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
-      setBirthdays(bdayRes.data?.birthdays || []);
-      setAnniversaries(annivRes.data?.anniversaries || []);
-      setWeeklyDutySchedule(dutyRes.data);
-      
-      const currentMonthStr = String(monthVal).padStart(2, '0');
-      const rawHolidays = Array.isArray(holRes?.data) ? holRes.data : [];
-      const monthHolidays = rawHolidays.filter(h => {
-        const d = h.date || '';
-        const ed = h.end_date || '';
-        return d.includes(`-${currentMonthStr}-`) || ed.includes(`-${currentMonthStr}-`);
-      });
-      setHolidays(monthHolidays);
 
       const rawLocations = Array.isArray(locRes?.data) ? locRes.data : locRes?.data?.locations || [];
       const allActiveOffices = (todayRes.data.offices && todayRes.data.offices.length > 0)
@@ -172,13 +154,36 @@ export default function CheckInPage() {
         : rawLocations.filter(l => l.is_active !== false);
 
       setOffices(allActiveOffices);
-
       const activeOffice = todayRes.data.office || allActiveOffices[0] || settingsRes.data?.setting?.office;
       if (activeOffice) setOffice(activeOffice);
 
       const rawProjects = Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []);
-      const activeProjects = rawProjects.filter(p => p.is_active !== false && p.status !== 'Hoàn thành' && p.status !== 'Tạm dừng' && p.status !== 'cancelled');
+      const activeProjects = rawProjects.filter(p => p.is_active !== false && p.status !== "Hoàn thành" && p.status !== "Tạm dừng" && p.status !== "cancelled");
       setProjects(activeProjects);
+
+      // Tải ngầm các widgets phụ trợ không làm chậm luồng hiển thị chính
+      Promise.all([
+        api.get("/announcements/pinned").catch(() => ({ data: [] })),
+        api.get("/announcements/birthdays?month=" + monthVal).catch(() => ({ data: { birthdays: [] } })),
+        api.get("/announcements/anniversaries?month=" + monthVal).catch(() => ({ data: { anniversaries: [] } })),
+        api.get("/holidays?year=" + yearVal + "&month=" + monthVal).catch(() => ({ data: [] })),
+        api.get("/tts-schedules?week_start=" + getCurrentWeekStart()).catch(() => ({ data: null })),
+      ]).then(([annRes, bdayRes, annivRes, holRes, dutyRes]) => {
+        setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
+        setBirthdays(bdayRes.data?.birthdays || []);
+        setAnniversaries(annivRes.data?.anniversaries || []);
+        setWeeklyDutySchedule(dutyRes?.data || null);
+
+        const currentMonthStr = String(monthVal).padStart(2, "0");
+        const rawHolidays = Array.isArray(holRes?.data) ? holRes.data : [];
+        const monthHolidays = rawHolidays.filter(h => {
+          const d = h.date || "";
+          const ed = h.end_date || "";
+          return d.includes("-" + currentMonthStr + "-") || ed.includes("-" + currentMonthStr + "-");
+        });
+        setHolidays(monthHolidays);
+      }).catch(() => {});
+
 
       // Filter projects where current user is a member or PM
       const uid = String(user?._id || user?.id || '');
