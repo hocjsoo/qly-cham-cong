@@ -31,16 +31,6 @@ const getTodaySummary = async (req, res) => {
 
     const userIds = users.map(u => u._id);
 
-    // Lấy attendance hôm nay
-    const attendances = await Attendance.find({
-      user_id: { $in: userIds },
-      date: today
-    });
-
-    // Map attendance sang dictionary
-    const attMap = new Map();
-    attendances.forEach(a => attMap.set(a.user_id.toString(), a));
-
     // Lấy danh sách dự án của người dùng hiện tại (là PM hoặc là thành viên)
     const userFullName = (req.user.full_name || '').trim();
     const escapedName = userFullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -54,14 +44,26 @@ const getTodaySummary = async (req, res) => {
       orConditions.push({ pm_name: regexName });
     }
 
-    let myProjects = await Project.find({
-      is_active: { $ne: false },
-      ...(req.user.role === 'admin' ? {} : { $or: orConditions })
-    })
-      .select('name code category avatar_url status progress deadline start_date pm_id pm_name members updated_at created_at')
-      .sort({ progress: -1, updated_at: -1 })
-      .limit(6)
-      .lean();
+    // Fetch independent datasets together, excluding large selfie/device fields.
+    // Keep attendance hydration so legacy records retain schema defaults.
+    const [attendances, assignedProjects] = await Promise.all([
+      // Lấy attendance hôm nay
+      Attendance.find({ user_id: { $in: userIds }, date: today })
+        .select('user_id check_in_time check_in_type check_out_time total_hours work_units status'),
+      Project.find({
+        is_active: { $ne: false },
+        ...(req.user.role === 'admin' ? {} : { $or: orConditions })
+      })
+        .select('name code category avatar_url status progress deadline start_date pm_id pm_name members updated_at created_at')
+        .sort({ progress: -1, updated_at: -1 })
+        .limit(6)
+        .lean(),
+    ]);
+    let myProjects = assignedProjects;
+
+    // Map attendance sang dictionary
+    const attMap = new Map();
+    attendances.forEach(a => attMap.set(a.user_id.toString(), a));
 
     // Fallback chỉ dành cho Admin nếu chưa gán dự án riêng
     if (myProjects.length === 0 && req.user.role === 'admin') {

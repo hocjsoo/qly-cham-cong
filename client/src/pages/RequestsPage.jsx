@@ -213,7 +213,7 @@ export default function RequestsPage() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'mine';
 
-  const { user } = useAuthStore();
+  const user = useAuthStore(state => state.user);
   const systemSettings = useSettingsStore(state => state.settings);
   const updateSettingsState = useSettingsStore(state => state.updateSettingsState);
   const isAdmin = user?.role === 'admin';
@@ -229,6 +229,11 @@ export default function RequestsPage() {
   const [mineList, setMineList] = useState([]);
   const [pendingList, setPendingList] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const projectsLoadedAtRef = useRef(0);
+  const requestControllerRef = useRef(null);
+  const flaggedControllerRef = useRef(null);
+  const otControllerRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [requestPage, setRequestPage] = useState(1);
   const [requestPagination, setRequestPagination] = useState({ page: 1, total: 0, totalPages: 1 });
@@ -331,6 +336,10 @@ export default function RequestsPage() {
 
   // Load Data
   const loadData = useCallback(async () => {
+    if (!['mine', 'pending', 'history'].includes(tab)) return;
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
     try {
       setLoading(true);
       const params = new URLSearchParams({ page: String(requestPage), limit: '20' });
@@ -339,19 +348,21 @@ export default function RequestsPage() {
       if (monthFilter) params.set('month', monthFilter);
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
       if (tab === 'mine') {
-        const { data } = await api.get(`/requests/my-requests?${params}`);
+        const { data } = await api.get(`/requests/my-requests?${params}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         setMineList(Array.isArray(data) ? data : (data?.requests || []));
         setRequestPagination(data?.pagination || { page: 1, total: Array.isArray(data) ? data.length : 0, totalPages: 1 });
       } else if (tab === 'pending' || tab === 'history') {
         params.set('status', tab === 'pending' ? 'pending' : 'history');
-        const { data } = await api.get(`/requests/pending?${params}`);
+        const { data } = await api.get(`/requests/pending?${params}`, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         setPendingList(Array.isArray(data) ? data : (data?.requests || []));
         setRequestPagination(data?.pagination || { page: 1, total: Array.isArray(data) ? data.length : 0, totalPages: 1 });
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi tải danh sách đơn');
+      if (!controller.signal.aborted) toast.error(err?.response?.data?.error || 'Lỗi tải danh sách đơn');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [debouncedSearch, monthFilter, requestPage, statusFilter, tab, typeFilter]);
 
@@ -365,6 +376,7 @@ export default function RequestsPage() {
   }, [tab, statusFilter, typeFilter, monthFilter, debouncedSearch]);
 
   const selfieCacheRef = useRef(new Map());
+  const [selfieLoadingId, setSelfieLoadingId] = useState(null);
 
   const handleOpenSelfiePhoto = useCallback(async (item, displayName, dateStr) => {
     const recordId = item?._id || item?.id;
@@ -380,6 +392,7 @@ export default function RequestsPage() {
       return;
     }
     try {
+      setSelfieLoadingId(String(recordId));
       const { data } = await api.get(`/attendance/${recordId}/selfie`);
       if (data?.selfie_url) {
         selfieCacheRef.current.set(String(recordId), data.selfie_url);
@@ -389,6 +402,8 @@ export default function RequestsPage() {
       }
     } catch (err) {
       toast.error(err?.response?.data?.error || "Không tải được ảnh selfie");
+    } finally {
+      setSelfieLoadingId(null);
     }
   }, []);
 
@@ -420,13 +435,18 @@ export default function RequestsPage() {
 
   // Flagged Attendance loader
   const fetchFlagged = useCallback(async (targetStatus) => {
+    flaggedControllerRef.current?.abort();
+    const controller = new AbortController();
+    flaggedControllerRef.current = controller;
     try {
       setFlaggedLoading(true);
       const st = targetStatus || flaggedTab;
       const params = new URLSearchParams(
         st === 'device' || st === 'photo' ? { filter: st } : { status: st }
       );
-      const res = await api.get(`/attendance/flagged?${params}`);
+      params.set('compact', 'true');
+      const res = await api.get(`/attendance/flagged?${params}`, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       if (res.data) {
         setFlaggedList(res.data.flagged || []);
         if (res.data.counts) {
@@ -434,36 +454,68 @@ export default function RequestsPage() {
         }
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi tải danh sách cảnh báo chấm công');
+      if (!controller.signal.aborted) toast.error(err?.response?.data?.error || 'Lỗi tải danh sách cảnh báo chấm công');
     } finally {
-      setFlaggedLoading(false);
+      if (!controller.signal.aborted) setFlaggedLoading(false);
     }
   }, [flaggedTab]);
 
   // Overnight OT Approval Loader (Admin Only)
   const fetchPendingOt = useCallback(async () => {
     if (!isAdmin) return;
+    otControllerRef.current?.abort();
+    const controller = new AbortController();
+    otControllerRef.current = controller;
     setLoadingPendingOt(true);
     try {
-      const res = await api.get('/attendance/pending-ot');
+      const res = await api.get('/attendance/pending-ot', { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setPendingOtList(res.data?.pending_ot || []);
     } catch (err) {
-      console.error('Fetch pending OT error:', err);
+      if (!controller.signal.aborted) console.error('Fetch pending OT error:', err);
     } finally {
-      setLoadingPendingOt(false);
+      if (!controller.signal.aborted) setLoadingPendingOt(false);
     }
   }, [isAdmin]);
 
   useEffect(() => {
     loadData();
-    if (isAdmin) fetchPendingOt();
-    api.get('/projects?active_only=true').then(r => setProjects(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-  }, [loadData, isAdmin, fetchPendingOt]);
+    return () => requestControllerRef.current?.abort();
+  }, [loadData]);
+
+  useEffect(() => {
+    fetchPendingOt();
+    return () => otControllerRef.current?.abort();
+  }, [fetchPendingOt]);
+
+  const needsProjects = showForm && ['business_trip', 'foreign_trip', 'overtime'].includes(type);
+  useEffect(() => {
+    if (!needsProjects || Date.now() - projectsLoadedAtRef.current < 300000) return;
+    const controller = new AbortController();
+    setProjectsLoading(true);
+    api.get('/projects?active_only=true', { signal: controller.signal })
+      .then(({ data }) => {
+        if (controller.signal.aborted) return;
+        setProjects(Array.isArray(data) ? data : []);
+        projectsLoadedAtRef.current = Date.now();
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) toast.error('Không tải được danh sách dự án. Vui lòng mở lại đơn để thử lại.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProjectsLoading(false);
+      });
+    return () => controller.abort();
+  }, [needsProjects]);
 
   useEffect(() => {
     if (isManager && tab === 'flagged') fetchFlagged();
-    if (isAdmin && (tab === 'overnight_ot' || tab === 'pending')) fetchPendingOt();
-  }, [fetchFlagged, fetchPendingOt, isAdmin, isManager, tab]);
+    return () => flaggedControllerRef.current?.abort();
+  }, [fetchFlagged, isManager, tab]);
+
+  useEffect(() => {
+    if (tab === 'overnight_ot') fetchPendingOt();
+  }, [fetchPendingOt, tab]);
 
   useEffect(() => {
     const queryType = searchParams.get('type');
@@ -842,7 +894,7 @@ export default function RequestsPage() {
 
           {isManager && (
             <button
-              onClick={() => { setTab('flagged'); fetchFlagged(); }}
+              onClick={() => { if (tab === 'flagged') fetchFlagged(); else setTab('flagged'); }}
               style={{
                 flex: 1, padding: '9px 10px', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
                 background: tab === 'flagged' ? 'var(--bg-card)' : 'transparent',
@@ -859,7 +911,7 @@ export default function RequestsPage() {
 
           {isAdmin && (
             <button
-              onClick={() => { setTab('overnight_ot'); fetchPendingOt(); }}
+              onClick={() => { if (tab === 'overnight_ot') fetchPendingOt(); else setTab('overnight_ot'); }}
               style={{
                 flex: 1, padding: '9px 10px', border: 'none', borderRadius: '9px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
                 background: tab === 'overnight_ot' ? 'var(--bg-card)' : 'transparent',
@@ -915,7 +967,7 @@ export default function RequestsPage() {
               ].map(ft => (
                 <button
                   key={ft.key}
-                  onClick={() => { setFlaggedTab(ft.key); fetchFlagged(ft.key); }}
+                  onClick={() => { if (flaggedTab === ft.key) fetchFlagged(); else setFlaggedTab(ft.key); }}
                   className={`chip${flaggedTab === ft.key ? ' active' : ''}`}
                   style={{ fontSize: '12px', padding: '6px 14px', whiteSpace: 'nowrap' }}
                 >
@@ -978,20 +1030,24 @@ export default function RequestsPage() {
                       </div>
 
                       <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        {item.selfie_url ? (
+                        {item.has_selfie || item.selfie_url ? (
                           <button
                             type="button"
                             aria-label={`Xem ảnh selfie của ${empName}`}
+                            disabled={selfieLoadingId === String(item._id || item.id)}
                             onClick={() => handleOpenSelfiePhoto(item, empName, formatDate(item.date))}
                             style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, padding: 0, border: 0, background: 'transparent', borderRadius: '12px' }}
                           >
-                            <img
+                            {item.selfie_url ? <img
                               src={item.selfie_url}
                               alt="Selfie"
                               loading="lazy"
                               decoding="async"
                               style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${statusColor}` }}
-                            />
+                            /> : <div style={{ width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)', color: 'var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', border: `2px solid ${statusColor}`, fontSize: '10.5px' }}>
+                              <Camera size={22} />
+                              {selfieLoadingId === String(item._id || item.id) ? 'Đang tải...' : 'Có ảnh selfie'}
+                            </div>}
                             <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
                               <ZoomIn size={10} /> Xem
                             </div>
@@ -1776,9 +1832,10 @@ export default function RequestsPage() {
                     <select
                       className="form-select"
                       value={selectedProjectId}
+                      disabled={projectsLoading}
                       onChange={e => setSelectedProjectId(e.target.value)}
                     >
-                      <option value="">-- Không gắn dự án --</option>
+                      <option value="">{projectsLoading ? 'Đang tải dự án...' : '-- Không gắn dự án --'}</option>
                       {projects.map(p => (
                         <option key={p._id} value={p._id}>{p.name} ({p.code || 'DA'})</option>
                       ))}

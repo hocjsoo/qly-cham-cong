@@ -921,8 +921,10 @@ const getPendingOvernightOt = async (req, res) => {
     const records = await Attendance.find({
       ot_status: 'pending_approval',
     })
+      .select('user_id date check_in_time check_out_time check_in_type project_id project_name total_hours work_units is_overnight ot_hours ot_hours_proposed ot_status ot_approved_by ot_approved_at ot_reviewer_note ot_adjustment_reason check_in_note check_out_note created_at updated_at')
       .populate('user_id', 'full_name employee_code avatar_url email department_id position')
-      .sort({ date: -1, created_at: -1 });
+      .sort({ date: -1, created_at: -1 })
+      .lean();
 
     const formatted = records.map(r => {
       const obj = r.toObject ? r.toObject() : r;
@@ -1716,6 +1718,9 @@ const getSelfiePhoto = async (req, res) => {
     if (!doc || !doc.selfie_url) {
       return res.status(404).json({ error: "Không tìm thấy ảnh selfie cho ca làm việc này." });
     }
+    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, doc.user_id))) {
+      return res.status(403).json({ error: 'Bạn chỉ được xem ảnh xác minh của nhân sự thuộc nhóm mình quản lý.' });
+    }
     res.setHeader("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
     return res.json({ selfie_url: doc.selfie_url });
   } catch (err) {
@@ -1726,7 +1731,7 @@ const getSelfiePhoto = async (req, res) => {
 
 const getFlaggedAttendance = async (req, res) => {
   try {
-    const { status, filter, counts_only, page, limit } = req.query;
+    const { status, filter, counts_only, page, limit, compact } = req.query;
     let baseFilter = {};
 
     if (isLeaderRole(req.user)) {
@@ -1784,6 +1789,22 @@ const getFlaggedAttendance = async (req, res) => {
         .populate("user_id", "full_name employee_code code email department_id department_ids avatar_url role phone")
         .populate("reviewed_by", "full_name")
         .sort({ date: -1, created_at: -1 });
+
+      if (compact === 'true') {
+        // Compute presence in MongoDB so full selfie data never enters list responses
+        // or the API process. Keep the legacy payload for clients without compact=true.
+        listQuery = listQuery.select({
+          user_id: 1, date: 1, check_in_time: 1, check_out_time: 1,
+          check_in_type: 1, check_in_mode: 1, project_id: 1, project_name: 1,
+          status: 1, hardware_uuid: 1, device_name: 1, is_flagged: 1,
+          flag_reason: 1, flag_reasons: 1, verification_status: 1,
+          reviewed_by: 1, reviewed_at: 1, reviewer_note: 1,
+          created_at: 1, updated_at: 1,
+          has_selfie: {
+            $not: [{ $in: [{ $ifNull: ['$selfie_url', null] }, [null, '', 'null', 'undefined']] }],
+          },
+        });
+      }
 
       if (typeof listQuery.skip === "function") listQuery = listQuery.skip(skipNum);
       if (typeof listQuery.limit === "function") listQuery = listQuery.limit(limitNum);

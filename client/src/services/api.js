@@ -47,6 +47,8 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
+    // Superseded searches and unmounted pages must not start an offline fallback.
+    if (axios.isCancel(error)) return Promise.reject(error);
     const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
 
     // Chỉ fallback sang mockRequest khi được cấu hình rõ ràng trong môi trường dev/demo

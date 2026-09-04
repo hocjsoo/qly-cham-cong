@@ -37,6 +37,8 @@ const runOvernightShiftAndOtTests = require('./unit/overnightShiftAndOt.test');
 const runE2EScenarioTests = require('./integration/e2eScenario.test');
 const runAdvancedScenariosTests = require('./integration/advancedScenarios.test');
 const runControllerIntegrationTests = require('./integration/controllerIntegration.test');
+const runAttendancePayloadTests = require('./integration/attendancePayload.test');
+const runDashboardPerformanceTests = require('./performance/dashboardPerformance.test');
 const runRequestHttpPipelineTests = require('./integration/requestHttpPipeline.test');
 const runTtsScheduleHttpTests = require('./integration/ttsScheduleHttp.test');
 const runServerSecurityMiddlewareTests = require('./integration/serverSecurityMiddleware.test');
@@ -139,6 +141,8 @@ async function runAllTests() {
     runExpertRequestApprovalTests(assert);
     runExpertTimeDateAdjusterTests(assert);
     await runControllerIntegrationTests(assert);
+    await runAttendancePayloadTests(assert);
+    await runDashboardPerformanceTests(assert);
     await runRequestHttpPipelineTests(assert);
     await runTtsScheduleHttpTests(assert);
     await runServerSecurityMiddlewareTests(assert);
