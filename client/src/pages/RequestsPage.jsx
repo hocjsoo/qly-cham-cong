@@ -423,7 +423,10 @@ export default function RequestsPage() {
     try {
       setFlaggedLoading(true);
       const st = targetStatus || flaggedTab;
-      const res = await api.get(`/attendance/flagged?status=${st}`);
+      const params = new URLSearchParams(
+        st === 'device' || st === 'photo' ? { filter: st } : { status: st }
+      );
+      const res = await api.get(`/attendance/flagged?${params}`);
       if (res.data) {
         setFlaggedList(res.data.flagged || []);
         if (res.data.counts) {
@@ -943,7 +946,10 @@ export default function RequestsPage() {
                 }).map(item => {
                   const isApproved = item.verification_status === 'approved';
                   const isRejected = item.verification_status === 'rejected';
-                  const isPending = !isApproved && !isRejected;
+                  const isPending = item.verification_status === 'pending_review' ||
+                    (item.is_flagged === true && !isApproved && !isRejected);
+                  const isAutoApproved = item.verification_status === 'auto_approved' && !isPending;
+                  const statusColor = isApproved || isAutoApproved ? 'var(--green)' : isRejected ? 'var(--red)' : isPending ? 'var(--yellow)' : 'var(--text-muted)';
                   const empName = item.user_id?.full_name || 'Nhân sự';
                   const empCode = item.user_id?.employee_code || item.user_id?.code || 'NS';
                   const deptName = item.user_id?.department_id?.name || 'Văn Phòng';
@@ -954,7 +960,7 @@ export default function RequestsPage() {
                       className="card request-list-card animate-fade-in"
                       style={{
                         padding: '16px', borderRadius: '14px',
-                        borderLeft: `4px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}`,
+                        borderLeft: `4px solid ${statusColor}`,
                         background: 'var(--bg-card)',
                         boxShadow: 'var(--shadow-xs)'
                       }}
@@ -966,8 +972,8 @@ export default function RequestsPage() {
                           </span>
                           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>🏢 {deptName}</div>
                         </div>
-                        <span className={`badge badge--${isApproved ? 'success' : isRejected ? 'danger' : 'warning'}`} style={{ fontSize: '11.5px', padding: '4px 9px' }}>
-                          {isApproved ? '✅ Đã xác minh' : isRejected ? '❌ Bị từ chối' : '⏳ Chờ xem xét'}
+                        <span className={`badge badge--${isApproved || isAutoApproved ? 'success' : isRejected ? 'danger' : isPending ? 'warning' : 'neutral'}`} style={{ fontSize: '11.5px', padding: '4px 9px' }}>
+                          {isApproved ? '✅ Đã xác minh' : isRejected ? '❌ Bị từ chối' : isPending ? '⏳ Chờ xem xét' : isAutoApproved ? '✅ Tự động xác nhận' : 'Chưa có trạng thái xác minh'}
                         </span>
                       </div>
 
@@ -984,7 +990,7 @@ export default function RequestsPage() {
                               alt="Selfie"
                               loading="lazy"
                               decoding="async"
-                              style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${isApproved ? 'var(--green)' : isRejected ? 'var(--red)' : 'var(--yellow)'}` }}
+                              style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${statusColor}` }}
                             />
                             <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
                               <ZoomIn size={10} /> Xem
@@ -1020,7 +1026,7 @@ export default function RequestsPage() {
                       </div>
 
                       {/* Flagged Actions */}
-                      <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      {(isPending || isApproved || isRejected) && <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--border-muted)', display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                         {isPending ? (
                           <>
                             <button
@@ -1054,7 +1060,7 @@ export default function RequestsPage() {
                             <RotateCcw size={14} /> Hoàn tác về chờ duyệt
                           </button>
                         )}
-                      </div>
+                      </div>}
                     </div>
                   );
                 })}

@@ -1736,28 +1736,43 @@ const getFlaggedAttendance = async (req, res) => {
       baseFilter.user_id = { $in: subordinateIds };
     }
 
-    let statusCondition = {};
-    if (status === 'pending') {
-      statusCondition = { $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] };
-    } else if (status === 'approved') {
-      statusCondition = { verification_status: 'approved' };
-    } else if (status === 'rejected') {
-      statusCondition = { verification_status: 'rejected' };
-    }
-
-    let filterCondition = {};
-    if (filter === 'photo') {
-      filterCondition = { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } };
-    } else if (filter === 'device') {
-      filterCondition = {
-        $or: [
-          { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } },
-          { flag_reason: { $regex: /thiết bị|device/i } },
-        ]
-      };
-    }
-
-    const queryFilter = { ...baseFilter, ...statusCondition, ...filterCondition };
+    const pendingCondition = {
+      $or: [
+        { verification_status: 'pending_review' },
+        { is_flagged: true, verification_status: { $nin: ['approved', 'rejected'] } },
+      ],
+    };
+    const photoCondition = { selfie_url: { $exists: true, $nin: [null, '', 'null', 'undefined'] } };
+    const deviceCondition = {
+      $or: [
+        { flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } },
+        { flag_reason: { $regex: /thiết bị|device/i } },
+      ],
+    };
+    // Normal attendance and leave rows are not verification cases.
+    const allForensicFilter = {
+      ...baseFilter,
+      $or: [
+        { is_flagged: true },
+        { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
+        photoCondition,
+        ...deviceCondition.$or,
+      ],
+    };
+    const scopedFilter = (condition) => ({ $and: [allForensicFilter, condition] });
+    const tabConditions = {
+      pending: pendingCondition,
+      approved: { verification_status: 'approved' },
+      rejected: { verification_status: 'rejected' },
+      photo: photoCondition,
+      device: deviceCondition,
+    };
+    // Keep status=photo/device compatible with existing clients.
+    const conditions = [allForensicFilter];
+    if (Object.hasOwn(tabConditions, status)) conditions.push(tabConditions[status]);
+    if (filter === 'photo') conditions.push(photoCondition);
+    if (filter === 'device') conditions.push(deviceCondition);
+    const queryFilter = { $and: conditions };
 
     let list = [];
     if (counts_only !== "true") {
@@ -1777,23 +1792,13 @@ const getFlaggedAttendance = async (req, res) => {
       list = await listQuery;
     }
 
-    const baseCountFilter = { ...baseFilter };
-    const allForensicFilter = {
-      ...baseCountFilter,
-      $or: [
-        { is_flagged: true },
-        { verification_status: { $in: ['pending_review', 'approved', 'rejected'] } },
-        { selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } }
-      ]
-    };
-
     const [totalCount, pendingCount, approvedCount, rejectedCount, photoCount, deviceCount] = await Promise.all([
       Attendance.countDocuments(allForensicFilter),
-      Attendance.countDocuments({ ...baseCountFilter, $or: [{ verification_status: 'pending_review' }, { is_flagged: true, verification_status: { $ne: 'approved' } }] }),
-      Attendance.countDocuments({ ...baseCountFilter, verification_status: 'approved' }),
-      Attendance.countDocuments({ ...baseCountFilter, verification_status: 'rejected' }),
-      Attendance.countDocuments({ ...baseCountFilter, selfie_url: { $ne: null, $nin: ['', 'null', 'undefined'] } }),
-      Attendance.countDocuments({ ...baseCountFilter, $or: [{ flag_reasons: { $in: ['DEVICE_UNTRUSTED', 'MULTI_ACCOUNT_SAME_DEVICE'] } }, { flag_reason: { $regex: /thiết bị|device/i } }] }),
+      Attendance.countDocuments(scopedFilter(pendingCondition)),
+      Attendance.countDocuments(scopedFilter(tabConditions.approved)),
+      Attendance.countDocuments(scopedFilter(tabConditions.rejected)),
+      Attendance.countDocuments(scopedFilter(photoCondition)),
+      Attendance.countDocuments(scopedFilter(deviceCondition)),
     ]);
 
     res.json({

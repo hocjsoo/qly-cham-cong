@@ -347,6 +347,8 @@ async function runControllerIntegrationTests(assert) {
     if (cond.verification_status !== undefined) {
       if (typeof cond.verification_status === 'object' && cond.verification_status.$in) {
         if (!cond.verification_status.$in.includes(r.verification_status)) return false;
+      } else if (typeof cond.verification_status === 'object' && cond.verification_status.$nin) {
+        if (cond.verification_status.$nin.includes(r.verification_status)) return false;
       } else if (typeof cond.verification_status === 'object' && cond.verification_status.$ne) {
         if (r.verification_status === cond.verification_status.$ne) return false;
       } else if (r.verification_status !== cond.verification_status) {
@@ -356,15 +358,19 @@ async function runControllerIntegrationTests(assert) {
     if (cond.is_flagged !== undefined && r.is_flagged !== cond.is_flagged) {
       return false;
     }
-    if (cond.selfie_url !== undefined && !r.selfie_url) {
-      return false;
+    if (cond.selfie_url !== undefined) {
+      if (cond.selfie_url.$exists && r.selfie_url === undefined) return false;
+      if (cond.selfie_url.$nin?.includes(r.selfie_url)) return false;
+      if (Object.hasOwn(cond.selfie_url, '$ne') && r.selfie_url === cond.selfie_url.$ne) return false;
     }
     if (cond.check_in_mode !== undefined && r.check_in_mode !== cond.check_in_mode) {
       return false;
     }
     if (cond.flag_reasons !== undefined) {
       if (!Array.isArray(r.flag_reasons) || r.flag_reasons.length === 0) return false;
+      if (cond.flag_reasons.$in && !r.flag_reasons.some(reason => cond.flag_reasons.$in.includes(reason))) return false;
     }
+    if (cond.flag_reason?.$regex && !cond.flag_reason.$regex.test(r.flag_reason || '')) return false;
     return true;
   }
 
@@ -385,21 +391,14 @@ async function runControllerIntegrationTests(assert) {
         if (!re.test(r.date)) return false;
       }
     }
-    if (query.verification_status) {
-      if (!matchesCond(r, { verification_status: query.verification_status })) return false;
-    }
-    if (query.selfie_url && !r.selfie_url) return false;
+    if (!matchesCond(r, query)) return false;
     if (query.$and) {
       for (const andCond of query.$and) {
-        if (andCond.$or) {
-          if (!andCond.$or.some(c => matchesCond(r, c))) return false;
-        } else if (!matchesCond(r, andCond)) {
-          return false;
-        }
+        if (!matchesAttQuery(r, andCond)) return false;
       }
     }
     if (query.$or) {
-      if (!query.$or.some(c => matchesCond(r, c))) return false;
+      if (!query.$or.some(c => matchesAttQuery(r, c))) return false;
     }
     return true;
   }
@@ -1038,6 +1037,90 @@ async function runControllerIntegrationTests(assert) {
         resFlaggedPending.body.counts.total > resFlaggedPending.body.flagged.length,
       'TC-HTTP-20: GET /api/attendance/flagged lọc đúng danh sách theo tab và trả về counts.total độc lập không phụ thuộc tab đang chọn'
     );
+
+    // Leave rows must not become verification cases; real evidence stays visible.
+    const attendanceBeforeFilterTests = new Map(mockSavedAttendanceMap);
+    const userFindBeforeFilterTests = User.find;
+    try {
+      const addFilterFixture = (date, fields = {}) => {
+        const doc = new Attendance({ user_id: mockEmpUser._id, date, check_in_type: 'office', ...fields });
+        mockSavedAttendanceMap.set(`${doc.user_id}_${date}`, doc);
+        return String(doc._id);
+      };
+      const normalIds = ['05', '06', '07', '08'].map(day => addFilterFixture(`2026-09-${day}`, {
+        status: 'leave', work_units: 0, notes: 'Được duyệt một đơn nghỉ từ 05/09 đến 08/09',
+      }));
+      normalIds.push(addFilterFixture('2026-09-09', { check_in_time: new Date('2026-09-09T02:00:00Z') }));
+      for (const [index, selfie_url] of ['', 'null', 'undefined'].entries()) {
+        normalIds.push(addFilterFixture(`2026-09-${10 + index}`, { selfie_url }));
+      }
+      const photoId = addFilterFixture('2026-09-13', { selfie_url: 'https://example.com/auto-selfie.jpg' });
+      const leaveFlagId = addFilterFixture('2026-09-14', {
+        status: 'leave', is_flagged: true, verification_status: 'pending_review',
+        flag_reasons: ['DEVICE_UNTRUSTED'],
+      });
+      const rejectedId = addFilterFixture('2026-09-15', {
+        is_flagged: true, verification_status: 'rejected', flag_reasons: ['DEVICE_UNTRUSTED'],
+      });
+      const legacyDeviceId = addFilterFixture('2026-09-16', { flag_reason: 'Thiết bị cần kiểm tra' });
+      const locationId = addFilterFixture('2026-09-17', {
+        is_flagged: true, verification_status: 'pending_review', flag_reasons: ['SUSPICIOUS_LOCATION'],
+      });
+      const fetchCases = (query, token = adminToken) => request(app)
+        .get(`/api/attendance/flagged${query ? `?${query}` : ''}`)
+        .set('Authorization', `Bearer ${token}`);
+      const ids = response => (response.body.flagged || []).map(row => String(row._id));
+      const allCases = await fetchCases('status=all');
+      const expectedEvidence = [photoId, leaveFlagId, rejectedId, legacyDeviceId, locationId];
+      assert(allCases.status === 200 && allCases.body.counts.total === 8 && ids(allCases).length === 8 &&
+        normalIds.every(id => !ids(allCases).includes(id)) && expectedEvidence.every(id => ids(allCases).includes(id)),
+      'TC-HTTP-20.1: Tất cả loại ngày nghỉ và ca thường, giữ ca có bằng chứng kể cả ngày nghỉ');
+      const defaultCases = await fetchCases('');
+      assert(defaultCases.status === 200 && JSON.stringify(ids(defaultCases)) === JSON.stringify(ids(allCases)),
+        'TC-HTTP-20.2: Không truyền tab cũng chỉ trả hồ sơ xác minh');
+      const tabCounts = { pending: 'pending', approved: 'approved', rejected: 'rejected', photo: 'with_photo', device: 'with_device' };
+      for (const [tab, countKey] of Object.entries(tabCounts)) {
+        const result = await fetchCases(`status=${tab}`);
+        assert(result.status === 200 && ids(result).length === allCases.body.counts[countKey] &&
+          normalIds.every(id => !ids(result).includes(id)) &&
+          JSON.stringify(result.body.counts) === JSON.stringify(allCases.body.counts),
+        `TC-HTTP-20.3-${tab}: Danh sách khớp số đếm và số đếm độc lập với tab`);
+        if (tab === 'pending') {
+          assert(ids(result).includes(leaveFlagId) && ids(result).includes(locationId) &&
+            !ids(result).includes(rejectedId) && !ids(result).includes(photoId),
+          'TC-HTTP-20.4: Ca bị từ chối hoặc selfie tự động xác nhận không tính là chờ duyệt');
+        }
+        if (tab === 'photo' || tab === 'device') {
+          const explicitFilter = await fetchCases(`filter=${tab}`);
+          assert(JSON.stringify(ids(explicitFilter)) === JSON.stringify(ids(result)) &&
+            (tab === 'photo' ? ids(result).includes(photoId) && !ids(result).includes(leaveFlagId) :
+              ids(result).includes(legacyDeviceId) && !ids(result).includes(locationId)),
+          `TC-HTTP-20.5-${tab}: Bộ lọc mới và tham số tương thích cũ cùng trả đúng loại bằng chứng`);
+        }
+      }
+      const pendingDevices = await fetchCases('status=pending&filter=device');
+      assert(pendingDevices.status === 200 && ids(pendingDevices).includes(leaveFlagId) &&
+        !ids(pendingDevices).includes(rejectedId) && !ids(pendingDevices).includes(locationId),
+      'TC-HTTP-20.6: Kết hợp chờ duyệt và thiết bị không ghi đè điều kiện lọc');
+      const countsOnly = await fetchCases('counts_only=true&filter=device');
+      assert(countsOnly.status === 200 && ids(countsOnly).length === 0 &&
+        JSON.stringify(countsOnly.body.counts) === JSON.stringify(allCases.body.counts),
+      'TC-HTTP-20.7: Chỉ tải số đếm vẫn thống nhất với toàn bộ danh sách');
+      const outsideTeamId = addFilterFixture('2026-09-18', {
+        user_id: userNamEmp._id, is_flagged: true, verification_status: 'pending_review',
+      });
+      User.find = () => ({ distinct: async () => [mockEmpUser._id] });
+      const leaderCases = await fetchCases('status=all', leaderToken);
+      assert(leaderCases.status === 200 && leaderCases.body.counts.total === 8 &&
+        !ids(leaderCases).includes(outsideTeamId) && expectedEvidence.every(id => ids(leaderCases).includes(id)),
+      'TC-HTTP-20.8: Leader chỉ nhận danh sách và số đếm của nhân sự trong phạm vi');
+      const employeeCases = await fetchCases('status=all', employeeToken);
+      assert(employeeCases.status === 403, 'TC-HTTP-20.9: Nhân viên không được truy cập danh sách cảnh báo');
+    } finally {
+      User.find = userFindBeforeFilterTests;
+      mockSavedAttendanceMap.clear();
+      attendanceBeforeFilterTests.forEach((doc, key) => mockSavedAttendanceMap.set(key, doc));
+    }
 
     // -------------------------------------------------------------
     // 7. Supertest: POST /api/timesheet-lock/override-cell Atomic Rollback & Mongo Transactions
