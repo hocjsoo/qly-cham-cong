@@ -14,6 +14,7 @@ function getTimesheetSymbol(rec) {
   const workUnits = Number(rec.work_units);
   const notes = (rec.notes || '').toUpperCase();
   if (workUnits === 1.5) return '1,5x';
+  if (workUnits === 1.75) return '1,75x';
   if (workUnits === 2) return '2x';
   if (workUnits === 3) return '3x';
   if (rec.status === 'holiday') return 'L';
@@ -88,7 +89,7 @@ const createSummaryRows = ({ users, attendances, month, year }) => {
       else if (symbol === 'x') totals.office += 1;
       else if (symbol === '0,75x') totals.office += 0.75;
       else if (symbol === '0,5x') totals.office += 0.5;
-      else if (symbol === '1,5x' || symbol === '2x' || symbol === '3x') {
+      else if (symbol === '1,5x' || symbol === '1,75x' || symbol === '2x' || symbol === '3x') {
         totals.office += Number(attendanceByDate.get(`${monthStr}-${columnKey}`)?.work_units) || 0;
       }
     }

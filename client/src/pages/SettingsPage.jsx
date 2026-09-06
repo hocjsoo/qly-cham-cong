@@ -22,7 +22,7 @@ const WORKING_DAYS_OPTIONS = [
   { key: 'Thu', label: 'T5' }, { key: 'Fri', label: 'T6' }, { key: 'Sat', label: 'T7' }, { key: 'Sun', label: 'CN' },
 ];
 
-const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3];
 const normalizeHolidayMultiplier = value => (
   HOLIDAY_WORK_MULTIPLIERS.includes(Number(value)) ? Number(value) : 1.5
 );

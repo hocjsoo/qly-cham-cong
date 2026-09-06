@@ -1561,7 +1561,7 @@ const overrideAttendance = async (req, res) => {
       const effectiveType = check_in_type || attendance.check_in_type || 'office';
       const isExempt = ['wfh', 'site', 'client'].includes(effectiveType);
       const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
+      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[1,75X]', '[1.75X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
         .some(symbol => upperNotes.includes(symbol));
       if (!hasExplicitSymbolOverride) {
         attendance.work_units = holidayWorkUnits ?? (isExempt ? 1.0 : (lateInfo.work_units ?? 1.0));
@@ -1577,7 +1577,7 @@ const overrideAttendance = async (req, res) => {
       attendance.check_in_type = check_in_type;
       const isExempt = ['wfh', 'site', 'client'].includes(check_in_type);
       const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
+      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[1,75X]', '[1.75X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
         .some(symbol => upperNotes.includes(symbol));
       if (!hasExplicitSymbolOverride && (holidayWorkUnits !== null || isExempt)) {
         attendance.work_units = holidayWorkUnits ?? 1.0;

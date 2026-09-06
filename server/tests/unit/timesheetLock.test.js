@@ -221,15 +221,17 @@ function runTimesheetTests(assert) {
   assert(lockedMonthCheck.isLocked === true,
     'TC-TIME-10: Tháng đã chốt khóa (is_locked=true) được bảo vệ toàn vẹn không bị tự động sửa đổi');
 
-  // TC-TIME-11: Kiểm thử trực tiếp implementation production cho công ngày lễ 1,5x / 2x / 3x
+  // TC-TIME-11: Kiểm thử trực tiếp implementation production cho công ngày lễ 1,5x / 1,75x / 2x / 3x
   assert(
     PRODUCTION_SYMBOL_MAP['1,5x']?.work_units === 1.5
+      && PRODUCTION_SYMBOL_MAP['1,75x']?.work_units === 1.75
       && PRODUCTION_SYMBOL_MAP['2x']?.work_units === 2
       && PRODUCTION_SYMBOL_MAP['3x']?.work_units === 3
       && formatWorkUnitSymbol(1.5) === '1,5x'
+      && formatWorkUnitSymbol(1.75) === '1,75x'
       && formatWorkUnitSymbol(2) === '2x'
       && formatWorkUnitSymbol(3) === '3x',
-    'TC-TIME-11: Production override/map hỗ trợ đúng hệ số ngày lễ 1,5x / 2x / 3x'
+    'TC-TIME-11: Production override/map hỗ trợ đúng hệ số ngày lễ 1,5x / 1,75x / 2x / 3x'
   );
 
   // TC-TIME-12: Dữ liệu có cấu trúc là source of truth, không để note WFH cũ ghi đè P mới
@@ -239,6 +241,7 @@ function runTimesheetTests(assert) {
   );
   assert(
     resolveStructuredTimesheetSymbol({ status: 'present', work_units: 1.5, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '1,5x'
+      && resolveStructuredTimesheetSymbol({ status: 'present', work_units: 1.75, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '1,75x'
       && resolveStructuredTimesheetSymbol({ status: 'present', work_units: 2, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '2x'
       && resolveStructuredTimesheetSymbol({ status: 'present', work_units: 3, check_in_time: '2026-09-02T02:00:00.000Z' }, true) === '3x'
       && resolveStructuredTimesheetSymbol(null, true) === 'L',

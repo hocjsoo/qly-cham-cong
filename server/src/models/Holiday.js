@@ -22,7 +22,7 @@ const holidaySchema = new mongoose.Schema(
     },
     work_multiplier: {
       type: Number,
-      enum: [1.5, 2, 3],
+      enum: [1.5, 1.75, 2, 3],
       default: 1.5,
     },
     note: {

@@ -116,7 +116,7 @@ const INITIAL_MOCK_EXPENSES = [
   },
 ];
 
-const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3];
 
 function normalizeHolidayMultiplier(value) {
   const multiplier = Number(value);

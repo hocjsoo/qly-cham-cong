@@ -98,9 +98,10 @@ async function runExportTests(assert) {
   assert(summary.totalWorkingDays === 5.5, 'TC-EXP-03.3: Tổng công hưởng lương tính cả phép & WFH = 5.5 ngày công');
   assert(
     productionGetTimesheetSymbol({ status: 'present', work_units: 1.5 }) === '1,5x'
+      && productionGetTimesheetSymbol({ status: 'present', work_units: 1.75 }) === '1,75x'
       && productionGetTimesheetSymbol({ status: 'present', work_units: 2 }) === '2x'
       && productionGetTimesheetSymbol({ status: 'present', work_units: 3 }) === '3x',
-    'TC-EXP-03.4: Excel production xuất đúng ký hiệu công ngày lễ 1,5x / 2x / 3x'
+    'TC-EXP-03.4: Excel production xuất đúng ký hiệu công ngày lễ 1,5x / 1,75x / 2x / 3x'
   );
   assert(
     productionGetTimesheetSymbol({ status: 'leave', work_units: 1, check_in_type: 'office', notes: 'Sửa WFH thành nghỉ phép' }) === 'P',

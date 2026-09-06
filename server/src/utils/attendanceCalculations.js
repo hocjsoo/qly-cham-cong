@@ -95,7 +95,7 @@ const formatDurationHoursMinutes = (hours) => {
 
 const normalizeHolidayMultiplier = (value, fallback = 1.5) => {
   const numericValue = Number(value);
-  return [1.5, 2, 3].includes(numericValue) ? numericValue : fallback;
+  return [1.5, 1.75, 2, 3].includes(numericValue) ? numericValue : fallback;
 };
 
 module.exports = {

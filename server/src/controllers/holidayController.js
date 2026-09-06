@@ -2,7 +2,7 @@
 const Holiday = require('../models/Holiday');
 const Notification = require('../models/Notification');
 
-const ALLOWED_WORK_MULTIPLIERS = new Set([1.5, 2, 3]);
+const ALLOWED_WORK_MULTIPLIERS = new Set([1.5, 1.75, 2, 3]);
 const normalizeHolidayMultiplier = value => {
   const parsed = Number(value);
   return ALLOWED_WORK_MULTIPLIERS.has(parsed) ? parsed : null;
@@ -51,7 +51,7 @@ const createHoliday = async (req, res) => {
   if (!name || !date) return res.status(400).json({ error: 'Tên ngày lễ và ngày bắt đầu là bắt buộc.' });
   const normalizedMultiplier = normalizeHolidayMultiplier(work_multiplier);
   if (normalizedMultiplier === null) {
-    return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 2 hoặc 3.' });
+    return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 1.75, 2 hoặc 3.' });
   }
 
   try {
@@ -102,7 +102,7 @@ const updateHoliday = async (req, res) => {
     if (work_multiplier !== undefined) {
       const normalizedMultiplier = normalizeHolidayMultiplier(work_multiplier);
       if (normalizedMultiplier === null) {
-        return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 2 hoặc 3.' });
+        return res.status(400).json({ error: 'Hệ số công ngày lễ chỉ chấp nhận 1.5, 1.75, 2 hoặc 3.' });
       }
       updateData.work_multiplier = normalizedMultiplier;
     }

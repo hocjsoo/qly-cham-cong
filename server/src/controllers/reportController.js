@@ -325,7 +325,7 @@ const getPayroll = async (req, res) => {
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
 
       // work_units là nguồn dữ liệu có cấu trúc cho ngày công, bao gồm hệ số
-      // ngày lễ 1.5x/2x/3x. Không suy ngược ngày công từ số giờ làm.
+      // ngày lễ 1.5x/1.75x/2x/3x. Không suy ngược ngày công từ số giờ làm.
       const regularHours = Math.max(0, totalHours - otHours);
       const attendanceDays = parseFloat(recs.reduce((sum, record) => (
         sum + (Number(record.work_units) || 0)

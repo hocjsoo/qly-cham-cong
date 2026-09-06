@@ -19,6 +19,8 @@ const SYMBOL_TO_STATUS_MAP = {
   '0.5x': { total_hours: 4, work_units: 0.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present' },
   '1,5x': { total_hours: 8, work_units: 1.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,5x' },
   '1.5x': { total_hours: 8, work_units: 1.5, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,5x' },
+  '1,75x': { total_hours: 8, work_units: 1.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,75x' },
+  '1.75x': { total_hours: 8, work_units: 1.75, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 1,75x' },
   '2x': { total_hours: 8, work_units: 2, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 2x' },
   '2.0x': { total_hours: 8, work_units: 2, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 2x' },
   '3x': { total_hours: 8, work_units: 3, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'present', notes: 'Công hệ số 3x' },
@@ -33,10 +35,11 @@ const SYMBOL_TO_STATUS_MAP = {
   'L': { total_hours: 8, work_units: 1.0, is_late: false, late_tier: 'on_time', check_in_type: 'office', status: 'holiday', notes: 'Nghỉ Lễ (L)' },
 };
 
-const HOLIDAY_WORK_MULTIPLIERS = new Set([1.5, 2, 3]);
+const HOLIDAY_WORK_MULTIPLIERS = new Set([1.5, 1.75, 2, 3]);
 const formatWorkUnitSymbol = workUnits => {
   const normalized = Number(workUnits);
   if (normalized === 1.5) return '1,5x';
+  if (normalized === 1.75) return '1,75x';
   if (normalized === 2) return '2x';
   if (normalized === 3) return '3x';
   return null;
@@ -291,7 +294,7 @@ const getFullMatrix = async (req, res) => {
           else if (symbol === 'O') sick_leave += 1;
           else if (symbol === 'KL') unpaid_leave += 1;
           else if (symbol === 'K') other_leave += 1;
-          else if (['1,5x', '2x', '3x'].includes(symbol)) nlv_office += Number(att.work_units) || 0;
+          else if (['1,5x', '1,75x', '2x', '3x'].includes(symbol)) nlv_office += Number(att.work_units) || 0;
           else if (symbol === 'x') nlv_office += 1;
           else if (symbol === '0,75x') nlv_office += 0.75;
           else if (symbol === '0,5x') nlv_office += 0.5;
@@ -455,7 +458,7 @@ const overrideCell = async (req, res) => {
   // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
   if (rawSymbol !== '' && !SYMBOL_TO_STATUS_MAP[rawSymbol]) {
     return res.status(400).json({
-      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận: x, 0,75x, 0,5x, 1,5x, 2x, 3x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
+      error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận: x, 0,75x, 0,5x, 1,5x, 1,75x, 2x, 3x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
     });
   }
 

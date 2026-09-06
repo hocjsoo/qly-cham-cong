@@ -929,7 +929,7 @@ const approveRequest = async (req, res) => {
 
         if (att) {
           const currentWorkUnits = Number(att.work_units);
-          const holidayWorkUnits = [1.5, 2, 3].includes(currentWorkUnits)
+          const holidayWorkUnits = [1.5, 1.75, 2, 3].includes(currentWorkUnits)
             ? normalizeHolidayMultiplier(currentWorkUnits)
             : null;
 

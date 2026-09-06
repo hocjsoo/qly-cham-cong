@@ -394,12 +394,12 @@ async function runClientUiBadgesTests(assert) {
     'utf8'
   );
   assert(
-    settingsPage.includes('work_multiplier')
-      && historyPage.includes('work_multiplier')
-      && reportPage.includes('HOLIDAY_WORK_UNITS')
-      && reportPage.includes("new Set([1.5, 2, 3])")
-      && mockApi.includes('HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3]'),
-    'TC-UI-BDG-23: UI và Mock API đồng bộ hệ số ngày lễ 1,5x / 2x / 3x'
+    settingsPage.includes('HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3]')
+      && historyPage.includes('HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3]')
+      && reportPage.includes('new Set([1.5, 1.75, 2, 3])')
+      && reportPage.includes('<option value="1,75x">')
+      && mockApi.includes('HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3]'),
+    'TC-UI-BDG-23: UI và Mock API đồng bộ hệ số ngày lễ 1,5x / 1,75x / 2x / 3x'
   );
 }
 

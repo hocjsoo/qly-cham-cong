@@ -23,13 +23,15 @@ import {
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
-const HOLIDAY_WORK_UNITS = new Set([1.5, 2, 3]);
-const HOLIDAY_WORK_SYMBOLS = new Set(['1,5x', '1.5x', '2x', '2.0x', '3x', '3.0x']);
+const HOLIDAY_WORK_UNITS = new Set([1.5, 1.75, 2, 3]);
+const HOLIDAY_WORK_SYMBOLS = new Set(['1,5x', '1.5x', '1,75x', '1.75x', '2x', '2.0x', '3x', '3.0x']);
 
 const formatHolidayWorkSymbol = value => {
   const units = Number(value);
   if (!HOLIDAY_WORK_UNITS.has(units)) return '';
-  return units === 1.5 ? '1,5x' : `${units}x`;
+  if (units === 1.5) return '1,5x';
+  if (units === 1.75) return '1,75x';
+  return `${units}x`;
 };
 
 // Prefer the numeric DTO field for holiday multipliers; never infer payroll data from free-text notes.
@@ -644,7 +646,7 @@ export default function ReportPage() {
   // Sửa Ô Công & Xác Nhận Giờ OT Có Ghi Lý Do
   const handleSaveCellOverride = async () => {
     if (!selectedCell) return;
-    const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', '1,5x', '2x', '3x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
+    const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', '1,5x', '1,75x', '2x', '3x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
     if (!VALID_SYMBOLS.includes(cellSymbol)) {
       toast.error('Vui lòng chọn Ký hiệu công hợp lệ');
       return;
@@ -1656,7 +1658,7 @@ export default function ReportPage() {
                           </div>
                           <div className="timesheet-legend">
                             <span className="timesheet-legend__item is-green"><i />x · 0,5x · 0,75x</span>
-                            <span className="timesheet-legend__item is-holiday-work"><i />1,5x · 2x · 3x ngày lễ</span>
+                            <span className="timesheet-legend__item is-holiday-work"><i />1,5x · 1,75x · 2x · 3x ngày lễ</span>
                             <span className="timesheet-legend__item is-blue"><i />CT1 · CT2 · WFH</span>
                             <span className="timesheet-legend__item is-purple"><i />P · O · KL · K</span>
                             <span className="timesheet-legend__item is-red"><i />CN để trống</span>
@@ -2429,7 +2431,7 @@ export default function ReportPage() {
                   <div style={{ marginTop: '3px' }}>
                     <span
                       className={`badge ${
-                        ['x', '0,75x', '0,5x', '1,5x', '1.5x', '2x', '2.0x', '3x', '3.0x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
+                        ['x', '0,75x', '0,5x', '1,5x', '1.5x', '1,75x', '1.75x', '2x', '2.0x', '3x', '3.0x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
                         ['P', 'O'].includes(selectedCell.current_symbol) ? 'badge--warning' :
                         ['KL', 'K'].includes(selectedCell.current_symbol) ? 'badge--danger' : 'badge--neutral'
                       }`}
@@ -2543,6 +2545,7 @@ export default function ReportPage() {
                       <option value="0,75x">0,75x : 3/4 công (0.75)</option>
                       <option value="0,5x">0,5x : 1/2 công (0.5)</option>
                       <option value="1,5x">1,5x : Đi làm ngày lễ (1.5)</option>
+                      <option value="1,75x">1,75x : Đi làm ngày lễ (1.75)</option>
                       <option value="2x">2x : Đi làm ngày lễ (2.0)</option>
                       <option value="3x">3x : Đi làm ngày lễ (3.0)</option>
                       <option value="CT1">CT1 : CT Trong nước (1.0)</option>

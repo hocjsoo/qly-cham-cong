@@ -33,13 +33,15 @@ const TYPE_MAP = {
   office: '🏢 Văn phòng', site: '🏗️ Công trình', client: '👔 Khách hàng', wfh: '🏠 WFH',
 };
 const TYPE_SHORT = { office: 'VP', site: 'CT', client: 'KH', wfh: 'WFH' };
-const HOLIDAY_WORK_MULTIPLIERS = [1.5, 2, 3];
+const HOLIDAY_WORK_MULTIPLIERS = [1.5, 1.75, 2, 3];
 const normalizeHolidayMultiplier = value => (
   HOLIDAY_WORK_MULTIPLIERS.includes(Number(value)) ? Number(value) : 1.5
 );
 const formatHolidayWorkSymbol = value => {
   const multiplier = normalizeHolidayMultiplier(value);
-  return multiplier === 1.5 ? '1,5x' : `${multiplier}x`;
+  if (multiplier === 1.5) return '1,5x';
+  if (multiplier === 1.75) return '1,75x';
+  return `${multiplier}x`;
 };
 
 // Ký hiệu bảng chấm công chuẩn theo mẫu ET_Staff 2026
@@ -48,6 +50,7 @@ const TIMESHEET_SYMBOLS = [
   { code: '0.75x', label: '3/4 công', color: 'var(--green)' },
   { code: '0.5x', label: '1/2 công', color: 'var(--yellow)' },
   { code: '1,5x', label: 'Ngày lễ (1.5)', color: 'var(--holiday-work)' },
+  { code: '1,75x', label: 'Ngày lễ (1.75)', color: 'var(--holiday-work)' },
   { code: '2x', label: 'Ngày lễ (2.0)', color: 'var(--holiday-work)' },
   { code: '3x', label: 'Ngày lễ (3.0)', color: 'var(--holiday-work)' },
   { code: 'CT1', label: 'CT Trong nước', color: 'var(--blue)' },
