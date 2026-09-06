@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, X, Search, Edit2, Trash2, UserCheck, AlertTriangle, UserX, Download, UserPlus, Clock, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cachedGet } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
@@ -120,7 +121,7 @@ export default function StaffPage() {
     try {
       const [resUsers, resDepts] = await Promise.all([
         api.get('/users'),
-        api.get('/departments'),
+        cachedGet('/departments', { ttl: 300000 }),
       ]);
       setStaff(resUsers.data || []);
       setDepts(resDepts.data || []);

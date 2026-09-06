@@ -3,6 +3,8 @@
 
 import { create } from 'zustand';
 import api from '../services/api';
+import { clearDataCache } from '../services/dataCache';
+import { clearPendingCountCache } from '../services/pendingCountCache';
 
 const useAuthStore = create((set, get) => ({
   // State
@@ -35,6 +37,8 @@ const useAuthStore = create((set, get) => ({
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearDataCache();
+    clearPendingCountCache();
     set({ user: null, token: null });
   },
 

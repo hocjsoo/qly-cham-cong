@@ -764,7 +764,14 @@ const getTodayStatus = async (req, res) => {
     const userId = req.user._id;
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
-    let attendance = await Attendance.findOne({ user_id: userId, date: dateStr });
+
+    // Song song hóa truy vấn bản ghi hôm nay và danh sách văn phòng
+    const [todayAttendance, activeOffices] = await Promise.all([
+      Attendance.findOne({ user_id: userId, date: dateStr }).select('-selfie_url').lean(),
+      OfficeLocation.find({ is_active: true }).lean(),
+    ]);
+
+    let attendance = todayAttendance;
     let activeShift = null;
 
     // Nếu hôm nay chưa check-in: tìm ca đang mở từ hôm trước trong phạm vi 48h
@@ -774,7 +781,10 @@ const getTodayStatus = async (req, res) => {
         date: { $ne: dateStr },
         check_in_time: { $ne: null },
         check_out_time: null,
-      }).sort({ date: -1 });
+      })
+        .select('-selfie_url')
+        .sort({ date: -1 })
+        .lean();
 
       if (openShifts.length === 1) {
         const candidate = openShifts[0];
@@ -788,7 +798,6 @@ const getTodayStatus = async (req, res) => {
       }
     }
 
-    const activeOffices = await OfficeLocation.find({ is_active: true });
     res.json({
       attendance,
       active_shift: activeShift,
@@ -834,7 +843,10 @@ const getHistory = async (req, res) => {
       const yearlyRecords = await Attendance.find({
         ...userQueryFilter,
         date: { $regex: `^${y}-` }
-      }).populate('user_id', 'full_name employee_code avatar_url email');
+      })
+        .select('-selfie_url')
+        .populate('user_id', 'full_name employee_code avatar_url email')
+        .lean();
 
       const monthsData = Array.from({ length: 12 }, (_, i) => {
         const monthNum = i + 1;
@@ -863,9 +875,11 @@ const getHistory = async (req, res) => {
       ...userQueryFilter,
       date: { $regex: `^${monthStr}` }
     })
+      .select('-selfie_url')
       .populate('user_id', 'full_name employee_code avatar_url email')
       .populate('ot_approved_by', 'full_name')
-      .sort({ date: -1 });
+      .sort({ date: -1 })
+      .lean();
 
     const presentDays = records.filter(r => !r.is_late).length;
     const lateDays = records.filter(r => r.is_late).length;

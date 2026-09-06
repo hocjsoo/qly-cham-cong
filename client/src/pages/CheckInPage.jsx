@@ -7,10 +7,14 @@ import { MapPin, CheckCircle, LogOut, Flame, Clock, Navigation, AlertTriangle, C
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cachedGet } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
 import { getDeviceFingerprint } from '../utils/deviceFingerprint';
+
+let moduleCheckInCache = null;
+let moduleCheckInTime = 0;
 
 const LATE_TIERS = {
   on_time:     { label: 'Đúng giờ',                    cls: 'badge--success', icon: '✅' },
@@ -74,14 +78,19 @@ export default function CheckInPage() {
   const { user } = useAuthStore();
   const fetchSystemSettings = useSettingsStore(state => state.fetchSettings);
   const navigate = useNavigate();
+  const currentDateVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const checkInCacheKey = `${user?._id || user?.id || 'anonymous'}:${user?.role || 'guest'}:${currentDateVN}`;
+  const hasFreshCheckInCache = Boolean(
+    moduleCheckInCache?.cacheKey === checkInCacheKey && Date.now() - moduleCheckInTime < 60000
+  );
 
-  const [today, setToday] = useState(null);
-  const [activeShift, setActiveShift] = useState(null);
-  const [isOvernightShiftActive, setIsOvernightShiftActive] = useState(false);
-  const [office, setOffice] = useState(null);
-  const [offices, setOffices] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [myProjects, setMyProjects] = useState([]);
+  const [today, setToday] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.today : null));
+  const [activeShift, setActiveShift] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.activeShift : null));
+  const [isOvernightShiftActive, setIsOvernightShiftActive] = useState(() => Boolean(hasFreshCheckInCache && moduleCheckInCache.isOvernightShiftActive));
+  const [office, setOffice] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.office : null));
+  const [offices, setOffices] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.offices : []));
+  const [projects, setProjects] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.projects : []));
+  const [myProjects, setMyProjects] = useState(() => (hasFreshCheckInCache ? moduleCheckInCache.myProjects : []));
   const [birthdays, setBirthdays] = useState([]);
   const [anniversaries, setAnniversaries] = useState([]);
   const [holidays, setHolidays] = useState([]);
@@ -92,7 +101,7 @@ export default function CheckInPage() {
   const [selectedBirthday, setSelectedBirthday] = useState(null);
   const [selectedAnniversary, setSelectedAnniversary] = useState(null);
   const [selectedHoliday, setSelectedHoliday] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !hasFreshCheckInCache);
   const [settings, setSettings] = useState(null);
   const [isOutsideOffice, setIsOutsideOffice] = useState(false);
   const [outsideType, setOutsideType] = useState('wfh'); // 'wfh' | 'client' | 'site'
@@ -133,15 +142,17 @@ export default function CheckInPage() {
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (moduleCheckInCache?.cacheKey !== checkInCacheKey || Date.now() - moduleCheckInTime >= 60000) {
+        setLoading(true);
+      }
       const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
       const [yearVal, monthVal] = todayVN.split('-').map(Number);
 
       const [todayRes, settingsRes, projRes, locRes] = await Promise.all([
         api.get("/attendance/today"),
         fetchSystemSettings().then(data => ({ data })),
-        api.get("/projects?active_only=true"),
-        api.get("/locations"),
+        cachedGet("/projects?active_only=true", { ttl: 120000 }),
+        cachedGet("/locations", { ttl: 300000 }),
       ]);
       setToday(todayRes.data.attendance || null);
       setActiveShift(todayRes.data.active_shift || null);
@@ -163,11 +174,11 @@ export default function CheckInPage() {
 
       // Tải ngầm các widgets phụ trợ không làm chậm luồng hiển thị chính
       Promise.all([
-        api.get("/announcements/pinned").catch(() => ({ data: [] })),
-        api.get("/announcements/birthdays?month=" + monthVal).catch(() => ({ data: { birthdays: [] } })),
-        api.get("/announcements/anniversaries?month=" + monthVal).catch(() => ({ data: { anniversaries: [] } })),
-        api.get("/holidays?year=" + yearVal + "&month=" + monthVal).catch(() => ({ data: [] })),
-        api.get("/tts-schedules?week_start=" + getCurrentWeekStart()).catch(() => ({ data: null })),
+        cachedGet("/announcements/pinned", { ttl: 180000 }).catch(() => ({ data: [] })),
+        cachedGet("/announcements/birthdays?month=" + monthVal, { ttl: 180000 }).catch(() => ({ data: { birthdays: [] } })),
+        cachedGet("/announcements/anniversaries?month=" + monthVal, { ttl: 180000 }).catch(() => ({ data: { anniversaries: [] } })),
+        cachedGet("/holidays?year=" + yearVal + "&month=" + monthVal, { ttl: 300000 }).catch(() => ({ data: [] })),
+        cachedGet("/tts-schedules?week_start=" + getCurrentWeekStart(), { ttl: 180000 }).catch(() => ({ data: null })),
       ]).then(([annRes, bdayRes, annivRes, holRes, dutyRes]) => {
         setAnnouncements(Array.isArray(annRes?.data) ? annRes.data : []);
         setBirthdays(bdayRes.data?.birthdays || []);
@@ -183,7 +194,6 @@ export default function CheckInPage() {
         });
         setHolidays(monthHolidays);
       }).catch(() => {});
-
 
       // Filter projects where current user is a member or PM
       const uid = String(user?._id || user?.id || '');
@@ -205,13 +215,26 @@ export default function CheckInPage() {
         }
         return false;
       });
-      setMyProjects(myProjs.length > 0 ? myProjs : activeProjects.slice(0, 4));
+      const resolvedMyProjs = myProjs.length > 0 ? myProjs : activeProjects.slice(0, 4);
+      setMyProjects(resolvedMyProjs);
+
+      moduleCheckInCache = {
+        cacheKey: checkInCacheKey,
+        today: todayRes.data.attendance || null,
+        activeShift: todayRes.data.active_shift || null,
+        isOvernightShiftActive: Boolean(todayRes.data.is_active_overnight_shift),
+        office: activeOffice || null,
+        offices: allActiveOffices,
+        projects: activeProjects,
+        myProjects: resolvedMyProjs,
+      };
+      moduleCheckInTime = Date.now();
     } catch {
       toast.error('Lỗi tải thông tin chấm công');
     } finally {
       setLoading(false);
     }
-  }, [fetchSystemSettings, user]);
+  }, [checkInCacheKey, fetchSystemSettings, user]);
 
   const acquireGPS = useCallback(() => {
     if (!navigator.geolocation) {
@@ -299,6 +322,8 @@ export default function CheckInPage() {
 
       toast.success(data.message || 'Check-in thành công!');
       setToday(data.attendance);
+      moduleCheckInCache = null;
+      moduleCheckInTime = 0;
       setShowSelfieModal(false);
       setSelfieImage(null);
 
@@ -374,6 +399,8 @@ export default function CheckInPage() {
       setToday(data.attendance);
       setActiveShift(null);
       setIsOvernightShiftActive(false);
+      moduleCheckInCache = null;
+      moduleCheckInTime = 0;
 
       if (data.outside_office_radius || data.suggest_explanation) {
         toast((t) => (

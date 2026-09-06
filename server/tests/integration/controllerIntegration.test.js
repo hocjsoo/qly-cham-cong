@@ -2207,6 +2207,91 @@ async function runControllerIntegrationTests(assert) {
     Holiday.find = origHolidayFindForMatrix;
     TimesheetLock.find = origLockFindForMatrix;
 
+    // =========================================================================
+    // TC-HTTP-25: Payload trạng thái hôm nay/lịch sử không mang ảnh selfie Base64
+    // =========================================================================
+    let todaySelectUsed = null;
+    let historySelectUsed = null;
+    const origAttFindOneForLightweight = Attendance.findOne;
+    const origAttFindForLightweight = Attendance.find;
+    const origOfficeFindForLightweight = OfficeLocation.find;
+    const todayRecord = {
+      _id: '507f1f77bcf86cd799439088',
+      user_id: mockEmpUser._id,
+      date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }),
+      check_in_time: new Date('2026-09-06T02:00:00.000Z'),
+      check_out_time: null,
+      check_in_type: 'office',
+      selfie_url: 'data:image/jpeg;base64,VERY_LARGE_FIXTURE',
+      is_late: false,
+      total_hours: 0,
+    };
+
+    Attendance.findOne = function() {
+      const queryObj = {
+        select(fields) {
+          todaySelectUsed = fields;
+          return queryObj;
+        },
+        lean() {
+          const { selfie_url, ...lightweightRecord } = todayRecord;
+          return Promise.resolve(lightweightRecord);
+        }
+      };
+      return queryObj;
+    };
+    OfficeLocation.find = function() {
+      return {
+        lean() {
+          return Promise.resolve([{ _id: 'office-1', name: 'Văn phòng chính', lat: 21.0285, lng: 105.8542, radius_m: 250 }]);
+        }
+      };
+    };
+
+    const resTodayLightweight = await request(app)
+      .get('/api/attendance/today')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    assert(
+      resTodayLightweight.status === 200 && todaySelectUsed === '-selfie_url',
+      'TC-HTTP-25.1: GET /api/attendance/today loại selfie_url ngay trong projection MongoDB'
+    );
+    assert(
+      resTodayLightweight.body.attendance?.selfie_url === undefined && resTodayLightweight.body.attendance?.check_in_time,
+      'TC-HTTP-25.2: Payload trạng thái hôm nay vẫn đủ dữ liệu ca nhưng không trả Base64 selfie'
+    );
+
+    Attendance.find = function() {
+      const queryObj = {
+        select(fields) {
+          historySelectUsed = fields;
+          return queryObj;
+        },
+        populate() { return queryObj; },
+        sort() { return queryObj; },
+        lean() {
+          const { selfie_url, ...lightweightRecord } = todayRecord;
+          return Promise.resolve([lightweightRecord]);
+        }
+      };
+      return queryObj;
+    };
+
+    const resHistoryLightweight = await request(app)
+      .get('/api/attendance/history?month=9&year=2026')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    assert(
+      resHistoryLightweight.status === 200 && historySelectUsed === '-selfie_url',
+      'TC-HTTP-25.3: GET /api/attendance/history loại selfie_url ngay trong projection MongoDB'
+    );
+    assert(
+      resHistoryLightweight.body.records?.length === 1 && resHistoryLightweight.body.records[0].selfie_url === undefined,
+      'TC-HTTP-25.4: Lịch sử giữ dữ liệu công nhưng không truyền ảnh selfie Base64'
+    );
+
+    Attendance.findOne = origAttFindOneForLightweight;
+    Attendance.find = origAttFindForLightweight;
+    OfficeLocation.find = origOfficeFindForLightweight;
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;

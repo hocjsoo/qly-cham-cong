@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, TrendingUp, Clock, AlertTriangle, List, Table2, Download, Edit2, X, LayoutGrid, Info, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cachedGet, clearDataCache } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
@@ -118,8 +119,8 @@ export default function HistoryPage() {
   const startTime = settings?.work_start_time || '09:00';
   const endTime = settings?.work_end_time || '18:30';
   const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
-  const fetchHolidays = useCallback(() => {
-    api.get(`/holidays?year=${year}`).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+  const fetchHolidays = useCallback((force = false) => {
+    cachedGet(`/holidays?year=${year}`, { ttl: 300000, force }).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, [year]);
 
   const holidayByDate = useMemo(() => {
@@ -177,7 +178,8 @@ export default function HistoryPage() {
       }
       toast.success('Đã cập nhật ngày nghỉ lễ & phát thông báo toàn công ty! 🎉');
       setShowHolidayModal(false);
-      fetchHolidays();
+      clearDataCache('/holidays');
+      fetchHolidays(true);
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Lỗi lưu ngày nghỉ lễ');
     } finally {
@@ -191,7 +193,8 @@ export default function HistoryPage() {
       await api.delete(`/holidays/${id}`);
       toast.success('Đã xóa ngày nghỉ lễ');
       setSelectedDayDate('');
-      fetchHolidays();
+      clearDataCache('/holidays');
+      fetchHolidays(true);
     } catch {
       toast.error('Lỗi xóa ngày nghỉ lễ');
     }
@@ -199,7 +202,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (isAdminOrManager) {
-      api.get('/users').then(res => {
+      cachedGet('/users', { ttl: 180000 }).then(res => {
         const list = Array.isArray(res.data) ? res.data : (res.data?.users || []);
         setStaffList(list);
       }).catch(() => {});

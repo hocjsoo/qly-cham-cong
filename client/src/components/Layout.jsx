@@ -6,7 +6,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Clock, Mail, LayoutDashboard, FileText, History, Users, Settings, BarChart2, LogOut, User, FolderKanban, Bike, Receipt, Trophy, CalendarDays } from 'lucide-react';
 import useAuthStore from '../stores/authStore';
 import { fetchPendingCountCached } from '../services/pendingCountCache';
-import { prefetchRoute } from '../utils/routePrefetch';
+import { prefetchRoute, prefetchAllCoreRoutes } from '../utils/routePrefetch';
 
 import useSettingsStore from '../stores/settingsStore';
 
@@ -19,6 +19,11 @@ export default function Layout() {
   const isStaff = user?.role === 'staff' || user?.role === 'employee';
   const isAdmin = user?.role === 'admin';
   const [pendingCount, setPendingCount] = useState(0);
+
+  // Tải trước các trang chính khi trình duyệt rảnh rỗi
+  useEffect(() => {
+    prefetchAllCoreRoutes();
+  }, []);
 
   const fetchPendingCount = useCallback(async () => {
     try {

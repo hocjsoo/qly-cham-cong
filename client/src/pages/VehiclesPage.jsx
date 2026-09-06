@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Search, Edit2, Download, Bike, Phone, X, LayoutList, LayoutGrid, Mail, Calendar, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cachedGet } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
 import { downloadBlob } from '../utils/downloadBlob';
@@ -61,7 +62,7 @@ export default function VehiclesPage() {
     try {
       const [resUsers, resDepts] = await Promise.all([
         api.get('/users?active_only=true'),
-        api.get('/departments'),
+        cachedGet('/departments', { ttl: 300000 }),
       ]);
       const allUsers = Array.isArray(resUsers.data) ? resUsers.data : (Array.isArray(resUsers.data?.users) ? resUsers.data.users : []);
       // Lọc đa tầng để đảm bảo 100% không còn nhân sự đã nghỉ việc

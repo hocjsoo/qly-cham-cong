@@ -1,21 +1,36 @@
 import api from './api';
+import { getDataCacheScope } from './dataCache';
 
-let cachedValue = null;
-let cachedAt = 0;
-let pendingRequest = null;
+const cachedByScope = new Map();
+const pendingByScope = new Map();
+let cacheGeneration = 0;
 
 export async function fetchPendingCountCached({ force = false } = {}) {
-  if (!force && cachedValue !== null && Date.now() - cachedAt < 30000) return cachedValue;
-  if (pendingRequest) return pendingRequest;
+  const scope = getDataCacheScope();
+  const cached = cachedByScope.get(scope);
+  if (!force && cached && Date.now() - cached.cachedAt < 30000) return cached.value;
+  if (pendingByScope.has(scope)) return pendingByScope.get(scope);
 
-  pendingRequest = api.get('/dashboard/pending-count')
+  const requestGeneration = cacheGeneration;
+  const pendingRequest = api.get('/dashboard/pending-count')
     .then(({ data }) => {
-      cachedValue = Number(data?.pending_count) || 0;
-      cachedAt = Date.now();
-      return cachedValue;
+      const value = Number(data?.pending_count) || 0;
+      if (requestGeneration === cacheGeneration) {
+        cachedByScope.set(scope, { value, cachedAt: Date.now() });
+      }
+      return value;
     })
     .finally(() => {
-      pendingRequest = null;
+      if (pendingByScope.get(scope) === pendingRequest) {
+        pendingByScope.delete(scope);
+      }
     });
+  pendingByScope.set(scope, pendingRequest);
   return pendingRequest;
+}
+
+export function clearPendingCountCache() {
+  cacheGeneration += 1;
+  cachedByScope.clear();
+  pendingByScope.clear();
 }

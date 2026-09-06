@@ -14,11 +14,15 @@ import { lazy, Suspense } from 'react';
 const LazyDashboardChart = lazy(() => import('../components/DashboardTrendChart'));
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { cachedGet } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import useSettingsStore from '../stores/settingsStore';
 import { fetchPendingCountCached } from '../services/pendingCountCache';
 import HeaderActions from '../components/HeaderActions';
 import { exportAttendanceToCSV } from '../utils/exportCsv';
+
+let moduleDashboardCache = null;
+let moduleDashboardTime = 0;
 
 const fmt = (iso) => {
   if (!iso) return '—';
@@ -71,7 +75,12 @@ export default function DashboardPage() {
   const systemSettings = useSettingsStore(state => state.settings);
   const updateSettingsState = useSettingsStore(state => state.updateSettingsState);
   const isAdminOrLeader = user?.role === 'admin' || user?.role === 'leader' || user?.role === 'manager';
-  const [data, setData] = useState(null);
+  const currentDateVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const dashboardCacheKey = `${user?._id || user?.id || 'anonymous'}:${user?.role || 'guest'}:${currentDateVN}`;
+  const hasFreshDashboardCache = Boolean(
+    moduleDashboardCache?.cacheKey === dashboardCacheKey && Date.now() - moduleDashboardTime < 120000
+  );
+  const [data, setData] = useState(() => (hasFreshDashboardCache ? moduleDashboardCache.data : null));
   const [allProjects, setAllProjects] = useState([]);
 
   const checkIsMyProject = (p, currentUser) => {
@@ -116,7 +125,7 @@ export default function DashboardPage() {
   };
   const [pendingCount, setPendingCount] = useState(0);
   const [trend, setTrend] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !hasFreshDashboardCache);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -178,7 +187,7 @@ export default function DashboardPage() {
       fetchFlagged();
       fetchData();
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi xử lý từ chối');
+      toast.error(err?.response?.data?.error || 'Lỗi xử lý từ chối ca');
     } finally {
       setVerifyingId(null);
     }
@@ -186,9 +195,11 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
+      if (moduleDashboardCache?.cacheKey !== dashboardCacheKey || Date.now() - moduleDashboardTime >= 120000) {
+        setLoading(true);
+      }
       if (!isAdminOrLeader) {
-        const projRes = await api.get('/projects?active_only=true&compact=true').catch(() => ({ data: [] }));
+        const projRes = await cachedGet('/projects?active_only=true&compact=true', { ttl: 120000 }).catch(() => ({ data: [] }));
         setData(createEmptyDashboard());
         setPendingCount(0);
         setAllProjects(Array.isArray(projRes?.data) ? projRes.data : (projRes?.data?.projects || []));
@@ -199,11 +210,13 @@ export default function DashboardPage() {
       const [d, p, projRes] = await Promise.all([
         api.get('/dashboard/today'),
         fetchPendingCountCached(),
-        api.get('/projects?active_only=true&compact=true').catch(() => ({ data: [] })),
+        cachedGet('/projects?active_only=true&compact=true', { ttl: 120000 }).catch(() => ({ data: [] })),
       ]);
       const resData = d?.data;
       if (resData && typeof resData === 'object' && resData.summary) {
         setData(resData);
+        moduleDashboardCache = { cacheKey: dashboardCacheKey, data: resData };
+        moduleDashboardTime = Date.now();
       } else {
         console.warn('Dashboard received invalid payload:', resData);
         setData(createEmptyDashboard());
@@ -214,7 +227,7 @@ export default function DashboardPage() {
       fetchFlagged();
 
       if (isAdminOrLeader) {
-        api.get('/reports/trend?months=6').then(r => setTrend(r.data)).catch(() => {});
+        cachedGet('/reports/trend?months=6', { ttl: 180000 }).then(r => setTrend(r.data)).catch(() => {});
       }
     } catch (err) {
       console.error('FetchData error:', err);
@@ -223,7 +236,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchFlagged, isAdminOrLeader]);
+  }, [dashboardCacheKey, fetchFlagged, isAdminOrLeader]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
@@ -231,19 +244,19 @@ export default function DashboardPage() {
     return () => clearInterval(i);
   }, [fetchData]);
 
-  // Load birthdays, anniversaries, holidays and announcements
+  // Load birthdays, anniversaries, holidays and announcements with a short TTL cache
   useEffect(() => {
     const todayVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const [yearVal, monthVal] = todayVN.split('-').map(Number);
     const monthStr = String(monthVal).padStart(2, '0');
-    api.get(`/announcements/birthdays?month=${monthVal}`).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
-    api.get(`/announcements/anniversaries?month=${monthVal}`).then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
-    api.get(`/holidays?year=${yearVal}&month=${monthVal}`).then(r => {
+    cachedGet(`/announcements/birthdays?month=${monthVal}`, { ttl: 180000 }).then(r => setBirthdays(r.data?.birthdays || [])).catch(() => {});
+    cachedGet(`/announcements/anniversaries?month=${monthVal}`, { ttl: 180000 }).then(r => setAnniversaries(r.data?.anniversaries || [])).catch(() => {});
+    cachedGet(`/holidays?year=${yearVal}&month=${monthVal}`, { ttl: 300000 }).then(r => {
       const raw = Array.isArray(r.data) ? r.data : [];
       const monthHols = raw.filter(h => (h.date && h.date.includes(`-${monthStr}-`)) || (h.end_date && h.end_date.includes(`-${monthStr}-`)));
       setHolidays(monthHols);
     }).catch(() => {});
-    api.get('/announcements/pinned').then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
+    cachedGet('/announcements/pinned', { ttl: 180000 }).then(r => setAnnouncements(Array.isArray(r.data) ? r.data : [])).catch(() => {});
   }, []);
 
   useEffect(() => {
