@@ -252,6 +252,8 @@ export async function mockRequest(method, url, data = {}) {
       status: isLate ? 'late' : 'present',
       work_units: activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : (isAfterWorkUnitCutoff ? 0.75 : 1),
       holiday_id: activeHoliday?._id || null,
+      selfie_url: data.selfie_url || null,
+      has_selfie: Boolean(data.selfie_url),
     };
 
     const updated = [newRec, ...attendance.filter((a) => !(a.user_id === (user._id || user.id) && a.date === todayStr))];
@@ -314,6 +316,55 @@ export async function mockRequest(method, url, data = {}) {
         },
         records: userAtt,
       },
+    };
+  }
+
+  // === ATTENDANCE SELFIE PHOTO ===
+  if (url.includes('/attendance/') && url.includes('/selfie')) {
+    const parts = url.split('/');
+    const selfieIdx = parts.findIndex(p => p === 'selfie' || p.startsWith('selfie'));
+    const recordId = selfieIdx > 0 ? parts[selfieIdx - 1] : '';
+    const rec = attendance.find(a => String(a.id || a._id) === String(recordId));
+    if (!rec?.selfie_url) {
+      throw createMockHttpError('Không tìm thấy ảnh selfie cho ca làm việc này.', 404);
+    }
+    return {
+      data: {
+        selfie_url: rec.selfie_url,
+      }
+    };
+  }
+
+  // === FLAGGED ATTENDANCE ===
+  if (url.includes('/attendance/flagged')) {
+    const flaggedList = attendance.filter(a => a.is_flagged || a.selfie_url || a.has_selfie).map(a => {
+      const u = users.find(usr => String(usr._id || usr.id) === String(a.user_id));
+      return {
+        ...a,
+        user_id: u ? {
+          _id: u._id || u.id,
+          full_name: u.full_name,
+          employee_code: u.employee_code || u.code || 'NS',
+          department_id: { name: u.department_name || 'Văn Phòng' },
+        } : { full_name: 'Nhân sự', employee_code: 'NS', department_id: { name: 'Văn Phòng' } },
+        has_selfie: Boolean(a.selfie_url || a.has_selfie),
+        is_flagged: a.is_flagged ?? true,
+        verification_status: a.verification_status || 'pending_review',
+        flag_reason: a.flag_reason || 'Chưa xác thực thiết bị chính',
+      };
+    });
+    return {
+      data: {
+        flagged: flaggedList,
+        counts: {
+          total: flaggedList.length,
+          pending: flaggedList.filter(a => !a.verification_status || a.verification_status === 'pending_review').length,
+          approved: flaggedList.filter(a => a.verification_status === 'approved').length,
+          rejected: flaggedList.filter(a => a.verification_status === 'rejected').length,
+          with_photo: flaggedList.filter(a => a.has_selfie).length,
+          with_device: flaggedList.length,
+        }
+      }
     };
   }
 

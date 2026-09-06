@@ -1725,18 +1725,37 @@ const deleteAttendance = async (req, res) => {
 const getSelfiePhoto = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!id || (mongoose.Types.ObjectId.isValid && !mongoose.Types.ObjectId.isValid(id))) {
+      return res.status(400).json({ error: "Mã ca chấm công không hợp lệ." });
+    }
     let query = Attendance.findById(id);
     if (query && typeof query.select === "function") query = query.select("selfie_url user_id");
     if (query && typeof query.lean === "function") query = query.lean();
     const doc = await query;
-    if (!doc || !doc.selfie_url) {
+    const cleanSelfie = typeof doc?.selfie_url === 'string' ? doc.selfie_url.trim() : '';
+    if (!doc || !cleanSelfie || ['null', 'undefined'].includes(cleanSelfie.toLowerCase())) {
       return res.status(404).json({ error: "Không tìm thấy ảnh selfie cho ca làm việc này." });
     }
-    if (isLeaderRole(req.user) && !(await canManageUserId(req.user, doc.user_id))) {
-      return res.status(403).json({ error: 'Bạn chỉ được xem ảnh xác minh của nhân sự thuộc nhóm mình quản lý.' });
+
+    const docUserId = String(doc.user_id?._id || doc.user_id || '');
+    const currentUserId = String(req.user?._id || req.user?.id || '');
+
+    if (req.user?.role !== 'admin') {
+      if (isLeaderRole(req.user)) {
+        const canManage = await canManageUserId(req.user, doc.user_id, { allowSelf: true });
+        if (!canManage) {
+          return res.status(403).json({ error: 'Bạn chỉ được xem ảnh xác minh của nhân sự thuộc nhóm mình quản lý.' });
+        }
+      } else {
+        if (!currentUserId || currentUserId !== docUserId) {
+          return res.status(403).json({ error: 'Bạn chỉ có quyền xem ảnh xác minh ca chấm công của chính mình.' });
+        }
+      }
     }
-    res.setHeader("Cache-Control", "private, max-age=86400, stale-while-revalidate=604800");
-    return res.json({ selfie_url: doc.selfie_url });
+
+    // Ảnh xác minh là dữ liệu nhạy cảm; không để trình duyệt dùng lại sau khi đổi tài khoản.
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.json({ selfie_url: cleanSelfie });
   } catch (err) {
     console.error("GetSelfiePhoto error:", err);
     return res.status(500).json({ error: "Lỗi tải ảnh selfie." });

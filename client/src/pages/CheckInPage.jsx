@@ -16,6 +16,64 @@ import { getDeviceFingerprint } from '../utils/deviceFingerprint';
 let moduleCheckInCache = null;
 let moduleCheckInTime = 0;
 
+const MAX_SELFIE_SOURCE_BYTES = 25 * 1024 * 1024;
+const MAX_SELFIE_UPLOAD_BYTES = 1024 * 1024;
+
+const getDataUrlPayloadBytes = value => {
+  const payload = String(value || '').split(',', 2)[1] || '';
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - ((payload.match(/=*$/)?.[0]?.length) || 0));
+};
+
+const readFileAsDataUrl = file => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => typeof reader.result === 'string'
+    ? resolve(reader.result)
+    : reject(new Error('Không thể đọc dữ liệu ảnh'));
+  reader.onerror = () => reject(new Error('Lỗi đọc tệp ảnh'));
+  reader.readAsDataURL(file);
+});
+
+const compressSelfieFile = async file => {
+  if (file.size > MAX_SELFIE_SOURCE_BYTES) {
+    throw new Error('Ảnh vượt quá 25 MB. Vui lòng chụp lại ở độ phân giải thấp hơn');
+  }
+
+  const source = await readFileAsDataUrl(file);
+  const image = await new Promise((resolve, reject) => {
+    const preview = new Image();
+    preview.onload = () => resolve(preview);
+    preview.onerror = () => reject(new Error('Định dạng ảnh này chưa được trình duyệt hỗ trợ'));
+    preview.src = source;
+  });
+
+  if (!image.naturalWidth || !image.naturalHeight) {
+    throw new Error('Ảnh không có kích thước hợp lệ');
+  }
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Trình duyệt không thể xử lý ảnh. Vui lòng thử lại');
+
+  const attempts = [
+    { maxDimension: 800, quality: 0.82 },
+    { maxDimension: 800, quality: 0.68 },
+    { maxDimension: 640, quality: 0.72 },
+    { maxDimension: 480, quality: 0.68 },
+  ];
+
+  for (const { maxDimension, quality } of attempts) {
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const result = canvas.toDataURL('image/jpeg', quality);
+    if (getDataUrlPayloadBytes(result) <= MAX_SELFIE_UPLOAD_BYTES) return result;
+  }
+
+  throw new Error('Ảnh vẫn quá lớn sau khi tối ưu. Vui lòng chụp lại');
+};
+
 const LATE_TIERS = {
   on_time:     { label: 'Đúng giờ',                    cls: 'badge--success', icon: '✅' },
   late_minor:  { label: 'Muộn nhẹ 1–30p (1.0 công)',   cls: 'badge--warning', icon: '⏰' },
@@ -119,6 +177,7 @@ export default function CheckInPage() {
   const [showSelfieModal, setShowSelfieModal] = useState(false);
   const [selfieReason, setSelfieReason] = useState('');
   const [selfieImage, setSelfieImage] = useState(null);
+  const [compressingSelfie, setCompressingSelfie] = useState(false);
   const fileInputRef = useRef(null);
 
   // Collapsible Widgets states for clean mobile view
@@ -272,16 +331,28 @@ export default function CheckInPage() {
     loadData();
   }, [acquireGPS, loadData]);
 
-  const handleSelfieFileSelect = (e) => {
-    const file = e.target.files[0];
+  const handleSelfieFileSelect = async (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn tệp hình ảnh hợp lệ');
+      e.target.value = '';
+      return;
+    }
+
+    setCompressingSelfie(true);
+    try {
+      const base64 = await compressSelfieFile(file);
+
       setSelfieImage(base64);
-      handleCheckIn(base64);
-    };
-    reader.readAsDataURL(file);
+      await handleCheckIn(base64);
+    } catch (compressErr) {
+      console.error('Selfie processing error:', compressErr);
+      toast.error(compressErr?.message || 'Không tải được ảnh selfie');
+    } finally {
+      setCompressingSelfie(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const handleCheckIn = async (overrideSelfie = null, overrideType = null) => {
@@ -1833,14 +1904,18 @@ export default function CheckInPage() {
             ) : null}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button onClick={() => setShowSelfieModal(false)} className="btn btn--ghost" style={{ flex: 1 }}>Hủy</button>
+              <button onClick={() => setShowSelfieModal(false)} disabled={submitting || compressingSelfie} className="btn btn--ghost" style={{ flex: 1 }}>Hủy</button>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={submitting}
+                disabled={submitting || compressingSelfie}
                 className="btn btn--primary"
                 style={{ flex: 2, gap: '6px', fontSize: '13px' }}
               >
-                {submitting ? <span className="spinner" /> : <>📷 Chụp ảnh & Hoàn tất</>}
+                {submitting || compressingSelfie ? (
+                  <><span className="spinner" /> {compressingSelfie ? 'Đang xử lý ảnh...' : 'Đang gửi...'}</>
+                ) : (
+                  <>📷 Chụp ảnh & Hoàn tất</>
+                )}
               </button>
             </div>
           </div>

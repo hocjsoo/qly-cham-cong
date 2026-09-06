@@ -50,7 +50,8 @@ router.put('/overnight-ot/:id/reject', requireRole('admin'), attendanceActionLim
 
 // GET /api/attendance/flagged — Admin/Leader lấy danh sách nghi vấn & selfie chờ duyệt
 router.get('/flagged', requireRole('admin', 'manager'), getFlaggedAttendance);
-router.get('/:id/selfie', requireRole('admin', 'manager'), getSelfiePhoto);
+// GET /api/attendance/:id/selfie — Tải riêng ảnh selfie phân giải cao (Admin, Leader quản lý, hoặc chính chủ)
+router.get('/:id/selfie', getSelfiePhoto);
 
 // PUT /api/attendance/flagged/verify/:id & /approve-flagged/:id — Admin/Leader duyệt / từ chối selfie & cảnh báo
 router.put('/flagged/verify/:id', requireRole('admin', 'manager'), verifyFlaggedAttendance);

@@ -398,10 +398,19 @@ export default function RequestsPage() {
         selfieCacheRef.current.set(String(recordId), data.selfie_url);
         setFullAvatarImage({ url: data.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       } else {
-        toast.error("Không tìm thấy ảnh selfie");
+        toast.error("Không tìm thấy ảnh selfie cho ca làm việc này");
       }
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Không tải được ảnh selfie");
+      console.error("Load selfie error:", err);
+      const status = err?.response?.status;
+      const errorMsg = err?.response?.data?.error;
+      if (status === 404) {
+        toast.error(errorMsg || "Ca làm việc này không có dữ liệu ảnh selfie");
+      } else if (status === 403) {
+        toast.error(errorMsg || "Bạn không có quyền xem ảnh xác minh của ca làm việc này");
+      } else {
+        toast.error(errorMsg || "Không tải được ảnh selfie. Vui lòng thử lại");
+      }
     } finally {
       setSelfieLoadingId(null);
     }
@@ -1030,34 +1039,58 @@ export default function RequestsPage() {
                       </div>
 
                       <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                        {item.has_selfie || item.selfie_url ? (
-                          <button
-                            type="button"
-                            aria-label={`Xem ảnh selfie của ${empName}`}
-                            disabled={selfieLoadingId === String(item._id || item.id)}
-                            onClick={() => handleOpenSelfiePhoto(item, empName, formatDate(item.date))}
-                            style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, padding: 0, border: 0, background: 'transparent', borderRadius: '12px' }}
-                          >
-                            {item.selfie_url ? <img
-                              src={item.selfie_url}
-                              alt="Selfie"
-                              loading="lazy"
-                              decoding="async"
-                              style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${statusColor}` }}
-                            /> : <div style={{ width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)', color: 'var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', border: `2px solid ${statusColor}`, fontSize: '10.5px' }}>
-                              <Camera size={22} />
-                              {selfieLoadingId === String(item._id || item.id) ? 'Đang tải...' : 'Có ảnh selfie'}
-                            </div>}
-                            <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
-                              <ZoomIn size={10} /> Xem
-                            </div>
-                          </button>
-                        ) : (
-                          <div style={{ width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)', color: 'var(--text-muted)', fontSize: '10.5px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '6px', flexShrink: 0, border: '1px dashed var(--border)' }}>
-                            <Camera size={18} style={{ marginBottom: '2px' }} />
-                            Không có ảnh
-                          </div>
-                        )}
+                        {(() => {
+                          const recordId = String(item._id || item.id || '');
+                          const resolvedSelfie = item.selfie_url || selfieCacheRef.current.get(recordId);
+                          const hasPhoto = Boolean(item.has_selfie || resolvedSelfie);
+
+                          if (!hasPhoto) {
+                            return (
+                              <div style={{ width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)', color: 'var(--text-muted)', fontSize: '10.5px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '6px', flexShrink: 0, border: '1px dashed var(--border)' }}>
+                                <Camera size={18} style={{ marginBottom: '2px' }} />
+                                Không có ảnh
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <button
+                              type="button"
+                              aria-label={`Xem ảnh selfie của ${empName}`}
+                              disabled={selfieLoadingId === recordId}
+                              onClick={() => handleOpenSelfiePhoto(item, empName, formatDate(item.date))}
+                              style={{ position: 'relative', cursor: 'pointer', flexShrink: 0, padding: 0, border: 0, background: 'transparent', borderRadius: '12px' }}
+                            >
+                              {resolvedSelfie ? (
+                                <img
+                                  src={resolvedSelfie}
+                                  alt="Selfie"
+                                  loading="lazy"
+                                  decoding="async"
+                                  onError={() => {
+                                    selfieCacheRef.current.delete(recordId);
+                                    setFlaggedList(prev => prev.map(row => (
+                                      String(row._id || row.id) === recordId ? { ...row, selfie_url: null } : row
+                                    )));
+                                  }}
+                                  style={{ width: 78, height: 78, borderRadius: '12px', objectFit: 'cover', border: `2px solid ${statusColor}` }}
+                                />
+                              ) : null}
+                              <div style={{
+                                width: 78, height: 78, borderRadius: '12px', background: 'var(--bg-raised)',
+                                color: 'var(--primary)', display: resolvedSelfie ? 'none' : 'flex',
+                                flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                                border: `2px solid ${statusColor}`, fontSize: '10.5px'
+                              }}>
+                                <Camera size={22} />
+                                {selfieLoadingId === recordId ? 'Đang tải...' : 'Có ảnh selfie'}
+                              </div>
+                              <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
+                                <ZoomIn size={10} /> Xem
+                              </div>
+                            </button>
+                          );
+                        })()}
 
                         <div style={{ flex: 1, minWidth: '220px' }}>
                           <div style={{ fontSize: '12.5px', color: 'var(--text)', marginBottom: '4px' }}>

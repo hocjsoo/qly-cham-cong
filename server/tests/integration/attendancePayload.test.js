@@ -31,14 +31,14 @@ const projectRow = (row, projection) => {
   return result;
 };
 
-async function invoke(controller, { role = 'admin', query = {}, params = {} } = {}) {
+async function invoke(controller, { role = 'admin', query = {}, params = {}, actorId = '507f1f77bcf86cd799439001' } = {}) {
   const response = {
     statusCode: 200, headers: {},
     status(code) { this.statusCode = code; return this; },
     json(body) { this.body = body; return this; },
     setHeader(name, value) { this.headers[name] = value; },
   };
-  await controller({ user: { _id: '507f1f77bcf86cd799439001', role }, query, params }, response);
+  await controller({ user: { _id: actorId, role }, query, params }, response);
   return response;
 }
 
@@ -138,12 +138,35 @@ async function runAttendancePayloadTests(assert) {
     const adminPhoto = await invoke(getSelfiePhoto, { params: { id: String(record._id) } });
     const leaderPhoto = await invoke(getSelfiePhoto, { role: 'leader', params: { id: String(record._id) } });
     assert(adminPhoto.body.selfie_url === fakePhoto && leaderPhoto.body.selfie_url === fakePhoto &&
+      adminPhoto.headers['Cache-Control'] === 'private, no-store' &&
       existsFilter.$and[1].role.$ne === 'admin' && String(existsFilter.$and[0]._id) === String(userId),
-    'TC-PAYLOAD-11: Admin và Leader đúng phạm vi tải riêng ảnh xác minh');
+    'TC-PAYLOAD-11: Admin và Leader đúng phạm vi tải ảnh, dữ liệu nhạy cảm không lưu HTTP cache');
     allowed = false;
     const forbiddenPhoto = await invoke(getSelfiePhoto, { role: 'leader', params: { id: String(record._id) } });
     assert(forbiddenPhoto.statusCode === 403 && !forbiddenPhoto.body.selfie_url,
       'TC-PAYLOAD-12: Leader ngoài phạm vi bị chặn tải ảnh xác minh');
+
+    const badIdPhoto = await invoke(getSelfiePhoto, { params: { id: 'invalid-id' } });
+    assert(badIdPhoto.statusCode === 400 && badIdPhoto.body.error === 'Mã ca chấm công không hợp lệ.',
+      'TC-PAYLOAD-14: Mã ca chấm công không hợp lệ trả về HTTP 400');
+
+    const leaderSelfPhoto = await invoke(getSelfiePhoto, { role: 'leader', actorId: String(userId), params: { id: String(record._id) } });
+    assert(leaderSelfPhoto.statusCode === 200 && leaderSelfPhoto.body.selfie_url === fakePhoto,
+      'TC-PAYLOAD-15: Leader xem ảnh ca chấm công của chính mình thành công (allowSelf)');
+
+    const employeeSelfPhoto = await invoke(getSelfiePhoto, { role: 'employee', actorId: String(userId), params: { id: String(record._id) } });
+    assert(employeeSelfPhoto.statusCode === 200 && employeeSelfPhoto.body.selfie_url === fakePhoto,
+      'TC-PAYLOAD-16: Nhân viên xem ảnh ca chấm công của chính mình thành công');
+
+    const employeeOtherPhoto = await invoke(getSelfiePhoto, { role: 'employee', actorId: '507f1f77bcf86cd799439099', params: { id: String(record._id) } });
+    assert(employeeOtherPhoto.statusCode === 403 && !employeeOtherPhoto.body.selfie_url,
+      'TC-PAYLOAD-17: Nhân viên bị chặn 403 khi xem ảnh ca chấm công người khác');
+
+    record.selfie_url = 'null';
+    const nullSentinelPhoto = await invoke(getSelfiePhoto, { params: { id: String(record._id) } });
+    assert(nullSentinelPhoto.statusCode === 404,
+      'TC-PAYLOAD-18: Ca có sentinel null/undefined trả về HTTP 404');
+    record.selfie_url = fakePhoto;
 
     const legacyBytes = Buffer.byteLength(JSON.stringify(legacy.body));
     const compactBytes = Buffer.byteLength(JSON.stringify(compact.body));
