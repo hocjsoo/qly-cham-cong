@@ -1,6 +1,7 @@
 // controllers/reportController.js — Báo cáo chấm công + 6-month trend cho Recharts
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const Department = require('../models/Department');
 const Request = require('../models/Request');
 const {
   isLeaderRole,

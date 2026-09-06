@@ -2075,6 +2075,138 @@ async function runControllerIntegrationTests(assert) {
       }
     }
 
+    // =========================================================================
+    // TC-HTTP-24: Kiểm thử API GET /api/timesheet-lock/full-matrix và tối ưu hóa projection
+    // =========================================================================
+    let attSelectUsed = null;
+    let auditLogSelectUsed = null;
+    let userSelectUsed = null;
+
+    const origAttFindForMatrix = Attendance.find;
+    const origAuditFindForMatrix = AttendanceAuditLog.find;
+    const origUserFindForMatrix = User.find;
+    const origHolidayFindForMatrix = Holiday.find;
+    const origLockFindForMatrix = TimesheetLock.find;
+
+    Attendance.find = function(query) {
+      const qObj = {
+        select(fields) {
+          attSelectUsed = fields;
+          return qObj;
+        },
+        lean() {
+          return Promise.resolve([
+            {
+              user_id: mockEmpUser._id,
+              date: '2026-08-01',
+              status: 'present',
+              work_units: 1.0,
+              total_hours: 8,
+            }
+          ]);
+        }
+      };
+      return qObj;
+    };
+
+    AttendanceAuditLog.find = function(query) {
+      const qObj = {
+        select(fields) {
+          auditLogSelectUsed = fields;
+          return qObj;
+        },
+        sort() {
+          return qObj;
+        },
+        lean() {
+          return Promise.resolve([]);
+        }
+      };
+      return qObj;
+    };
+
+    User.find = function(query) {
+      const qObj = {
+        select(fields) {
+          userSelectUsed = fields;
+          return qObj;
+        },
+        populate() {
+          return qObj;
+        },
+        sort() {
+          return qObj;
+        },
+        lean() {
+          return Promise.resolve([
+            {
+              _id: mockEmpUser._id,
+              employee_code: mockEmpUser.employee_code,
+              full_name: mockEmpUser.full_name,
+              employment_status: 'official',
+              is_active: true,
+              is_attendance_exempt: false,
+            }
+          ]);
+        }
+      };
+      return qObj;
+    };
+
+    Holiday.find = function() {
+      const qObj = {
+        select() { return qObj; },
+        lean() { return Promise.resolve([]); }
+      };
+      return qObj;
+    };
+
+    TimesheetLock.find = function() {
+      return Promise.resolve([]);
+    };
+
+    const resMatrix = await request(app)
+      .get('/api/timesheet-lock/full-matrix?month=8&year=2026')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    assert(
+      resMatrix.status === 200 &&
+      Array.isArray(resMatrix.body.header_days) &&
+      resMatrix.body.header_days.length === 31 &&
+      Array.isArray(resMatrix.body.staff_rows) &&
+      resMatrix.body.staff_rows.length === 1,
+      'TC-HTTP-24.1: GET /api/timesheet-lock/full-matrix trả về HTTP 200 với đầy đủ 31 ngày và danh sách nhân sự'
+    );
+
+    assert(
+      attSelectUsed === '-selfie_url',
+      'TC-HTTP-24.2: Truy vấn Attendance.find sử dụng projection loại trừ selfie_url (-selfie_url) giúp payload siêu nhẹ'
+    );
+
+    assert(
+      auditLogSelectUsed === 'user_id date old_symbol new_symbol reason modified_by_name modified_at',
+      'TC-HTTP-24.3: Truy vấn AttendanceAuditLog.find chỉ chọn các trường lightweight, loại trừ hoàn toàn snapshot Base64 nặng'
+    );
+
+    assert(
+      userSelectUsed && userSelectUsed.includes('employee_code') && !userSelectUsed.includes('password_hash'),
+      'TC-HTTP-24.4: Truy vấn User.find sử dụng projection chọn lọc và không để lộ thông tin nhạy cảm'
+    );
+
+    // Chặn unauthenticated
+    const resMatrixUnauth = await request(app)
+      .get('/api/timesheet-lock/full-matrix?month=8&year=2026');
+    assert(
+      resMatrixUnauth.status === 401,
+      'TC-HTTP-24.5: GET /api/timesheet-lock/full-matrix chặn 401 khi chưa xác thực JWT'
+    );
+
+    Attendance.find = origAttFindForMatrix;
+    AttendanceAuditLog.find = origAuditFindForMatrix;
+    User.find = origUserFindForMatrix;
+    Holiday.find = origHolidayFindForMatrix;
+    TimesheetLock.find = origLockFindForMatrix;
+
   } finally {
     User.find = originalUserFind;
     User.findById = originalFindById;

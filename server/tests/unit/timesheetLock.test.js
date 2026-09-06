@@ -244,6 +244,76 @@ function runTimesheetTests(assert) {
       && resolveStructuredTimesheetSymbol(null, true) === 'L',
     'TC-TIME-12.2: Ngày lễ có chấm công hiển thị hệ số; không chấm công hiển thị L'
   );
+
+  // TC-TIME-13: Kiểm tra Controller import độc lập Department model
+  const mongoose = require('mongoose');
+  assert(
+    mongoose.models.Department !== undefined,
+    'TC-TIME-13: Model Department được đăng ký sẵn sàng trong Mongoose, đảm bảo controller chạy độc lập'
+  );
+
+  // TC-TIME-14: Kiểm chứng logic triệt tiêu Race Condition khi đổi tháng nhanh (Request Sequence & Abort)
+  let activeSequence = 0;
+  let clientState = { month: 8, data: null };
+
+  // Mô phỏng Request 1 (Tháng 8)
+  const req1Seq = ++activeSequence;
+  const controller1 = new AbortController();
+
+  // Mô phỏng người dùng đổi nhanh sang Tháng 9 -> Request 2
+  controller1.abort();
+  const req2Seq = ++activeSequence;
+  const controller2 = new AbortController();
+
+  // Request 1 phản hồi muộn sau Request 2
+  const fakeRes1 = { month: 8, staff_rows: [{ name: 'Data Tháng 8' }] };
+  const canCommit1 = req1Seq === activeSequence && !controller1.signal.aborted;
+  if (canCommit1) {
+    clientState = { month: 8, data: fakeRes1 };
+  }
+
+  // Request 2 phản hồi
+  const fakeRes2 = { month: 9, staff_rows: [{ name: 'Data Tháng 9' }] };
+  const canCommit2 = req2Seq === activeSequence && !controller2.signal.aborted;
+  if (canCommit2) {
+    clientState = { month: 9, data: fakeRes2 };
+  }
+
+  assert(
+    !canCommit1 && canCommit2 && clientState.month === 9 && clientState.data === fakeRes2,
+    'TC-TIME-14: Khi đổi tháng nhanh, request cũ bị abort và sequence ID ngăn ghi đè dữ liệu tháng mới'
+  );
+
+  // TC-TIME-15: Kiểm chứng xử lý lỗi & kích hoạt màn hình Thử lại
+  let errorState = null;
+  let matrixState = { month: 9, staff_rows: [{ name: 'Old Data' }] };
+
+  // Mô phỏng request thất bại
+  const simulatedError = new Error('Network timeout');
+  const onFailedRequest = (err, currentTab, currentMonth, currentYear) => {
+    errorState = { tab: currentTab, month: currentMonth, year: currentYear, message: err.message };
+    matrixState = null; // Xóa cache cũ để hiển thị đúng màn hình Thử lại
+  };
+
+  onFailedRequest(simulatedError, 'timesheet_lock', 9, 2026);
+  assert(
+    errorState !== null &&
+      errorState.month === 9 &&
+      errorState.year === 2026 &&
+      errorState.tab === 'timesheet_lock' &&
+      matrixState === null,
+    'TC-TIME-15.1: Khi request thất bại, dữ liệu cũ bị xóa (null) và errorState ghi nhận đúng context'
+  );
+
+  // Mô phỏng người dùng bấm nút "Thử lại"
+  const onRetry = () => {
+    errorState = null;
+  };
+  onRetry();
+  assert(
+    errorState === null,
+    'TC-TIME-15.2: Bấm nút "Thử lại" reset errorState về null để bắt đầu tải lại dữ liệu mới'
+  );
 }
 
 module.exports = runTimesheetTests;

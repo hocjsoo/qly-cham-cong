@@ -2,6 +2,7 @@
 const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const Department = require('../models/Department');
 const {
   isLeaderRole,
   buildLeaderUserScope,

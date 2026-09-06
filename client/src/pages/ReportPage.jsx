@@ -128,6 +128,9 @@ export default function ReportPage() {
   const [individualDetail, setIndividualDetail] = useState(null);
   const [selectedDetailUserId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const loadTabControllerRef = useRef(null);
+  const requestSequenceRef = useRef(0);
 
   // Search & Filter state for Matrix View
   const [searchQuery, setSearchQuery] = useState('');
@@ -505,31 +508,78 @@ export default function ReportPage() {
   }, [matrixScrollMetrics.showFloating]);
 
   const loadTab = useCallback(async () => {
+    // Hủy bỏ request trước đó nếu còn đang chờ phản hồi
+    loadTabControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadTabControllerRef.current = controller;
+
+    const currentSeq = ++requestSequenceRef.current;
     setLoading(true);
+    setLoadError(null);
+
     try {
       if (tab === 'timesheet_lock') {
-        const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`);
+        const { data } = await api.get(`/timesheet-lock/full-matrix?month=${month}&year=${year}`, {
+          timeout: 30000,
+          signal: controller.signal,
+        });
+        if (requestSequenceRef.current !== currentSeq || controller.signal.aborted) return;
         setMatrixData(normalizeMatrixData(data));
+        setLoadError(null);
       } else if (tab === 'overview' && isAdmin) {
         const [rRes, tRes] = await Promise.all([
-          api.get(`/reports/monthly?month=${month}&year=${year}`),
-          api.get('/reports/trend?months=6'),
+          api.get(`/reports/monthly?month=${month}&year=${year}`, { timeout: 30000, signal: controller.signal }),
+          api.get('/reports/trend?months=6', { timeout: 30000, signal: controller.signal }),
         ]);
+        if (requestSequenceRef.current !== currentSeq || controller.signal.aborted) return;
         setReport(rRes.data);
         setTrend(tRes.data);
+        setLoadError(null);
       } else if (tab === 'payroll' && isAdmin) {
-        const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`);
+        const { data } = await api.get(`/reports/payroll?month=${month}&year=${year}`, { timeout: 30000, signal: controller.signal });
+        if (requestSequenceRef.current !== currentSeq || controller.signal.aborted) return;
         setPayroll(data);
+        setLoadError(null);
       } else if (tab === 'ranking' && isAdmin) {
-        const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`);
+        const { data } = await api.get(`/reports/ranking?month=${month}&year=${year}`, { timeout: 30000, signal: controller.signal });
+        if (requestSequenceRef.current !== currentSeq || controller.signal.aborted) return;
         setRanking(data);
+        setLoadError(null);
       } else if (tab === 'individual_detail' && isAdmin) {
         const queryUser = selectedDetailUserId ? `&user_id=${selectedDetailUserId}` : '';
-        const { data } = await api.get(`/reports/individual-detail?month=${month}&year=${year}${queryUser}`);
+        const { data } = await api.get(`/reports/individual-detail?month=${month}&year=${year}${queryUser}`, { timeout: 30000, signal: controller.signal });
+        if (requestSequenceRef.current !== currentSeq || controller.signal.aborted) return;
         setIndividualDetail(data);
+        setLoadError(null);
       }
-    } catch { toast.error('Lỗi tải dữ liệu'); }
-    finally { setLoading(false); }
+    } catch (err) {
+      if (controller.signal.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+        return;
+      }
+      if (requestSequenceRef.current !== currentSeq) return;
+
+      const errorMsg = err?.response?.data?.error || err?.message || 'Lỗi tải dữ liệu';
+      setLoadError({ tab, month, year, message: errorMsg });
+
+      // Khi lỗi, reset data tương ứng của tab để không bị hiển thị dữ liệu tháng cũ và đảm bảo màn hình "Thử lại" xuất hiện
+      if (tab === 'timesheet_lock') {
+        setMatrixData(null);
+      } else if (tab === 'overview') {
+        setReport(null);
+        setTrend(null);
+      } else if (tab === 'payroll') {
+        setPayroll(null);
+      } else if (tab === 'ranking') {
+        setRanking(null);
+      } else if (tab === 'individual_detail') {
+        setIndividualDetail(null);
+      }
+      toast.error('Lỗi tải dữ liệu');
+    } finally {
+      if (requestSequenceRef.current === currentSeq) {
+        setLoading(false);
+      }
+    }
   }, [isAdmin, month, selectedDetailUserId, tab, year]);
 
   useEffect(() => {
@@ -537,6 +587,9 @@ export default function ReportPage() {
     if (isAdmin || tab === 'timesheet_lock') {
       loadTab();
     }
+    return () => {
+      loadTabControllerRef.current?.abort();
+    };
   }, [isAdmin, loadTab, tab]);
 
   const prevMonth = () => {
@@ -1062,8 +1115,21 @@ export default function ReportPage() {
                 return <div className="skeleton-card" style={{ height: '300px', borderRadius: '16px' }} />;
               }
 
-              if (!matrixData || !matrixData.staff_rows) {
-                return <div className="card empty-state"><div className="empty-state__title">Không có dữ liệu chốt công</div></div>;
+              if (loadError || !matrixData || !matrixData.staff_rows) {
+                return (
+                  <div className="card empty-state" style={{ padding: '40px 20px', textAlign: 'center', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px' }}>
+                    <AlertTriangle size={36} color="var(--yellow)" style={{ marginBottom: '12px' }} />
+                    <div className="empty-state__title" style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px' }}>
+                      Chưa tải được dữ liệu chấm công Tháng {month}/{year}
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                      {loadError?.message || 'Hệ thống đang kết nối hoặc chưa phản hồi. Vui lòng bấm thử lại.'}
+                    </div>
+                    <button onClick={loadTab} className="btn btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', margin: '0 auto' }}>
+                      🔄 Thử lại
+                    </button>
+                  </div>
+                );
               }
 
               const showSummaryColumns = tableDisplayMode !== 'days';
@@ -1127,7 +1193,23 @@ export default function ReportPage() {
 
                       {/* Staff Cards List */}
                       <div className="timesheet-staff-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
-                        {displayedStaffRows.map((r) => {
+                        {displayedStaffRows.length === 0 ? (
+                          <div className="card empty-state" style={{ padding: '32px 16px', textAlign: 'center', gridColumn: '1 / -1', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px' }}>
+                            <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                              Không tìm thấy nhân sự nào phù hợp với bộ lọc hiện tại.
+                            </div>
+                            {(searchQuery || deptFilter || attendanceFilter || staffTypeFilter) && (
+                              <button
+                                onClick={() => { setSearchQuery(''); setDeptFilter(''); setAttendanceFilter(''); setStaffTypeFilter(''); }}
+                                className="btn btn--secondary"
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                              >
+                                Xóa tất cả bộ lọc
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          displayedStaffRows.map((r) => {
                           const isExpanded = expandedStaffIds.has(r.id);
 
                           return (
@@ -1504,7 +1586,7 @@ export default function ReportPage() {
                               </div>
                             </div>
                           );
-                        })}
+                        }))}
                       </div>
                     </div>
                   )}
@@ -1632,7 +1714,23 @@ export default function ReportPage() {
                         </thead>
 
                         <tbody>
-                          {displayedStaffRows.map((r, idx) => (
+                          {displayedStaffRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={100} style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                <div style={{ fontSize: '14px', marginBottom: '10px' }}>Không tìm thấy nhân sự nào phù hợp với bộ lọc hiện tại.</div>
+                                {(searchQuery || deptFilter || attendanceFilter || staffTypeFilter) && (
+                                  <button
+                                    onClick={() => { setSearchQuery(''); setDeptFilter(''); setAttendanceFilter(''); setStaffTypeFilter(''); }}
+                                    className="btn btn--secondary"
+                                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                                  >
+                                    Xóa tất cả bộ lọc
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ) : (
+                            displayedStaffRows.map((r, idx) => (
                             <tr key={r.id} style={{ borderBottom: '1px solid var(--border-muted)', background: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)' }}>
                               <td className="table-sticky-col-1" style={{ padding: '6px 10px', textAlign: 'left', fontWeight: 700, color: 'var(--text)', fontSize: '11.5px' }}>
                                 <button type="button" className="timesheet-person-button" onClick={() => openStaffProfile(r)} aria-label={`Xem hồ sơ ${r.full_name}`}>
@@ -1798,7 +1896,7 @@ export default function ReportPage() {
                                 </td>
                               )}
                             </tr>
-                          ))}
+                          )))}
                         </tbody>
 
                         {/* System Total Footer Row */}

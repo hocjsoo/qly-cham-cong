@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Department = require('../models/Department');
 const Attendance = require('../models/Attendance');
 const TimesheetLock = require('../models/TimesheetLock');
 const AttendanceAuditLog = require('../models/AttendanceAuditLog');
@@ -100,20 +101,24 @@ const getFullMatrix = async (req, res) => {
     const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
 
-    // Lấy danh sách nhân viên đang làm việc (bỏ qua người miễn chấm công, đã nghỉ việc, nghỉ thai sản, nghỉ ốm, khác)
-    const userCandidates = await User.find(getActiveEmploymentFilter({
-      is_attendance_exempt: { $ne: true }, // Miễn chấm công -> Ẩn hoàn toàn khỏi Bảng Chấm Công
-    }))
-      .populate('department_id', 'name')
-      .populate('department_ids', 'name')
-      .sort({ employee_code: 1, full_name: 1 });
-    // Phòng thủ thêm trước dữ liệu trạng thái cũ/không dấu chưa chuẩn hóa trong DB.
-    const users = userCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
-
-    // Lấy tất cả bản ghi điểm danh, lịch sử chỉnh sửa, chốt công, cấu hình và ngày nghỉ lễ
-    const [attendances, auditLogsList, lockRecords, settings, holidays] = await Promise.all([
-      Attendance.find({ date: { $gte: startDateStr, $lte: endDateStr } }).lean(),
-      AttendanceAuditLog.find({ date: { $gte: startDateStr, $lte: endDateStr } }).sort({ modified_at: -1 }).lean(),
+    // Lấy tất cả bản ghi nhân sự, điểm danh, lịch sử chỉnh sửa, chốt công, cấu hình và ngày nghỉ lễ song song
+    // Tối ưu hóa: Chạy song song Promise.all + loại trừ selfie_url và snapshot ảnh nặng để tối ưu hóa tốc độ và giảm thiểu kích thước payload bảng công
+    const [userCandidates, attendances, auditLogsList, lockRecords, settings, holidays] = await Promise.all([
+      User.find(getActiveEmploymentFilter({
+        is_attendance_exempt: { $ne: true }, // Miễn chấm công -> Ẩn hoàn toàn khỏi Bảng Chấm Công
+      }))
+        .select('employee_code full_name avatar_url employee_type position department_id department_ids role is_attendance_exempt employment_status is_active')
+        .populate('department_id', 'name')
+        .populate('department_ids', 'name')
+        .sort({ employee_code: 1, full_name: 1 })
+        .lean(),
+      Attendance.find({ date: { $gte: startDateStr, $lte: endDateStr } })
+        .select('-selfie_url')
+        .lean(),
+      AttendanceAuditLog.find({ date: { $gte: startDateStr, $lte: endDateStr } })
+        .select('user_id date old_symbol new_symbol reason modified_by_name modified_at')
+        .sort({ modified_at: -1 })
+        .lean(),
       TimesheetLock.find({ month, year }),
       SystemSetting.findOne({ key: 'global' }),
       Holiday.find({
@@ -124,6 +129,9 @@ const getFullMatrix = async (req, res) => {
         ]
       }).select('name date end_date is_paid work_multiplier').lean(),
     ]);
+
+    // Phòng thủ thêm trước dữ liệu trạng thái cũ/không dấu chưa chuẩn hóa trong DB.
+    const users = userCandidates.filter(user => !isInactiveEmploymentStatus(user.employment_status));
 
     // Xây dựng bản đồ ngày nghỉ lễ trong tháng
     const holidayMap = {};
