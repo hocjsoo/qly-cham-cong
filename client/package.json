@@ -8,6 +8,8 @@
     "build": "vite build",
     "lint": "oxlint -D react-hooks/rules-of-hooks",
     "test": "node ../server/tests/runner.js",
+    "test:prefetch": "node --test tests/routePrefetch.test.js",
+    "test:ui": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",

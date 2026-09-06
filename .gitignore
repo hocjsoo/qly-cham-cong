@@ -41,6 +41,8 @@ et-office-portal/
 # Coverage & Testing
 coverage/
 .nyc_output/
+client/test-results/
+client/playwright-report/
 
 # Temporary files
 *.tmp

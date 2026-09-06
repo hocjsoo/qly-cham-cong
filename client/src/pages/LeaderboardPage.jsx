@@ -10,6 +10,8 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import HeaderActions from '../components/HeaderActions';
 import ImageLightbox from '../components/ImageLightbox';
+import useAuthStore from '../stores/authStore';
+import useLatestRequest from '../hooks/useLatestRequest';
 
 const TIMEFRAMES = [
   { id: 'today', label: '☀️ Hôm nay', desc: 'Đua top trực tiếp sáng nay' },
@@ -63,6 +65,7 @@ const getWeekRange = (baseDateStr) => {
 };
 
 export default function LeaderboardPage() {
+  const user = useAuthStore(state => state.user);
   const [timeframe, setTimeframe] = useState('today');
   const [category, setCategory] = useState('early_bird');
   const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }));
@@ -71,22 +74,31 @@ export default function LeaderboardPage() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [departmentId, setDepartmentId] = useState('all');
   const [departments, setDepartments] = useState([]);
-  const [data, setData] = useState({ rankings: [], myRank: null });
+  const [leaderboardResult, setLeaderboardResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewingStaffDetail, setViewingStaffDetail] = useState(null);
   const [fullAvatarImage, setFullAvatarImage] = useState(null);
 
   const myRowRef = useRef(null);
+  const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
+  const leaderboardKey = JSON.stringify([sessionKey, category, departmentId, month, selectedDate, selectedWeekDate, timeframe, year]);
+  const data = leaderboardResult?.key === leaderboardKey ? leaderboardResult.data : { rankings: [], myRank: null };
+  const { beginRequest: beginLeaderboardRequest } = useLatestRequest(leaderboardKey);
+  const { beginRequest: beginDepartmentRequest } = useLatestRequest(sessionKey);
 
   const loadDepartments = useCallback(async () => {
+    const request = beginDepartmentRequest();
+    if (!request) return;
     try {
-      const { data: deptList } = await api.get('/departments');
-      if (Array.isArray(deptList)) setDepartments(deptList);
+      const { data: deptList } = await api.get('/departments', { signal: request.signal });
+      if (request.isCurrent() && Array.isArray(deptList)) setDepartments(deptList);
     } catch {}
-  }, []);
+  }, [beginDepartmentRequest]);
 
   const loadLeaderboard = useCallback(async () => {
+    const request = beginLeaderboardRequest();
+    if (!request) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -108,14 +120,14 @@ export default function LeaderboardPage() {
       
       if (departmentId !== 'all') params.append('department_id', departmentId);
 
-      const res = await api.get(`/reports/leaderboard?${params.toString()}`);
-      setData(res.data);
+      const res = await api.get(`/reports/leaderboard?${params.toString()}`, { signal: request.signal });
+      if (request.isCurrent()) setLeaderboardResult({ key: leaderboardKey, data: res.data });
     } catch {
-      toast.error('Lỗi tải bảng xếp hạng');
+      if (request.isCurrent()) toast.error('Lỗi tải bảng xếp hạng');
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
-  }, [category, departmentId, month, selectedDate, selectedWeekDate, timeframe, year]);
+  }, [category, departmentId, month, selectedDate, selectedWeekDate, timeframe, year, leaderboardKey, beginLeaderboardRequest]);
 
   useEffect(() => {
     loadDepartments();
@@ -482,6 +494,10 @@ export default function LeaderboardPage() {
                           <img
                             src={r.avatar_url || '/logo.png'}
                             alt=""
+                            loading="lazy"
+                            decoding="async"
+                            width={34}
+                            height={34}
                             style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: rankNumber <= 3 ? `2px solid ${rankNumber === 1 ? '#eab308' : rankNumber === 2 ? '#94a3b8' : '#d97706'}` : '1px solid var(--border)' }}
                             onError={e => { e.target.src = '/logo.png'; }}
                           />

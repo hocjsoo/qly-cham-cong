@@ -10,6 +10,7 @@ import useSettingsStore from './stores/settingsStore';
 import Layout from './components/Layout';
 import MagicCursor from './components/MagicCursor';
 import ErrorBoundary from './components/ErrorBoundary';
+import PageLoader from './components/PageLoader';
 
 // Tự động tải lại trang khi có phiên bản build mới trên production (tránh lỗi 404 chunk cũ)
 function lazyRetry(componentImport) {
@@ -51,36 +52,6 @@ const ExpensesPage = lazyRetry(() => import('./pages/ExpensesPage'));
 const LeaderboardPage = lazyRetry(() => import('./pages/LeaderboardPage'));
 const TtsSchedulePage = lazyRetry(() => import('./pages/TtsSchedulePage'));
 const EmailsPage = lazyRetry(() => import('./pages/EmailsPage'));
-
-// Fallback loader hiển thị nhẹ nhàng khi chuyển trang
-function PageLoader() {
-  return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '60vh',
-      flexDirection: 'column',
-      gap: '12px',
-      color: 'var(--text-muted)'
-    }}>
-      <div style={{
-        width: '32px',
-        height: '32px',
-        border: '3px solid var(--border)',
-        borderTopColor: 'var(--primary)',
-        borderRadius: '50%',
-        animation: 'spin 0.8s linear infinite'
-      }} />
-      <span style={{ fontSize: '13px', fontWeight: 500 }}>Đang tải dữ liệu...</span>
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-    </div>
-  );
-}
 
 const getDefaultHome = (user) => {
   if (!user) return '/login';

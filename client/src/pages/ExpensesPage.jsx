@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import useAuthStore from '../stores/authStore';
 import HeaderActions from '../components/HeaderActions';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { downloadBlob } from '../utils/downloadBlob';
 import { sanitizeCsvCell } from '../utils/exportCsv';
 
@@ -26,20 +27,16 @@ const formatDate = (isoDate) => {
   return isoDate;
 };
 
+const EMPTY_SUMMARY = {
+  totalApprovedAmount: 0, totalPendingAmount: 0, totalPendingCount: 0,
+  totalUnpaidAmount: 0, totalPaidAmount: 0, myTotalApproved: 0, myTotalUnpaid: 0,
+};
+
 export default function ExpensesPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
 
-  const [expenses, setExpenses] = useState([]);
-  const [summary, setSummary] = useState({
-    totalApprovedAmount: 0,
-    totalPendingAmount: 0,
-    totalPendingCount: 0,
-    totalUnpaidAmount: 0,
-    totalPaidAmount: 0,
-    myTotalApproved: 0,
-    myTotalUnpaid: 0,
-  });
+  const [expenseResult, setExpenseResult] = useState(null);
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +51,13 @@ export default function ExpensesPage() {
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
+  const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
+  const expenseKey = JSON.stringify([sessionKey, currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search.trim()]);
+  const currentResult = expenseResult?.key === expenseKey ? expenseResult : null;
+  const expenses = currentResult?.expenses || [];
+  const summary = currentResult?.summary || EMPTY_SUMMARY;
+  const { beginRequest: beginExpenseRequest, cancelRequest: cancelExpenseRequest } = useLatestRequest(expenseKey);
+  const { beginRequest: beginStaffRequest } = useLatestRequest(sessionKey);
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,6 +78,8 @@ export default function ExpensesPage() {
   const fileInputRef = useRef(null);
 
   const loadData = useCallback(async () => {
+    const request = beginExpenseRequest();
+    if (!request) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -87,11 +93,11 @@ export default function ExpensesPage() {
       if (filterYear !== 'all') params.append('year', filterYear);
       if (search.trim()) params.append('search', search.trim());
 
-      const { data } = await api.get(`/expenses?${params.toString()}`);
+      const { data } = await api.get(`/expenses?${params.toString()}`, { signal: request.signal });
+      if (!request.isCurrent()) return;
       const fetchedExpenses = data.expenses || [];
       const fetchedSummary = data.summary || {};
-      setExpenses(fetchedExpenses);
-      setSummary(fetchedSummary);
+      setExpenseResult({ key: expenseKey, expenses: fetchedExpenses, summary: fetchedSummary });
 
       if (fetchedSummary.totalPages && currentPage > fetchedSummary.totalPages) {
         setCurrentPage(Math.max(1, fetchedSummary.totalPages));
@@ -99,24 +105,30 @@ export default function ExpensesPage() {
         setCurrentPage(1);
       }
     } catch {
-      toast.error('Lỗi tải danh sách chi tiêu');
+      if (request.isCurrent()) toast.error('Lỗi tải danh sách chi tiêu');
     } finally {
-      setLoading(false);
+      if (request.isCurrent()) setLoading(false);
     }
-  }, [currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search]);
+  }, [currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search, expenseKey, beginExpenseRequest]);
 
   const loadStaffList = useCallback(async () => {
+    const request = beginStaffRequest();
+    if (!request) return;
     try {
-      const { data } = await api.get('/users');
-      if (Array.isArray(data)) setStaffList(data);
+      const { data } = await api.get('/users', { signal: request.signal });
+      if (request.isCurrent() && Array.isArray(data)) setStaffList(data);
     } catch {}
-  }, []);
+  }, [beginStaffRequest]);
 
   useEffect(() => {
+    setLoading(true);
     const delay = search.trim() ? 300 : 0;
     const timer = window.setTimeout(loadData, delay);
-    return () => window.clearTimeout(timer);
-  }, [loadData, search]);
+    return () => {
+      window.clearTimeout(timer);
+      cancelExpenseRequest();
+    };
+  }, [loadData, search, cancelExpenseRequest]);
 
   useEffect(() => {
     loadStaffList();
@@ -559,7 +571,8 @@ export default function ExpensesPage() {
         </div>
 
         {/* Expenses List */}
-        {loading ? (
+        {loading && currentResult && <div role="status" style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '10px' }}>Đang cập nhật khoản chi…</div>}
+        {loading && !currentResult ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '70px', borderRadius: '10px' }} />)}
           </div>
@@ -641,6 +654,10 @@ export default function ExpensesPage() {
                           <img
                             src={exp.user_id?.avatar_url || '/logo.png'}
                             alt=""
+                            loading="lazy"
+                            decoding="async"
+                            width={24}
+                            height={24}
                             style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                             onError={e => { e.target.src = '/logo.png'; }}
                           />
@@ -818,6 +835,8 @@ export default function ExpensesPage() {
                       <img
                         src={exp.receipt_url}
                         alt="Bill"
+                        loading="lazy"
+                        decoding="async"
                         onClick={() => setFullBillImage({ url: exp.receipt_url, title: exp.description })}
                         style={{ width: '100%', height: '100px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer', border: '1px solid var(--border)' }}
                       />

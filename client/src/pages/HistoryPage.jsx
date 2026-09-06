@@ -9,6 +9,7 @@ import { cachedGet, clearDataCache } from '../services/dataCache';
 import useAuthStore from '../stores/authStore';
 import useSettingsStore from '../stores/settingsStore';
 import HeaderActions from '../components/HeaderActions';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { downloadBlob } from '../utils/downloadBlob';
 
 const fmt = (iso) => {
@@ -82,7 +83,7 @@ export default function HistoryPage() {
   const [timeMode, setTimeMode] = useState('month'); // 'week' | 'month' | 'year'
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const [data, setData] = useState(null);
+  const [historyResult, setHistoryResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' (Lịch ô) | 'list' | 'table'
 
@@ -106,6 +107,12 @@ export default function HistoryPage() {
   // Admin Staff Selector
   const [staffList, setStaffList] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
+  const historyKey = `${sessionKey}:${month}:${year}:${timeMode}:${selectedUserId}`;
+  const data = historyResult?.key === historyKey ? historyResult.data : null;
+  const { beginRequest: beginHistoryRequest } = useLatestRequest(historyKey);
+  const { beginRequest: beginHolidayRequest } = useLatestRequest(`${sessionKey}:${year}`);
+  const { beginRequest: beginStaffRequest } = useLatestRequest(sessionKey);
 
   // Settings for dynamic working hours & late rules (Default 09:00 - 18:30)
   const settings = storedSettings || {
@@ -120,8 +127,12 @@ export default function HistoryPage() {
   const endTime = settings?.work_end_time || '18:30';
   const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
   const fetchHolidays = useCallback((force = false) => {
-    cachedGet(`/holidays?year=${year}`, { ttl: 300000, force }).then(r => setHolidays(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-  }, [year]);
+    const request = beginHolidayRequest();
+    if (!request) return;
+    cachedGet(`/holidays?year=${year}`, { ttl: 300000, force }).then(r => {
+      if (request.isCurrent()) setHolidays(Array.isArray(r.data) ? r.data : []);
+    }).catch(() => {});
+  }, [year, beginHolidayRequest]);
 
   const holidayByDate = useMemo(() => {
     const lookup = new Map();
@@ -202,22 +213,27 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (isAdminOrManager) {
+      const request = beginStaffRequest();
+      if (!request) return;
       cachedGet('/users', { ttl: 180000 }).then(res => {
+        if (!request.isCurrent()) return;
         const list = Array.isArray(res.data) ? res.data : (res.data?.users || []);
         setStaffList(list);
       }).catch(() => {});
     }
-  }, [isAdminOrManager]);
+  }, [isAdminOrManager, beginStaffRequest]);
 
   const load = useCallback(async () => {
+    const request = beginHistoryRequest();
+    if (!request) return;
     try {
       setLoading(true);
       const userParam = selectedUserId ? `&user_id=${selectedUserId}` : '';
-      const { data: d } = await api.get(`/attendance/history?month=${month}&year=${year}&mode=${timeMode}${userParam}`);
-      setData(d);
-    } catch { toast.error('Lỗi tải lịch sử'); }
-    finally { setLoading(false); }
-  }, [month, selectedUserId, timeMode, year]);
+      const { data: d } = await api.get(`/attendance/history?month=${month}&year=${year}&mode=${timeMode}${userParam}`, { signal: request.signal });
+      if (request.isCurrent()) setHistoryResult({ key: historyKey, data: d });
+    } catch { if (request.isCurrent()) toast.error('Lỗi tải lịch sử'); }
+    finally { if (request.isCurrent()) setLoading(false); }
+  }, [month, selectedUserId, timeMode, year, historyKey, beginHistoryRequest]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -346,11 +362,22 @@ export default function HistoryPage() {
   };
 
   const s = data?.summary || {};
-  const records = data?.records || [];
+  const records = useMemo(() => data?.records || [], [data]);
   const workDays = s.total_days || 22;
   const presentRate = workDays > 0 ? Math.round((s.present_days || 0) / workDays * 100) : 0;
 
   // Build Calendar Grid Days Matrix
+  const recordsByDate = useMemo(() => {
+    const lookup = new Map();
+    records.forEach(record => {
+      const dateKeys = new Set([record.date, record.check_in_time?.slice(0, 10)].filter(Boolean));
+      dateKeys.forEach(dateKey => {
+        if (!lookup.has(dateKey)) lookup.set(dateKey, []);
+        lookup.get(dateKey).push(record);
+      });
+    });
+    return lookup;
+  }, [records]);
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay(); // 0 = Sun
   const startOffset = (firstDayOfWeek + 6) % 7; // Convert 0=Sun to Monday-first (0=Mon, 6=Sun)
@@ -361,7 +388,7 @@ export default function HistoryPage() {
   }
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const dayRecs = records.filter(r => (r.date === dateStr || r.check_in_time?.startsWith(dateStr)));
+    const dayRecs = recordsByDate.get(dateStr) || [];
     calendarDays.push({ day: d, dateStr, records: dayRecs, record: dayRecs[0] || null });
   }
 
@@ -457,14 +484,14 @@ export default function HistoryPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: '12px', padding: '10px 14px',
         }}>
-          <button onClick={prev} className="theme-toggle-btn" style={{ width: '32px', height: '32px' }}>
+          <button onClick={prev} className="theme-toggle-btn" aria-label="Tháng trước" style={{ width: '36px', height: '36px' }}>
             <ChevronLeft size={16} />
           </button>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontWeight: 700, fontSize: '15px' }}>{MONTHS[month - 1]}</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Năm {year}</div>
           </div>
-          <button onClick={next} className="theme-toggle-btn" style={{ width: '32px', height: '32px' }}>
+          <button onClick={next} className="theme-toggle-btn" aria-label="Tháng sau" style={{ width: '36px', height: '36px' }}>
             <ChevronRight size={16} />
           </button>
         </div>
@@ -560,7 +587,8 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {loading ? (
+        {loading && data && <div role="status" style={{ color: 'var(--text-muted)', fontSize: '12px', marginBottom: '10px' }}>Đang cập nhật lịch sử…</div>}
+        {loading && !data ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[1, 2, 3].map(i => <div key={i} className="skeleton-card" style={{ height: '68px', borderRadius: '12px' }} />)}
           </div>
