@@ -470,7 +470,10 @@ export default function RequestsPage() {
       const { data } = await api.get(`/requests/${strRequestId}/attachment`, { timeout: 30000 });
       if (!data?.attachment_url) throw new Error('missing attachment');
       attachmentCacheRef.current.set(strRequestId, data.attachment_url);
-      setRequestList(prev => prev.map(row => (
+      setMineList(prev => prev.map(row => (
+        String(row._id || row.id) === strRequestId ? { ...row, attachment_url: data.attachment_url } : row
+      )));
+      setPendingList(prev => prev.map(row => (
         String(row._id || row.id) === strRequestId ? { ...row, attachment_url: data.attachment_url } : row
       )));
       setFullAvatarImage(prev => {
