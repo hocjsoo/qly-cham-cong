@@ -1789,6 +1789,7 @@ const getSelfiePhoto = async (req, res) => {
     }
 
     // Ảnh xác minh là dữ liệu nhạy cảm; không để trình duyệt dùng lại sau khi đổi tài khoản.
+    res.setHeader("x-no-compression", "1");
     res.setHeader("Cache-Control", "private, no-store");
     return res.json({ selfie_url: cleanSelfie });
   } catch (err) {

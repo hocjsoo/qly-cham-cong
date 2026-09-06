@@ -544,6 +544,7 @@ const getRequestAttachment = async (req, res) => {
     if (!canView) return res.status(403).json({ error: 'Bạn không có quyền xem ảnh minh chứng này.' });
     if (!request.attachment_url) return res.status(404).json({ error: 'Đơn này không có ảnh minh chứng.' });
 
+    res.setHeader('x-no-compression', '1');
     res.set('Cache-Control', 'private, max-age=300');
     return res.json({ attachment_url: request.attachment_url });
   } catch (error) {

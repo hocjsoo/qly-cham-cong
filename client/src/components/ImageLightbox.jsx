@@ -107,10 +107,13 @@ export default function ImageLightbox({ image, onClose }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, zoom]);
 
-  if (!image || !image.url) return null;
+  if (!image || (!image.url && !image.loading)) return null;
+
+  const isImageLoading = Boolean(image.loading && !image.url);
 
   const handleDownload = (e) => {
     e.stopPropagation();
+    if (!image.url) return;
     const a = document.createElement("a");
     a.href = image.url;
     a.download = getDownloadFilename(image);
@@ -129,6 +132,7 @@ export default function ImageLightbox({ image, onClose }) {
       aria-label={image.title || "Xem ảnh lớn"}
       onClick={event => event.currentTarget === event.target && onClose()}
       onWheel={event => {
+        if (isImageLoading) return;
         event.preventDefault();
         changeZoom(zoom + (event.deltaY < 0 ? 0.2 : -0.2));
       }}
@@ -146,12 +150,16 @@ export default function ImageLightbox({ image, onClose }) {
         </div>
 
         <div className="image-lightbox__controls" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <button className="image-lightbox__button" type="button" onClick={() => changeZoom(zoom - 0.25)} aria-label="Thu nhỏ" title="Thu nhỏ (-)" style={viewerButtonStyle}><ZoomOut size={18} /></button>
-          <span className="image-lightbox__zoom" style={{ minWidth: "50px", textAlign: "center", fontSize: "12px", fontWeight: 800, color: "#ffffff", fontVariantNumeric: "tabular-nums" }}>{Math.round(zoom * 100)}%</span>
-          <button className="image-lightbox__button" type="button" onClick={() => changeZoom(zoom + 0.25)} aria-label="Phóng to" title="Phóng to (+)" style={viewerButtonStyle}><ZoomIn size={18} /></button>
-          <button className="image-lightbox__button" type="button" onClick={() => rotate(90)} aria-label="Xoay ảnh 90°" title="Xoay ảnh 90° (R)" style={viewerButtonStyle}><RotateCw size={17} /></button>
-          <button className="image-lightbox__button" type="button" onClick={resetView} aria-label="Đặt lại kích thước" title="Đặt lại (0)" style={viewerButtonStyle}><RotateCcw size={17} /></button>
-          <button className="image-lightbox__button" type="button" onClick={handleDownload} aria-label="Tải ảnh về" title="Tải ảnh về máy" style={viewerButtonStyle}><Download size={17} /></button>
+          {!isImageLoading && (
+            <>
+              <button className="image-lightbox__button" type="button" onClick={() => changeZoom(zoom - 0.25)} aria-label="Thu nhỏ" title="Thu nhỏ (-)" style={viewerButtonStyle}><ZoomOut size={18} /></button>
+              <span className="image-lightbox__zoom" style={{ minWidth: "50px", textAlign: "center", fontSize: "12px", fontWeight: 800, color: "#ffffff", fontVariantNumeric: "tabular-nums" }}>{Math.round(zoom * 100)}%</span>
+              <button className="image-lightbox__button" type="button" onClick={() => changeZoom(zoom + 0.25)} aria-label="Phóng to" title="Phóng to (+)" style={viewerButtonStyle}><ZoomIn size={18} /></button>
+              <button className="image-lightbox__button" type="button" onClick={() => rotate(90)} aria-label="Xoay ảnh 90°" title="Xoay ảnh 90° (R)" style={viewerButtonStyle}><RotateCw size={17} /></button>
+              <button className="image-lightbox__button" type="button" onClick={resetView} aria-label="Đặt lại kích thước" title="Đặt lại (0)" style={viewerButtonStyle}><RotateCcw size={17} /></button>
+              <button className="image-lightbox__button" type="button" onClick={handleDownload} aria-label="Tải ảnh về" title="Tải ảnh về máy" style={viewerButtonStyle}><Download size={17} /></button>
+            </>
+          )}
           <button ref={closeButtonRef} className="image-lightbox__button" type="button" onClick={onClose} aria-label="Đóng" title="Đóng (Esc)" style={{ ...viewerButtonStyle, background: "rgba(239, 68, 68, 0.4)", borderColor: "rgba(239, 68, 68, 0.6)" }}><X size={20} /></button>
         </div>
       </div>
@@ -160,14 +168,14 @@ export default function ImageLightbox({ image, onClose }) {
       <div
         className="image-lightbox__stage"
         style={{ minHeight: 0, display: "grid", placeItems: "center", overflow: "hidden", touchAction: "none", userSelect: "none" }}
-        onDoubleClick={() => zoom === 1 ? changeZoom(2) : resetView()}
+        onDoubleClick={() => !isImageLoading && (zoom === 1 ? changeZoom(2) : resetView())}
         onPointerDown={event => {
-          if (zoom <= 1) return;
+          if (isImageLoading || zoom <= 1) return;
           event.currentTarget.setPointerCapture(event.pointerId);
           dragRef.current = { startX: event.clientX, startY: event.clientY, originX: offset.x, originY: offset.y };
         }}
         onPointerMove={event => {
-          if (!dragRef.current) return;
+          if (!dragRef.current || isImageLoading) return;
           setOffset({
             x: dragRef.current.originX + event.clientX - dragRef.current.startX,
             y: dragRef.current.originY + event.clientY - dragRef.current.startY,
@@ -176,24 +184,33 @@ export default function ImageLightbox({ image, onClose }) {
         onPointerUp={() => { dragRef.current = null; }}
         onPointerCancel={() => { dragRef.current = null; }}
       >
-        <img
-          className="image-lightbox__image"
-          src={image.url || "/logo.png"}
-          alt={image.title || "Ảnh lớn"}
-          draggable="false"
-          onError={event => {
-            if (event.currentTarget.dataset.fallbackApplied) return;
-            event.currentTarget.dataset.fallbackApplied = "true";
-            event.currentTarget.src = "/logo.png";
-          }}
-          style={{
-            maxWidth: "94vw", maxHeight: "78vh", objectFit: "contain",
-            borderRadius: "12px", boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
-            cursor: zoom > 1 ? "grab" : "zoom-in",
-            transform: "translate3d(" + offset.x + "px, " + offset.y + "px, 0) scale(" + zoom + ") rotate(" + rotation + "deg)",
-            transition: dragRef.current ? "none" : "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-          }}
-        />
+        {isImageLoading ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", padding: "40px" }}>
+            <span className="spinner" style={{ width: "40px", height: "40px", borderWidth: "3.5px", color: "var(--primary, #3b82f6)" }} />
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "rgba(255, 255, 255, 0.9)", letterSpacing: "0.2px" }}>
+              Đang tải ảnh...
+            </span>
+          </div>
+        ) : (
+          <img
+            className="image-lightbox__image"
+            src={image.url || "/logo.png"}
+            alt={image.title || "Ảnh lớn"}
+            draggable="false"
+            onError={event => {
+              if (event.currentTarget.dataset.fallbackApplied) return;
+              event.currentTarget.dataset.fallbackApplied = "true";
+              event.currentTarget.src = "/logo.png";
+            }}
+            style={{
+              maxWidth: "94vw", maxHeight: "78vh", objectFit: "contain",
+              borderRadius: "12px", boxShadow: "0 24px 80px rgba(0,0,0,0.85)",
+              cursor: zoom > 1 ? "grab" : "zoom-in",
+              transform: "translate3d(" + offset.x + "px, " + offset.y + "px, 0) scale(" + zoom + ") rotate(" + rotation + "deg)",
+              transition: dragRef.current ? "none" : "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+            }}
+          />
+        )}
       </div>
 
       {/* Footer Navigation & Shortcut Guide */}

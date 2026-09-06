@@ -392,17 +392,19 @@ export default function RequestsPage() {
       setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       return;
     }
+
+    // Mở ngay Lightbox ở trạng thái đang tải để người dùng có phản hồi tức thì
+    setFullAvatarImage({ url: null, loading: true, title: `Ảnh Selfie: ${displayName} (${dateStr})`, recordId: strRecordId });
+
     try {
       setSelfieLoadingId(strRecordId);
-      // Ảnh selfie lịch sử có thể lên tới 2–3MB hoặc máy chủ cần thời gian xử lý qua cloud regions.
-      // Dùng timeout 60 giây và tự động thử lại 1 lần nếu gặp sự cố mạng hoặc timeout.
       let res;
       try {
-        res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 60000 });
+        res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 30000 });
       } catch (reqErr) {
         const isTimeoutOrNetwork = !reqErr.response || reqErr.code === 'ECONNABORTED' || reqErr.code === 'ERR_NETWORK';
         if (isTimeoutOrNetwork) {
-          res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 60000 });
+          res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 30000 });
         } else {
           throw reqErr;
         }
@@ -414,11 +416,16 @@ export default function RequestsPage() {
         setFlaggedList(prev => prev.map(row => (
           String(row._id || row.id) === strRecordId ? { ...row, selfie_url: data.selfie_url } : row
         )));
-        setFullAvatarImage({ url: data.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
+        setFullAvatarImage(prev => {
+          if (!prev || prev.recordId !== strRecordId) return prev;
+          return { url: data.selfie_url, loading: false, title: `Ảnh Selfie: ${displayName} (${dateStr})` };
+        });
       } else {
+        setFullAvatarImage(prev => (prev?.recordId === strRecordId ? null : prev));
         toast.error("Không tìm thấy ảnh selfie cho ca làm việc này");
       }
     } catch (err) {
+      setFullAvatarImage(prev => (prev?.recordId === strRecordId ? null : prev));
       console.error("Load selfie error:", err);
       const status = err?.response?.status;
       const errorMsg = err?.response?.data?.error;
@@ -432,7 +439,7 @@ export default function RequestsPage() {
       } else if (status === 403) {
         toast.error(errorMsg || "Bạn không có quyền xem ảnh xác minh của ca làm việc này");
       } else if (isTimeout) {
-        toast.error("Tải ảnh quá thời gian quy định do kích thước lớn (>2MB). Vui lòng bấm thử lại.");
+        toast.error("Tải ảnh quá thời gian quy định. Vui lòng bấm thử lại.");
       } else {
         toast.error(errorMsg || err?.message || "Không tải được ảnh selfie. Vui lòng thử lại");
       }
@@ -455,18 +462,68 @@ export default function RequestsPage() {
       setFullAvatarImage({ url: request.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
       return;
     }
+
+    setFullAvatarImage({ url: null, loading: true, title: `Minh chứng đính kèm: ${displayName}`, recordId: strRequestId });
+
     try {
       setAttachmentLoadingId(strRequestId);
-      const { data } = await api.get(`/requests/${strRequestId}/attachment`, { timeout: 60000 });
+      const { data } = await api.get(`/requests/${strRequestId}/attachment`, { timeout: 30000 });
       if (!data?.attachment_url) throw new Error('missing attachment');
       attachmentCacheRef.current.set(strRequestId, data.attachment_url);
-      setFullAvatarImage({ url: data.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
+      setRequestList(prev => prev.map(row => (
+        String(row._id || row.id) === strRequestId ? { ...row, attachment_url: data.attachment_url } : row
+      )));
+      setFullAvatarImage(prev => {
+        if (!prev || prev.recordId !== strRequestId) return prev;
+        return { url: data.attachment_url, loading: false, title: `Minh chứng đính kèm: ${displayName}` };
+      });
     } catch (err) {
+      setFullAvatarImage(prev => (prev?.recordId === strRequestId ? null : prev));
       toast.error(err?.response?.data?.error || err?.message || 'Không tải được ảnh minh chứng');
     } finally {
       setAttachmentLoadingId(null);
     }
   }, []);
+
+  // Tự động tải trước (background prefetch) các ảnh selfie trong danh sách hiển thị
+  // Giúp ảnh hiển thị trực tiếp dạng thumbnail và người dùng bấm vào xem được ngay lập tức (0ms)
+  useEffect(() => {
+    if (tab !== 'flagged' || !Array.isArray(flaggedList) || flaggedList.length === 0) return;
+
+    let isCancelled = false;
+    const pendingItems = flaggedList.filter(item => {
+      const id = String(item._id || item.id || '');
+      return Boolean(item.has_selfie) && !item.selfie_url && !selfieCacheRef.current.has(id);
+    });
+
+    if (pendingItems.length === 0) return;
+
+    const prefetchSelfies = async () => {
+      for (const item of pendingItems) {
+        if (isCancelled) break;
+        const id = String(item._id || item.id || '');
+        try {
+          const res = await api.get(`/attendance/${id}/selfie`, { timeout: 15000 });
+          if (isCancelled) break;
+          if (res?.data?.selfie_url) {
+            selfieCacheRef.current.set(id, res.data.selfie_url);
+            setFlaggedList(prev => prev.map(row => (
+              String(row._id || row.id) === id ? { ...row, selfie_url: res.data.selfie_url } : row
+            )));
+          }
+        } catch {
+          // Bỏ qua lỗi prefetch ngầm, không ảnh hưởng trải nghiệm
+        }
+        await new Promise(r => setTimeout(r, 120));
+      }
+    };
+
+    const timer = setTimeout(prefetchSelfies, 300);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tab, flaggedList]);
 
   // Flagged Attendance loader
   const fetchFlagged = useCallback(async (targetStatus) => {
@@ -483,7 +540,12 @@ export default function RequestsPage() {
       const res = await api.get(`/attendance/flagged?${params}`, { signal: controller.signal });
       if (controller.signal.aborted) return;
       if (res.data) {
-        setFlaggedList(res.data.flagged || []);
+        const list = (res.data.flagged || []).map(row => {
+          const rowId = String(row._id || row.id || '');
+          const cached = selfieCacheRef.current.get(rowId);
+          return cached ? { ...row, selfie_url: cached } : row;
+        });
+        setFlaggedList(list);
         if (res.data.counts) {
           setFlaggedCounts(res.data.counts);
         }
