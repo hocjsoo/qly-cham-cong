@@ -381,21 +381,39 @@ export default function RequestsPage() {
   const handleOpenSelfiePhoto = useCallback(async (item, displayName, dateStr) => {
     const recordId = item?._id || item?.id;
     if (!recordId) return;
-    const cached = selfieCacheRef.current.get(String(recordId));
+    const strRecordId = String(recordId);
+    const cached = selfieCacheRef.current.get(strRecordId);
     if (cached) {
       setFullAvatarImage({ url: cached, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       return;
     }
     if (item.selfie_url) {
-      selfieCacheRef.current.set(String(recordId), item.selfie_url);
+      selfieCacheRef.current.set(strRecordId, item.selfie_url);
       setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       return;
     }
     try {
-      setSelfieLoadingId(String(recordId));
-      const { data } = await api.get(`/attendance/${recordId}/selfie`);
+      setSelfieLoadingId(strRecordId);
+      // Ảnh selfie lịch sử có thể lên tới 2–3MB hoặc máy chủ cần thời gian xử lý qua cloud regions.
+      // Dùng timeout 60 giây và tự động thử lại 1 lần nếu gặp sự cố mạng hoặc timeout.
+      let res;
+      try {
+        res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 60000 });
+      } catch (reqErr) {
+        const isTimeoutOrNetwork = !reqErr.response || reqErr.code === 'ECONNABORTED' || reqErr.code === 'ERR_NETWORK';
+        if (isTimeoutOrNetwork) {
+          res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 60000 });
+        } else {
+          throw reqErr;
+        }
+      }
+      const data = res?.data;
       if (data?.selfie_url) {
-        selfieCacheRef.current.set(String(recordId), data.selfie_url);
+        selfieCacheRef.current.set(strRecordId, data.selfie_url);
+        // Đồng bộ trực tiếp vào danh sách cảnh báo để hiển thị ảnh thumbnail ngay lập tức
+        setFlaggedList(prev => prev.map(row => (
+          String(row._id || row.id) === strRecordId ? { ...row, selfie_url: data.selfie_url } : row
+        )));
         setFullAvatarImage({ url: data.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       } else {
         toast.error("Không tìm thấy ảnh selfie cho ca làm việc này");
@@ -404,12 +422,19 @@ export default function RequestsPage() {
       console.error("Load selfie error:", err);
       const status = err?.response?.status;
       const errorMsg = err?.response?.data?.error;
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
       if (status === 404) {
+        // Tự động chuyển thẻ thành không có ảnh để người dùng không bấm nhầm
+        setFlaggedList(prev => prev.map(row => (
+          String(row._id || row.id) === strRecordId ? { ...row, has_selfie: false, selfie_url: null } : row
+        )));
         toast.error(errorMsg || "Ca làm việc này không có dữ liệu ảnh selfie");
       } else if (status === 403) {
         toast.error(errorMsg || "Bạn không có quyền xem ảnh xác minh của ca làm việc này");
+      } else if (isTimeout) {
+        toast.error("Tải ảnh quá thời gian quy định do kích thước lớn (>2MB). Vui lòng bấm thử lại.");
       } else {
-        toast.error(errorMsg || "Không tải được ảnh selfie. Vui lòng thử lại");
+        toast.error(errorMsg || err?.message || "Không tải được ảnh selfie. Vui lòng thử lại");
       }
     } finally {
       setSelfieLoadingId(null);
@@ -419,24 +444,25 @@ export default function RequestsPage() {
   const handleOpenRequestAttachment = useCallback(async (request, displayName) => {
     const requestId = request?._id || request?.id;
     if (!requestId) return;
-    const cached = attachmentCacheRef.current.get(String(requestId));
+    const strRequestId = String(requestId);
+    const cached = attachmentCacheRef.current.get(strRequestId);
     if (cached) {
       setFullAvatarImage({ url: cached, title: `Minh chứng đính kèm: ${displayName}` });
       return;
     }
     if (request.attachment_url) {
-      attachmentCacheRef.current.set(String(requestId), request.attachment_url);
+      attachmentCacheRef.current.set(strRequestId, request.attachment_url);
       setFullAvatarImage({ url: request.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
       return;
     }
     try {
-      setAttachmentLoadingId(String(requestId));
-      const { data } = await api.get(`/requests/${requestId}/attachment`);
+      setAttachmentLoadingId(strRequestId);
+      const { data } = await api.get(`/requests/${strRequestId}/attachment`, { timeout: 60000 });
       if (!data?.attachment_url) throw new Error('missing attachment');
-      attachmentCacheRef.current.set(String(requestId), data.attachment_url);
+      attachmentCacheRef.current.set(strRequestId, data.attachment_url);
       setFullAvatarImage({ url: data.attachment_url, title: `Minh chứng đính kèm: ${displayName}` });
     } catch (err) {
-      toast.error(err?.response?.data?.error || 'Không tải được ảnh minh chứng');
+      toast.error(err?.response?.data?.error || err?.message || 'Không tải được ảnh minh chứng');
     } finally {
       setAttachmentLoadingId(null);
     }
@@ -1082,10 +1108,19 @@ export default function RequestsPage() {
                                 flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
                                 border: `2px solid ${statusColor}`, fontSize: '10.5px'
                               }}>
-                                <Camera size={22} />
-                                {selfieLoadingId === recordId ? 'Đang tải...' : 'Có ảnh selfie'}
+                                {selfieLoadingId === recordId ? (
+                                  <>
+                                    <RefreshCw size={18} className="spinner" />
+                                    <span style={{ fontSize: '10px', fontWeight: 600 }}>Đang tải...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Camera size={22} />
+                                    <span>Có ảnh selfie</span>
+                                  </>
+                                )}
                               </div>
-                              <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 4px', fontWeight: 800 }}>
+                              <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', borderRadius: '4px', padding: '1px 5px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '2px' }}>
                                 <ZoomIn size={10} /> Xem
                               </div>
                             </button>

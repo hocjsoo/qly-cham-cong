@@ -1646,11 +1646,40 @@ const overrideAttendance = async (req, res) => {
 };
 
 // Helper nội bộ: Xóa bản ghi chấm công, giải phóng thiết bị trong ngày và ghi nhận Audit Log minh bạch
+const selfiePhotoCache = new Map();
+const SELFIE_PHOTO_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const MAX_SELFIE_CACHE_SIZE = 50;
+
+function getCachedSelfie(id) {
+  if (process.env.NODE_ENV === 'test') return null;
+  const entry = selfiePhotoCache.get(String(id));
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > SELFIE_PHOTO_CACHE_TTL) {
+    selfiePhotoCache.delete(String(id));
+    return null;
+  }
+  return entry.doc;
+}
+
+function setCachedSelfie(id, doc) {
+  if (process.env.NODE_ENV === 'test') return;
+  if (selfiePhotoCache.size >= MAX_SELFIE_CACHE_SIZE) {
+    const oldestKey = selfiePhotoCache.keys().next().value;
+    if (oldestKey) selfiePhotoCache.delete(oldestKey);
+  }
+  selfiePhotoCache.set(String(id), { doc, timestamp: Date.now() });
+}
+
+function evictCachedSelfie(id) {
+  if (id) selfiePhotoCache.delete(String(id));
+}
+
 const deleteAttendanceAndLog = async ({ attendance, actor, reason }) => {
   const { _id: id, user_id, date, notes } = attendance;
 
-  // 1. Xóa bản ghi chấm công
+  // 1. Xóa bản ghi chấm công & giải phóng bộ nhớ đệm selfie
   await Attendance.findByIdAndDelete(id);
+  evictCachedSelfie(id);
 
   // 2. Xóa dữ liệu thiết bị đăng ký của nhân viên đó trong ngày để cho phép chấm lại
   if (user_id && date) {
@@ -1728,10 +1757,16 @@ const getSelfiePhoto = async (req, res) => {
     if (!id || (mongoose.Types.ObjectId.isValid && !mongoose.Types.ObjectId.isValid(id))) {
       return res.status(400).json({ error: "Mã ca chấm công không hợp lệ." });
     }
-    let query = Attendance.findById(id);
-    if (query && typeof query.select === "function") query = query.select("selfie_url user_id");
-    if (query && typeof query.lean === "function") query = query.lean();
-    const doc = await query;
+
+    let doc = getCachedSelfie(id);
+    if (!doc) {
+      let query = Attendance.findById(id);
+      if (query && typeof query.select === "function") query = query.select("selfie_url user_id");
+      if (query && typeof query.lean === "function") query = query.lean();
+      doc = await query;
+      if (doc && doc.selfie_url) setCachedSelfie(id, doc);
+    }
+
     const cleanSelfie = typeof doc?.selfie_url === 'string' ? doc.selfie_url.trim() : '';
     if (!doc || !cleanSelfie || ['null', 'undefined'].includes(cleanSelfie.toLowerCase())) {
       return res.status(404).json({ error: "Không tìm thấy ảnh selfie cho ca làm việc này." });
