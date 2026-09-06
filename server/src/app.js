@@ -24,14 +24,7 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
-app.use(compression({
-  filter(req, res) {
-    if (req.headers['x-no-compression'] || res.getHeader('x-no-compression')) {
-      return false;
-    }
-    return compression.filter(req, res);
-  }
-}));
+app.use(compression());
 
 const normalizeOrigin = value => String(value || '').trim().replace(/\/$/, '');
 const configuredOrigins = [

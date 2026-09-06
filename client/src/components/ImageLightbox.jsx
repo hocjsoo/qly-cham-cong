@@ -42,6 +42,7 @@ export default function ImageLightbox({ image, onClose }) {
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
   const triggerRef = useRef(typeof document !== "undefined" ? document.activeElement : null);
+  const isImageLoading = Boolean(image?.loading && !image?.url);
 
   const changeZoom = (nextZoom) => {
     const value = Math.min(4, Math.max(0.5, Number(nextZoom.toFixed(2))));
@@ -98,18 +99,18 @@ export default function ImageLightbox({ image, onClose }) {
           first.focus();
         }
       }
-      if (event.key === "+" || event.key === "=") changeZoom(zoom + 0.25);
-      if (event.key === "-") changeZoom(zoom - 0.25);
-      if (event.key === "0") resetView();
-      if (event.key === "r" || event.key === "R") rotate(90);
+      if (!isImageLoading) {
+        if (event.key === "+" || event.key === "=") changeZoom(zoom + 0.25);
+        if (event.key === "-") changeZoom(zoom - 0.25);
+        if (event.key === "0") resetView();
+        if (event.key === "r" || event.key === "R") rotate(90);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, zoom]);
+  }, [isImageLoading, onClose, zoom]);
 
   if (!image || (!image.url && !image.loading)) return null;
-
-  const isImageLoading = Boolean(image.loading && !image.url);
 
   const handleDownload = (e) => {
     e.stopPropagation();
@@ -132,8 +133,8 @@ export default function ImageLightbox({ image, onClose }) {
       aria-label={image.title || "Xem ảnh lớn"}
       onClick={event => event.currentTarget === event.target && onClose()}
       onWheel={event => {
-        if (isImageLoading) return;
         event.preventDefault();
+        if (isImageLoading) return;
         changeZoom(zoom + (event.deltaY < 0 ? 0.2 : -0.2));
       }}
       style={{

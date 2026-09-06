@@ -376,49 +376,62 @@ export default function RequestsPage() {
   }, [tab, statusFilter, typeFilter, monthFilter, debouncedSearch]);
 
   const selfieCacheRef = useRef(new Map());
+  const selfieRequestRef = useRef(new Map());
+  const failedSelfieRef = useRef(new Set());
   const [selfieLoadingId, setSelfieLoadingId] = useState(null);
+
+  const fetchSelfiePhoto = useCallback(recordId => {
+    const id = String(recordId || '');
+    const cached = selfieCacheRef.current.get(id);
+    if (cached) return Promise.resolve(cached);
+
+    const inFlight = selfieRequestRef.current.get(id);
+    if (inFlight) return inFlight;
+
+    const request = api.get(`/attendance/${id}/selfie`, { timeout: 20000 })
+      .then(response => {
+        const selfieUrl = response?.data?.selfie_url;
+        if (!selfieUrl) throw new Error('missing selfie');
+        selfieCacheRef.current.set(id, selfieUrl);
+        return selfieUrl;
+      })
+      .finally(() => selfieRequestRef.current.delete(id));
+
+    selfieRequestRef.current.set(id, request);
+    return request;
+  }, []);
 
   const handleOpenSelfiePhoto = useCallback(async (item, displayName, dateStr) => {
     const recordId = item?._id || item?.id;
     if (!recordId) return;
     const strRecordId = String(recordId);
+    const previouslyFailed = failedSelfieRef.current.has(strRecordId);
     const cached = selfieCacheRef.current.get(strRecordId);
-    if (cached) {
+    if (cached && !previouslyFailed) {
       setFullAvatarImage({ url: cached, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       return;
     }
-    if (item.selfie_url) {
+    if (item.selfie_url && !previouslyFailed) {
       selfieCacheRef.current.set(strRecordId, item.selfie_url);
       setFullAvatarImage({ url: item.selfie_url, title: `Ảnh Selfie: ${displayName} (${dateStr})` });
       return;
     }
 
+    failedSelfieRef.current.delete(strRecordId);
     // Mở ngay Lightbox ở trạng thái đang tải để người dùng có phản hồi tức thì
     setFullAvatarImage({ url: null, loading: true, title: `Ảnh Selfie: ${displayName} (${dateStr})`, recordId: strRecordId });
 
     try {
       setSelfieLoadingId(strRecordId);
-      let res;
-      try {
-        res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 30000 });
-      } catch (reqErr) {
-        const isTimeoutOrNetwork = !reqErr.response || reqErr.code === 'ECONNABORTED' || reqErr.code === 'ERR_NETWORK';
-        if (isTimeoutOrNetwork) {
-          res = await api.get(`/attendance/${strRecordId}/selfie`, { timeout: 30000 });
-        } else {
-          throw reqErr;
-        }
-      }
-      const data = res?.data;
-      if (data?.selfie_url) {
-        selfieCacheRef.current.set(strRecordId, data.selfie_url);
+      const selfieUrl = await fetchSelfiePhoto(strRecordId);
+      if (selfieUrl) {
         // Đồng bộ trực tiếp vào danh sách cảnh báo để hiển thị ảnh thumbnail ngay lập tức
         setFlaggedList(prev => prev.map(row => (
-          String(row._id || row.id) === strRecordId ? { ...row, selfie_url: data.selfie_url } : row
+          String(row._id || row.id) === strRecordId ? { ...row, selfie_url: selfieUrl } : row
         )));
         setFullAvatarImage(prev => {
           if (!prev || prev.recordId !== strRecordId) return prev;
-          return { url: data.selfie_url, loading: false, title: `Ảnh Selfie: ${displayName} (${dateStr})` };
+          return { url: selfieUrl, loading: false, title: `Ảnh Selfie: ${displayName} (${dateStr})` };
         });
       } else {
         setFullAvatarImage(prev => (prev?.recordId === strRecordId ? null : prev));
@@ -446,7 +459,7 @@ export default function RequestsPage() {
     } finally {
       setSelfieLoadingId(null);
     }
-  }, []);
+  }, [fetchSelfiePhoto]);
 
   const handleOpenRequestAttachment = useCallback(async (request, displayName) => {
     const requestId = request?._id || request?.id;
@@ -488,16 +501,20 @@ export default function RequestsPage() {
     }
   }, []);
 
-  // Tự động tải trước (background prefetch) các ảnh selfie trong danh sách hiển thị
-  // Giúp ảnh hiển thị trực tiếp dạng thumbnail và người dùng bấm vào xem được ngay lập tức (0ms)
+  // Tải trước tối đa 6 ảnh đầu tiên khi mạng phù hợp để mở nhanh mà không kéo cả danh sách về máy.
   useEffect(() => {
     if (tab !== 'flagged' || !Array.isArray(flaggedList) || flaggedList.length === 0) return;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || '')) return;
 
     let isCancelled = false;
-    const pendingItems = flaggedList.filter(item => {
-      const id = String(item._id || item.id || '');
-      return Boolean(item.has_selfie) && !item.selfie_url && !selfieCacheRef.current.has(id);
-    });
+    const pendingItems = flaggedList
+      .filter(item => Boolean(item.has_selfie))
+      .slice(0, 6)
+      .filter(item => {
+        const id = String(item._id || item.id || '');
+        return !item.selfie_url && !selfieCacheRef.current.has(id) && !failedSelfieRef.current.has(id);
+      });
 
     if (pendingItems.length === 0) return;
 
@@ -506,12 +523,11 @@ export default function RequestsPage() {
         if (isCancelled) break;
         const id = String(item._id || item.id || '');
         try {
-          const res = await api.get(`/attendance/${id}/selfie`, { timeout: 15000 });
+          const selfieUrl = await fetchSelfiePhoto(id);
           if (isCancelled) break;
-          if (res?.data?.selfie_url) {
-            selfieCacheRef.current.set(id, res.data.selfie_url);
+          if (selfieUrl) {
             setFlaggedList(prev => prev.map(row => (
-              String(row._id || row.id) === id ? { ...row, selfie_url: res.data.selfie_url } : row
+              String(row._id || row.id) === id ? { ...row, selfie_url: selfieUrl } : row
             )));
           }
         } catch {
@@ -526,7 +542,7 @@ export default function RequestsPage() {
       isCancelled = true;
       clearTimeout(timer);
     };
-  }, [tab, flaggedList]);
+  }, [fetchSelfiePhoto, tab, flaggedList]);
 
   // Flagged Attendance loader
   const fetchFlagged = useCallback(async (targetStatus) => {
@@ -1160,6 +1176,7 @@ export default function RequestsPage() {
                                   decoding="async"
                                   onError={() => {
                                     selfieCacheRef.current.delete(recordId);
+                                    failedSelfieRef.current.add(recordId);
                                     setFlaggedList(prev => prev.map(row => (
                                       String(row._id || row.id) === recordId ? { ...row, selfie_url: null } : row
                                     )));
