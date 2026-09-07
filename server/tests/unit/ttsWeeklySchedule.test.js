@@ -82,6 +82,26 @@ function runTtsWeeklyScheduleTests(assert) {
   });
   assert(regPastWeek.isRegistrationLocked === true && regPastWeek.allowSupplementary === false,
     'TC-TTS-17: Tuần đã qua trong quá khứ bị khóa hoàn toàn');
+
+  const supplementaryPayload = currentWeekMeta.allowed_dates.map(date => ({
+    date,
+    morning: true,
+    afternoon: true,
+  }));
+  const protectedExisting = __test.protectPastSlots(supplementaryPayload, [
+    { date: '2026-08-31', morning: true, afternoon: false },
+    { date: '2026-09-01', morning: false, afternoon: true },
+  ], '2026-09-02');
+  assert(protectedExisting[0].morning === true && protectedExisting[0].afternoon === false &&
+    protectedExisting[1].morning === false && protectedExisting[1].afternoon === true &&
+    protectedExisting[2].morning === true && protectedExisting[2].afternoon === true,
+  'TC-TTS-18: Điền bổ sung giữ nguyên ngày cũ và vẫn nhận thay đổi từ hôm nay trở đi');
+
+  const protectedFirstRegistration = __test.protectPastSlots(supplementaryPayload, [], '2026-09-02');
+  assert(protectedFirstRegistration[0].morning === false && protectedFirstRegistration[0].afternoon === false &&
+    protectedFirstRegistration[1].morning === false && protectedFirstRegistration[1].afternoon === false &&
+    protectedFirstRegistration[2].morning === true && protectedFirstRegistration[2].afternoon === true,
+  'TC-TTS-19: TTS đăng ký lần đầu sau hạn không thể khai thêm dữ liệu cho ngày đã qua');
 }
 
 module.exports = runTtsWeeklyScheduleTests;

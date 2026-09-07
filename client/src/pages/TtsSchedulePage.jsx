@@ -18,8 +18,9 @@ const DAY_MS = 86400000;
 const toDateString = date => date.toISOString().slice(0, 10);
 const parseLocalDate = value => new Date(`${value}T12:00:00.000Z`);
 const addDays = (value, amount) => new Date(value.getTime() + amount * DAY_MS);
+const currentDateVn = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 const currentMonday = () => {
-  const nowVN = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const nowVN = currentDateVn();
   const date = parseLocalDate(nowVN);
   const day = date.getUTCDay() || 7;
   return toDateString(addDays(date, 1 - day));
@@ -103,7 +104,7 @@ export default function TtsSchedulePage() {
   const isTts = user?.employee_type === 'TTS';
   const locked = Boolean(payload?.is_registration_locked);
   const allowSupplementary = Boolean(payload?.allow_supplementary);
-  const todayDate = payload?.today || currentMonday();
+  const todayDate = payload?.today || currentDateVn();
   const writesDisabled = loading || !payload || saving || Boolean(savingCell) || Boolean(savingPermission);
 
   const registrations = useMemo(() => {

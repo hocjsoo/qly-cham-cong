@@ -82,9 +82,8 @@ const buildDutyRotationHistory = (schedules = []) => {
 };
 
 const sanitizeSlots = (slots, allowedDates) => {
-  if (!Array.isArray(slots)) return [];
   const byDate = new Map();
-  slots.forEach((slot) => {
+  (Array.isArray(slots) ? slots : []).forEach((slot) => {
     if (!slot || !allowedDates.includes(slot.date)) return;
     byDate.set(slot.date, {
       date: slot.date,
@@ -93,6 +92,22 @@ const sanitizeSlots = (slots, allowedDates) => {
     });
   });
   return allowedDates.map(date => byDate.get(date) || { date, morning: false, afternoon: false });
+};
+
+const protectPastSlots = (slots, existingSlots, todayVn) => {
+  const previousByDate = new Map(
+    (Array.isArray(existingSlots) ? existingSlots : []).map(slot => [slot.date, slot])
+  );
+
+  return slots.map(slot => {
+    if (slot.date >= todayVn) return slot;
+    const previous = previousByDate.get(slot.date);
+    return {
+      date: slot.date,
+      morning: Boolean(previous?.morning),
+      afternoon: Boolean(previous?.afternoon),
+    };
+  });
 };
 
 const getOrCreateSchedule = async (meta, actorId) => {
@@ -229,14 +244,8 @@ const updateMyRegistration = async (req, res) => {
 
     // Nếu đã qua hạn Chủ nhật: Cho phép điền bổ sung các ngày từ hôm nay trở đi (date >= todayVn).
     // Các ngày trong quá khứ (< todayVn) được giữ nguyên dữ liệu cũ để bảo toàn lịch sử.
-    if (deadlinePassed && existingReg) {
-      normalizedSlots = normalizedSlots.map(newSlot => {
-        if (newSlot.date < todayVn) {
-          const oldSlot = existingReg.slots?.find(s => s.date === newSlot.date);
-          return oldSlot ? { date: newSlot.date, morning: Boolean(oldSlot.morning), afternoon: Boolean(oldSlot.afternoon) } : newSlot;
-        }
-        return newSlot;
-      });
+    if (deadlinePassed) {
+      normalizedSlots = protectPastSlots(normalizedSlots, existingReg?.slots, todayVn);
     }
 
     const registration = {
@@ -395,5 +404,6 @@ module.exports = {
     getMonday,
     buildDutyRotationHistory,
     resolveRegistrationStatus,
+    protectPastSlots,
   },
 };
