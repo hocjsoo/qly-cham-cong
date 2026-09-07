@@ -2,6 +2,7 @@ const TtsWeeklySchedule = require('../models/TtsWeeklySchedule');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { getActiveEmploymentFilter, isInactiveEmploymentStatus } = require('../utils/employmentStatus');
+const { getVnDateString } = require('../utils/attendanceCalculations');
 
 const DAY_MS = 86400000;
 
@@ -33,6 +34,23 @@ const buildWeekMeta = (weekStartValue) => {
     week_end: formatDate(saturday),
     registration_deadline: new Date(`${deadlineDate}T23:59:59.999+07:00`),
     allowed_dates: Array.from({ length: 6 }, (_, index) => formatDate(addDays(monday, index))),
+  };
+};
+
+const resolveRegistrationStatus = ({ schedule, meta, todayVn, now = new Date() }) => {
+  const isLockedByAdmin = schedule?.status === 'locked';
+  const isPastWeek = Boolean(meta && meta.week_end < todayVn);
+  const deadlinePassed = Boolean(meta && now > meta.registration_deadline);
+  const isRegistrationLocked = Boolean(isLockedByAdmin || isPastWeek);
+  const allowSupplementary = Boolean(!isLockedByAdmin && !isPastWeek && deadlinePassed);
+
+  return {
+    isLockedByAdmin,
+    isPastWeek,
+    deadlinePassed,
+    isRegistrationLocked,
+    allowSupplementary,
+    today: todayVn,
   };
 };
 
@@ -146,7 +164,14 @@ const getWeeklySchedule = async (req, res) => {
         return person;
       });
 
-    const deadlinePassed = new Date() > meta.registration_deadline;
+    const todayVn = getVnDateString(new Date()) || formatDate(new Date());
+    const regStatus = resolveRegistrationStatus({
+      schedule,
+      meta,
+      todayVn,
+      now: new Date(),
+    });
+
     res.json({
       schedule: schedule || {
         week_start: meta.week_start,
@@ -164,7 +189,9 @@ const getWeeklySchedule = async (req, res) => {
       tts_users: ttsUsers,
       people,
       allowed_dates: meta.allowed_dates,
-      is_registration_locked: Boolean(schedule?.status === 'locked' || deadlinePassed),
+      is_registration_locked: regStatus.isRegistrationLocked,
+      allow_supplementary: regStatus.allowSupplementary,
+      today: todayVn,
       can_manage: isScheduleAdmin(req.user),
       can_manage_duties: canManageDuties(req.user),
     });
@@ -182,14 +209,36 @@ const updateMyRegistration = async (req, res) => {
   if (req.user.employee_type !== 'TTS') {
     return res.status(403).json({ error: 'Chỉ tài khoản Thực tập sinh mới được tự đăng ký lịch tuần.' });
   }
-  if (new Date() > meta.registration_deadline) {
-    return res.status(403).json({ error: 'Lịch tuần này đã hết hạn đăng ký. Vui lòng liên hệ người phụ trách.' });
+
+  const todayVn = getVnDateString(new Date()) || formatDate(new Date());
+  if (meta.week_end < todayVn) {
+    return res.status(403).json({ error: 'Lịch tuần này đã kết thúc trong quá khứ, không thể điền bổ sung.' });
   }
+
   try {
     const schedule = await getOrCreateSchedule(meta, req.user._id);
-    if (schedule.status === 'locked') return res.status(403).json({ error: 'Lịch tuần này đã được khóa.' });
-    const normalizedSlots = sanitizeSlots(slots, meta.allowed_dates);
+    if (schedule.status === 'locked') {
+      return res.status(403).json({ error: 'Lịch tuần này đã bị Admin khóa. Vui lòng liên hệ người phụ trách.' });
+    }
+
+    const deadlinePassed = new Date() > meta.registration_deadline;
+    let normalizedSlots = sanitizeSlots(slots, meta.allowed_dates);
+
     const index = schedule.registrations.findIndex(item => String(item.user_id) === String(req.user._id));
+    const existingReg = index >= 0 ? schedule.registrations[index] : null;
+
+    // Nếu đã qua hạn Chủ nhật: Cho phép điền bổ sung các ngày từ hôm nay trở đi (date >= todayVn).
+    // Các ngày trong quá khứ (< todayVn) được giữ nguyên dữ liệu cũ để bảo toàn lịch sử.
+    if (deadlinePassed && existingReg) {
+      normalizedSlots = normalizedSlots.map(newSlot => {
+        if (newSlot.date < todayVn) {
+          const oldSlot = existingReg.slots?.find(s => s.date === newSlot.date);
+          return oldSlot ? { date: newSlot.date, morning: Boolean(oldSlot.morning), afternoon: Boolean(oldSlot.afternoon) } : newSlot;
+        }
+        return newSlot;
+      });
+    }
+
     const registration = {
       user_id: req.user._id,
       slots: normalizedSlots,
@@ -203,7 +252,10 @@ const updateMyRegistration = async (req, res) => {
     else schedule.registrations.push(registration);
     schedule.updated_by = req.user._id;
     await schedule.save();
-    res.json({ message: 'Đã lưu lịch tuần của bạn.', registration });
+    res.json({
+      message: deadlinePassed ? 'Đã lưu điền bổ sung lịch tuần của bạn.' : 'Đã lưu lịch tuần của bạn.',
+      registration
+    });
   } catch (error) {
     console.error('UpdateMyRegistration error:', error);
     res.status(500).json({ error: 'Lỗi lưu lịch đăng ký.' });
@@ -318,7 +370,10 @@ const toggleLock = async (req, res) => {
     schedule.status = req.body.locked === false ? 'open' : 'locked';
     schedule.updated_by = req.user._id;
     await schedule.save();
-    res.json({ message: schedule.status === 'locked' ? 'Đã khóa lịch tuần.' : 'Đã mở lại lịch tuần.', status: schedule.status });
+    res.json({
+      message: schedule.status === 'locked' ? 'Đã khóa lịch tuần.' : 'Đã mở lại lịch tuần (cho phép TTS điền bổ sung).',
+      status: schedule.status,
+    });
   } catch (error) {
     console.error('ToggleTtsScheduleLock error:', error);
     res.status(500).json({ error: 'Lỗi thay đổi trạng thái lịch.' });
@@ -332,5 +387,13 @@ module.exports = {
   updateDuties,
   updateInstructions,
   toggleLock,
-  __test: { buildWeekMeta, sanitizeSlots, isScheduleAdmin, canManageDuties, getMonday, buildDutyRotationHistory },
+  __test: {
+    buildWeekMeta,
+    sanitizeSlots,
+    isScheduleAdmin,
+    canManageDuties,
+    getMonday,
+    buildDutyRotationHistory,
+    resolveRegistrationStatus,
+  },
 };

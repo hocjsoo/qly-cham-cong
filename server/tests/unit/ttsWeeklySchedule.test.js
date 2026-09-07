@@ -42,6 +42,46 @@ function runTtsWeeklyScheduleTests(assert) {
     'TC-TTS-12: Tổng hợp đúng số lượt và ngày trực gần nhất từ các tuần trước');
   assert(!rotationHistory.has('u4'),
     'TC-TTS-13: Người chưa từng trực không bị tạo lịch sử giả và được ưu tiên luân phiên');
+
+  const currentWeekMeta = __test.buildWeekMeta('2026-08-31');
+  const pastDeadline = new Date('2026-09-02T10:00:00.000Z');
+  const beforeDeadline = new Date('2026-08-28T10:00:00.000Z');
+
+  const regOpen = __test.resolveRegistrationStatus({
+    schedule: { status: 'open' },
+    meta: currentWeekMeta,
+    todayVn: '2026-08-28',
+    now: beforeDeadline,
+  });
+  assert(!regOpen.isRegistrationLocked && !regOpen.allowSupplementary,
+    'TC-TTS-14: Trước hạn Chủ nhật mở đăng ký bình thường (chưa vào chế độ điền bổ sung)');
+
+  const regSupplementary = __test.resolveRegistrationStatus({
+    schedule: { status: 'open' },
+    meta: currentWeekMeta,
+    todayVn: '2026-09-02',
+    now: pastDeadline,
+  });
+  assert(!regSupplementary.isRegistrationLocked && regSupplementary.allowSupplementary === true,
+    'TC-TTS-15: Trong tuần sau hạn Chủ nhật tự động mở chế độ điền bổ sung cho TTS');
+
+  const regAdminLocked = __test.resolveRegistrationStatus({
+    schedule: { status: 'locked' },
+    meta: currentWeekMeta,
+    todayVn: '2026-09-02',
+    now: pastDeadline,
+  });
+  assert(regAdminLocked.isRegistrationLocked === true && regAdminLocked.allowSupplementary === false,
+    'TC-TTS-16: Khi Admin chủ động khóa lịch thì khóa toàn bộ và không cho điền bổ sung');
+
+  const regPastWeek = __test.resolveRegistrationStatus({
+    schedule: { status: 'open' },
+    meta: currentWeekMeta,
+    todayVn: '2026-09-10',
+    now: new Date('2026-09-10T10:00:00.000Z'),
+  });
+  assert(regPastWeek.isRegistrationLocked === true && regPastWeek.allowSupplementary === false,
+    'TC-TTS-17: Tuần đã qua trong quá khứ bị khóa hoàn toàn');
 }
 
 module.exports = runTtsWeeklyScheduleTests;
