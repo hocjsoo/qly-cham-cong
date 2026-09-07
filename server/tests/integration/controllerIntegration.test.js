@@ -50,6 +50,7 @@ async function runControllerIntegrationTests(assert) {
   const originalSettingFindOne = SystemSetting.findOne;
   const originalLocationFind = OfficeLocation.find;
   const originalAttFindOne = Attendance.findOne;
+  const originalAttFindById = Attendance.findById;
   const originalAttFind = Attendance.find;
   const originalAttCreate = Attendance.create;
   const originalAttSave = Attendance.prototype.save;
@@ -257,7 +258,7 @@ async function runControllerIntegrationTests(assert) {
   };
 
   OfficeLocation.find = function() {
-    return Promise.resolve([
+    return createQueryChain([
       { name: 'Văn phòng chính', lat: 21.0285, lng: 105.8542, radius_m: 250, is_active: true }
     ]);
   };
@@ -429,6 +430,7 @@ async function runControllerIntegrationTests(assert) {
       },
       populate() { return queryObj; },
       select() { return queryObj; },
+      lean() { return Promise.resolve(rec); },
       then(resolve, reject) { return Promise.resolve(rec).then(resolve, reject); },
       catch(reject) { return Promise.resolve(rec).catch(reject); }
     };
@@ -1120,6 +1122,120 @@ async function runControllerIntegrationTests(assert) {
       User.find = userFindBeforeFilterTests;
       mockSavedAttendanceMap.clear();
       attendanceBeforeFilterTests.forEach((doc, key) => mockSavedAttendanceMap.set(key, doc));
+    }
+
+    // Admin duyệt ca ngày trước còn thiếu checkout: tự chốt theo giờ tan làm,
+    // không yêu cầu nhân viên nộp thêm một đơn giải trình cho cùng sự việc.
+    const savedAttendanceFindByIdForClose = Attendance.findById;
+    const attendanceBeforeAutoCloseTests = new Map(mockSavedAttendanceMap);
+    try {
+      const findAttendanceByIdChain = (id) => {
+        const doc = Array.from(mockSavedAttendanceMap.values())
+          .find(item => String(item._id) === String(id)) || null;
+        const chain = {
+          populate() { return chain; },
+          then(resolve, reject) { return Promise.resolve(doc).then(resolve, reject); },
+          catch(reject) { return Promise.resolve(doc).catch(reject); },
+        };
+        return chain;
+      };
+      Attendance.findById = findAttendanceByIdChain;
+
+      const oldOpenShift = new Attendance({
+        user_id: mockEmpUser._id,
+        date: '2026-08-15',
+        check_in_time: new Date('2026-08-15T09:00:00+07:00'),
+        check_out_time: null,
+        check_in_type: 'office',
+        work_units: 1,
+        total_hours: 0,
+        is_flagged: true,
+        verification_status: 'pending_review',
+      });
+      oldOpenShift.save = async function() {
+        await this.validate();
+        mockSavedAttendanceMap.set(`${this.user_id}_${this.date}`, this);
+        return this;
+      };
+      mockSavedAttendanceMap.set(`${oldOpenShift.user_id}_${oldOpenShift.date}`, oldOpenShift);
+
+      const approveOldOpenShift = await request(app)
+        .put(`/api/attendance/flagged/verify/${oldOpenShift._id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ action: 'approve', reviewer_note: 'Xác nhận đủ ngày công' });
+
+      assert(
+        approveOldOpenShift.status === 200 &&
+          approveOldOpenShift.body.auto_closed_missing_checkout === true &&
+          oldOpenShift.verification_status === 'approved' &&
+          oldOpenShift.check_out_time?.toISOString() === '2026-08-15T11:30:00.000Z' &&
+          oldOpenShift.check_out_note.includes('Admin đã duyệt ngày công') &&
+          oldOpenShift.auto_checkout === true &&
+          oldOpenShift.work_units === 1 &&
+          oldOpenShift.ot_hours === 0,
+        'TC-HTTP-20.10: Admin duyệt ca ngày trước thiếu checkout -> tự chốt 18:30, giữ nguyên công và không bắt làm thêm đơn'
+      );
+
+      const todayDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const todayOpenShift = new Attendance({
+        user_id: mockEmpUser._id,
+        date: todayDate,
+        check_in_time: new Date(),
+        check_out_time: null,
+        check_in_type: 'office',
+        is_flagged: true,
+        verification_status: 'pending_review',
+      });
+      todayOpenShift.save = async function() { return this; };
+      mockSavedAttendanceMap.set(`${todayOpenShift.user_id}_${todayOpenShift.date}`, todayOpenShift);
+
+      const approveTodayOpenShift = await request(app)
+        .put(`/api/attendance/flagged/verify/${todayOpenShift._id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ action: 'approve' });
+
+      assert(
+        approveTodayOpenShift.status === 200 &&
+          approveTodayOpenShift.body.auto_closed_missing_checkout === false &&
+          todayOpenShift.check_out_time === null,
+        'TC-HTTP-20.11: Admin duyệt cảnh báo ca trong ngày -> ca vẫn mở để nhân viên checkout bình thường'
+      );
+
+      // Tự phục hồi dữ liệu do phiên bản cũ tạo ra: đã Admin duyệt nhưng checkout
+      // còn null. Lần tải trạng thái tiếp theo phải khép ca và bỏ chặn ngày mới.
+      mockSavedAttendanceMap.clear();
+      const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const expectedLegacyCheckout = new Date(`${yesterdayDate}T18:30:00+07:00`).toISOString();
+      const legacyApprovedShift = new Attendance({
+        user_id: mockEmpUser._id,
+        date: yesterdayDate,
+        check_in_time: new Date(`${yesterdayDate}T09:00:00+07:00`),
+        check_out_time: null,
+        check_in_type: 'office',
+        work_units: 1,
+        verification_status: 'approved',
+        reviewed_by: mockAdminUser._id,
+      });
+      legacyApprovedShift.save = async function() { return this; };
+      mockSavedAttendanceMap.set(`${legacyApprovedShift.user_id}_${legacyApprovedShift.date}`, legacyApprovedShift);
+
+      const reconciledTodayStatus = await request(app)
+        .get('/api/attendance/today')
+        .set('Authorization', `Bearer ${employeeToken}`);
+
+      assert(
+        reconciledTodayStatus.status === 200 &&
+          reconciledTodayStatus.body.active_shift === null &&
+          legacyApprovedShift.check_out_time?.toISOString() === expectedLegacyCheckout &&
+          legacyApprovedShift.auto_checkout === true,
+        'TC-HTTP-20.12: Ca cũ đã được Admin duyệt được tự phục hồi checkout và không còn chặn check-in ngày tiếp theo',
+        `status=${reconciledTodayStatus.status}, active=${JSON.stringify(reconciledTodayStatus.body.active_shift)}, checkout=${legacyApprovedShift.check_out_time?.toISOString?.()}, expected=${expectedLegacyCheckout}, auto=${legacyApprovedShift.auto_checkout}`
+      );
+    } finally {
+      Attendance.findById = savedAttendanceFindByIdForClose;
+      mockSavedAttendanceMap.clear();
+      attendanceBeforeAutoCloseTests.forEach((doc, key) => mockSavedAttendanceMap.set(key, doc));
     }
 
     // -------------------------------------------------------------
@@ -2299,6 +2415,7 @@ async function runControllerIntegrationTests(assert) {
     SystemSetting.findOne = originalSettingFindOne;
     OfficeLocation.find = originalLocationFind;
     Attendance.findOne = originalAttFindOne;
+    Attendance.findById = originalAttFindById;
     Attendance.find = originalAttFind;
     Attendance.create = originalAttCreate;
     Attendance.prototype.save = originalAttSave;

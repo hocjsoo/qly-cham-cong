@@ -25,6 +25,86 @@ const {
   canManageUserId,
 } = require('../utils/roleScope');
 
+const normalizeWorkEndTime = (value) => (
+  typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value.trim())
+    ? value.trim()
+    : '18:30'
+);
+
+// Khi Admin đã duyệt một ca của ngày trước, việc bắt nhân viên nộp thêm đơn
+// quên checkout là trùng bước phê duyệt. Hàm này khép ca theo giờ tan làm đã
+// cấu hình, giữ nguyên work_units mà Admin đã chấp nhận và không phát sinh OT.
+const closePastShiftApprovedByAdmin = async (
+  attendance,
+  { reviewerRole = null, save = true } = {}
+) => {
+  if (
+    !attendance ||
+    attendance.check_out_time ||
+    !attendance.check_in_time ||
+    attendance.date >= getVnDateString(new Date()) ||
+    attendance.verification_status !== 'approved'
+  ) {
+    return false;
+  }
+
+  let effectiveReviewerRole = reviewerRole;
+  if (!effectiveReviewerRole && attendance.reviewed_by) {
+    let reviewerQuery = User.findById(attendance.reviewed_by);
+    if (reviewerQuery && typeof reviewerQuery.select === 'function') reviewerQuery = reviewerQuery.select('role');
+    if (reviewerQuery && typeof reviewerQuery.lean === 'function') reviewerQuery = reviewerQuery.lean();
+    const reviewer = await reviewerQuery;
+    effectiveReviewerRole = reviewer?.role;
+  }
+  if (effectiveReviewerRole !== 'admin') return false;
+
+  const [shiftYear, shiftMonth] = String(attendance.date).split('-').map(Number);
+  let lockQuery = TimesheetLock.findOne({
+    month: shiftMonth,
+    year: shiftYear,
+    is_locked: true,
+    $or: [{ user_id: null }, { user_id: attendance.user_id }],
+  });
+  if (lockQuery && typeof lockQuery.select === 'function') lockQuery = lockQuery.select('_id');
+  if (lockQuery && typeof lockQuery.lean === 'function') lockQuery = lockQuery.lean();
+  if (await lockQuery) return false;
+
+  let settingsQuery = SystemSetting.findOne({ key: 'global' });
+  if (settingsQuery && typeof settingsQuery.select === 'function') settingsQuery = settingsQuery.select('work_end_time');
+  if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
+  const settings = await settingsQuery;
+  const workEndTime = normalizeWorkEndTime(settings?.work_end_time);
+
+  const checkInTime = new Date(attendance.check_in_time);
+  let checkOutTime = new Date(`${attendance.date}T${workEndTime}:00+07:00`);
+  if (Number.isNaN(checkInTime.getTime())) return false;
+
+  // Dữ liệu cũ bất thường có thể có giờ vào sau giờ tan làm. Khi đó chỉ khép
+  // ca ngay sau giờ vào, không tự tạo thêm giờ làm hoặc OT ngoài xác nhận Admin.
+  if (Number.isNaN(checkOutTime.getTime()) || checkOutTime <= checkInTime) {
+    checkOutTime = new Date(checkInTime.getTime() + 60 * 1000);
+  }
+
+  const metrics = calculateAttendanceMetrics(checkInTime, checkOutTime, {
+    workEndTime,
+    otStartTime: workEndTime,
+  });
+
+  attendance.check_out_time = checkOutTime;
+  attendance.check_out_note = `Tự động chốt ca lúc ${workEndTime} do Admin đã duyệt ngày công`;
+  attendance.total_hours = metrics.totalHours;
+  attendance.is_early_leave = false;
+  attendance.early_minutes = 0;
+  attendance.is_overnight = metrics.isOvernight;
+  attendance.auto_checkout = true;
+  attendance.ot_hours = 0;
+  attendance.ot_hours_proposed = 0;
+  attendance.ot_status = 'none';
+
+  if (save) await attendance.save();
+  return true;
+};
+
 // Helper tính khoảng cách GPS (Haversine)
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
@@ -162,7 +242,7 @@ const checkIn = async (req, res) => {
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
-      settingsQuery = settingsQuery.select('work_start_time minor_late_mins medium_late_mins default_gps_radius_meters');
+      settingsQuery = settingsQuery.select('work_start_time work_end_time minor_late_mins medium_late_mins default_gps_radius_meters');
     }
     if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
 
@@ -217,10 +297,13 @@ const checkIn = async (req, res) => {
     if (openEarlierShiftQuery && typeof openEarlierShiftQuery.sort === 'function') {
       openEarlierShiftQuery = openEarlierShiftQuery.sort({ date: -1 });
     }
-    if (openEarlierShiftQuery && typeof openEarlierShiftQuery.lean === 'function') {
-      openEarlierShiftQuery = openEarlierShiftQuery.lean();
+    let openEarlierShift = await openEarlierShiftQuery;
+
+    // Tự sửa dữ liệu cũ: ca ngày trước đã được Admin duyệt nhưng phiên bản cũ
+    // chưa ghi checkout sẽ được khép trước khi xét điều kiện chặn check-in mới.
+    if (openEarlierShift && await closePastShiftApprovedByAdmin(openEarlierShift)) {
+      openEarlierShift = null;
     }
-    const openEarlierShift = await openEarlierShiftQuery;
 
     if (openEarlierShift) {
       return res.status(400).json({
@@ -783,16 +866,18 @@ const getTodayStatus = async (req, res) => {
         check_out_time: null,
       })
         .select('-selfie_url')
-        .sort({ date: -1 })
-        .lean();
+        .sort({ date: -1 });
 
       if (openShifts.length === 1) {
         const candidate = openShifts[0];
         const diffHours = (now.getTime() - new Date(candidate.check_in_time).getTime()) / (1000 * 60 * 60);
         if (diffHours <= 48) {
-          activeShift = candidate;
-          if (!attendance || !attendance.check_in_time) {
-            attendance = candidate;
+          const wasAdminApprovedAndClosed = await closePastShiftApprovedByAdmin(candidate);
+          if (!wasAdminApprovedAndClosed) {
+            activeShift = candidate;
+            if (!attendance || !attendance.check_in_time) {
+              attendance = candidate;
+            }
           }
         }
       }
@@ -1899,6 +1984,10 @@ const verifyFlaggedAttendance = async (req, res) => {
       if (reviewer_note) {
         attendance.notes = (attendance.notes ? `${attendance.notes} | ` : '') + `Duyệt ca: ${reviewer_note}`;
       }
+      const autoClosedMissingCheckout = await closePastShiftApprovedByAdmin(attendance, {
+        reviewerRole: req.user.role,
+        save: false,
+      });
       await attendance.save();
 
       if (attendance.user_id && attendance.hardware_uuid) {
@@ -1913,7 +2002,13 @@ const verifyFlaggedAttendance = async (req, res) => {
         .populate('user_id', 'full_name employee_code code email department_id department_ids avatar_url role')
         .populate('reviewed_by', 'full_name');
 
-      return res.json({ message: 'Đã duyệt ca chấm công thành công! ✅', attendance: populated });
+      return res.json({
+        message: autoClosedMissingCheckout
+          ? 'Đã duyệt ngày công và tự động chốt ca quên checkout. Nhân viên có thể check-in ca tiếp theo! ✅'
+          : 'Đã duyệt ca chấm công thành công! ✅',
+        attendance: populated,
+        auto_closed_missing_checkout: autoClosedMissingCheckout,
+      });
     } else if (action === 'reject') {
       if (allowReset) {
         await deleteAttendanceAndLog({

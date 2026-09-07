@@ -1117,6 +1117,8 @@ export default function RequestsPage() {
                   const isPending = item.verification_status === 'pending_review' ||
                     (item.is_flagged === true && !isApproved && !isRejected);
                   const isAutoApproved = item.verification_status === 'auto_approved' && !isPending;
+                  const isPastOpenShift = isAdmin && Boolean(item.check_in_time) && !item.check_out_time &&
+                    item.date < new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
                   const statusColor = isApproved || isAutoApproved ? 'var(--green)' : isRejected ? 'var(--red)' : isPending ? 'var(--yellow)' : 'var(--text-muted)';
                   const empName = item.user_id?.full_name || 'Nhân sự';
                   const empCode = item.user_id?.employee_code || item.user_id?.code || 'NS';
@@ -1223,6 +1225,11 @@ export default function RequestsPage() {
                               ⚠️ {item.flag_reason}
                             </div>
                           )}
+                          {isPending && isPastOpenShift && (
+                            <div style={{ fontSize: '11.5px', color: 'var(--primary)', background: 'var(--primary-soft)', padding: '6px 10px', borderRadius: '8px', marginBottom: '6px', fontWeight: 600 }}>
+                              Duyệt ngày công sẽ tự chốt giờ ra theo giờ kết thúc ca; nhân viên không cần nộp thêm đơn quên checkout.
+                            </div>
+                          )}
                           {item.reviewer_note && (
                             <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px' }}>
                               💬 Ghi chú: {item.reviewer_note}
@@ -1241,7 +1248,7 @@ export default function RequestsPage() {
                               className="btn btn--primary"
                               style={{ fontSize: '12px', padding: '6px 14px', fontWeight: 700 }}
                             >
-                              <Check size={14} /> Duyệt ca & Tin cậy máy
+                              <Check size={14} /> {isPastOpenShift ? 'Duyệt ngày công & Chốt ca' : 'Duyệt ca & Tin cậy máy'}
                             </button>
                             <button
                               onClick={() => {
