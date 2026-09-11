@@ -677,6 +677,35 @@ async function runOvernightShiftAndOtTests(assert) {
     totalOfficialOt === 6.5,
     'TC-ON-13: Tổng giờ OT chính thức (6.5h) loại trừ hoàn toàn các ca pending_approval và rejected'
   );
+
+  // -------------------------------------------------------------------------
+  // 5. BÀN TRÒN 18 (RT17.1): GIỜ TẠM của ca auto-heal chưa hậu kiểm bị loại trừ
+  //    khỏi mọi tổng chính thức (report/ranking/payroll/trend) — predicate dùng
+  //    THẬT từ reportController, cùng nguyên tắc với precedent OT ở TC-ON-13.
+  // -------------------------------------------------------------------------
+  const { isProvisionalHealHours } = require('../../src/controllers/reportController');
+  const monthlyHoursRecords = [
+    { total_hours: 8.0, flag_reason: null, verification_status: 'auto_approved' },
+    { total_hours: 10.5, flag_reason: 'AUTO_HEAL_FORGOT_CHECKOUT', verification_status: 'pending_review' }, // giờ tạm — KHÔNG cộng
+    { total_hours: 7.9, flag_reason: 'AUTO_HEAL_FORGOT_CHECKOUT', verification_status: 'approved' },        // đã hậu kiểm — cộng
+  ];
+  const officialTotalHours = parseFloat(
+    monthlyHoursRecords.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0).toFixed(1)
+  );
+  assert(
+    officialTotalHours === 15.9,
+    'TC-ON-16: Tổng giờ chính thức 15.9h loại trừ 10.5h tạm của ca auto-heal pending (không phải 26.4h) — payroll không ăn số chưa duyệt'
+  );
+  assert(
+    isProvisionalHealHours(monthlyHoursRecords[1]) === true &&
+    isProvisionalHealHours(monthlyHoursRecords[2]) === false,
+    'TC-ON-16.1: Predicate bắn đúng cặp (AUTO_HEAL + pending_review); ca đã Admin duyệt quay về tính bình thường'
+  );
+  assert(
+    isProvisionalHealHours({ total_hours: 0, flag_reason: null, verification_status: 'auto_approved' }) === false &&
+    isProvisionalHealHours(undefined) === false,
+    'TC-ON-16.2: Ca thường và input null-safe — không đổi hành vi cũ'
+  );
 }
 
 module.exports = runOvernightShiftAndOtTests;
