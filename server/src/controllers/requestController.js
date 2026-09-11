@@ -777,6 +777,13 @@ const approveRequest = async (req, res) => {
 
       // Nếu là đơn forgot_checkout: Kiểm tra lại Attendance tại thời điểm duyệt [P1]
       if (request.type === 'forgot_checkout') {
+        // Bàn tròn 17 (review Antigravity): đơn auto-heal của tháng ĐÃ KHÓA không mang giờ đề xuất
+        // (end_time null) — để duyệt trực tiếp là ghi đè sổ cái đã chốt. Chặn bằng message rõ nghĩa.
+        if (request.source_attendance_id && !request.end_time && !request.start_time) {
+          const err = new Error('Đơn tự sinh của tháng công đã chốt — Admin vui lòng MỞ KHÓA bảng công rồi xử lý bằng Override, không duyệt đơn này trực tiếp.');
+          err.statusCode = 400;
+          throw err;
+        }
         let attQuery = Attendance.findOne({ user_id: request.user_id, date: request.start_date });
         if (activeSession && typeof attQuery.session === 'function') attQuery = attQuery.session(activeSession);
         const existingAtt = await attQuery;
@@ -786,7 +793,10 @@ const approveRequest = async (req, res) => {
           err.statusCode = 400;
           throw err;
         }
-        if (existingAtt.check_out_time) {
+        // Bàn tròn 17: ca khép TẠM bởi auto-heal (RT17) chưa phải dữ liệu thật —
+        // cho phép duyệt đơn để chốt đúng giờ nhân viên giải trình ở bloc dưới.
+        const isAutoHealProvisional = String(existingAtt.check_out_note || '').startsWith('RT17-AUTO-HEAL');
+        if (existingAtt.check_out_time && !isAutoHealProvisional) {
           const formattedOut = new Date(existingAtt.check_out_time).toLocaleTimeString('vi-VN', {
             hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh'
           });
@@ -961,6 +971,20 @@ const approveRequest = async (req, res) => {
             }
             const timeLabel = isOvernight ? `${d} ➔ ${targetEndDate} ${proposedTime}` : proposedTime;
             att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt bổ sung checkout ${timeLabel} (${request.reason})`;
+            // Bàn tròn 17: nếu ca này từng được auto-heal khép tạm, duyệt đơn = hậu kiểm xong
+            // → xóa cờ pending_review/flagged để ca trở về trạng thái công bình thường.
+            if (String(att.check_out_note || '').startsWith('RT17-AUTO-HEAL')) {
+              // GIỮ nguyên check_out_note: dòng note RT17 chính là dấu vết kiểm quota
+              // 2 lần/tháng của attendanceController — xóa note là vô hiệu hóa chống lạm dụng.
+              // Duyệt xong cũng không thể phát sinh đơn thứ hai cho ngày này: guard lúc
+              // tạo đơn (bloc 'đã có dữ liệu checkout') không miễn trừ ca provisional.
+              att.verification_status = 'approved';
+              att.is_flagged = false;
+              att.flag_reason = null;
+              att.reviewed_by = req.user._id;
+              att.reviewed_at = new Date();
+              att.reviewer_note = request.reviewer_note || 'Admin duyệt đơn bổ sung checkout (RT17 auto-heal)';
+            }
             await att.save(activeSession ? { session: activeSession } : undefined);
           } else if (['late', 'early_leave', 'forgot_checkin', 'other'].includes(request.type)) {
             att.is_late = false;

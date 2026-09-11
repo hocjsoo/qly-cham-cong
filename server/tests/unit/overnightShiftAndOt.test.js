@@ -28,6 +28,8 @@ const User = require('../../src/models/User');
 const Notification = require('../../src/models/Notification');
 const SystemSetting = require('../../src/models/SystemSetting');
 const Holiday = require('../../src/models/Holiday');
+const Request = require('../../src/models/Request');
+const { healUnclosedShiftForCheckin } = require('../../src/controllers/attendanceController');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'et_office_jwt_secret_key_2026_super_secure_test_123456';
 
@@ -448,19 +450,32 @@ async function runOvernightShiftAndOtTests(assert) {
       'TC-ON-12.2: ot_status = rejected, ot_hours = 0 nhưng bảo toàn 1.0 công chuẩn'
     );
 
-    // TC-ON-14: Chặn check-in đè ca mới khi còn ca mở từ hôm trước (Edge case safety)
-    const prevAttFindOne = Attendance.findOne;
-    Attendance.findOne = (query) => {
-      if (query && query.date && query.date.$lt) {
-        return createChain({
-          _id: 'att_unclosed_yesterday',
-          date: '2026-09-01',
-          check_in_time: new Date(Date.now() - 12 * 60 * 60 * 1000),
-          check_out_time: null,
-        });
-      }
-      return prevAttFindOne ? prevAttFindOne(query) : createChain(null);
+    // =====================================================================
+    // BÀN TRÒN 17 (11/09): Quên checkout hôm trước → AUTO-HEAL khép tạm ca cũ,
+    // check-in mới đi ngay, tự sinh đơn giải trình cho Admin hậu kiểm.
+    // Chỉ còn chặn 400 cứng khi quota auto-heal của tháng đã cạn.
+    // =====================================================================
+    const unclosedShift14 = {
+      _id: 'att_unclosed_yesterday',
+      user_id: mockUserId,
+      date: '2026-09-01',
+      check_in_time: new Date(Date.now() - 12 * 60 * 60 * 1000),
+      check_out_time: null,
     };
+    const prevFindOne_RT17 = Attendance.findOne;
+    const prevCount_RT17 = Attendance.countDocuments;
+    const prevReqFindOne_RT17 = Request.findOne;
+    const prevLockFindOne_RT17 = TimesheetLock.findOne;
+    const prevSettings_RT17 = SystemSetting.findOne;
+    Attendance.findOne = (query) => {
+      if (query && query.date && query.date.$lt) return createChain(unclosedShift14);
+      if (query && query.date === getVnDateString(new Date())) return createChain(null);
+      return prevFindOne_RT17 ? prevFindOne_RT17(query) : createChain(null);
+    };
+    Request.findOne = () => createChain(null);
+    TimesheetLock.findOne = () => createChain(null);
+    SystemSetting.findOne = () => createChain({ key: 'global', work_end_time: '18:30' });
+    Attendance.countDocuments = () => Promise.resolve(2); // quota tháng đã cạn
 
     const resCheckInOverlap = await request(app)
       .post('/api/attendance/checkin')
@@ -474,8 +489,125 @@ async function runOvernightShiftAndOtTests(assert) {
     assert(
       resCheckInOverlap.status === 400 &&
       resCheckInOverlap.body.error?.includes('chưa checkout từ ngày 2026-09-01'),
-      'TC-ON-14: Chặn check-in đè ca mới khi ca làm việc hôm trước chưa checkout (400 Bad Request)'
+      'TC-ON-14: Hết quota auto-heal → vẫn chặn cứng 400, message giữ nguyên ngữ cảnh ngày ca (400 Bad Request)'
     );
+    assert(
+      resCheckInOverlap.body.error?.includes('quota'),
+      'TC-ON-14.0: Message chặn mới nêu rõ lý do quota — nhân viên biết phải gặp Admin'
+    );
+
+    // -- Unit test thẳng helper healUnclosedShiftForCheckin --
+    const healNow = new Date('2026-09-09T07:50:00+07:00');
+    const dayShift = {
+      _id: new mongoose.Types.ObjectId(),
+      user_id: mockUserId,
+      date: '2026-09-08',
+      check_in_time: new Date('2026-09-08T08:00:00+07:00'),
+      check_out_time: null,
+    };
+    const prevFUA_RT17 = Attendance.findOneAndUpdate;
+    const prevReqCreate_RT17 = Request.create;
+    const prevUserFind_RT17 = User.find;
+    let healUpdateArg = null;
+    let healRequestDoc = null;
+    Attendance.findOne = () => createChain(null);
+    Attendance.countDocuments = () => Promise.resolve(0);
+    Attendance.findOneAndUpdate = (q, upd) => {
+      healUpdateArg = { q, upd };
+      return Promise.resolve({ ...dayShift, check_out_time: new Date('2026-09-08T18:30:00+07:00') });
+    };
+    Request.create = (doc) => { healRequestDoc = doc; return Promise.resolve(doc); };
+    User.find = () => Promise.resolve([]);
+
+    const outcomeHealed = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    assert(
+      outcomeHealed === 'healed' && healUpdateArg?.q?.check_out_time === null,
+      'TC-ON-14.1: Ca ngày chưa khép → auto-heal với atomic conditional update (WHERE check_out_time: null)'
+    );
+    assert(
+      healUpdateArg?.upd?.$set?.verification_status === 'pending_review' &&
+      healUpdateArg.upd.$set.ot_hours === 0 &&
+      healUpdateArg.upd.$set.auto_checkout === true &&
+      healUpdateArg.upd.$set.is_flagged === true,
+      'TC-ON-14.2: Khép tạm: pending_review + OT=0 + auto_checkout + flagged — chờ Admin hậu kiểm'
+    );
+    assert(
+      String(healUpdateArg.upd.$set.check_out_time) === String(new Date('2026-09-08T18:30:00+07:00')),
+      'TC-ON-14.3: Ca ngày thường khép tại 18:30 của ngày ca (min(now, work_end)) — không trừ giờ oan'
+    );
+    assert(
+      healRequestDoc?.type === 'forgot_checkout' &&
+      healRequestDoc?.status === 'pending' &&
+      String(healRequestDoc?.source_attendance_id) === String(dayShift._id),
+      'TC-ON-14.4: Tự sinh đơn forgot_checkout pending gắn source_attendance_id của ca nguồn'
+    );
+
+    healUpdateArg = null; healRequestDoc = null;
+    Request.findOne = () => createChain({ _id: 'req_exists', status: 'pending' });
+    const outcomeIdem = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    assert(
+      outcomeIdem === 'healed' && healUpdateArg === null && healRequestDoc === null,
+      'TC-ON-14.5: Idempotency — lượt check-in sau thấy đơn auto-heal pending → cho qua, không khép/sinh đơn trùng'
+    );
+
+    healUpdateArg = null; healRequestDoc = null;
+    Request.findOne = () => createChain(null);
+    TimesheetLock.findOne = () => createChain({ _id: 'lock_1' });
+    const outcomeLocked = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    assert(
+      outcomeLocked === 'bypassed' && healUpdateArg === null,
+      'TC-ON-14.6: Tháng đã TimesheetLock → KHÔNG đụng sổ công (không findOneAndUpdate), chỉ chìa khóa thông hành'
+    );
+    assert(
+      healRequestDoc?.end_time === null && String(healRequestDoc?.source_attendance_id) === String(dayShift._id),
+      'TC-ON-14.7: Đơn bypass tháng khóa ghi nguồn ca, không đề xuất giờ (chờ Admin mở khóa + Override)'
+    );
+
+    healUpdateArg = null; healRequestDoc = null;
+    TimesheetLock.findOne = () => createChain(null);
+    const nightShift = {
+      _id: new mongoose.Types.ObjectId(),
+      user_id: mockUserId,
+      date: '2026-09-08',
+      check_in_time: new Date('2026-09-08T22:00:00+07:00'),
+      check_out_time: null,
+    };
+    Attendance.findOneAndUpdate = (q, upd) => {
+      healUpdateArg = { q, upd };
+      return Promise.resolve({ ...nightShift, check_out_time: healNow });
+    };
+    const outcomeNight = await healUnclosedShiftForCheckin(nightShift, healNow);
+    assert(
+      outcomeNight === 'healed' && String(healUpdateArg?.upd?.$set?.check_out_time) === String(healNow),
+      'TC-ON-14.8: Luật ca đêm (Antigravity): vào ca sau 18:30 → khép đúng giờ hiện tại, KHÔNG ép mốc 18:30'
+    );
+
+    healUpdateArg = null; healRequestDoc = null;
+    Attendance.countDocuments = () => Promise.resolve(2);
+    const outcomeQuota = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    assert(
+      outcomeQuota === 'quota-blocked' && healUpdateArg === null && healRequestDoc === null,
+      'TC-ON-14.9: Vượt quota 2 lần/tháng → dừng heal, trả về chặn cứng để bảo toàn kỷ luật công'
+    );
+
+    healUpdateArg = null;
+    Attendance.countDocuments = () => Promise.resolve(0);
+    Attendance.findOneAndUpdate = () => Promise.resolve(null); // lượt khác đã khép trước
+    const outcomeRace = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    assert(
+      outcomeRace === 'closed' && healRequestDoc === null,
+      'TC-ON-14.10: Race double-click — thua update điều kiện vẫn đi tiếp check-in, không sinh đơn trùng'
+    );
+
+    // Restore toàn bộ mock RT17
+    Attendance.findOne = prevFindOne_RT17;
+    Attendance.countDocuments = prevCount_RT17;
+    Attendance.findOneAndUpdate = prevFUA_RT17;
+    Request.findOne = prevReqFindOne_RT17;
+    Request.create = prevReqCreate_RT17;
+    TimesheetLock.findOne = prevLockFindOne_RT17;
+    SystemSetting.findOne = prevSettings_RT17;
+    User.find = prevUserFind_RT17;
     // TC-ON-15: PUT /api/attendance/override/:id - Admin sửa giờ checkout xuyên ngày hôm sau (+1 ngày) tính đúng 6.05h OT
     let savedOverrideDoc = null;
     const mockOverrideDoc = {
@@ -509,7 +641,7 @@ async function runOvernightShiftAndOtTests(assert) {
       "TC-ON-15: PUT /api/attendance/override/:id - Sửa giờ checkout sang hôm sau (+1 ngày) tính đúng 15.1h làm và 6.05h OT xuyên đêm"
     );
 
-    Attendance.findOne = prevAttFindOne;
+    // (Bàn tròn 17: Attendance.findOne đã restore trong khối RT17; finally dưới vẫn về gốc)
   } finally {
     User.findById = origUserFindById;
     Attendance.find = origAttFind;
