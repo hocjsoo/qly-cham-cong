@@ -76,6 +76,13 @@ const requestSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Bàn tròn 17: đơn auto-heal gắn với ca nguồn — chống tạo trùng & làm chìa khóa
+    // thông hành khi tháng công đã khóa (null = đơn thường của nhân viên).
+    source_attendance_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Attendance',
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -85,5 +92,17 @@ const requestSchema = new mongoose.Schema(
 
 requestSchema.index({ user_id: 1, status: 1, created_at: -1 });
 requestSchema.index({ status: 1, created_at: -1 });
+// Mỗi ca chỉ tối đa MỘT đơn auto-heal pending (idempotency + chống race double-click)
+requestSchema.index(
+  { source_attendance_id: 1 },
+  {
+    unique: true,
+    name: 'uniq_auto_heal_request_per_shift',
+    partialFilterExpression: {
+      source_attendance_id: { $type: 'objectId' },
+      status: 'pending',
+    },
+  }
+);
 
 module.exports = mongoose.model('Request', requestSchema);

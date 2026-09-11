@@ -29,6 +29,14 @@ const buildDepartmentFilter = departmentId => (
 );
 
 // GET /api/reports/monthly?month=7&year=2026&department_id=...
+// Bàn tròn 18 (RT17.1): giờ TẠM của ca auto-heal quên checkout chưa được Admin hậu
+// kiểm không được cộng vào tổng giờ chính thức — cùng nguyên tắc loại trừ OT
+// pending_approval mà dự án đã áp dụng từ trước. work_units giữ nguyên hành vi cũ
+// (1.0 công mặc định từ lúc check-in là thiết kế có sẵn, không thuộc phạm vi RT17).
+const isProvisionalHealHours = (rec) => (
+  rec?.flag_reason === 'AUTO_HEAL_FORGOT_CHECKOUT' && rec?.verification_status === 'pending_review'
+);
+
 const getMonthlyReport = async (req, res) => {
   const { month, year, department_id } = req.query;
 
@@ -85,7 +93,7 @@ const getMonthlyReport = async (req, res) => {
       const presentDays = recs.filter(r => !r.is_late).length;
       const lateDays = recs.filter(r => r.is_late).length;
       const totalDays = recs.length;
-      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0).toFixed(1));
       const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const totalWorkUnits = parseFloat(recs.reduce((s, r) => s + (Number(r.work_units) || 0), 0).toFixed(2));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
@@ -165,7 +173,7 @@ const getTrend = async (req, res) => {
 
       const presentCount = monthRecords.filter(r => !r.is_late).length;
       const lateCount = monthRecords.filter(r => r.is_late).length;
-      const totalHours = parseFloat(monthRecords.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const totalHours = parseFloat(monthRecords.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0).toFixed(1));
       const attendanceRate = userIds.length > 0
         ? Math.round((monthRecords.length / (userIds.length * 22)) * 100)
         : 0;
@@ -211,7 +219,7 @@ const getAttendanceStats = async (req, res) => {
     const lateToday = todayRecords.filter(r => r.is_late).length;
     const absentToday = Math.max(0, totalEmployees - presentToday);
     const avgHoursThisMonth = monthRecords.length > 0
-      ? parseFloat((monthRecords.reduce((s, r) => s + (r.total_hours || 0), 0) / monthRecords.length).toFixed(1))
+      ? parseFloat((monthRecords.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0) / monthRecords.length).toFixed(1))
       : 0;
     const attendanceRate = totalEmployees > 0 ? Math.round((presentToday / totalEmployees) * 100) : 0;
 
@@ -258,7 +266,7 @@ const getRanking = async (req, res) => {
       const presentDays = recs.length;
       const lateDays = recs.filter(r => r.is_late).length;
       const onTimeDays = presentDays - lateDays;
-      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0).toFixed(1));
       const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const punctualityRate = presentDays > 0 ? Math.round((onTimeDays / presentDays) * 100) : 0;
       // Score: punctuality 50% + attendance 30% + hours 20%
@@ -320,7 +328,7 @@ const getPayroll = async (req, res) => {
 
       const presentDays = recs.length;
       const lateDays = recs.filter(r => r.is_late).length;
-      const totalHours = parseFloat(recs.reduce((s, r) => s + (r.total_hours || 0), 0).toFixed(1));
+      const totalHours = parseFloat(recs.reduce((s, r) => s + (isProvisionalHealHours(r) ? 0 : (r.total_hours || 0)), 0).toFixed(1));
       const otHours = parseFloat(recs.reduce((s, r) => s + (r.ot_status === 'pending_approval' ? 0 : (r.ot_hours || 0)), 0).toFixed(1));
       const totalLateMinutes = recs.reduce((s, r) => s + (r.late_minutes || 0), 0);
 
@@ -831,6 +839,7 @@ const getLeaderboard = async (req, res) => {
 };
 
 module.exports = {
+  isProvisionalHealHours,
   getMonthlyReport,
   getTrend,
   getAttendanceStats,
