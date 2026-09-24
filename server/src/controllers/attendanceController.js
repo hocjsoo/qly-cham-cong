@@ -110,11 +110,10 @@ const closePastShiftApprovedByAdmin = async (
 // cứng nhân viên cho tới khi Admin duyệt (Admin bận là tắc cả ngày công), hệ thống
 // khép TẠM ca cũ, cho check-in mới đi ngay, đồng thời tự sinh đơn forgot_checkout
 // để nhân viên giải trình và Admin HẬU KIỂM qua luồng approve/override đã có sẵn.
-// Quyền Admin vẫn nguyên — chỉ bỏ gate chặn ở cửa. Quy tắc chống lạm dụng:
-// quota 2 lần auto-heal/tháng, tháng đã TimesheetLock thì KHÔNG đụng sổ công
-// (đơn pending là chìa khóa thông hành), đóng ca đêm theo giờ thật (không ép 18:30).
+// Quyền Admin vẫn nguyên — chỉ bỏ gate chặn ở cửa. Tháng đã TimesheetLock thì
+// KHÔNG đụng sổ công (đơn pending là chìa khóa thông hành); ca đêm được đóng
+// theo giờ thật thay vì ép về mốc 18:30.
 const AUTO_HEAL_NOTE = 'RT17-AUTO-HEAL: Tự động khép tạm do quên checkout — chờ giải trình & Admin hậu kiểm';
-const AUTO_HEAL_QUOTA_PER_MONTH = 2;
 
 const healUnclosedShiftForCheckin = async (shift, now) => {
   const shiftDateStr = String(shift?.date || '');
@@ -156,6 +155,10 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
   if (Number.isNaN(checkInTime.getTime()) || Number.isNaN(checkOutTime.getTime()) || checkOutTime <= checkInTime) {
     checkOutTime = new Date(checkInTime.getTime() + 60 * 1000);
   }
+  const proposedHHMM = checkOutTime.toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh', hour12: false, hour: '2-digit', minute: '2-digit',
+  });
+  const outDayStr = checkOutTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
   const notifyAdminsAutoHeal = async (message) => {
     try {
@@ -198,15 +201,6 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
 
   if (existingHealRequest) return 'healed'; // đã được heal từ lượt check-in trước — cho qua
 
-  // Quota chống lạm dụng: quá 2 lần auto-heal trong tháng → quay lại chặn cứng.
-  const monthPrefix = shiftDateStr.slice(0, 7);
-  const healedThisMonth = await Attendance.countDocuments({
-    user_id: shift.user_id,
-    date: { $gte: `${monthPrefix}-01`, $lte: `${monthPrefix}-31` },
-    check_out_note: AUTO_HEAL_NOTE,
-  });
-  if (healedThisMonth >= AUTO_HEAL_QUOTA_PER_MONTH) return 'quota-blocked';
-
   const healMetrics = calculateAttendanceMetrics(checkInTime, checkOutTime, {
     workEndTime,
     otStartTime: workEndTime,
@@ -237,10 +231,6 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
   );
   if (!closedShift) return 'closed';
 
-  const proposedHHMM = checkOutTime.toLocaleTimeString('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh', hour12: false, hour: '2-digit', minute: '2-digit',
-  });
-  const outDayStr = checkOutTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   try {
     await Request.create({
       user_id: shift.user_id,
@@ -462,15 +452,8 @@ const checkIn = async (req, res) => {
 
     if (openEarlierShift) {
       // Bàn tròn 17: thay vì chặn cứng chờ Admin — auto-heal khép tạm ca cũ,
-      // tự sinh đơn giải trình, cho check-in mới đi ngay. Chỉ còn chặn khi quota hết.
-      const healOutcome = await healUnclosedShiftForCheckin(openEarlierShift, now);
-      if (healOutcome === 'quota-blocked') {
-        return res.status(400).json({
-          error: `Bạn đang có ca làm việc chưa checkout từ ngày ${openEarlierShift.date} và đã hết quota tự động xử lý trong tháng. Vui lòng liên hệ trực tiếp Admin để khép ca cũ!`,
-          unclosed_shift_id: openEarlierShift._id,
-          unclosed_shift_date: openEarlierShift.date,
-        });
-      }
+      // tự sinh đơn giải trình và cho check-in mới đi ngay, không giới hạn lượt.
+      await healUnclosedShiftForCheckin(openEarlierShift, now);
       // 'healed' | 'closed' | 'bypassed': ca cũ đã khép tạm / có chìa khóa thông hành → đi tiếp
       openEarlierShift = null;
     }

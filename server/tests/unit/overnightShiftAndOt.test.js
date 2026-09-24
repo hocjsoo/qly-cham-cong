@@ -23,6 +23,7 @@ const {
 } = require('../../src/utils/attendanceCalculations');
 const Attendance = require('../../src/models/Attendance');
 const AttendanceAuditLog = require('../../src/models/AttendanceAuditLog');
+const OfficeLocation = require('../../src/models/OfficeLocation');
 const TimesheetLock = require('../../src/models/TimesheetLock');
 const User = require('../../src/models/User');
 const Notification = require('../../src/models/Notification');
@@ -179,6 +180,11 @@ async function runOvernightShiftAndOtTests(assert) {
   const origAttFind = Attendance.find;
   const origAttFindOne = Attendance.findOne;
   const origAttFindById = Attendance.findById;
+  const origAttCreate = Attendance.create;
+  const origOfficeLocationFind = OfficeLocation.find;
+  const origRequestFindOne = Request.findOne;
+  const origRequestCreate = Request.create;
+  const origUserFind = User.find;
   const origTimesheetFindOne = TimesheetLock.findOne;
   const origLockUpdateOne = TimesheetLock.updateOne;
   const origLockFindOneAndUpdate = TimesheetLock.findOneAndUpdate;
@@ -453,20 +459,27 @@ async function runOvernightShiftAndOtTests(assert) {
     // =====================================================================
     // BÀN TRÒN 17 (11/09): Quên checkout hôm trước → AUTO-HEAL khép tạm ca cũ,
     // check-in mới đi ngay, tự sinh đơn giải trình cho Admin hậu kiểm.
-    // Chỉ còn chặn 400 cứng khi quota auto-heal của tháng đã cạn.
+    // Không giới hạn số lần auto-heal trong tháng.
     // =====================================================================
+    const yesterdayStr = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
     const unclosedShift14 = {
-      _id: 'att_unclosed_yesterday',
+      _id: new mongoose.Types.ObjectId(),
       user_id: mockUserId,
-      date: '2026-09-01',
-      check_in_time: new Date(Date.now() - 12 * 60 * 60 * 1000),
+      date: yesterdayStr,
+      check_in_time: new Date(Date.now() - 25 * 60 * 60 * 1000),
       check_out_time: null,
     };
     const prevFindOne_RT17 = Attendance.findOne;
+    const prevFUA_RT17 = Attendance.findOneAndUpdate;
     const prevCount_RT17 = Attendance.countDocuments;
     const prevReqFindOne_RT17 = Request.findOne;
+    const prevReqCreate_RT17 = Request.create;
     const prevLockFindOne_RT17 = TimesheetLock.findOne;
     const prevSettings_RT17 = SystemSetting.findOne;
+    const prevUserFind_RT17 = User.find;
+    let routeHealRequest = null;
+    let routeHealUpdate = null;
     Attendance.findOne = (query) => {
       if (query && query.date && query.date.$lt) return createChain(unclosedShift14);
       if (query && query.date === getVnDateString(new Date())) return createChain(null);
@@ -475,7 +488,15 @@ async function runOvernightShiftAndOtTests(assert) {
     Request.findOne = () => createChain(null);
     TimesheetLock.findOne = () => createChain(null);
     SystemSetting.findOne = () => createChain({ key: 'global', work_end_time: '18:30' });
-    Attendance.countDocuments = () => Promise.resolve(2); // quota tháng đã cạn
+    Attendance.countDocuments = () => { throw new Error('Không được kiểm tra quota auto-heal'); };
+    Attendance.findOneAndUpdate = (query, update) => {
+      routeHealUpdate = { query, update };
+      return Promise.resolve({ ...unclosedShift14, check_out_time: update.$set.check_out_time });
+    };
+    Request.create = async (doc) => { routeHealRequest = doc; return doc; };
+    User.find = () => Promise.resolve([]);
+    OfficeLocation.find = () => Promise.resolve([]);
+    Attendance.create = async (doc) => ({ _id: new mongoose.Types.ObjectId(), ...doc });
 
     const resCheckInOverlap = await request(app)
       .post('/api/attendance/checkin')
@@ -487,13 +508,17 @@ async function runOvernightShiftAndOtTests(assert) {
       });
 
     assert(
-      resCheckInOverlap.status === 400 &&
-      resCheckInOverlap.body.error?.includes('chưa checkout từ ngày 2026-09-01'),
-      'TC-ON-14: Hết quota auto-heal → vẫn chặn cứng 400, message giữ nguyên ngữ cảnh ngày ca (400 Bad Request)'
+      resCheckInOverlap.status === 201 &&
+      resCheckInOverlap.body.message?.includes('Check-in thành công'),
+      'TC-ON-14: Không kiểm tra quota auto-heal → check-in ca mới thành công (201 Created)'
     );
     assert(
-      resCheckInOverlap.body.error?.includes('quota'),
-      'TC-ON-14.0: Message chặn mới nêu rõ lý do quota — nhân viên biết phải gặp Admin'
+      routeHealUpdate?.query?.check_out_time === null &&
+      routeHealRequest?.type === 'forgot_checkout' &&
+      routeHealRequest?.status === 'pending' &&
+      routeHealRequest?.end_time === '18:30' &&
+      String(routeHealRequest?.source_attendance_id) === String(unclosedShift14._id),
+      'TC-ON-14.0: Luôn khép tạm ca cũ và tự sinh đơn chờ Admin hậu kiểm'
     );
 
     // -- Unit test thẳng helper healUnclosedShiftForCheckin --
@@ -505,13 +530,9 @@ async function runOvernightShiftAndOtTests(assert) {
       check_in_time: new Date('2026-09-08T08:00:00+07:00'),
       check_out_time: null,
     };
-    const prevFUA_RT17 = Attendance.findOneAndUpdate;
-    const prevReqCreate_RT17 = Request.create;
-    const prevUserFind_RT17 = User.find;
     let healUpdateArg = null;
     let healRequestDoc = null;
     Attendance.findOne = () => createChain(null);
-    Attendance.countDocuments = () => Promise.resolve(0);
     Attendance.findOneAndUpdate = (q, upd) => {
       healUpdateArg = { q, upd };
       return Promise.resolve({ ...dayShift, check_out_time: new Date('2026-09-08T18:30:00+07:00') });
@@ -583,15 +604,21 @@ async function runOvernightShiftAndOtTests(assert) {
     );
 
     healUpdateArg = null; healRequestDoc = null;
-    Attendance.countDocuments = () => Promise.resolve(2);
-    const outcomeQuota = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
+    Attendance.findOneAndUpdate = (q, upd) => {
+      healUpdateArg = { q, upd };
+      return Promise.resolve({ ...dayShift, check_out_time: upd.$set.check_out_time });
+    };
+    const outcomeUnlimited = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
     assert(
-      outcomeQuota === 'quota-blocked' && healUpdateArg === null && healRequestDoc === null,
-      'TC-ON-14.9: Vượt quota 2 lần/tháng → dừng heal, trả về chặn cứng để bảo toàn kỷ luật công'
+      outcomeUnlimited === 'healed' &&
+      healUpdateArg?.q?.check_out_time === null &&
+      healRequestDoc?.type === 'forgot_checkout' &&
+      healRequestDoc?.status === 'pending' &&
+      healRequestDoc?.end_time === '18:30',
+      'TC-ON-14.9: Auto-heal không giới hạn lượt → luôn khép tạm và sinh đơn có giờ đề xuất'
     );
 
-    healUpdateArg = null;
-    Attendance.countDocuments = () => Promise.resolve(0);
+    healUpdateArg = null; healRequestDoc = null;
     Attendance.findOneAndUpdate = () => Promise.resolve(null); // lượt khác đã khép trước
     const outcomeRace = await healUnclosedShiftForCheckin({ ...dayShift }, healNow);
     assert(
@@ -608,6 +635,11 @@ async function runOvernightShiftAndOtTests(assert) {
     TimesheetLock.findOne = prevLockFindOne_RT17;
     SystemSetting.findOne = prevSettings_RT17;
     User.find = prevUserFind_RT17;
+    Attendance.create = origAttCreate;
+    OfficeLocation.find = origOfficeLocationFind;
+    Request.findOne = origRequestFindOne;
+    Request.create = origRequestCreate;
+    User.find = origUserFind;
     // TC-ON-15: PUT /api/attendance/override/:id - Admin sửa giờ checkout xuyên ngày hôm sau (+1 ngày) tính đúng 6.05h OT
     let savedOverrideDoc = null;
     const mockOverrideDoc = {
@@ -647,6 +679,11 @@ async function runOvernightShiftAndOtTests(assert) {
     Attendance.find = origAttFind;
     Attendance.findOne = origAttFindOne;
     Attendance.findById = origAttFindById;
+    Attendance.create = origAttCreate;
+    OfficeLocation.find = origOfficeLocationFind;
+    Request.findOne = origRequestFindOne;
+    Request.create = origRequestCreate;
+    User.find = origUserFind;
     TimesheetLock.findOne = origTimesheetFindOne;
     TimesheetLock.updateOne = origLockUpdateOne;
     TimesheetLock.findOneAndUpdate = origLockFindOneAndUpdate;
