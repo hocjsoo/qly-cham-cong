@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import {
   Download, CreditCard, Table2, Copy, Check, ChevronDown, ChevronUp,
-  Building2, CheckCircle2
+  Building2, CheckCircle2, RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,6 +24,7 @@ export default function ReimbursementMatrixTable({
   const [expandedUserIds, setExpandedUserIds] = useState(new Set());
   const [copiedBankId, setCopiedBankId] = useState(null);
   const [settlingUserId, setSettlingUserId] = useState(null);
+  const [payingItemId, setPayingItemId] = useState(null);
 
   // Danh sách quyết toán: Gom tất cả khoản chi theo từng nhân sự thực tế có tiền (> 0đ)
   const settlementList = useMemo(() => {
@@ -370,20 +371,47 @@ export default function ReimbursementMatrixTable({
                           key={exp._id || eIdx}
                           style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '6px 10px', borderRadius: '6px', background: 'var(--bg-raised)',
-                            fontSize: '12px', gap: '8px',
+                            padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-raised)',
+                            fontSize: '12.5px', gap: '10px', flexWrap: 'wrap',
+                            border: '1px solid var(--border-muted)',
                           }}
                         >
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{formatDate(exp.date)}</span>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1, minWidth: '220px' }}>
+                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px' }}>{formatDate(exp.date)}</span>
                             <span style={{ color: 'var(--text)', fontWeight: 700 }}>{exp.description}</span>
                             {exp.has_vat_invoice && <span className="badge badge--info" style={{ fontSize: '10px' }}>VAT</span>}
                           </div>
-                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <strong style={{ color: 'var(--text)' }}>{formatVND(exp.amount)}</strong>
-                            <span style={{ fontSize: '11px', color: exp.payment_status === 'paid' ? 'var(--green)' : 'var(--yellow)' }}>
-                              {exp.payment_status === 'paid' ? '● Đã trả' : '○ Chưa trả'}
-                            </span>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
+                            <strong style={{ color: 'var(--text)', fontSize: '13px' }}>{formatVND(exp.amount)}</strong>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setPayingItemId(exp._id);
+                                  await handleMarkPaid(exp._id, exp.payment_status);
+                                  setPayingItemId(null);
+                                }}
+                                disabled={payingItemId === exp._id}
+                                className={`btn ${exp.payment_status === 'paid' ? 'btn--ghost' : 'btn--primary'}`}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  height: '28px',
+                                  minHeight: '28px',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={exp.payment_status === 'paid' ? 'Hoàn tác về Chưa trả' : 'Đánh dấu riêng khoản này đã chuyển khoản'}
+                              >
+                                {payingItemId === exp._id ? (
+                                  'Đang lưu...'
+                                ) : exp.payment_status === 'paid' ? (
+                                  <><RotateCcw size={12} /> Đã trả</>
+                                ) : (
+                                  <><Check size={12} /> Trả khoản này</>
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
