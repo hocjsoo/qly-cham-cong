@@ -30,7 +30,7 @@ function getCoreRoutes(user) {
   }
   if (['employee', 'staff'].includes(user?.role)) {
     return user.is_attendance_exempt
-      ? ['/profile', '/projects', '/history']
+      ? ['/profile', '/reports', '/history']
       : ['/requests', '/history', '/checkin', '/profile'];
   }
   return [];

@@ -162,7 +162,7 @@ export default function Layout() {
     ...(!isStaffExempt ? [{ to: '/checkin', icon: Clock, label: 'Chấm công' }] : []),
     ...(!isStaffExempt ? [{ to: '/requests', icon: FileText, label: 'Đơn từ', badge: pendingCount > 0 ? pendingCount : null }] : []),
     { to: '/tts-schedule', icon: CalendarDays, label: 'Lịch tuần' },
-    { to: '/projects', icon: FolderKanban, label: 'Dự án' },
+    ...(isAdmin ? [{ to: '/projects', icon: FolderKanban, label: 'Dự án' }] : []),
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
     { to: '/reports', icon: BarChart2, label: 'Bảng công' },
     { to: '/history', icon: History, label: 'Lịch sử' },
@@ -175,7 +175,7 @@ export default function Layout() {
   ];
 
   const primaryPaths = isStaffExempt
-    ? ['/dashboard', '/projects', '/reports', '/profile']
+    ? (isAdmin ? ['/dashboard', '/projects', '/reports', '/profile'] : ['/dashboard', '/reports', '/expenses', '/profile'])
     : isStaff
       ? ['/checkin', '/requests', '/history', '/profile']
       : ['/dashboard', '/checkin', '/requests', '/reports'];

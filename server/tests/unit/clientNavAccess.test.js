@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { path: '/profile', label: 'Cá nhân', roles: ['admin', 'leader', 'manager', 'employee', 'staff'] },
   { path: '/dashboard', label: 'Dashboard', roles: ['admin', 'leader', 'manager'] },
   { path: '/staff', label: 'Nhân sự', roles: ['admin', 'leader', 'manager'] },
-  { path: '/projects', label: 'Dự án', roles: ['admin', 'leader', 'manager', 'employee', 'staff'] },
+  { path: '/projects', label: 'Dự án', roles: ['admin'] },
   { path: '/reports', label: 'Báo cáo', roles: ['admin'] },
   { path: '/timesheet-lock', label: 'Chốt công', roles: ['admin'] },
   { path: '/users', label: 'Tài khoản', roles: ['admin'] },
@@ -43,8 +43,8 @@ function runClientNavAccessTests(assert) {
   // TC-UI-NAV-02: Menu hiển thị cho Trưởng phòng (Leader)
   const leadMenu = getVisibleNavItems('leader');
   const leadPaths = leadMenu.map(m => m.path);
-  assert(leadPaths.includes('/dashboard') && leadPaths.includes('/staff') && leadPaths.includes('/projects'),
-    'TC-UI-NAV-02.1: Trưởng phòng (Leader) thấy Dashboard, Nhân sự, Dự án');
+  assert(leadPaths.includes('/dashboard') && leadPaths.includes('/staff') && !leadPaths.includes('/projects'),
+    'TC-UI-NAV-02.1: Trưởng phòng (Leader) thấy Dashboard, Nhân sự (Dự án đã ẩn cho Admin only)');
   assert(!leadPaths.includes('/settings') && !leadPaths.includes('/users') && !leadPaths.includes('/reports') && !leadPaths.includes('/timesheet-lock'),
     'TC-UI-NAV-02.2: Trưởng phòng không thấy menu Cài đặt, Báo cáo và Chốt công (Admin only)');
 
@@ -62,6 +62,12 @@ function runClientNavAccessTests(assert) {
     'TC-UI-NAV-04.3: Chặn Leader truy cập trực tiếp URL /reports');
   assert(canAccessRoute('admin', '/reports') === true,
     'TC-UI-NAV-04.4: Cho phép Admin truy cập URL /reports');
+  assert(canAccessRoute('employee', '/projects') === false,
+    'TC-UI-NAV-04.5: Chặn Employee truy cập trực tiếp URL /projects (Admin only)');
+  assert(canAccessRoute('leader', '/projects') === false,
+    'TC-UI-NAV-04.6: Chặn Leader truy cập trực tiếp URL /projects (Admin only)');
+  assert(canAccessRoute('admin', '/projects') === true,
+    'TC-UI-NAV-04.7: Cho phép Admin truy cập URL /projects');
 }
 
 module.exports = runClientNavAccessTests;

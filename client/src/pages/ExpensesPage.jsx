@@ -2,11 +2,11 @@ import ImageLightbox from "../components/ImageLightbox";
 // src/pages/ExpensesPage.jsx
 // Quản lý Bảng Tổng Hợp Chi Tiêu & Hoàn Ứng Cty — Chuẩn theo mẫu Google Sheets
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
-  Trash2, Camera, LayoutList, LayoutGrid
+  Trash2, Camera, LayoutList, LayoutGrid, Table2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -50,7 +50,9 @@ export default function ExpensesPage() {
   const [filterVat, setFilterVat] = useState('all');
   const [filterMonth, setFilterMonth] = useState('all');
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid' | 'matrix'
+  const [matrixScopeFilter, setMatrixScopeFilter] = useState('unpaid'); // 'unpaid' | 'all' | 'paid'
+  const [matrixHideZeros, setMatrixHideZeros] = useState(false);
   const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
   const expenseKey = JSON.stringify([sessionKey, currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search.trim()]);
   const currentResult = expenseResult?.key === expenseKey ? expenseResult : null;
@@ -361,6 +363,159 @@ export default function ExpensesPage() {
     };
   };
 
+  // Tên rút gọn độc nhất chuẩn bảng tính (Minh, Ninh, Q.Anh, M.Anh...)
+  const shortNameMap = useMemo(() => {
+    const list = staffList && staffList.length > 0 ? staffList : [];
+    const counts = {};
+    list.forEach(u => {
+      const parts = (u.full_name || '').trim().split(/\s+/);
+      const last = parts[parts.length - 1] || 'NV';
+      counts[last] = (counts[last] || 0) + 1;
+    });
+    const map = new Map();
+    list.forEach(u => {
+      const id = String(u._id || u.id || '');
+      const parts = (u.full_name || '').trim().split(/\s+/);
+      const last = parts[parts.length - 1] || 'NV';
+      if (counts[last] > 1 && parts.length > 1) {
+        const mid = parts[parts.length - 2];
+        map.set(id, `${mid.charAt(0)}.${last}`);
+      } else {
+        map.set(id, last);
+      }
+    });
+    return map;
+  }, [staffList]);
+
+  // Cột nhân sự trong Ma trận Hoàn ứng
+  const allMatrixUsers = useMemo(() => {
+    const userMap = new Map();
+    (staffList || []).forEach(u => {
+      const id = String(u._id || u.id || '');
+      if (id && u.employment_status !== 'resigned' && u.employment_status !== 'Đã nghỉ việc') {
+        const name = u.full_name || 'Nhân viên';
+        userMap.set(id, {
+          id,
+          full_name: name,
+          short_name: shortNameMap.get(id) || name.split(' ').pop(),
+          avatar_url: u.avatar_url,
+          employee_code: u.employee_code,
+        });
+      }
+    });
+    expenses.forEach(exp => {
+      const id = String(exp.user_id?._id || exp.user_id || '');
+      if (id && !userMap.has(id)) {
+        const name = exp.user_id?.full_name || exp.user_name || 'Nhân viên';
+        userMap.set(id, {
+          id,
+          full_name: name,
+          short_name: name.split(' ').pop(),
+          avatar_url: exp.user_id?.avatar_url,
+          employee_code: exp.user_id?.employee_code,
+        });
+      }
+    });
+    return Array.from(userMap.values());
+  }, [staffList, expenses, shortNameMap]);
+
+  // Dữ liệu Ma trận Hoàn ứng (Pivot Matrix)
+  const matrixData = useMemo(() => {
+    const rawList = filteredExpenses.filter(exp => {
+      if (matrixScopeFilter === 'unpaid') return exp.payment_status !== 'paid' && exp.approval_status !== 'rejected';
+      if (matrixScopeFilter === 'paid') return exp.payment_status === 'paid';
+      return true;
+    });
+
+    const groupMap = new Map();
+    rawList.forEach(exp => {
+      const desc = (exp.description || '').trim();
+      const date = exp.date || '';
+      // Gom nhóm: nếu cùng mô tả "CHI TIÊU CTY" thì gom chung 1 dòng lớn như ảnh mẫu Google Sheets
+      const isGeneralCompanyExpense = desc.toLowerCase() === 'chi tiêu cty';
+      const groupKey = isGeneralCompanyExpense ? 'chi tiêu cty' : `${date}__${desc}`;
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
+          key: groupKey,
+          title: isGeneralCompanyExpense ? 'CHI TIÊU CTY' : (desc || (date ? formatDate(date) : 'Khoản chi')),
+          date: isGeneralCompanyExpense ? null : date,
+          userAmounts: {},
+          total: 0,
+          items: [],
+        });
+      }
+      const g = groupMap.get(groupKey);
+      const uid = String(exp.user_id?._id || exp.user_id || '');
+      g.userAmounts[uid] = (g.userAmounts[uid] || 0) + (exp.amount || 0);
+      g.total += (exp.amount || 0);
+      g.items.push(exp);
+    });
+
+    const rows = Array.from(groupMap.values()).sort((a, b) => {
+      if (a.title === 'CHI TIÊU CTY') return -1;
+      if (b.title === 'CHI TIÊU CTY') return 1;
+      return (b.date || '').localeCompare(a.date || '');
+    });
+
+    const userTotals = new Map();
+    let grandTotal = 0;
+    allMatrixUsers.forEach(u => {
+      const sum = rows.reduce((acc, r) => acc + (r.userAmounts[u.id] || 0), 0);
+      userTotals.set(u.id, sum);
+      grandTotal += sum;
+    });
+
+    const displayUsers = matrixHideZeros
+      ? allMatrixUsers.filter(u => (userTotals.get(u.id) || 0) > 0)
+      : allMatrixUsers;
+
+    return {
+      rows,
+      displayUsers,
+      userTotals,
+      grandTotal,
+    };
+  }, [filteredExpenses, matrixScopeFilter, allMatrixUsers, matrixHideZeros]);
+
+  const handleExportMatrixCSV = () => {
+    const { rows, displayUsers, userTotals, grandTotal } = matrixData;
+    if (!displayUsers.length || !rows.length) {
+      toast.error('Không có dữ liệu ma trận để xuất file');
+      return;
+    }
+
+    const headers = [
+      'KHOẢN CHI / NGÀY',
+      ...displayUsers.map(u => `${u.short_name} (${formatVND(userTotals.get(u.id) || 0)})`),
+      `TỔNG CỘNG (${formatVND(grandTotal)})`
+    ];
+
+    const topSummaryRow = [
+      'TỔNG',
+      ...displayUsers.map(u => userTotals.get(u.id) || 0),
+      grandTotal
+    ];
+
+    const dataRows = rows.map(r => [
+      sanitizeCsvCell(r.title + (r.date ? ` (${formatDate(r.date)})` : '')),
+      ...displayUsers.map(u => r.userAmounts[u.id] || 0),
+      r.total
+    ]);
+
+    const BOM = '\uFEFF';
+    const csvContent = BOM + [
+      headers.map(sanitizeCsvCell).join(','),
+      topSummaryRow.map(v => typeof v === 'number' ? v : sanitizeCsvCell(v)).join(','),
+      ...dataRows.map(row => row.map(v => typeof v === 'number' ? v : sanitizeCsvCell(v)).join(','))
+    ].join('\r\n');
+
+    downloadBlob(
+      new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }),
+      `bang-ma-tran-hoan-ung-${matrixScopeFilter}-${filterMonth !== 'all' ? `thang-${filterMonth}-` : ''}${filterYear}.csv`
+    );
+    toast.success('Đã tải xuống bảng ma trận hoàn ứng CSV');
+  };
+
   return (
     <div className="page">
       {/* Header */}
@@ -553,7 +708,19 @@ export default function ExpensesPage() {
                   color: viewMode === 'table' ? 'var(--primary)' : 'var(--text-muted)',
                 }}
               >
-                <LayoutList size={13} /> Bảng Excel
+                <LayoutList size={13} /> Bảng Chi Tiết
+              </button>
+              <button
+                onClick={() => setViewMode('matrix')}
+                style={{
+                  padding: '5px 9px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600,
+                  background: viewMode === 'matrix' ? 'var(--bg-card)' : 'transparent',
+                  color: viewMode === 'matrix' ? 'var(--primary)' : 'var(--text-muted)',
+                }}
+                title="Bảng ma trận tổng hợp theo người (mẫu Google Sheets)"
+              >
+                <Table2 size={13} /> Ma Trận Hoàn Ứng
               </button>
               <button
                 onClick={() => setViewMode('grid')}
@@ -581,6 +748,281 @@ export default function ExpensesPage() {
             <div className="empty-state__icon">💵</div>
             <div className="empty-state__title">Chưa có khoản chi tiêu nào</div>
             <div className="empty-state__desc">Bấm "Báo Cáo Chi Tiêu" để thêm khoản chi tiêu hộ công ty mới</div>
+          </div>
+        ) : viewMode === 'matrix' ? (
+          /* MATRIX VIEW MODE (Chuẩn theo mẫu Google Sheets) */
+          <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Sub-toolbar Ma Trận */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '10px',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 14px',
+                background: 'var(--bg-card)',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)' }}>
+                  🎯 Xem theo:
+                </span>
+                <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)', padding: '2px' }}>
+                  {[
+                    { id: 'unpaid', label: '💸 Phải trả ai bao nhiêu (Chưa trả)' },
+                    { id: 'all', label: '📊 Toàn bộ chi tiêu' },
+                    { id: 'paid', label: '✅ Đã hoàn ứng' },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setMatrixScopeFilter(tab.id)}
+                      style={{
+                        padding: '5px 12px', border: 'none', borderRadius: '6px', fontSize: '11.5px', fontWeight: 700,
+                        cursor: 'pointer',
+                        background: matrixScopeFilter === tab.id ? 'var(--primary)' : 'transparent',
+                        color: matrixScopeFilter === tab.id ? '#fff' : 'var(--text-muted)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', marginLeft: '6px', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={matrixHideZeros}
+                    onChange={e => setMatrixHideZeros(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Chỉ hiện người có tiền (&gt; 0đ)</span>
+                </label>
+              </div>
+
+              <button
+                onClick={handleExportMatrixCSV}
+                className="btn btn--ghost"
+                style={{ padding: '6px 12px', fontSize: '12px', gap: '6px' }}
+                title="Tải bảng ma trận tổng hợp theo người ra file CSV UTF-8"
+              >
+                <Download size={13} /> Xuất Ma Trận (.csv)
+              </button>
+            </div>
+
+            {/* Quick summary badges if there are amounts to reimburse */}
+            {matrixData.grandTotal > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  padding: '8px 12px',
+                  background: 'var(--bg-raised)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-muted)',
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  💡 Chi tiết:
+                </span>
+                {matrixData.displayUsers
+                  .filter(u => (matrixData.userTotals.get(u.id) || 0) > 0)
+                  .map(u => {
+                    const amt = matrixData.userTotals.get(u.id) || 0;
+                    return (
+                      <div
+                        key={u.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          borderRadius: '8px',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          fontSize: '12px',
+                          whiteSpace: 'nowrap',
+                          boxShadow: 'var(--shadow-xs)',
+                        }}
+                      >
+                        <span style={{ fontWeight: 700, color: 'var(--text)' }}>{u.short_name}:</span>
+                        <strong style={{ color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)' }}>
+                          {formatVND(amt)}
+                        </strong>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Matrix Spreadsheet Table */}
+            <div
+              className="card animate-fade-in"
+              style={{
+                padding: 0,
+                overflowX: 'auto',
+                borderRadius: '12px',
+                border: '1px solid var(--border)',
+                maxWidth: '100%',
+                boxShadow: 'var(--shadow-xs)',
+              }}
+            >
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '12.5px',
+                  textAlign: 'center',
+                  minWidth: `${Math.max(900, 240 + matrixData.displayUsers.length * 125)}px`,
+                }}
+              >
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr style={{ background: '#343a40', color: '#ffffff', borderBottom: '2px solid #212529' }}>
+                    <th
+                      style={{
+                        position: 'sticky',
+                        left: 0,
+                        zIndex: 11,
+                        background: '#2b3035',
+                        color: '#ffffff',
+                        padding: '14px 16px',
+                        textAlign: 'left',
+                        fontWeight: 900,
+                        fontSize: '13px',
+                        minWidth: '220px',
+                        borderRight: '2px solid #495057',
+                        borderBottom: '2px solid #212529',
+                      }}
+                    >
+                      <div style={{ textTransform: 'uppercase', letterSpacing: '0.8px', fontSize: '13px' }}>TỔNG</div>
+                      <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '3px', fontWeight: 600 }}>
+                        {matrixScopeFilter === 'unpaid' ? 'Phải trả từng người' : 'Tổng chi từng người'}
+                      </div>
+                    </th>
+                    {matrixData.displayUsers.map(u => {
+                      const tot = matrixData.userTotals.get(u.id) || 0;
+                      return (
+                        <th
+                          key={u.id}
+                          style={{
+                            padding: '12px 10px',
+                            minWidth: '115px',
+                            borderRight: '1px solid #495057',
+                            borderBottom: '2px solid #212529',
+                          }}
+                          title={u.full_name}
+                        >
+                          <div style={{ fontWeight: 800, fontSize: '13px', letterSpacing: '0.2px' }}>{u.short_name}</div>
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              fontSize: '12.5px',
+                              marginTop: '4px',
+                              color: tot > 0 ? '#ffc107' : '#adb5bd',
+                            }}
+                          >
+                            {formatVND(tot)}
+                          </div>
+                        </th>
+                      );
+                    })}
+                    <th
+                      style={{
+                        padding: '12px 14px',
+                        minWidth: '140px',
+                        background: '#212529',
+                        color: '#ffffff',
+                        borderBottom: '2px solid #111',
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, fontSize: '13px', textTransform: 'uppercase' }}>NOTE / TỔNG</div>
+                      <div style={{ fontWeight: 900, fontSize: '13px', marginTop: '4px', color: '#20c997' }}>
+                        {formatVND(matrixData.grandTotal)}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matrixData.rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={matrixData.displayUsers.length + 2}
+                        style={{ padding: '40px 14px', textAlign: 'center', color: 'var(--text-muted)' }}
+                      >
+                        Không có dữ liệu chi tiêu trong phạm vi lọc này.
+                      </td>
+                    </tr>
+                  ) : (
+                    matrixData.rows.map((row, idx) => (
+                      <tr
+                        key={row.key}
+                        style={{
+                          borderBottom: '1px solid var(--border-muted)',
+                          background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
+                        }}
+                      >
+                        <td
+                          style={{
+                            position: 'sticky',
+                            left: 0,
+                            zIndex: 5,
+                            background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-raised)',
+                            padding: '12px 16px',
+                            textAlign: 'left',
+                            fontWeight: 700,
+                            borderRight: '2px solid var(--border)',
+                            minWidth: '220px',
+                          }}
+                        >
+                          <div style={{ color: 'var(--text)', fontSize: '13px', textTransform: 'uppercase' }}>
+                            {row.title}
+                          </div>
+                          {row.date && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                              {formatDate(row.date)} {row.items?.length > 1 ? `(${row.items.length} mục)` : ''}
+                            </div>
+                          )}
+                        </td>
+                        {matrixData.displayUsers.map(u => {
+                          const val = row.userAmounts[u.id] || 0;
+                          return (
+                            <td
+                              key={u.id}
+                              style={{
+                                padding: '12px 10px',
+                                borderRight: '1px solid var(--border-muted)',
+                                fontSize: '12.5px',
+                                fontWeight: val > 0 ? 800 : 500,
+                                color: val > 0 ? 'var(--text)' : 'var(--text-muted)',
+                                background: val > 0 ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent',
+                              }}
+                            >
+                              {formatVND(val)}
+                            </td>
+                          );
+                        })}
+                        <td
+                          style={{
+                            padding: '12px 14px',
+                            fontWeight: 800,
+                            fontSize: '12.5px',
+                            color: 'var(--primary)',
+                            background: 'color-mix(in srgb, var(--primary) 5%, transparent)',
+                          }}
+                        >
+                          {formatVND(row.total)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */

@@ -136,7 +136,11 @@ export default function App() {
               <Route path="/reports" element={<ReportPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/projects" element={
+                <ProtectedRoute roles={['admin']}>
+                  <ProjectsPage />
+                </ProtectedRoute>
+              } />
               <Route path="/expenses" element={<ExpensesPage />} />
               <Route path="/tts-schedule" element={<TtsSchedulePage />} />
 

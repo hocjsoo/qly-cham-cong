@@ -467,7 +467,7 @@ async function runOvernightShiftAndOtTests(assert) {
       _id: new mongoose.Types.ObjectId(),
       user_id: mockUserId,
       date: yesterdayStr,
-      check_in_time: new Date(Date.now() - 25 * 60 * 60 * 1000),
+      check_in_time: new Date(`${yesterdayStr}T08:00:00+07:00`),
       check_out_time: null,
     };
     const prevFindOne_RT17 = Attendance.findOne;

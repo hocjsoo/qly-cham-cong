@@ -604,8 +604,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Widget: Dự Án Đang Tham Gia */}
-        {combinedProjects.length > 0 && (
+        {/* Widget: Dự Án Đang Tham Gia (Admin only) */}
+        {isAdmin && combinedProjects.length > 0 && (
           <div
             className="card animate-fade-in"
             style={{
@@ -832,7 +832,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
               {[
-                { to: '/projects', icon: '🚀', label: 'Dự Án', desc: `${combinedProjects.length} dự án` },
+                ...(isAdmin ? [{ to: '/projects', icon: '🚀', label: 'Dự Án', desc: `${combinedProjects.length} dự án` }] : []),
                 { to: '/leaderboard', icon: '🏆', label: 'Xếp Hạng', desc: 'Thi đua chuyên cần' },
                 { to: '/vehicles', icon: '🚲', label: 'Gửi Xe', desc: 'Phương tiện' },
                 { to: '/expenses', icon: '🧾', label: 'Chi Tiêu', desc: 'Bảng hoàn ứng' },

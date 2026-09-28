@@ -464,10 +464,30 @@ async function sendViaSmtp({ toEmail, subject, htmlContent, attachments = [] }) 
 
 async function sendEmailMessage(message) {
   const provider = getConfiguredEmailProvider();
-  if (provider === 'brevo') return sendViaBrevo(message);
+  if (provider === 'brevo') {
+    const brevoResult = await sendViaBrevo(message);
+    if (brevoResult.sent) return brevoResult;
+    if (hasSmtpConfiguration()) {
+      console.warn(`⚠️ [EMAIL] Brevo gửi không thành công (${brevoResult.code || brevoResult.error}), tự động chuyển sang Gmail SMTP dự phòng...`);
+      const smtpResult = await sendViaSmtp(message);
+      if (smtpResult.sent) {
+        return {
+          ...smtpResult,
+          fallbackFrom: 'brevo',
+          brevoError: brevoResult.error,
+        };
+      }
+    }
+    return brevoResult;
+  }
   if (provider === 'smtp') return sendViaSmtp(message);
 
   const brevoKeyPresent = Boolean(String(process.env.BREVO_API_KEY || '').trim());
+  if (brevoKeyPresent && hasSmtpConfiguration()) {
+    console.warn('⚠️ [EMAIL] Brevo chưa cấu hình đầy đủ nhưng có SMTP, dùng Gmail SMTP...');
+    return sendViaSmtp(message);
+  }
+
   return {
     sent: false,
     error: brevoKeyPresent
