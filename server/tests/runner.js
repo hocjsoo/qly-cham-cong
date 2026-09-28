@@ -10,6 +10,7 @@ delete process.env.MONGODB_URI;
 delete process.env.DATABASE_URL;
 
 // Backend Suites
+const runDatabaseBackupTests = require('./unit/databaseBackup.test');
 const runHaversineTests = require('./unit/haversine.test');
 const runAttendanceTests = require('./unit/attendance.test');
 const runRoleTests = require('./unit/roleMiddleware.test');
@@ -115,6 +116,7 @@ async function runAllTests() {
     await runHolidayMultiplierTests(assert);
     runProjectSiteTests(assert);
     runNotificationTests(assert);
+    await runDatabaseBackupTests(assert);
     runDashboardStatsTests(assert);
     await runExportTests(assert);
     await runPasswordAuthTests(assert);

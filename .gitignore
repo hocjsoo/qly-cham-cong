@@ -53,5 +53,7 @@ client/playwright-report/
 .tmp_edge_profile/
 .tmp_edge_profile_*/
 
-# Local photo backups
+# Local photo backups & DB dumps
 server/backup/
+backups/
+server/backups/
