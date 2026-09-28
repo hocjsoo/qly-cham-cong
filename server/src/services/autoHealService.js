@@ -10,16 +10,14 @@ const Notification = require('../models/Notification');
 const { getVnDateString, calculateAttendanceMetrics } = require('../utils/attendanceCalculations');
 
 const normalizeWorkEndTime = (value) => (
-  /^([01]\d|2[0-3]):[0-5]\d$/.test(String(value || '').trim())
-    ? String(value).trim()
+  typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value.trim())
+    ? value.trim()
     : '18:30'
 );
 
-const AUTO_HEAL_NOTE = 'RT17-AUTO-HEAL: Tự động khép tạm do quên checkout — chờ giải trình & Admin hậu kiểm';
-
-/**
- * Khép ca quá khứ đã được Admin duyệt nhưng chưa ghi nhận giờ ra
- */
+// Khi Admin đã duyệt một ca của ngày trước, việc bắt nhân viên nộp thêm đơn
+// quên checkout là trùng bước phê duyệt. Hàm này khép ca theo giờ tan làm đã
+// cấu hình, giữ nguyên work_units mà Admin đã chấp nhận và không phát sinh OT.
 const closePastShiftApprovedByAdmin = async (
   attendance,
   { reviewerRole = null, save = true } = {}
@@ -65,6 +63,8 @@ const closePastShiftApprovedByAdmin = async (
   let checkOutTime = new Date(`${attendance.date}T${workEndTime}:00+07:00`);
   if (Number.isNaN(checkInTime.getTime())) return false;
 
+  // Dữ liệu cũ bất thường có thể có giờ vào sau giờ tan làm. Khi đó chỉ khép
+  // ca ngay sau giờ vào, không tự tạo thêm giờ làm hoặc OT ngoài xác nhận Admin.
   if (Number.isNaN(checkOutTime.getTime()) || checkOutTime <= checkInTime) {
     checkOutTime = new Date(checkInTime.getTime() + 60 * 1000);
   }
@@ -89,9 +89,15 @@ const closePastShiftApprovedByAdmin = async (
   return true;
 };
 
-/**
- * Tự động khép tạm ca hôm trước bị quên checkout, sinh đơn giải trình để Admin hậu kiểm
- */
+// Bàn tròn 17 (11/09): Auto-heal ca bị quên checkout từ hôm trước. Thay vì chặn
+// cứng nhân viên cho tới khi Admin duyệt (Admin bận là tắc cả ngày công), hệ thống
+// khép TẠM ca cũ, cho check-in mới đi ngay, đồng thời tự sinh đơn forgot_checkout
+// để nhân viên giải trình và Admin HẬU KIỂM qua luồng approve/override đã có sẵn.
+// Quyền Admin vẫn nguyên — chỉ bỏ gate chặn ở cửa. Tháng đã TimesheetLock thì
+// KHÔNG đụng sổ công (đơn pending là chìa khóa thông hành); ca đêm được đóng
+// theo giờ thật thay vì ép về mốc 18:30.
+const AUTO_HEAL_NOTE = 'RT17-AUTO-HEAL: Tự động khép tạm do quên checkout — chờ giải trình & Admin hậu kiểm';
+
 const healUnclosedShiftForCheckin = async (shift, now) => {
   const shiftDateStr = String(shift?.date || '');
   const [shiftYear, shiftMonth] = shiftDateStr.split('-').map(Number);
@@ -121,6 +127,8 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
   const healSettings = await healSettingsQuery;
   const workEndTime = normalizeWorkEndTime(healSettings?.work_end_time);
 
+  // Giờ tạm khép thành thật: ca ngày thường khép tại giờ tan làm 18:30 của ngày ca;
+  // ca ĐÊM (check-in sau giờ tan làm) được khép đúng giờ hiện tại — không ép 18:30.
   const checkInTime = new Date(shift.check_in_time);
   const workEndDateTime = new Date(`${shiftDateStr}T${workEndTime}:00+07:00`);
   let checkOutTime = (!Number.isNaN(workEndDateTime.getTime()) && checkInTime < workEndDateTime)
@@ -147,9 +155,11 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
           link: '/requests',
         })));
       }
-    } catch (_) {}
+    } catch (_) { /* thông báo phụ — không bao giờ chặn quyền đi làm */ }
   };
 
+  // Tháng đã chốt sổ: tuyệt đối không sửa bảng công (bất biến kế toán).
+  // Ghi chìa khóa thông hành là đơn giải trình pending; Admin xử lý sau khi mở khóa.
   if (monthLocked) {
     if (!existingHealRequest) {
       try {
@@ -166,19 +176,21 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
         });
         await notifyAdminsAutoHeal(`Ca ${shiftDateStr} chưa khép, tháng công đã chốt. Nhân viên được cho qua check-in mới (sổ công không bị sửa).`);
       } catch (err) {
-        if (err?.code !== 11000) throw err;
+        if (err?.code !== 11000) throw err; // unique index: chìa khóa đã có → cho qua
       }
     }
     return 'bypassed';
   }
 
-  if (existingHealRequest) return 'healed';
+  if (existingHealRequest) return 'healed'; // đã được heal từ lượt check-in trước — cho qua
 
   const healMetrics = calculateAttendanceMetrics(checkInTime, checkOutTime, {
     workEndTime,
     otStartTime: workEndTime,
   });
 
+  // Atomic conditional update: chỉ request còn giữ "chìa" ca mở được ghi.
+  // Double-click / hai thiết bị → lượt sau thua race, trả về 'closed' và đi tiếp.
   const closedShift = await Attendance.findOneAndUpdate(
     { _id: shift._id, check_out_time: null },
     {
@@ -220,6 +232,7 @@ const healUnclosedShiftForCheckin = async (shift, now) => {
   }
   return 'healed';
 };
+
 
 module.exports = {
   AUTO_HEAL_NOTE,
