@@ -54,7 +54,7 @@ export default function ExpensesPage() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString());
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid' | 'matrix'
   const [matrixScopeFilter, setMatrixScopeFilter] = useState('unpaid'); // 'unpaid' | 'all' | 'paid'
-  const [matrixHideZeros, setMatrixHideZeros] = useState(false);
+  const matrixHideZeros = true;
   const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
   const expenseKey = JSON.stringify([sessionKey, currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search.trim()]);
   const currentResult = expenseResult?.key === expenseKey ? expenseResult : null;
@@ -757,11 +757,12 @@ export default function ExpensesPage() {
             matrixData={matrixData}
             matrixScopeFilter={matrixScopeFilter}
             setMatrixScopeFilter={setMatrixScopeFilter}
-            matrixHideZeros={matrixHideZeros}
-            setMatrixHideZeros={setMatrixHideZeros}
             handleExportMatrixCSV={handleExportMatrixCSV}
             formatVND={formatVND}
             formatDate={formatDate}
+            staffList={staffList}
+            handleMarkPaid={handleMarkPaid}
+            isAdmin={isAdmin}
           />
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
