@@ -31,6 +31,7 @@ const EMPTY_SUMMARY = {
   totalApprovedAmount: 0, totalPendingAmount: 0, totalPendingCount: 0,
   totalUnpaidAmount: 0, totalPaidAmount: 0, myTotalApproved: 0, myTotalUnpaid: 0,
 };
+const EMPTY_EXPENSES = [];
 
 export default function ExpensesPage() {
   const { user } = useAuthStore();
@@ -56,7 +57,7 @@ export default function ExpensesPage() {
   const sessionKey = `${user?._id || user?.id || ''}:${user?.role || ''}`;
   const expenseKey = JSON.stringify([sessionKey, currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search.trim()]);
   const currentResult = expenseResult?.key === expenseKey ? expenseResult : null;
-  const expenses = currentResult?.expenses || [];
+  const expenses = currentResult?.expenses || EMPTY_EXPENSES;
   const summary = currentResult?.summary || EMPTY_SUMMARY;
   const { beginRequest: beginExpenseRequest, cancelRequest: cancelExpenseRequest } = useLatestRequest(expenseKey);
   const { beginRequest: beginStaffRequest } = useLatestRequest(sessionKey);

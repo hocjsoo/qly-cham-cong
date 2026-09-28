@@ -71,7 +71,7 @@ test('role and exemption rules select useful routes and skip current/heavy pages
     f.prefetchAllCoreRoutes({ user: { role, is_attendance_exempt: true }, currentPath: '/dashboard' });
     await f.runNext();
     await f.runNext();
-    assert.deepEqual(f.imported, ['/profile', '/projects']);
+    assert.deepEqual(f.imported, ['/profile', '/reports']);
   }
   const anonymous = fixture();
   anonymous.prefetchAllCoreRoutes();

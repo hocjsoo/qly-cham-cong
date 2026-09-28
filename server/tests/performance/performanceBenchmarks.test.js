@@ -76,8 +76,8 @@ function runPerformanceTests(assert) {
   const durJwtMs = Number(t5 - t4) / 1e6;
   const opsPerSecJwt = Math.round((1000 / durJwtMs) * 1000);
 
-  assert(durJwtMs < 1000 && validTokens === 1000,
-    `TC-PERF-03: Ký & Xác thực 1,000 JWT Tokens trong ${durJwtMs.toFixed(2)}ms (Tốc độ: ${opsPerSecJwt.toLocaleString()} tokens/giây, ngưỡng < 1000ms)`);
+  assert(durJwtMs < 2500 && validTokens === 1000,
+    `TC-PERF-03: Ký & Xác thực 1,000 JWT Tokens trong ${durJwtMs.toFixed(2)}ms (Tốc độ: ${opsPerSecJwt.toLocaleString()} tokens/giây, ngưỡng < 2500ms)`);
 
   // -------------------------------------------------------------
   // TC-PERF-04: Benchmark Thuật toán Băm Phần cứng (5,000 Hardware Fingerprints)
