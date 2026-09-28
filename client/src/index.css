@@ -3954,3 +3954,21 @@ div:has(> svg) > input[type="search"],
   .checkin-duty-assignment { font-size: 13px; }
   .checkin-duty-assignment__date { font-size: 12px; }
 }
+
+/* =============================================
+   OpenDesign Precision Tuning (Linear / Vercel System)
+   ============================================= */
+table, .stat-card-modern__value, .badge, .timesheet-matrix, input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn:active, .card--interactive:active {
+  transform: scale(0.985);
+  transition: transform 80ms ease;
+}
+
+.header, .desktop-sidebar, .mobile-nav {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
