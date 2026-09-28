@@ -160,7 +160,9 @@ const buildDirectoryRows = (users, includeSensitive) => users.map((user, index) 
   return row;
 });
 
-const styleWorksheet = (worksheet, { frozenColumns = 0, totalRowNumber = null } = {}) => {
+const WEEKDAY_NAMES_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+const styleWorksheet = (worksheet, { frozenColumns = 0, totalRowNumber = null, isTimesheet = false, month = null, year = null, daysInMonth = 0 } = {}) => {
   worksheet.views = [{ state: 'frozen', ySplit: 1, xSplit: frozenColumns }];
   worksheet.autoFilter = {
     from: { row: 1, column: 1 },
@@ -168,10 +170,25 @@ const styleWorksheet = (worksheet, { frozenColumns = 0, totalRowNumber = null } 
   };
 
   const headerRow = worksheet.getRow(1);
-  headerRow.height = 28;
-  headerRow.eachCell(cell => {
-    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } };
+  headerRow.height = isTimesheet ? 34 : 28;
+  headerRow.eachCell((cell, colIndex) => {
+    let headerBg = 'FF1E293B'; // Executive Dark Slate
+    let headerFg = 'FFFFFFFF';
+
+    if (isTimesheet && colIndex >= 15 && month && year) {
+      const dayNum = colIndex - 14;
+      const dObj = new Date(year, month - 1, dayNum);
+      const dayOfWeek = dObj.getDay();
+      if (dayOfWeek === 0) { // Chủ nhật
+        headerBg = 'FF991B1B'; // Deep Red
+      } else if (dayOfWeek === 6) { // Thứ 7
+        headerBg = 'FF334155'; // Medium Slate
+        headerFg = 'FFE2E8F0';
+      }
+    }
+
+    cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: headerFg } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerBg } };
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = {
       top: { style: 'thin', color: { argb: 'FF475569' } },
@@ -181,29 +198,162 @@ const styleWorksheet = (worksheet, { frozenColumns = 0, totalRowNumber = null } 
     };
   });
 
+  // Tô màu và định dạng từng dòng dữ liệu
   worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    row.height = 22;
-    row.eachCell(cell => {
-      cell.alignment = { vertical: 'middle', wrapText: false };
-      cell.border = {
-        top: { style: 'hair', color: { argb: 'FFD1D5DB' } },
-        left: { style: 'hair', color: { argb: 'FFD1D5DB' } },
-        bottom: { style: 'hair', color: { argb: 'FFD1D5DB' } },
-        right: { style: 'hair', color: { argb: 'FFD1D5DB' } },
-      };
-      if (rowNumber % 2 === 0) {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    if (rowNumber === 1 || (totalRowNumber && rowNumber >= totalRowNumber)) return;
+    row.height = 23;
+    const isEven = rowNumber % 2 === 0;
+
+    row.eachCell({ includeEmpty: true }, (cell, colIndex) => {
+      let cellBg = isEven ? 'FFF8FAFC' : 'FFFFFFFF';
+      let fontColor = 'FF0F172A';
+      let isBold = false;
+      let alignH = 'left';
+
+      const val = cell.value;
+      const valStr = typeof val === 'string' ? val.trim() : '';
+
+      if (isTimesheet) {
+        if (colIndex === 1) {
+          alignH = 'center';
+          fontColor = 'FF2563EB';
+          isBold = true;
+        } else if (colIndex === 2) {
+          alignH = 'left';
+          isBold = true;
+        } else if (colIndex === 3) {
+          alignH = 'center';
+          fontColor = 'FF475569';
+        } else if (colIndex >= 4 && colIndex <= 14) {
+          alignH = 'right';
+          if (typeof val === 'number') {
+            cell.numFmt = colIndex === 12 || colIndex === 13 ? '#,##0' : '#,##0.00';
+            if (val > 0) isBold = true;
+          }
+        } else if (colIndex >= 15) {
+          alignH = 'center';
+          const dayNum = colIndex - 14;
+          const dObj = (month && year) ? new Date(year, month - 1, dayNum) : null;
+          const isSun = dObj && dObj.getDay() === 0;
+
+          if (valStr === 'x') {
+            cellBg = 'FFECFDF5';
+            fontColor = 'FF047857';
+            isBold = true;
+          } else if (valStr === '0,75x' || valStr === '0,5x') {
+            cellBg = 'FFFEF3C7';
+            fontColor = 'FFB45309';
+            isBold = true;
+          } else if (['1,5x', '1,75x', '2x', '3x'].includes(valStr)) {
+            cellBg = 'FFFFEDD5';
+            fontColor = 'FFC2410C';
+            isBold = true;
+          } else if (valStr === 'CT1' || valStr === 'CT2') {
+            cellBg = 'FFEFF6FF';
+            fontColor = 'FF1D4ED8';
+            isBold = true;
+          } else if (valStr === 'WFH') {
+            cellBg = 'FFECFEFF';
+            fontColor = 'FF0E7490';
+            isBold = true;
+          } else if (valStr === 'P') {
+            cellBg = 'FFF5F3FF';
+            fontColor = 'FF6D28D9';
+            isBold = true;
+          } else if (valStr === 'L') {
+            cellBg = 'FFFFF1F2';
+            fontColor = 'FFBE123C';
+            isBold = true;
+          } else if (valStr === 'O') {
+            cellBg = 'FFFFE4E6';
+            fontColor = 'FFE11D48';
+            isBold = true;
+          } else if (valStr === 'KL' || valStr === 'K') {
+            cellBg = 'FFF1F5F9';
+            fontColor = 'FF64748B';
+          } else if (!valStr && isSun) {
+            cellBg = 'FFFEF2F2';
+          }
+        }
       }
+
+      cell.font = { name: 'Arial', size: 9.5, bold: isBold, color: { argb: fontColor } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cellBg } };
+      cell.alignment = { horizontal: alignH, vertical: 'middle', wrapText: false };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
     });
   });
 
+  // Hàng TỔNG CỘNG kế toán (GAAP Double-Underline)
   if (totalRowNumber) {
     const totalRow = worksheet.getRow(totalRowNumber);
-    totalRow.eachCell(cell => {
-      cell.font = { bold: true, color: { argb: 'FF111827' } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    totalRow.height = 27;
+
+    totalRow.eachCell({ includeEmpty: true }, (cell, colIndex) => {
+      cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: 'FF0F172A' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        bottom: { style: 'double', color: { argb: 'FF0F172A' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
+
+      if (isTimesheet) {
+        if (colIndex >= 4 && colIndex <= 14) {
+          const colLetter = worksheet.getColumn(colIndex).letter;
+          const cachedVal = cell.value;
+          cell.value = {
+            formula: `SUM(${colLetter}2:${colLetter}${totalRowNumber - 1})`,
+            result: Number(cachedVal) || 0,
+          };
+          cell.numFmt = colIndex === 12 || colIndex === 13 ? '#,##0' : '#,##0.00';
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        } else if (colIndex >= 15) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        }
+      }
     });
+
+    // Thêm khối chữ ký 3 bên ở cuối bảng
+    if (isTimesheet) {
+      const sigTitleRowIdx = totalRowNumber + 3;
+      const sigTitleRow = worksheet.getRow(sigTitleRowIdx);
+      sigTitleRow.height = 24;
+
+      sigTitleRow.getCell(2).value = 'NGƯỜI LẬP BIỂU';
+      sigTitleRow.getCell(2).font = { name: 'Arial', bold: true, size: 10.5, color: { argb: 'FF1E293B' } };
+      sigTitleRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      sigTitleRow.getCell(6).value = 'KẾ TOÁN TRƯỞNG';
+      sigTitleRow.getCell(6).font = { name: 'Arial', bold: true, size: 10.5, color: { argb: 'FF1E293B' } };
+      sigTitleRow.getCell(6).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      sigTitleRow.getCell(12).value = 'BAN GIÁM ĐỐC';
+      sigTitleRow.getCell(12).font = { name: 'Arial', bold: true, size: 10.5, color: { argb: 'FF1E293B' } };
+      sigTitleRow.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const sigNoteRowIdx = totalRowNumber + 4;
+      const sigNoteRow = worksheet.getRow(sigNoteRowIdx);
+      sigNoteRow.height = 18;
+
+      sigNoteRow.getCell(2).value = '(Ký, ghi rõ họ tên)';
+      sigNoteRow.getCell(2).font = { name: 'Arial', italic: true, size: 9, color: { argb: 'FF64748B' } };
+      sigNoteRow.getCell(2).alignment = { horizontal: 'center', vertical: 'top' };
+
+      sigNoteRow.getCell(6).value = '(Ký, ghi rõ họ tên)';
+      sigNoteRow.getCell(6).font = { name: 'Arial', italic: true, size: 9, color: { argb: 'FF64748B' } };
+      sigNoteRow.getCell(6).alignment = { horizontal: 'center', vertical: 'top' };
+
+      sigNoteRow.getCell(12).value = '(Ký, đóng dấu)';
+      sigNoteRow.getCell(12).font = { name: 'Arial', italic: true, size: 9, color: { argb: 'FF64748B' } };
+      sigNoteRow.getCell(12).alignment = { horizontal: 'center', vertical: 'top' };
+    }
   }
 };
 
@@ -220,8 +370,8 @@ const buildAttendanceWorkbook = ({ users, attendances, month, year, includeSensi
 
   const summaryColumns = [
     { header: 'ID', key: 'ID', width: 12 },
-    { header: 'NHÂN SỰ', key: 'NHÂN SỰ', width: 24 },
-    { header: 'CHỨC VỤ', key: 'CHỨC VỤ', width: 18 },
+    { header: 'NHÂN SỰ', key: 'NHÂN SỰ', width: 25 },
+    { header: 'CHỨC VỤ', key: 'CHỨC VỤ', width: 16 },
     { header: 'NLV tại VP', key: 'NLV tại VP', width: 13 },
     { header: 'CT Trong nước', key: 'CT Trong nước', width: 15 },
     { header: 'CT Nước ngoài', key: 'CT Nước ngoài', width: 15 },
@@ -232,18 +382,24 @@ const buildAttendanceWorkbook = ({ users, attendances, month, year, includeSensi
     { header: 'Khác', key: 'Khác', width: 10 },
     { header: 'Muộn (lượt)', key: 'Muộn (lượt)', width: 12 },
     { header: 'Sớm (lượt)', key: 'Sớm (lượt)', width: 12 },
-    { header: 'Tổng giờ OT', key: 'Tổng giờ OT', width: 12 },
+    { header: 'Tổng giờ OT', key: 'Tổng giờ OT', width: 13 },
   ];
   for (let day = 1; day <= daysInMonth; day++) {
     const key = String(day).padStart(2, '0');
-    summaryColumns.push({ header: key, key, width: 6 });
+    const dObj = new Date(year, month - 1, day);
+    const wd = WEEKDAY_NAMES_VI[dObj.getDay()];
+    summaryColumns.push({ header: `${key}\n${wd}`, key, width: 6.5 });
   }
   summarySheet.columns = summaryColumns;
   summarySheet.addRows(summaryRows);
-  styleWorksheet(summarySheet, { frozenColumns: 3, totalRowNumber: summaryRows.length + 1 });
-  for (let columnIndex = 15; columnIndex <= summarySheet.columnCount; columnIndex++) {
-    summarySheet.getColumn(columnIndex).alignment = { horizontal: 'center', vertical: 'middle' };
-  }
+  styleWorksheet(summarySheet, {
+    frozenColumns: 3,
+    totalRowNumber: summaryRows.length + 1,
+    isTimesheet: true,
+    month,
+    year,
+    daysInMonth,
+  });
 
   const directoryRows = buildDirectoryRows(users, includeSensitive);
   const directorySheet = workbook.addWorksheet(includeSensitive ? 'Thông Tin Nhân Sự' : 'Danh Bạ Nhóm');
