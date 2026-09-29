@@ -93,12 +93,11 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
           <thead>
             <tr style={{ background: '#0f172a', color: '#ffffff', textAlign: 'left', fontWeight: 800 }}>
               <th style={{ padding: '9px 10px', width: '40px', textAlign: 'center', border: '1px solid #334155' }}>STT</th>
-              <th style={{ padding: '9px 10px', width: '85px', border: '1px solid #334155' }}>NGÀY CHI</th>
-              <th style={{ padding: '9px 10px', width: '120px', border: '1px solid #334155' }}>NGƯỜI CHI</th>
+              <th style={{ padding: '9px 10px', width: '90px', border: '1px solid #334155' }}>NGÀY CHI</th>
+              <th style={{ padding: '9px 10px', width: '140px', border: '1px solid #334155' }}>NGƯỜI CHI</th>
               <th style={{ padding: '9px 10px', border: '1px solid #334155' }}>NỘI DUNG KHOẢN CHI</th>
-              <th style={{ padding: '9px 10px', width: '70px', textAlign: 'center', border: '1px solid #334155' }}>HÓA ĐƠN</th>
-              <th style={{ padding: '9px 10px', width: '90px', textAlign: 'center', border: '1px solid #334155' }}>TRẢ NV</th>
-              <th style={{ padding: '9px 10px', width: '120px', textAlign: 'right', border: '1px solid #334155' }}>SỐ TIỀN (VNĐ)</th>
+              <th style={{ padding: '9px 10px', width: '80px', textAlign: 'center', border: '1px solid #334155' }}>HÓA ĐƠN</th>
+              <th style={{ padding: '9px 10px', width: '140px', textAlign: 'right', border: '1px solid #334155' }}>SỐ TIỀN (VNĐ)</th>
             </tr>
           </thead>
           <tbody>
@@ -124,13 +123,6 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
                       <span style={{ fontSize: '10px', color: '#94a3b8' }}>—</span>
                     )}
                   </td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #cbd5e1' }}>
-                    {exp.paid_to_staff ? (
-                      <span style={{ fontSize: '10px', color: '#059669', fontWeight: 700 }}>Đã trả</span>
-                    ) : (
-                      <span style={{ fontSize: '10px', color: '#d97706', fontWeight: 700 }}>Chưa trả</span>
-                    )}
-                  </td>
                   <td style={{ padding: '8px 10px', textAlign: 'right', border: '1px solid #cbd5e1', fontWeight: 800, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
                     {formatVND(exp.amount)}
                   </td>
@@ -140,7 +132,7 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
           </tbody>
           <tfoot>
             <tr style={{ background: '#f1f5f9', fontWeight: 900, borderTop: '2px solid #0f172a' }}>
-              <td colSpan={6} style={{ padding: '10px 12px', textAlign: 'right', border: '1px solid #cbd5e1', fontSize: '12.5px', textTransform: 'uppercase' }}>
+              <td colSpan={5} style={{ padding: '10px 12px', textAlign: 'right', border: '1px solid #cbd5e1', fontSize: '12.5px', textTransform: 'uppercase' }}>
                 TỔNG CỘNG TIỀN CÔNG TY CẦN HOÀN ỨNG:
               </td>
               <td style={{ padding: '10px 12px', textAlign: 'right', border: '1px solid #cbd5e1', color: '#dc2626', fontSize: '14.5px', fontVariantNumeric: 'tabular-nums' }}>

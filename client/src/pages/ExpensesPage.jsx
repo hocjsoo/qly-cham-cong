@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
   Trash2, Camera, LayoutList, LayoutGrid, Table2,
-  ArrowRightLeft, UserCheck, Clock
+  ArrowRightLeft, UserCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -835,7 +835,7 @@ export default function ExpensesPage() {
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
           <div className="card animate-fade-in" style={{ padding: 0, overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: '100%' }}>
-            <table style={{ width: '100%', minWidth: '1060px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table style={{ width: '100%', minWidth: '980px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
                   <th style={{ padding: '12px 14px', width: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>STT</th>
@@ -844,10 +844,9 @@ export default function ExpensesPage() {
                   <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI CHI</th>
                   <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI ỨNG</th>
                   <th style={{ padding: '12px 14px', width: '130px', textAlign: 'right', whiteSpace: 'nowrap' }}>SỐ TIỀN</th>
-                  <th style={{ padding: '12px 14px', width: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>DUYỆT</th>
-                  <th style={{ padding: '12px 14px', width: '115px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẢ NV</th>
-                  <th style={{ padding: '12px 14px', width: '115px', textAlign: 'center', whiteSpace: 'nowrap' }}>HOÀN ỨNG CTY</th>
-                  <th style={{ padding: '12px 14px', width: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>HÓA ĐƠN VAT</th>
+                  <th style={{ padding: '12px 14px', width: '120px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI DUYỆT</th>
+                  <th style={{ padding: '12px 14px', width: '125px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI TRẢ</th>
+                  <th style={{ padding: '12px 14px', width: '100px', textAlign: 'center', whiteSpace: 'nowrap' }}>HÓA ĐƠN VAT</th>
                   <th style={{ padding: '12px 14px', width: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>ẢNH BILL</th>
                   <th style={{ padding: '12px 14px', width: '180px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
                 </tr>
@@ -945,28 +944,11 @@ export default function ExpensesPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStaffPaid(exp._id, Boolean(exp.paid_to_staff))}
-                          className={`btn ${exp.paid_to_staff ? 'btn--ghost' : 'btn--warning'}`}
-                          style={{
-                            padding: '3px 8px', fontSize: '10.5px', fontWeight: 700,
-                            height: '24px', minHeight: '24px',
-                            background: exp.paid_to_staff ? 'var(--green-soft)' : undefined,
-                            color: exp.paid_to_staff ? 'var(--green)' : undefined,
-                            borderColor: exp.paid_to_staff ? 'var(--green)' : undefined,
-                          }}
-                          title="Bấm để chuyển đổi trạng thái đã trả / chưa trả tiền túi cho người chi"
-                        >
-                          {exp.paid_to_staff ? '✓ Đã trả NV' : '⏳ Chưa trả NV'}
-                        </button>
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span
                           className={`badge ${isPaid ? 'badge--success' : 'badge--danger'}`}
                           style={{ fontSize: '11px', padding: '3px 8px' }}
                         >
-                          {isPaid ? '💳 Cty đã hoàn' : '⏳ Chờ Cty hoàn'}
+                          {isPaid ? '💳 Đã trả' : '⏳ Chưa trả'}
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
@@ -1097,23 +1079,8 @@ export default function ExpensesPage() {
                         {isApproved ? '✅ Đã duyệt' : isPending ? '⏳ Chờ duyệt' : '❌ Từ chối'}
                       </span>
                       <span className={`badge ${isPaid ? 'badge--success' : 'badge--danger'}`} style={{ fontSize: '10.5px' }}>
-                        {isPaid ? '💳 Cty đã hoàn' : '⏳ Chờ Cty hoàn'}
+                        {isPaid ? '💳 Đã trả' : '⏳ Chưa trả'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStaffPaid(exp._id, Boolean(exp.paid_to_staff))}
-                        className={`btn ${exp.paid_to_staff ? 'btn--ghost' : 'btn--warning'}`}
-                        style={{
-                          padding: '2px 7px', fontSize: '10px', fontWeight: 700,
-                          height: '22px', minHeight: '22px',
-                          background: exp.paid_to_staff ? 'var(--green-soft)' : undefined,
-                          color: exp.paid_to_staff ? 'var(--green)' : undefined,
-                          borderColor: exp.paid_to_staff ? 'var(--green)' : undefined,
-                        }}
-                        title="Bấm để đánh dấu đã trả / chưa trả tiền túi cho người chi"
-                      >
-                        {exp.paid_to_staff ? '✓ Đã trả NV' : '⏳ Chưa trả NV'}
-                      </button>
                     </div>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
                       📅 {formatDate(exp.date)}
