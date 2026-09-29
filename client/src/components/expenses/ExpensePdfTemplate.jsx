@@ -89,7 +89,7 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
         </div>
 
         {/* Bảng kê chi tiết các khoản chi */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', marginBottom: '20px' }}>
+        <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', marginBottom: '20px' }}>
           <thead>
             <tr style={{ background: '#0f172a', color: '#ffffff', textAlign: 'left', fontWeight: 800 }}>
               <th style={{ padding: '9px 10px', width: '40px', textAlign: 'center', border: '1px solid #334155' }}>STT</th>

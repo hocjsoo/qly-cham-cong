@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
   Trash2, Camera, LayoutList, LayoutGrid, Table2,
-  ArrowRightLeft, UserCheck
+  ArrowRightLeft, UserCheck, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -318,8 +318,7 @@ export default function ExpensesPage() {
         'Người ứng tiền thay',
         'Số tiền (VNĐ)',
         'Trạng thái duyệt',
-        'Chi trả người chi',
-        'Hoàn ứng công ty',
+        'Trạng thái hoàn tiền',
         'Hóa đơn VAT',
         'Ngân hàng',
         'Số tài khoản nhận tiền',
@@ -335,9 +334,9 @@ export default function ExpensesPage() {
         const advancerName = expItem.advanced_by?.full_name || 'Chính người chi';
         const beneficiaryUser = expItem.advanced_by || spenderUser;
         const approvalVi = expItem.approval_status === 'approved' ? 'Đã duyệt' : expItem.approval_status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
-        const staffPaidVi = expItem.paid_to_staff ? 'Đã trả NV' : 'Chưa trả NV';
-        const companyPaidVi = expItem.payment_status === 'paid' ? 'Cty đã hoàn' : 'Chờ Cty hoàn';
+        const paymentVi = expItem.payment_status === 'paid' ? 'Đã trả' : 'Chưa trả';
         const vatVi = expItem.has_vat_invoice ? 'Có VAT' : 'Không VAT';
+        const rawStk = beneficiaryUser.bank_account ? String(beneficiaryUser.bank_account).trim() : '';
 
         return [
           idx + 1,
@@ -347,11 +346,11 @@ export default function ExpensesPage() {
           sanitizeCsvCell(advancerName),
           expItem.amount,
           sanitizeCsvCell(approvalVi),
-          sanitizeCsvCell(staffPaidVi),
-          sanitizeCsvCell(companyPaidVi),
+          sanitizeCsvCell(paymentVi),
           sanitizeCsvCell(vatVi),
           sanitizeCsvCell(beneficiaryUser.bank_name),
-          sanitizeCsvCell(beneficiaryUser.bank_account),
+          // Định dạng ="STK" để Excel nhận diện chuẩn Text, tuyệt đối không bị biến thành số mũ 1,251E+13
+          rawStk ? `="${rawStk}"` : '—',
           sanitizeCsvCell(beneficiaryUser.branch),
           sanitizeCsvCell(expItem.notes)
         ];
@@ -361,6 +360,7 @@ export default function ExpensesPage() {
         'TỔNG CỘNG',
         '""',
         sanitizeCsvCell(`Tổng ${fullList.length} khoản chi`),
+        '""',
         '""',
         totalAmount,
         '""',
@@ -372,18 +372,46 @@ export default function ExpensesPage() {
         '""'
       ];
 
-      const csvContent = '\uFEFF' + [headers.map(sanitizeCsvCell).join(','), ...rows.map(r => r.join(',')), totalRow.join(',')].join('\r\n');
+      const BOM = '\uFEFF';
+      const csvContent = BOM + [
+        headers.map(sanitizeCsvCell).join(','),
+        ...rows.map(r => r.join(',')),
+        totalRow.join(',')
+      ].join('\r\n');
+
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      downloadBlob(blob, `Bang_Ke_Chi_Tieu_Hoan_Ung_ET_${filterMonth !== 'all' ? `T${filterMonth}_` : ''}${filterYear}_${new Date().toISOString().slice(0, 10)}.csv`);
+      downloadBlob(blob, `DS_Chi_Tieu_ET_${new Date().toISOString().slice(0, 10)}.csv`);
       toast.dismiss(toastId);
-      toast.success(`Đã xuất file CSV (${fullList.length} khoản chi) thành công! 📄`);
+      toast.success('Đã tải xuống file CSV (STK chuẩn Text) thành công!');
     } catch {
       toast.dismiss(toastId);
-      toast.error('Lỗi khi tải dữ liệu xuất CSV');
+      toast.error('Lỗi khi xuất file CSV');
     }
   };
 
-    // Filter list by search locally if needed
+  const handleExportExcel = async () => {
+    const toastId = toast.loading('Đang chuẩn bị file Excel XLSX chuẩn kế toán...');
+    try {
+      const params = new URLSearchParams();
+      if (filterUser !== 'all') params.append('user_id', filterUser);
+      if (filterApproval !== 'all') params.append('approval_status', filterApproval);
+      if (filterPayment !== 'all') params.append('payment_status', filterPayment);
+      if (filterVat !== 'all') params.append('has_vat', filterVat);
+      if (filterMonth !== 'all') params.append('month', filterMonth);
+      if (filterYear !== 'all') params.append('year', filterYear);
+      if (search.trim()) params.append('search', search.trim());
+
+      const res = await api.get(`/export/expenses?${params.toString()}`, { responseType: 'blob' });
+      downloadBlob(res.data, `Bang_Ke_Chi_Tieu_ET_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      toast.dismiss(toastId);
+      toast.success('Đã tải xuống file Excel XLSX chuyên nghiệp! 📊');
+    } catch {
+      toast.dismiss(toastId);
+      toast.error('Lỗi khi xuất file Excel');
+    }
+  };
+
+  // Filter list by search locally if needed
   const filteredExpenses = expenses.filter(exp => {
     if (!search.trim()) return true;
     const q = search.toLowerCase().trim();
@@ -599,6 +627,14 @@ export default function ExpensesPage() {
               style={{ padding: '7px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px' }}
             >
               <Plus size={15} /> Báo Cáo Chi Tiêu
+            </button>
+            <button
+              onClick={handleExportExcel}
+              className="btn btn--ghost"
+              style={{ padding: '7px 11px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--green)', borderColor: 'var(--green)' }}
+              title="Xuất file Excel XLSX chuẩn kế toán (2 Sheet, format số và STK chống lỗi)"
+            >
+              <FileSpreadsheet size={15} /> Xuất Excel
             </button>
             <button
               onClick={handleExportCSV}
@@ -823,11 +859,11 @@ export default function ExpensesPage() {
             matrixScopeFilter={matrixScopeFilter}
             setMatrixScopeFilter={setMatrixScopeFilter}
             handleExportMatrixCSV={handleExportMatrixCSV}
+            handleExportExcel={handleExportExcel}
             formatVND={formatVND}
             formatDate={formatDate}
             staffList={staffList}
             handleMarkPaid={handleMarkPaid}
-            handleToggleStaffPaid={handleToggleStaffPaid}
             handleUpdateAdvancedBy={handleUpdateAdvancedBy}
             isAdmin={isAdmin}
             user={user}

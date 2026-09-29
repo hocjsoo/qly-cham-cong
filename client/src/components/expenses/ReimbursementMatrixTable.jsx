@@ -5,7 +5,7 @@ import { useState, useMemo, useRef } from 'react';
 import {
   Download, Table2, Copy, Check, ChevronDown, ChevronUp,
   Building2, CheckCircle2, RotateCcw, FileText, ArrowRightLeft, X,
-  UserCheck, Wallet
+  UserCheck, Wallet, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ExpensePdfTemplate from './ExpensePdfTemplate';
@@ -15,6 +15,7 @@ export default function ReimbursementMatrixTable({
   matrixScopeFilter,
   setMatrixScopeFilter,
   handleExportMatrixCSV,
+  handleExportExcel,
   formatVND,
   formatDate,
   staffList = [],
@@ -312,6 +313,16 @@ export default function ReimbursementMatrixTable({
               title="Sao chép toàn bộ danh sách chuyển khoản"
             >
               <Copy size={13} /> Copy Danh Sách
+            </button>
+          )}
+          {handleExportExcel && (
+            <button
+              onClick={handleExportExcel}
+              className="btn btn--primary"
+              style={{ padding: '6px 12px', fontSize: '12px', gap: '5px' }}
+              title="Xuất file Excel XLSX chuẩn kế toán (2 Sheet, format số và STK chống lỗi)"
+            >
+              <FileSpreadsheet size={13} /> Xuất Excel
             </button>
           )}
           <button

@@ -3,6 +3,7 @@ const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const Department = require('../models/Department');
+const Expense = require('../models/Expense');
 const {
   isLeaderRole,
   buildLeaderUserScope,
@@ -498,8 +499,294 @@ const exportAttendanceExcel = async (req, res) => {
   }
 };
 
+// GET /api/export/expenses — Xuất file Excel Chi Tiêu & Hoàn Ứng chuẩn GAAP với 2 sheet
+const exportExpensesExcel = async (req, res) => {
+  try {
+    const { user_id, approval_status, payment_status, has_vat, month, year, search } = req.query;
+    const filter = {};
+
+    if (user_id && user_id !== 'all') filter.user_id = user_id;
+    if (approval_status && approval_status !== 'all') filter.approval_status = approval_status;
+    if (payment_status && payment_status !== 'all') filter.payment_status = payment_status;
+    if (has_vat !== undefined && has_vat !== 'all') filter.has_vat_invoice = has_vat === 'true' || has_vat === true;
+
+    if (month && month !== 'all') {
+      const targetYear = year || new Date().getFullYear();
+      const monthStr = String(month).padStart(2, '0');
+      filter.date = { $regex: `^${targetYear}-${monthStr}` };
+    } else if (year && year !== 'all') {
+      filter.date = { $regex: `^${year}-` };
+    }
+
+    if (search && search.trim()) {
+      filter.description = { $regex: search.trim(), $options: 'i' };
+    }
+
+    const expenses = await Expense.find(filter)
+      .populate('user_id', 'full_name employee_code bank_name bank_account branch department_name')
+      .populate('advanced_by', 'full_name employee_code bank_name bank_account branch department_name')
+      .sort({ date: -1, created_at: -1 })
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ET Office Portal';
+    workbook.company = 'CÔNG TY TNHH THIẾT KẾ KIẾN TRÚC ET';
+    workbook.created = new Date();
+
+    // Sheet 1: Danh Sách Chi Tiêu Chi Tiết
+    const sheet1 = workbook.addWorksheet('Chi Tiết Chi Tiêu', {
+      properties: { defaultRowHeight: 22 },
+      views: [{ state: 'frozen', xSplit: 0, ySplit: 3 }]
+    });
+
+    // Tiêu đề lớn
+    sheet1.mergeCells('A1:L1');
+    const titleCell = sheet1.getCell('A1');
+    titleCell.value = 'BẢNG KÊ CHI TIÊU & HOÀN ỨNG CÔNG TY ET';
+    titleCell.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet1.getRow(1).height = 32;
+
+    sheet1.mergeCells('A2:L2');
+    const subCell = sheet1.getCell('A2');
+    subCell.value = `Ngày xuất: ${new Date().toLocaleDateString('vi-VN')} · Tổng số: ${expenses.length} khoản chi`;
+    subCell.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF475569' } };
+    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    subCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet1.getRow(2).height = 20;
+
+    const headers = [
+      { header: 'STT', key: 'stt', width: 7 },
+      { header: 'NGÀY CHI', key: 'date', width: 14 },
+      { header: 'MÔ TẢ KHOẢN CHI', key: 'description', width: 34 },
+      { header: 'NGƯỜI CHI THỰC TẾ', key: 'spender', width: 24 },
+      { header: 'NGƯỜI ỨNG THAY', key: 'advancer', width: 24 },
+      { header: 'SỐ TIỀN (VNĐ)', key: 'amount', width: 18 },
+      { header: 'DUYỆT CHI', key: 'approval', width: 14 },
+      { header: 'HOÀN ỨNG', key: 'payment', width: 14 },
+      { header: 'HÓA ĐƠN', key: 'vat', width: 12 },
+      { header: 'NGÂN HÀNG', key: 'bank_name', width: 18 },
+      { header: 'SỐ TÀI KHOẢN', key: 'bank_account', width: 24 },
+      { header: 'GHI CHÚ', key: 'notes', width: 28 },
+    ];
+
+    sheet1.getRow(3).values = headers.map(h => h.header);
+    sheet1.getRow(3).height = 28;
+    sheet1.getRow(3).eachCell(cell => {
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF334155' } },
+        left: { style: 'thin', color: { argb: 'FF334155' } },
+        bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
+        right: { style: 'thin', color: { argb: 'FF334155' } },
+      };
+    });
+
+    headers.forEach((col, idx) => {
+      sheet1.getColumn(idx + 1).width = col.width;
+    });
+
+    let totalAmount = 0;
+    expenses.forEach((exp, idx) => {
+      const spenderName = exp.user_id?.full_name || 'Nhân viên';
+      const advancerName = exp.advanced_by?.full_name || '—';
+      const beneficiary = exp.advanced_by || exp.user_id || {};
+      const approvalVi = exp.approval_status === 'approved' ? 'Đã duyệt' : exp.approval_status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
+      const paymentVi = exp.payment_status === 'paid' ? 'Đã hoàn' : 'Chưa hoàn';
+      const vatVi = exp.has_vat_invoice ? 'Có VAT' : 'Không';
+      const numAmount = Number(exp.amount) || 0;
+      totalAmount += numAmount;
+
+      const row = sheet1.addRow([
+        idx + 1,
+        exp.date || '—',
+        exp.description || '—',
+        spenderName,
+        advancerName,
+        numAmount,
+        approvalVi,
+        paymentVi,
+        vatVi,
+        beneficiary.bank_name || '—',
+        beneficiary.bank_account ? String(beneficiary.bank_account).trim() : '—',
+        exp.notes || '—'
+      ]);
+
+      const isEven = idx % 2 === 0;
+      row.height = 22;
+      row.eachCell({ includeEmpty: true }, (cell, colIdx) => {
+        cell.font = { name: 'Arial', size: 9.5 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+
+        if (colIdx === 1 || colIdx === 2 || colIdx === 9) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else if (colIdx === 3) {
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          cell.font = { name: 'Arial', size: 9.5, bold: true };
+        } else if (colIdx === 6) {
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '#,##0';
+          cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+        } else if (colIdx === 7) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (exp.approval_status === 'approved') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF15803D' } };
+          } else if (exp.approval_status === 'pending') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB45309' } };
+          }
+        } else if (colIdx === 8) {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          if (exp.payment_status === 'paid') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF15803D' } };
+          } else {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFB91C1C' } };
+          }
+        } else if (colIdx === 11) {
+          cell.numFmt = '@';
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          cell.font = { name: 'Arial', size: 9.5, bold: true, color: { argb: 'FF2563EB' } };
+        } else {
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        }
+      });
+    });
+
+    // Dòng TỔNG CỘNG
+    const totalRow = sheet1.addRow([
+      '', '', 'TỔNG CỘNG KHOẢN CHI', '', '', totalAmount, '', '', '', '', '', ''
+    ]);
+    totalRow.height = 28;
+    sheet1.mergeCells(`A${expenses.length + 4}:B${expenses.length + 4}`);
+    totalRow.eachCell({ includeEmpty: true }, (cell, colIdx) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF0F172A' } },
+        bottom: { style: 'double', color: { argb: 'FF0F172A' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+      };
+      if (colIdx === 3) {
+        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+      } else if (colIdx === 6) {
+        cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFDC2626' } };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        cell.numFmt = '#,##0';
+      }
+    });
+
+    // Sheet 2: Bảng Quyết Toán Gom Theo Người Thụ Hưởng
+    const sheet2 = workbook.addWorksheet('Quyết Toán Theo Người', {
+      properties: { defaultRowHeight: 24 },
+      views: [{ state: 'frozen', xSplit: 0, ySplit: 2 }]
+    });
+
+    sheet2.mergeCells('A1:F1');
+    const title2 = sheet2.getCell('A1');
+    title2.value = 'DANH SÁCH QUYẾT TOÁN HOÀN ỨNG THEO NHÂN SỰ';
+    title2.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    title2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    title2.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet2.getRow(1).height = 30;
+
+    const headers2 = [
+      { header: 'STT', width: 7 },
+      { header: 'NGƯỜI THỤ HƯỞNG', width: 26 },
+      { header: 'SỐ KHOẢN CHI GỘP', width: 18 },
+      { header: 'TỔNG TIỀN CẦN TRẢ (VNĐ)', width: 26 },
+      { header: 'NGÂN HÀNG', width: 20 },
+      { header: 'SỐ TÀI KHOẢN NHẬN TIỀN', width: 25 },
+    ];
+    sheet2.getRow(2).values = headers2.map(h => h.header);
+    sheet2.getRow(2).height = 26;
+    sheet2.getRow(2).eachCell(cell => {
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    headers2.forEach((h, idx) => { sheet2.getColumn(idx + 1).width = h.width; });
+
+    // Gom nhóm theo người thụ hưởng
+    const beneficiaryMap = new Map();
+    expenses.forEach(exp => {
+      const benUser = exp.advanced_by || exp.user_id;
+      const bId = String(benUser?._id || 'unknown');
+      if (!beneficiaryMap.has(bId)) {
+        beneficiaryMap.set(bId, {
+          user: benUser,
+          total: 0,
+          count: 0,
+        });
+      }
+      const b = beneficiaryMap.get(bId);
+      b.total += Number(exp.amount) || 0;
+      b.count += 1;
+    });
+
+    const sortedBeneficiaries = Array.from(beneficiaryMap.values()).sort((a, b) => b.total - a.total);
+    sortedBeneficiaries.forEach((item, idx) => {
+      const u = item.user || {};
+      const row = sheet2.addRow([
+        idx + 1,
+        u.full_name || 'Nhân viên',
+        `${item.count} khoản`,
+        item.total,
+        u.bank_name || '—',
+        u.bank_account ? String(u.bank_account).trim() : '—'
+      ]);
+      row.height = 24;
+      row.eachCell((cell, colIdx) => {
+        cell.font = { name: 'Arial', size: 9.5 };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+        if (colIdx === 1 || colIdx === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        else if (colIdx === 4) {
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '#,##0';
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+        } else if (colIdx === 6) {
+          cell.numFmt = '@';
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF2563EB' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        } else {
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        }
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `Bang_Ke_Chi_Tieu_ET_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(Buffer.from(buffer));
+  } catch (error) {
+    console.error('ExportExpensesExcel error:', error);
+    return res.status(500).json({ error: 'Lỗi xuất file Excel chi tiêu.' });
+  }
+};
+
 module.exports = {
   exportAttendanceExcel,
+  exportExpensesExcel,
   __test: {
     getTimesheetSymbol,
     buildAttendanceWorkbook,
