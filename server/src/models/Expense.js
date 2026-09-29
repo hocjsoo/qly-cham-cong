@@ -67,6 +67,19 @@ const expenseSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  advanced_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null, // Người ứng tiền thay / thụ hưởng hoàn ứng từ công ty
+  },
+  paid_to_staff: {
+    type: Boolean,
+    default: false, // Trạng thái trung gian đã thanh toán trả cho nhân viên chi tiền
+  },
+  paid_to_staff_at: {
+    type: Date,
+    default: null,
+  },
   notes: {
     type: String,
     default: null,

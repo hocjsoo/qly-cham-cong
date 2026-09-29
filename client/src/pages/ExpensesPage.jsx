@@ -255,6 +255,30 @@ export default function ExpensesPage() {
     }
   };
 
+  const handleToggleStaffPaid = useCallback(async (expenseId, currentPaid) => {
+    try {
+      const { data } = await api.put(`/expenses/${expenseId}/staff-paid`, {
+        paid_to_staff: !currentPaid,
+      });
+      toast.success(data.message || 'Đã cập nhật trạng thái chi trả người chi!');
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi cập nhật chi trả người chi');
+    }
+  }, [loadData]);
+
+  const handleUpdateAdvancedBy = useCallback(async (expenseId, advancedByUserId) => {
+    try {
+      const { data } = await api.put(`/expenses/${expenseId}/advanced-by`, {
+        advanced_by: advancedByUserId,
+      });
+      toast.success(data.message || 'Đã chuyển người ứng tiền!');
+      loadData();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Lỗi chuyển người ứng tiền');
+    }
+  }, [loadData]);
+
   const handleExportCSV = async () => {
     const toastId = toast.loading('Đang chuẩn bị dữ liệu xuất CSV...');
     try {
@@ -410,13 +434,28 @@ export default function ExpensesPage() {
       }
     });
     expenses.forEach(exp => {
+      const advId = String(exp.advanced_by?._id || exp.advanced_by || '');
+      if (advId && !userMap.has(advId)) {
+        const name = exp.advanced_by?.full_name || 'Người ứng';
+        userMap.set(advId, {
+          id: advId,
+          full_name: name,
+          short_name: shortNameMap.get(advId) || name.split(' ').pop(),
+          avatar_url: exp.advanced_by?.avatar_url,
+          employee_code: exp.advanced_by?.employee_code,
+          department_name: exp.advanced_by?.department_name,
+          bank_name: exp.advanced_by?.bank_name || null,
+          bank_account: exp.advanced_by?.bank_account || null,
+          branch: exp.advanced_by?.branch || null,
+        });
+      }
       const id = String(exp.user_id?._id || exp.user_id || '');
       if (id && !userMap.has(id)) {
         const name = exp.user_id?.full_name || exp.user_name || 'Nhân viên';
         userMap.set(id, {
           id,
           full_name: name,
-          short_name: name.split(' ').pop(),
+          short_name: shortNameMap.get(id) || name.split(' ').pop(),
           avatar_url: exp.user_id?.avatar_url,
           employee_code: exp.user_id?.employee_code,
           department_name: exp.user_id?.department_name,
@@ -455,7 +494,8 @@ export default function ExpensesPage() {
         });
       }
       const g = groupMap.get(groupKey);
-      const uid = String(exp.user_id?._id || exp.user_id || '');
+      // Người nhận hoàn ứng từ công ty: Nếu có người ứng thay (advanced_by) thì gom về người ứng, ngược lại là người chi (user_id)
+      const uid = String(exp.advanced_by?._id || exp.advanced_by || exp.user_id?._id || exp.user_id || '');
       g.userAmounts[uid] = (g.userAmounts[uid] || 0) + (exp.amount || 0);
       g.total += (exp.amount || 0);
       g.items.push(exp);
@@ -770,7 +810,10 @@ export default function ExpensesPage() {
             formatDate={formatDate}
             staffList={staffList}
             handleMarkPaid={handleMarkPaid}
+            handleToggleStaffPaid={handleToggleStaffPaid}
+            handleUpdateAdvancedBy={handleUpdateAdvancedBy}
             isAdmin={isAdmin}
+            user={user}
           />
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */

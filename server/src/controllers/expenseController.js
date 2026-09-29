@@ -60,17 +60,18 @@ const getExpenses = async (req, res) => {
     const skip = hasPagination ? (page - 1) * limit : 0;
 
     // Export mode: tối giản projection, bỏ toàn bộ populate dữ liệu hiển thị & capability
-    const exportSelectFields = '_id user_id date description amount has_vat_invoice notes approval_status approved_at rejection_reason payment_status paid_at payment_note created_at';
+    const exportSelectFields = '_id user_id date description amount has_vat_invoice notes approval_status approved_at rejection_reason payment_status paid_at payment_note advanced_by paid_to_staff paid_to_staff_at created_at';
     // Normal mode: đầy đủ trường để hiển thị card, lightbox và capability buttons
-    const normalSelectFields = '_id user_id date description amount has_vat_invoice receipt_url notes approval_status approved_by approved_at rejection_reason payment_status paid_by paid_at payment_note created_at';
+    const normalSelectFields = '_id user_id date description amount has_vat_invoice receipt_url notes approval_status approved_by approved_at rejection_reason payment_status paid_by paid_at payment_note advanced_by paid_to_staff paid_to_staff_at created_at';
     const selectFields = isExport ? exportSelectFields : normalSelectFields;
 
     let query = Expense.find(filter).select(selectFields);
 
     if (!isExport) {
-      // Populate thông tin người chi, người duyệt & người hoàn ứng chỉ cần cho giao diện card/table, không cần cho CSV export
+      // Populate thông tin người chi, người ứng, người duyệt & người hoàn ứng chỉ cần cho giao diện card/table, không cần cho CSV export
       query = query
         .populate('user_id', '_id full_name employee_code department_name avatar_url bank_name bank_account branch')
+        .populate('advanced_by', '_id full_name employee_code avatar_url bank_name bank_account branch')
         .populate('approved_by', '_id full_name')
         .populate('paid_by', '_id full_name');
     }
@@ -118,6 +119,8 @@ const getExpenses = async (req, res) => {
         const canToggleVat = isAdmin || ((isOwner || isSubordinate) && isPending);
         const canMarkPaid = isAdmin && isApproved;
         const canManage = canApprove || canDelete || canToggleVat || canMarkPaid;
+        const canToggleStaffPaid = isAdmin || isLeader || isOwner || (exp.advanced_by && String(exp.advanced_by._id || exp.advanced_by) === currentUserIdStr);
+        const canChangeAdvancer = isAdmin || isLeader;
 
         return {
           ...exp,
@@ -126,6 +129,8 @@ const getExpenses = async (req, res) => {
           can_toggle_vat: canToggleVat,
           can_mark_paid: canMarkPaid,
           can_manage: canManage,
+          can_toggle_staff_paid: canToggleStaffPaid,
+          can_change_advancer: canChangeAdvancer,
         };
       });
     }
@@ -498,6 +503,74 @@ const toggleVat = async (req, res) => {
   }
 };
 
+// PUT /api/expenses/:id/staff-paid — Xác nhận trung gian đã trả cho người chi hay chưa
+const toggleStaffPaid = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paid_to_staff } = req.body;
+
+    const expense = await Expense.findById(id).populate('user_id', 'full_name');
+    if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
+
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
+    const isOwner = String(expense.user_id?._id || expense.user_id) === String(req.user._id);
+    const isAdvancer = expense.advanced_by && String(expense.advanced_by) === String(req.user._id);
+
+    if (!isAdmin && !isLeader && !isOwner && !isAdvancer) {
+      return res.status(403).json({ error: 'Bạn không có quyền cập nhật trạng thái chi trả cho người chi.' });
+    }
+
+    const nextPaidToStaff = paid_to_staff !== undefined ? Boolean(paid_to_staff) : !expense.paid_to_staff;
+    expense.paid_to_staff = nextPaidToStaff;
+    expense.paid_to_staff_at = nextPaidToStaff ? new Date() : null;
+    await expense.save();
+
+    res.json({
+      message: nextPaidToStaff ? 'Đã đánh dấu đã trả tiền cho người chi! ✅' : 'Đã hoàn tác về chưa trả người chi! 🔄',
+      paid_to_staff: expense.paid_to_staff,
+      paid_to_staff_at: expense.paid_to_staff_at,
+    });
+  } catch (error) {
+    console.error('ToggleStaffPaid error:', error);
+    res.status(500).json({ error: 'Lỗi cập nhật trạng thái chi trả cho người chi.' });
+  }
+};
+
+// PUT /api/expenses/:id/advanced-by — Chỉ định hoặc chuyển người ứng tiền thay
+const updateAdvancedBy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { advanced_by } = req.body; // user_id or null
+
+    const expense = await Expense.findById(id);
+    if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
+
+    const isAdmin = req.user.role === 'admin';
+    const isLeader = isLeaderRole(req.user);
+    const isOwner = String(expense.user_id) === String(req.user._id);
+
+    if (!isAdmin && !isLeader && !isOwner) {
+      return res.status(403).json({ error: 'Bạn không có quyền chuyển người ứng cho khoản chi này.' });
+    }
+
+    expense.advanced_by = advanced_by || null;
+    await expense.save();
+
+    const populated = await Expense.findById(id)
+      .populate('user_id', '_id full_name employee_code department_name avatar_url bank_name bank_account branch')
+      .populate('advanced_by', '_id full_name employee_code avatar_url bank_name bank_account branch');
+
+    res.json({
+      message: advanced_by ? 'Đã chuyển người ứng tiền thành công! 🔄' : 'Đã chuyển về người chi ban đầu! 🔄',
+      expense: populated,
+    });
+  } catch (error) {
+    console.error('UpdateAdvancedBy error:', error);
+    res.status(500).json({ error: 'Lỗi cập nhật người ứng tiền.' });
+  }
+};
+
 module.exports = {
   getExpenses,
   createExpense,
@@ -506,4 +579,6 @@ module.exports = {
   approveExpense,
   markAsPaid,
   toggleVat,
+  toggleStaffPaid,
+  updateAdvancedBy,
 };

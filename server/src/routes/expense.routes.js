@@ -13,6 +13,8 @@ const {
   approveExpense,
   markAsPaid,
   toggleVat,
+  toggleStaffPaid,
+  updateAdvancedBy,
 } = require('../controllers/expenseController');
 
 router.use(authMiddleware);
@@ -37,5 +39,11 @@ router.put('/:id/pay', requireRole('admin'), markAsPaid);
 
 // Đổi trạng thái hóa đơn VAT (Admin hoặc Chủ khoản chi)
 router.put('/:id/vat', toggleVat);
+
+// Đổi trạng thái đã trả cho người chi (Đã trả / Chưa trả NV)
+router.put('/:id/staff-paid', toggleStaffPaid);
+
+// Chuyển người ứng tiền thay (Ủy quyền hoàn ứng)
+router.put('/:id/advanced-by', updateAdvancedBy);
 
 module.exports = router;

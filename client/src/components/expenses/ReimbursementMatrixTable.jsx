@@ -1,12 +1,15 @@
 // client/src/components/expenses/ReimbursementMatrixTable.jsx
-// Bảng Quyết Toán Hoàn Ứng & Ma Trận Chi Tiêu (Triệt tiêu 100% ô 0đ thừa)
+// Bảng Quyết Toán Hoàn Ứng & Ma Trận Chi Tiêu 2 Lớp (Người Ứng - Người Chi - Công Ty)
+// Thiết kế chuẩn OpenDesign (Modern Minimal — Linear / Vercel style)
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
-  Download, CreditCard, Table2, Copy, Check, ChevronDown, ChevronUp,
-  Building2, CheckCircle2, RotateCcw
+  Download, Table2, Copy, Check, ChevronDown, ChevronUp,
+  Building2, CheckCircle2, RotateCcw, FileText, ArrowRightLeft, X,
+  UserCheck, ShieldCheck, Wallet, Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ExpensePdfTemplate from './ExpensePdfTemplate';
 
 export default function ReimbursementMatrixTable({
   matrixData,
@@ -17,7 +20,10 @@ export default function ReimbursementMatrixTable({
   formatDate,
   staffList = [],
   handleMarkPaid,
+  handleToggleStaffPaid,
+  handleUpdateAdvancedBy,
   isAdmin = false,
+  user,
 }) {
   // Chế độ xem: 'settlement' (Bảng quyết toán theo người) | 'grid' (Lưới ma trận đã lọc sạch 0đ)
   const [subView, setSubView] = useState('settlement');
@@ -25,8 +31,22 @@ export default function ReimbursementMatrixTable({
   const [copiedBankId, setCopiedBankId] = useState(null);
   const [settlingUserId, setSettlingUserId] = useState(null);
   const [payingItemId, setPayingItemId] = useState(null);
+  const [togglingStaffPaidId, setTogglingStaffPaidId] = useState(null);
 
-  // Danh sách quyết toán: Gom tất cả khoản chi theo từng nhân sự thực tế có tiền (> 0đ)
+  // Bộ lọc Lớp 1: Chi trả cho người chi (Tất cả / Chưa trả NV / Đã trả NV)
+  const [staffPaidFilter, setStaffPaidFilter] = useState('all'); // 'all' | 'unpaid' | 'paid'
+
+  // Modal đổi người ứng tiền thay
+  const [advancerModalExp, setAdvancerModalExp] = useState(null);
+  const [selectedAdvancerId, setSelectedAdvancerId] = useState('');
+  const [savingAdvancer, setSavingAdvancer] = useState(false);
+
+  // Xuất file PDF Bảng Kê Giải Trình
+  const pdfTemplateRef = useRef(null);
+  const [pdfTarget, setPdfTarget] = useState(null);
+  const [exportingPdfId, setExportingPdfId] = useState(null);
+
+  // Danh sách quyết toán: Gom tất cả khoản chi theo từng người nhận hoàn ứng (advanced_by hoặc user_id)
   const settlementList = useMemo(() => {
     const list = (matrixData.displayUsers || []).map(u => {
       const total = matrixData.userTotals.get(u.id) || 0;
@@ -35,10 +55,18 @@ export default function ReimbursementMatrixTable({
       const userExpenses = [];
       (matrixData.rows || []).forEach(r => {
         (r.items || []).forEach(item => {
-          if (String(item.user_id?._id || item.user_id) === String(u.id)) {
+          const itemBeneficiaryId = String(item.advanced_by?._id || item.advanced_by || item.user_id?._id || item.user_id || '');
+          if (itemBeneficiaryId === String(u.id)) {
             userExpenses.push(item);
           }
         });
+      });
+
+      // Lọc theo Lớp 1 (Đã trả / Chưa trả NV) nếu có chọn filter
+      const filteredExpenses = userExpenses.filter(exp => {
+        if (staffPaidFilter === 'unpaid') return !exp.paid_to_staff;
+        if (staffPaidFilter === 'paid') return Boolean(exp.paid_to_staff);
+        return true;
       });
 
       // Lấy thông tin STK từ staffList HOẶC từ populated expense user_id HOẶC từ matrix display user
@@ -53,17 +81,25 @@ export default function ReimbursementMatrixTable({
         branch: resolvedBranch,
       };
 
+      const paidToStaffSum = userExpenses.filter(e => e.paid_to_staff).reduce((sum, e) => sum + (e.amount || 0), 0);
+      const unpaidToStaffSum = userExpenses.filter(e => !e.paid_to_staff).reduce((sum, e) => sum + (e.amount || 0), 0);
+
       return {
         ...u,
         staff: enrichedStaff,
         total,
         expenses: userExpenses,
+        filteredExpenses,
+        paidToStaffSum,
+        unpaidToStaffSum,
       };
     });
 
-    // Chỉ giữ lại những người có tiền > 0, xếp người có số tiền cao nhất lên đầu
-    return list.filter(item => item.total > 0).sort((a, b) => b.total - a.total);
-  }, [matrixData, staffList]);
+    // Chỉ giữ lại những người có tiền > 0 (hoặc có khoản chi trong bộ lọc), xếp người có số tiền cao nhất lên đầu
+    return list
+      .filter(item => (staffPaidFilter === 'all' ? item.total > 0 : item.filteredExpenses.length > 0))
+      .sort((a, b) => b.total - a.total);
+  }, [matrixData, staffList, staffPaidFilter]);
 
   const toggleExpand = (id) => {
     setExpandedUserIds(prev => {
@@ -116,68 +152,195 @@ export default function ReimbursementMatrixTable({
     }
   };
 
+  // Xuất file PDF A4 chuẩn OpenDesign cho từng nhân sự / người ứng
+  const handleExportPDF = async (item) => {
+    setExportingPdfId(item.id);
+    setPdfTarget({
+      beneficiary: {
+        ...item.staff,
+        full_name: item.full_name,
+        employee_code: item.staff.employee_code || item.employee_code,
+        id: item.id,
+      },
+      expenses: item.expenses,
+      totalAmount: item.total,
+    });
+
+    const toastId = toast.loading('Đang khởi tạo file PDF A4 giải trình...');
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      await new Promise(r => setTimeout(r, 200));
+
+      if (!pdfTemplateRef.current) {
+        throw new Error('Không tìm thấy mẫu in PDF');
+      }
+
+      const canvas = await html2canvas(pdfTemplateRef.current, {
+        scale: 2.5,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 1000,
+        scrollX: 0,
+        scrollY: 0,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.96);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 6;
+      const printableWidth = pdfWidth - (margin * 2);
+      const imgProps = pdf.getImageProperties(imgData);
+      const imgHeight = (imgProps.height * printableWidth) / imgProps.width;
+
+      let heightLeft = imgHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, 'JPEG', margin, position, printableWidth, imgHeight);
+      heightLeft -= (pdfHeight - (margin * 2));
+
+      while (heightLeft >= 10) {
+        position = heightLeft - imgHeight + margin;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, printableWidth, imgHeight);
+        heightLeft -= (pdfHeight - (margin * 2));
+      }
+
+      const safeName = (item.full_name || 'Hoan_Ung').replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1EA0-\u1EF9]/g, '_');
+      const fileName = `Bang_Ke_Hoan_Ung_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(fileName);
+
+      toast.dismiss(toastId);
+      toast.success(`Đã xuất PDF bảng kê hoàn ứng thành công! 📄`);
+    } catch (err) {
+      console.error('PDF error:', err);
+      toast.dismiss(toastId);
+      toast.error('Lỗi khi xuất file PDF');
+    } finally {
+      setExportingPdfId(null);
+    }
+  };
+
+  // Đổi người ứng tiền thay
+  const handleConfirmChangeAdvancer = async () => {
+    if (!advancerModalExp || !handleUpdateAdvancedBy) return;
+    setSavingAdvancer(true);
+    try {
+      await handleUpdateAdvancedBy(advancerModalExp._id, selectedAdvancerId || null);
+      setAdvancerModalExp(null);
+    } finally {
+      setSavingAdvancer(false);
+    }
+  };
+
   return (
-    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-      {/* Thanh Điều Khiển & Chuyển Đổi Chế Độ */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '100%' }}>
+      {/* Hidden PDF Template DOM for rendering */}
+      {pdfTarget && (
+        <ExpensePdfTemplate
+          ref={pdfTemplateRef}
+          beneficiary={pdfTarget.beneficiary}
+          expenses={pdfTarget.expenses}
+          totalAmount={pdfTarget.totalAmount}
+          formatVND={formatVND}
+          formatDate={formatDate}
+        />
+      )}
+
+      {/* Top Toolbar & Filter Controls (OpenDesign Modern Minimal) */}
       <div
+        className="card"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: '10px',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: '12px',
           padding: '12px 16px',
-          background: 'var(--bg-card)',
           borderRadius: '12px',
+          background: 'var(--bg-card)',
           border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-xs)',
         }}
       >
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* SubView Switcher */}
           <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)', padding: '2px' }}>
             <button
               type="button"
               onClick={() => setSubView('settlement')}
               style={{
-                padding: '6px 14px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
-                background: subView === 'settlement' ? 'var(--primary)' : 'transparent',
-                color: subView === 'settlement' ? '#fff' : 'var(--text-muted)',
-                transition: 'all 0.15s ease',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '5px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                cursor: 'pointer',
+                background: subView === 'settlement' ? 'var(--bg-card)' : 'transparent',
+                color: subView === 'settlement' ? 'var(--primary)' : 'var(--text-secondary)',
+                boxShadow: subView === 'settlement' ? 'var(--shadow-xs)' : 'none',
               }}
             >
-              <CreditCard size={14} /> Danh Sách Quyết Toán (Gọn)
+              <Wallet size={14} /> Danh Sách Quyết Toán
             </button>
             <button
               type="button"
               onClick={() => setSubView('grid')}
               style={{
-                padding: '6px 14px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
-                background: subView === 'grid' ? 'var(--primary)' : 'transparent',
-                color: subView === 'grid' ? '#fff' : 'var(--text-muted)',
-                transition: 'all 0.15s ease',
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '5px 12px', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700,
+                cursor: 'pointer',
+                background: subView === 'grid' ? 'var(--bg-card)' : 'transparent',
+                color: subView === 'grid' ? 'var(--primary)' : 'var(--text-secondary)',
+                boxShadow: subView === 'grid' ? 'var(--shadow-xs)' : 'none',
               }}
             >
-              <Table2 size={14} /> Bảng Ma Trận Lọc Sạch
+              <Table2 size={14} /> Ma Trận Lọc Sạch 0đ
             </button>
           </div>
 
-          <div style={{ display: 'flex', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)', padding: '2px', marginLeft: '6px' }}>
+          {/* Lớp 2 Filter: Cty Hoàn Ứng */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)', padding: '2px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '6px', fontWeight: 600 }}>Cty:</span>
             {[
-              { id: 'unpaid', label: '💸 Cần trả (Chưa trả)' },
-              { id: 'all', label: '📊 Toàn bộ' },
-              { id: 'paid', label: '✅ Đã trả' },
+              { id: 'unpaid', label: '💸 Chưa hoàn' },
+              { id: 'all', label: 'Tất cả' },
+              { id: 'paid', label: '✅ Đã hoàn' },
             ].map(tab => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setMatrixScopeFilter(tab.id)}
                 style={{
-                  padding: '5px 11px', border: 'none', borderRadius: '6px', fontSize: '11.5px', fontWeight: 600,
+                  padding: '4px 9px', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
                   cursor: 'pointer',
                   background: matrixScopeFilter === tab.id ? 'var(--bg-card)' : 'transparent',
                   color: matrixScopeFilter === tab.id ? 'var(--primary)' : 'var(--text-secondary)',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Lớp 1 Filter: Chi Trả Người Chi */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border)', padding: '2px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', paddingLeft: '6px', fontWeight: 600 }}>Trả NV:</span>
+            {[
+              { id: 'all', label: 'Tất cả' },
+              { id: 'unpaid', label: '⏳ Chưa trả NV' },
+              { id: 'paid', label: '✓ Đã trả NV' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setStaffPaidFilter(tab.id)}
+                style={{
+                  padding: '4px 9px', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                  cursor: 'pointer',
+                  background: staffPaidFilter === tab.id ? 'var(--bg-card)' : 'transparent',
+                  color: staffPaidFilter === tab.id ? 'var(--primary)' : 'var(--text-secondary)',
                 }}
               >
                 {tab.label}
@@ -194,7 +357,7 @@ export default function ReimbursementMatrixTable({
               style={{ padding: '6px 12px', fontSize: '12px', gap: '5px' }}
               title="Sao chép toàn bộ danh sách chuyển khoản"
             >
-              <Copy size={13} /> Copy Danh Sách Chuyển Tiền
+              <Copy size={13} /> Copy Danh Sách
             </button>
           )}
           <button
@@ -226,7 +389,7 @@ export default function ReimbursementMatrixTable({
           <div style={{ fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
             {matrixScopeFilter === 'unpaid' ? '💸 TỔNG CÔNG TY CẦN HOÀN TRẢ' : '📊 TỔNG CÔNG NỢ CHI TIÊU'}
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 900, color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)', marginTop: '2px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 900, color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
             {formatVND(matrixData.grandTotal)}
           </div>
         </div>
@@ -244,7 +407,7 @@ export default function ReimbursementMatrixTable({
           <div className="empty-state">
             <div className="empty-state__icon">🎉</div>
             <div className="empty-state__title">Không có công nợ hoàn ứng nào!</div>
-            <div className="empty-state__desc">Tất cả các khoản chi tiêu đã được thanh toán đầy đủ.</div>
+            <div className="empty-state__desc">Tất cả các khoản chi tiêu đã được thanh toán hoặc không khớp bộ lọc.</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -254,6 +417,7 @@ export default function ReimbursementMatrixTable({
               const bankName = item.staff.bank_name || '';
               const hasBank = Boolean(bankAccount);
               const isSettling = settlingUserId === item.id;
+              const isExportingThisPdf = exportingPdfId === item.id;
 
               return (
                 <div
@@ -290,26 +454,30 @@ export default function ReimbursementMatrixTable({
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                          🏢 {item.staff.position || 'Kiến trúc sư'} · {item.staff.department_name || 'Văn phòng'}
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Building2 size={12} />
+                          <span>{item.staff.department_name || 'Văn phòng ET'}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Thông tin chuyển khoản ngân hàng */}
+                    {/* Khung Thông Tin Ngân Hàng & Nút Sao Chép */}
                     <div
                       style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        background: hasBank ? 'var(--bg-raised)' : 'transparent',
-                        padding: hasBank ? '6px 12px' : '0',
-                        borderRadius: '8px', border: hasBank ? '1px solid var(--border-muted)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: 'var(--bg-input)',
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
                       }}
                     >
                       {hasBank ? (
                         <>
                           <Building2 size={15} style={{ color: 'var(--primary)' }} />
                           <div style={{ fontSize: '12px' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--text)' }}>{bankName}</span>: <code style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '12.5px' }}>{bankAccount}</code>
+                            <span style={{ fontWeight: 700, color: 'var(--text)' }}>{bankName}</span>: <code style={{ fontWeight: 800, color: 'var(--primary)', fontSize: '12.5px', fontVariantNumeric: 'tabular-nums' }}>{bankAccount}</code>
                           </div>
                           <button
                             type="button"
@@ -329,7 +497,7 @@ export default function ReimbursementMatrixTable({
                     </div>
 
                     {/* Số tiền cần thanh toán & Nút hành động */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
                       <div style={{ textAlign: 'right' }}>
                         <button
                           type="button"
@@ -354,11 +522,24 @@ export default function ReimbursementMatrixTable({
                             {isExpanded ? '▲ Thu gọn' : '▼ Trả riêng'}
                           </span>
                         </button>
-                        <strong style={{ fontSize: '18px', fontWeight: 900, color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)' }}>
+                        <strong style={{ fontSize: '18px', fontWeight: 900, color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
                           {formatVND(item.total)}
                         </strong>
                       </div>
 
+                      {/* Nút Xuất PDF Bảng Kê */}
+                      <button
+                        type="button"
+                        onClick={() => handleExportPDF(item)}
+                        disabled={isExportingThisPdf}
+                        className="btn btn--ghost"
+                        style={{ padding: '7px 10px', fontSize: '11.5px', fontWeight: 700, whiteSpace: 'nowrap', color: 'var(--primary)' }}
+                        title="Xuất bảng kê giải trình PDF A4 gửi sếp/kế toán"
+                      >
+                        <FileText size={14} /> {isExportingThisPdf ? 'Đang tạo...' : 'Xuất PDF'}
+                      </button>
+
+                      {/* Nút Admin chuyển tiền gộp */}
                       {isAdmin && matrixScopeFilter === 'unpaid' && (
                         <button
                           type="button"
@@ -387,74 +568,149 @@ export default function ReimbursementMatrixTable({
                   {isExpanded && (
                     <div
                       style={{
-                        marginTop: '12px',
-                        paddingTop: '10px',
+                        marginTop: '14px',
+                        paddingTop: '12px',
                         borderTop: '1px dashed var(--border)',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '6px',
+                        gap: '8px',
                       }}
                     >
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>
-                        Chi tiết các khoản cấu thành {formatVND(item.total)}:
-                      </div>
-                      {item.expenses.map((exp, eIdx) => (
-                        <div
-                          key={exp._id || eIdx}
-                          style={{
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-raised)',
-                            fontSize: '12.5px', gap: '10px', flexWrap: 'wrap',
-                            border: '1px solid var(--border-muted)',
-                          }}
-                        >
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1, minWidth: '220px' }}>
-                            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '12px' }}>{formatDate(exp.date)}</span>
-                            <span style={{ color: 'var(--text)', fontWeight: 700 }}>{exp.description}</span>
-                            {exp.has_vat_invoice && <span className="badge badge--info" style={{ fontSize: '10px' }}>VAT</span>}
-                          </div>
-                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
-                            <strong style={{ color: 'var(--text)', fontSize: '13px' }}>{formatVND(exp.amount)}</strong>
-                            {isAdmin ? (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  setPayingItemId(exp._id);
-                                  await handleMarkPaid(exp._id, exp.payment_status);
-                                  setPayingItemId(null);
-                                }}
-                                disabled={payingItemId === exp._id}
-                                className={`btn ${exp.payment_status === 'paid' ? 'btn--ghost' : 'btn--primary'}`}
-                                style={{
-                                  padding: '4px 10px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  height: '28px',
-                                  minHeight: '28px',
-                                  whiteSpace: 'nowrap',
-                                }}
-                                title={exp.payment_status === 'paid' ? 'Hoàn tác về Chưa trả' : 'Đánh dấu riêng khoản này đã chuyển khoản'}
-                              >
-                                {payingItemId === exp._id ? (
-                                  'Đang lưu...'
-                                ) : exp.payment_status === 'paid' ? (
-                                  <><RotateCcw size={12} /> Đã trả (Hoàn tác)</>
-                                ) : (
-                                  <><Check size={12} /> Trả khoản này</>
-                                )}
-                              </button>
-                            ) : (
-                              <span
-                                className={`badge badge--${exp.payment_status === 'paid' ? 'success' : 'neutral'}`}
-                                style={{ fontSize: '10.5px', padding: '3px 8px' }}
-                                title={exp.payment_status === 'paid' ? 'Khoản chi này đã hoàn trả' : 'Chỉ Admin mới có quyền xác nhận chi tiền'}
-                              >
-                                {exp.payment_status === 'paid' ? '✅ Đã trả' : '⏳ Chờ Admin trả'}
-                              </span>
-                            )}
-                          </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                          Chi tiết các khoản cấu thành {formatVND(item.total)}:
                         </div>
-                      ))}
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '10px' }}>
+                          <span>Đã trả NV: <strong style={{ color: 'var(--green)' }}>{formatVND(item.paidToStaffSum)}</strong></span>
+                          <span>Chưa trả NV: <strong style={{ color: 'var(--yellow)' }}>{formatVND(item.unpaidToStaffSum)}</strong></span>
+                        </div>
+                      </div>
+
+                      {item.filteredExpenses.map((exp, eIdx) => {
+                        const isOriginalSpender = !exp.advanced_by || String(exp.advanced_by?._id || exp.advanced_by) === String(exp.user_id?._id || exp.user_id);
+                        const isStaffPaid = Boolean(exp.paid_to_staff);
+                        const isCompanyPaid = exp.payment_status === 'paid';
+
+                        return (
+                          <div
+                            key={exp._id || eIdx}
+                            style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              padding: '10px 12px', borderRadius: '8px', background: 'var(--bg-raised)',
+                              fontSize: '12px', gap: '10px', flexWrap: 'wrap',
+                              border: '1px solid var(--border-muted)',
+                            }}
+                          >
+                            {/* Nội dung khoản chi & người chi gốc */}
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1, minWidth: '240px' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '11.5px' }}>{formatDate(exp.date)}</span>
+                              <span style={{ color: 'var(--text)', fontWeight: 700 }}>{exp.description}</span>
+                              {exp.has_vat_invoice && <span className="badge badge--info" style={{ fontSize: '10px' }}>VAT</span>}
+                              
+                              {/* Badge Người chi nếu khoản chi này do người khác chi nhưng người này ứng thay */}
+                              {!isOriginalSpender && (
+                                <span
+                                  className="badge badge--neutral"
+                                  style={{ fontSize: '10px', padding: '1px 6px', background: 'var(--primary-soft)', color: 'var(--primary)' }}
+                                  title="Khoản chi do nhân viên này chi hộ công ty, đã được người ứng thay chi trả"
+                                >
+                                  👤 {exp.user_id?.full_name || 'NV'} chi
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Cột số tiền & 2 Lớp trạng thái thao tác */}
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
+                              <strong style={{ color: 'var(--text)', fontSize: '13px', fontVariantNumeric: 'tabular-nums', marginRight: '4px' }}>
+                                {formatVND(exp.amount)}
+                              </strong>
+
+                              {/* Lớp 1: Chi trả cho người chi (Đã trả NV / Chưa trả NV) */}
+                              {handleToggleStaffPaid && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStaffPaid(exp._id, isStaffPaid)}
+                                  disabled={togglingStaffPaidId === exp._id}
+                                  className={`btn ${isStaffPaid ? 'btn--ghost' : 'btn--warning'}`}
+                                  style={{
+                                    padding: '3px 8px',
+                                    fontSize: '10.5px',
+                                    fontWeight: 700,
+                                    height: '26px',
+                                    minHeight: '26px',
+                                    whiteSpace: 'nowrap',
+                                    background: isStaffPaid ? 'var(--green-soft)' : undefined,
+                                    color: isStaffPaid ? 'var(--green)' : undefined,
+                                    borderColor: isStaffPaid ? 'var(--green)' : undefined,
+                                  }}
+                                  title="Bấm để đánh dấu đã trả / chưa trả tiền túi cho người chi"
+                                >
+                                  {isStaffPaid ? (
+                                    <><Check size={12} /> Đã trả NV</>
+                                  ) : (
+                                    <><Clock size={12} /> Chưa trả NV</>
+                                  )}
+                                </button>
+                              )}
+
+                              {/* Đổi người ứng thay (Chuyển người nhận hoàn ứng) */}
+                              {handleUpdateAdvancedBy && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdvancerModalExp(exp);
+                                    setSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
+                                  }}
+                                  className="btn btn--ghost"
+                                  style={{ padding: '3px 7px', fontSize: '10.5px', height: '26px', minHeight: '26px', gap: '4px' }}
+                                  title="Chỉ định hoặc đổi người ứng tiền thay"
+                                >
+                                  <ArrowRightLeft size={11} /> Đổi người ứng
+                                </button>
+                              )}
+
+                              {/* Lớp 2: Hoàn ứng Công ty (Chỉ Admin bấm trả) */}
+                              {isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    setPayingItemId(exp._id);
+                                    await handleMarkPaid(exp._id, exp.payment_status);
+                                    setPayingItemId(null);
+                                  }}
+                                  disabled={payingItemId === exp._id}
+                                  className={`btn ${isCompanyPaid ? 'btn--ghost' : 'btn--primary'}`}
+                                  style={{
+                                    padding: '3px 9px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    height: '26px',
+                                    minHeight: '26px',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                  title={isCompanyPaid ? 'Hoàn tác về Chưa hoàn ứng' : 'Admin xác nhận công ty đã hoàn ứng khoản này'}
+                                >
+                                  {payingItemId === exp._id ? (
+                                    'Đang lưu...'
+                                  ) : isCompanyPaid ? (
+                                    <><RotateCcw size={12} /> Đã hoàn (Hoàn tác)</>
+                                  ) : (
+                                    <><Check size={12} /> Cty hoàn</>
+                                  )}
+                                </button>
+                              ) : (
+                                <span
+                                  className={`badge badge--${isCompanyPaid ? 'success' : 'neutral'}`}
+                                  style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                                  title={isCompanyPaid ? 'Công ty đã hoàn ứng khoản này' : 'Chờ Admin công ty chuyển khoản hoàn ứng'}
+                                >
+                                  {isCompanyPaid ? '✅ Cty đã hoàn' : '⏳ Chờ Cty hoàn'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -525,6 +781,7 @@ export default function ReimbursementMatrixTable({
                           fontSize: '12.5px',
                           marginTop: '4px',
                           color: tot > 0 ? '#facc15' : '#94a3b8',
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
                         {formatVND(tot)}
@@ -541,7 +798,7 @@ export default function ReimbursementMatrixTable({
                   }}
                 >
                   <div style={{ fontWeight: 900, fontSize: '13px', textTransform: 'uppercase' }}>TỔNG CỘNG</div>
-                  <div style={{ fontWeight: 900, fontSize: '13px', marginTop: '4px', color: '#34d399' }}>
+                  <div style={{ fontWeight: 900, fontSize: '13px', marginTop: '4px', color: '#34d399', fontVariantNumeric: 'tabular-nums' }}>
                     {formatVND(matrixData.grandTotal)}
                   </div>
                 </th>
@@ -600,6 +857,7 @@ export default function ReimbursementMatrixTable({
                             fontWeight: val > 0 ? 800 : 400,
                             color: val > 0 ? 'var(--text)' : 'var(--text-muted)',
                             background: val > 0 ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent',
+                            fontVariantNumeric: 'tabular-nums',
                           }}
                         >
                           {val > 0 ? formatVND(val) : <span style={{ color: 'var(--text-muted)', opacity: 0.35 }}>—</span>}
@@ -613,6 +871,7 @@ export default function ReimbursementMatrixTable({
                         fontSize: '12.5px',
                         color: 'var(--primary)',
                         background: 'color-mix(in srgb, var(--primary) 5%, transparent)',
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {formatVND(row.total)}
@@ -622,6 +881,102 @@ export default function ReimbursementMatrixTable({
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Modal Chuyển Người Ứng Tiền Thay (Advancer Assignment Modal) */}
+      {advancerModalExp && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 999999, padding: '16px' }}
+          onClick={() => setAdvancerModalExp(null)}
+        >
+          <div
+            className="modal-card animate-scale-up"
+            style={{ maxWidth: '420px', width: '100%', padding: '20px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheck size={18} color="var(--primary)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                  Chỉ Định Người Ứng Tiền Thay
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAdvancerModalExp(null)}
+                className="btn btn--ghost"
+                style={{ padding: '4px 8px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '12.5px' }}>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Khoản chi: <strong style={{ color: 'var(--text)' }}>{advancerModalExp.description}</strong>
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Số tiền: <strong style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{formatVND(advancerModalExp.amount)}</strong>
+              </div>
+              <div style={{ color: 'var(--text-secondary)' }}>
+                Người chi thực tế: <strong>{advancerModalExp.user_id?.full_name || 'Nhân viên'}</strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
+                Chọn Người Ứng Tiền (Người nhận cty hoàn trả):
+              </label>
+              <select
+                value={selectedAdvancerId}
+                onChange={e => setSelectedAdvancerId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="">-- Mặc định (Chính người chi nhận tiền) --</option>
+                {staffList
+                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
+                  .map(s => (
+                    <option key={s._id || s.id} value={String(s._id || s.id)}>
+                      {s.full_name} ({s.position || s.role || 'NV'})
+                    </option>
+                  ))}
+              </select>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
+                💡 Khi chọn người ứng tiền (ví dụ Anh Trường), khoản chi này sẽ tự động chuyển vào Bảng Kê Quyết Toán của người đó để công ty hoàn ứng 1 cục.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setAdvancerModalExp(null)}
+                className="btn btn--ghost"
+                style={{ fontSize: '12.5px', padding: '7px 14px' }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmChangeAdvancer}
+                disabled={savingAdvancer}
+                className="btn btn--primary"
+                style={{ fontSize: '12.5px', padding: '7px 16px', fontWeight: 700 }}
+              >
+                {savingAdvancer ? 'Đang lưu...' : 'Xác Nhận Chuyển'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
