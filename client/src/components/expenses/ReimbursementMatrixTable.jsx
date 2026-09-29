@@ -331,9 +331,29 @@ export default function ReimbursementMatrixTable({
                     {/* Số tiền cần thanh toán & Nút hành động */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {item.expenses.length} khoản chi gộp
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleExpand(item.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: '2px 0',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            justifyContent: 'flex-end',
+                          }}
+                          title="Bấm để xem chi tiết và trả riêng từng khoản"
+                        >
+                          <span>{item.expenses.length} khoản chi gộp</span>
+                          <span style={{ fontSize: '10px', textDecoration: 'underline' }}>
+                            {isExpanded ? '▲ Thu gọn' : '▼ Trả riêng'}
+                          </span>
+                        </button>
                         <strong style={{ fontSize: '18px', fontWeight: 900, color: matrixScopeFilter === 'unpaid' ? 'var(--red)' : 'var(--primary)' }}>
                           {formatVND(item.total)}
                         </strong>
@@ -395,7 +415,7 @@ export default function ReimbursementMatrixTable({
                           </div>
                           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
                             <strong style={{ color: 'var(--text)', fontSize: '13px' }}>{formatVND(exp.amount)}</strong>
-                            {isAdmin && (
+                            {isAdmin ? (
                               <button
                                 type="button"
                                 onClick={async () => {
@@ -418,11 +438,19 @@ export default function ReimbursementMatrixTable({
                                 {payingItemId === exp._id ? (
                                   'Đang lưu...'
                                 ) : exp.payment_status === 'paid' ? (
-                                  <><RotateCcw size={12} /> Đã trả</>
+                                  <><RotateCcw size={12} /> Đã trả (Hoàn tác)</>
                                 ) : (
                                   <><Check size={12} /> Trả khoản này</>
                                 )}
                               </button>
+                            ) : (
+                              <span
+                                className={`badge badge--${exp.payment_status === 'paid' ? 'success' : 'neutral'}`}
+                                style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                                title={exp.payment_status === 'paid' ? 'Khoản chi này đã hoàn trả' : 'Chỉ Admin mới có quyền xác nhận chi tiền'}
+                              >
+                                {exp.payment_status === 'paid' ? '✅ Đã trả' : '⏳ Chờ Admin trả'}
+                              </span>
                             )}
                           </div>
                         </div>
