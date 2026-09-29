@@ -70,7 +70,7 @@ const getExpenses = async (req, res) => {
     if (!isExport) {
       // Populate thông tin người chi, người duyệt & người hoàn ứng chỉ cần cho giao diện card/table, không cần cho CSV export
       query = query
-        .populate('user_id', '_id full_name employee_code department_name avatar_url')
+        .populate('user_id', '_id full_name employee_code department_name avatar_url bank_name bank_account branch')
         .populate('approved_by', '_id full_name')
         .populate('paid_by', '_id full_name');
     }

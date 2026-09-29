@@ -40,11 +40,14 @@ const getAllUsers = async (req, res) => {
     const isLeader = ['leader', 'manager'].includes(req.user?.role);
     
     // Không tải trường nhạy cảm từ DB nếu người gọi không phải Admin.
+    // Lưu ý: Thông tin ngân hàng (bank_name, bank_account, branch) được công khai trong danh bạ nội bộ
+    // để phục vụ chuyển khoản hoàn ứng, thanh toán chi tiêu công ty và quỹ nhóm.
     const publicUserFields = [
       'employee_code', 'employee_type', 'full_name', 'email', 'phone', 'position', 'role',
       'department_id', 'department_ids', 'manager_id', 'avatar_url', 'join_date', 'start_year',
       'is_active', 'is_attendance_exempt', 'is_duty_exempt', 'employment_status',
       'parking_location', 'vehicle_info', 'license_plate',
+      'bank_name', 'bank_account', 'branch',
     ].join(' ');
     const selectFields = isAdmin
       ? '-password_hash -reset_token -reset_token_expires'
@@ -88,7 +91,7 @@ const getAllUsers = async (req, res) => {
       }
 
       // 2. Với Leader xem nhân viên trong phòng ban mình quản lý:
-      // Whitelist các trường phục vụ phân công & quản lý team, loại bỏ triệt để CCCD, Ngân hàng, BHXH, Địa chỉ, Quê quán
+      // Whitelist các trường phục vụ phân công & quản lý team, loại bỏ triệt để CCCD, BHXH, Địa chỉ, Quê quán (đồng bộ STK ngân hàng hoàn ứng)
       if (isInLeaderTeam) {
         return {
           id: obj._id,
@@ -116,11 +119,14 @@ const getAllUsers = async (req, res) => {
           parking_location: obj.parking_location,
           vehicle_info: obj.vehicle_info,
           license_plate: obj.license_plate,
+          bank_name: obj.bank_name || null,
+          bank_account: obj.bank_account || null,
+          branch: obj.branch || null,
         };
       }
 
       // 3. Với Nhân viên thường HOẶC Leader xem nhân viên phòng ban khác:
-      // Whitelist danh bạ công khai & thông tin phương tiện tòa nhà 17T10
+      // Whitelist danh bạ công khai, STK hoàn ứng & thông tin phương tiện tòa nhà 17T10
       return {
         id: obj._id,
         _id: obj._id,
@@ -143,6 +149,9 @@ const getAllUsers = async (req, res) => {
         parking_location: obj.parking_location,
         vehicle_info: obj.vehicle_info,
         license_plate: obj.license_plate,
+        bank_name: obj.bank_name || null,
+        bank_account: obj.bank_account || null,
+        branch: obj.branch || null,
       };
     });
 

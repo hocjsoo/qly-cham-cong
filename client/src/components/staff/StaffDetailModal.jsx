@@ -101,7 +101,7 @@ export default function StaffDetailModal({
           </div>
         </div>
 
-        {isAdmin && (viewingStaffDetail.bank_name || viewingStaffDetail.bank_account || viewingStaffDetail.branch) && (
+        {(viewingStaffDetail.bank_name || viewingStaffDetail.bank_account || viewingStaffDetail.branch) && (
           <div style={{ marginBottom: '18px', padding: '12px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--bg-raised)' }}>
             <div style={{ marginBottom: '8px', color: 'var(--primary)', fontSize: '13px', fontWeight: 800 }}>🏦 Tài khoản ngân hàng</div>
             <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>

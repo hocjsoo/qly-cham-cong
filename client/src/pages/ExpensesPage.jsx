@@ -402,6 +402,10 @@ export default function ExpensesPage() {
           short_name: shortNameMap.get(id) || name.split(' ').pop(),
           avatar_url: u.avatar_url,
           employee_code: u.employee_code,
+          department_name: u.department_name,
+          bank_name: u.bank_name || null,
+          bank_account: u.bank_account || null,
+          branch: u.branch || null,
         });
       }
     });
@@ -415,6 +419,10 @@ export default function ExpensesPage() {
           short_name: name.split(' ').pop(),
           avatar_url: exp.user_id?.avatar_url,
           employee_code: exp.user_id?.employee_code,
+          department_name: exp.user_id?.department_name,
+          bank_name: exp.user_id?.bank_name || null,
+          bank_account: exp.user_id?.bank_account || null,
+          branch: exp.user_id?.branch || null,
         });
       }
     });

@@ -2071,7 +2071,7 @@ export default function ReportPage() {
                 <div className="is-wide"><dt>Xe & biển số</dt><dd>{viewingStaffProfile.vehicle_info || viewingStaffProfile.license_plate || 'Chưa cập nhật'}</dd></div>
               </dl>
 
-              {isAdmin && (viewingStaffProfile.bank_name || viewingStaffProfile.bank_account || viewingStaffProfile.branch) && (
+              {(viewingStaffProfile.bank_name || viewingStaffProfile.bank_account || viewingStaffProfile.branch) && (
                 <div className="timesheet-profile-bank">
                   <strong>🏦 Tài khoản ngân hàng</strong>
                   <dl>

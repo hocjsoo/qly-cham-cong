@@ -501,18 +501,18 @@ async function runControllerIntegrationTests(assert) {
 
     assert(itEmp.phone === '0902' && itEmp.position === 'Dev IT 1',
       'TC-HTTP-03.2: Leader xem được trường quản trị công việc của thành viên trong team');
-    assert(itEmp.cccd === undefined && itEmp.bank_account === undefined && itEmp.parking_location === '17T10',
-      'TC-HTTP-03.3: DTO bảo vệ loại bỏ hoàn toàn CCCD, Ngân hàng trong khi vẫn duy trì thông tin xe tòa nhà');
-    assert(saleEmp.full_name && saleEmp.email && saleEmp.dob === undefined && saleEmp.cccd === undefined,
-      'TC-HTTP-03.4: Thành viên phòng ban khác (Sale) tự động chuyển sang Public Directory DTO');
+    assert(itEmp.cccd === undefined && itEmp.dob === undefined && itEmp.bank_account === '77776666' && itEmp.parking_location === '17T10',
+      'TC-HTTP-03.3: DTO bảo vệ loại bỏ hoàn toàn CCCD, ngày sinh trong khi đồng bộ STK ngân hàng và phương tiện gửi xe');
+    assert(saleEmp.full_name && saleEmp.email && saleEmp.dob === undefined && saleEmp.cccd === undefined && saleEmp.bank_account === '11112222',
+      'TC-HTTP-03.4: Thành viên phòng ban khác (Sale) tự động chuyển sang Public Directory DTO có STK hoàn ứng');
 
     // Case 1.4: Employee gọi GET /api/users -> Toàn bộ danh sách là Public Directory DTO
     const resEmp = await request(app)
       .get('/api/users')
       .set('Authorization', `Bearer ${employeeToken}`);
     assert(resEmp.status === 200, 'TC-HTTP-04.1: Employee gọi GET /api/users trả về 200 OK');
-    assert(resEmp.body[0].full_name && resEmp.body[0].email && resEmp.body[0].dob === undefined && resEmp.body[0].cccd === undefined && resEmp.body[0].parking_location !== undefined,
-      'TC-HTTP-04.2: Employee nhận thông tin danh bạ & phương tiện gửi xe, ẩn 100% dữ liệu nhạy cảm');
+    assert(resEmp.body[0].full_name && resEmp.body[0].email && resEmp.body[0].dob === undefined && resEmp.body[0].cccd === undefined && resEmp.body[0].parking_location !== undefined && resEmp.body[0].bank_account !== undefined,
+      'TC-HTTP-04.2: Employee nhận thông tin danh bạ, STK hoàn ứng & phương tiện gửi xe, ẩn 100% dữ liệu CCCD/ngày sinh nhạy cảm');
 
     // -------------------------------------------------------------
     // 2. Supertest: PATCH /api/auth/profile

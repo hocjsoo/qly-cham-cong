@@ -41,9 +41,21 @@ export default function ReimbursementMatrixTable({
         });
       });
 
+      // Lấy thông tin STK từ staffList HOẶC từ populated expense user_id HOẶC từ matrix display user
+      const resolvedBankName = staff.bank_name || userExpenses[0]?.user_id?.bank_name || u.bank_name || '';
+      const resolvedBankAccount = staff.bank_account || userExpenses[0]?.user_id?.bank_account || u.bank_account || '';
+      const resolvedBranch = staff.branch || userExpenses[0]?.user_id?.branch || u.branch || '';
+
+      const enrichedStaff = {
+        ...staff,
+        bank_name: resolvedBankName,
+        bank_account: resolvedBankAccount,
+        branch: resolvedBranch,
+      };
+
       return {
         ...u,
-        staff,
+        staff: enrichedStaff,
         total,
         expenses: userExpenses,
       };
