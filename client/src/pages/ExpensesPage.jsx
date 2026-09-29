@@ -6,7 +6,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
-  Trash2, Camera, LayoutList, LayoutGrid, Table2
+  Trash2, Camera, LayoutList, LayoutGrid, Table2,
+  ArrowRightLeft, UserCheck, Clock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -78,6 +79,11 @@ export default function ExpensesPage() {
   const [formVat, setFormVat] = useState(false);
   const [formReceipt, setFormReceipt] = useState(null);
   const [formNotes, setFormNotes] = useState('');
+  const [formAdvancer, setFormAdvancer] = useState('');
+  const [formPaidToStaff, setFormPaidToStaff] = useState(false);
+  const [pageAdvancerModalExp, setPageAdvancerModalExp] = useState(null);
+  const [pageSelectedAdvancerId, setPageSelectedAdvancerId] = useState('');
+  const [savingPageAdvancer, setSavingPageAdvancer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -186,6 +192,8 @@ export default function ExpensesPage() {
         has_vat_invoice: formVat,
         receipt_url: formReceipt,
         notes: formNotes.trim() || null,
+        advanced_by: formAdvancer || null,
+        paid_to_staff: Boolean(formPaidToStaff),
       });
 
       toast.success('Báo cáo khoản chi tiêu thành công! 🎉');
@@ -195,6 +203,8 @@ export default function ExpensesPage() {
       setFormVat(false);
       setFormReceipt(null);
       setFormNotes('');
+      setFormAdvancer('');
+      setFormPaidToStaff(false);
       setCurrentPage(1);
       loadData();
     } catch (err) {
@@ -305,9 +315,11 @@ export default function ExpensesPage() {
         'Ngày giao dịch',
         'Mô tả khoản chi',
         'Người chi',
+        'Người ứng tiền thay',
         'Số tiền (VNĐ)',
         'Trạng thái duyệt',
-        'Trạng thái hoàn tiền',
+        'Chi trả người chi',
+        'Hoàn ứng công ty',
         'Hóa đơn VAT',
         'Ngân hàng',
         'Số tài khoản nhận tiền',
@@ -320,8 +332,11 @@ export default function ExpensesPage() {
         totalAmount += Number(expItem.amount) || 0;
         const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
         const spenderName = expItem.user_id?.full_name || expItem.user_name || spenderUser.full_name || '—';
+        const advancerName = expItem.advanced_by?.full_name || 'Chính người chi';
+        const beneficiaryUser = expItem.advanced_by || spenderUser;
         const approvalVi = expItem.approval_status === 'approved' ? 'Đã duyệt' : expItem.approval_status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
-        const paymentVi = expItem.payment_status === 'paid' ? 'Đã trả' : 'Chưa trả';
+        const staffPaidVi = expItem.paid_to_staff ? 'Đã trả NV' : 'Chưa trả NV';
+        const companyPaidVi = expItem.payment_status === 'paid' ? 'Cty đã hoàn' : 'Chờ Cty hoàn';
         const vatVi = expItem.has_vat_invoice ? 'Có VAT' : 'Không VAT';
 
         return [
@@ -329,13 +344,15 @@ export default function ExpensesPage() {
           sanitizeCsvCell(formatDate(expItem.date)),
           sanitizeCsvCell(expItem.description),
           sanitizeCsvCell(spenderName),
+          sanitizeCsvCell(advancerName),
           expItem.amount,
           sanitizeCsvCell(approvalVi),
-          sanitizeCsvCell(paymentVi),
+          sanitizeCsvCell(staffPaidVi),
+          sanitizeCsvCell(companyPaidVi),
           sanitizeCsvCell(vatVi),
-          sanitizeCsvCell(spenderUser.bank_name),
-          sanitizeCsvCell(spenderUser.bank_account),
-          sanitizeCsvCell(spenderUser.branch),
+          sanitizeCsvCell(beneficiaryUser.bank_name),
+          sanitizeCsvCell(beneficiaryUser.bank_account),
+          sanitizeCsvCell(beneficiaryUser.branch),
           sanitizeCsvCell(expItem.notes)
         ];
       });
@@ -818,19 +835,21 @@ export default function ExpensesPage() {
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
           <div className="card animate-fade-in" style={{ padding: 0, overflowX: 'auto', borderRadius: '12px', border: '1px solid var(--border)', maxWidth: '100%' }}>
-            <table style={{ width: '100%', minWidth: '980px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table style={{ width: '100%', minWidth: '1060px', fontSize: '12.5px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-raised)', borderBottom: '1px solid var(--border)', color: 'var(--text)', fontWeight: 800 }}>
                   <th style={{ padding: '12px 14px', width: '45px', textAlign: 'center', whiteSpace: 'nowrap' }}>STT</th>
                   <th style={{ padding: '12px 14px', width: '105px', whiteSpace: 'nowrap' }}>NGÀY GIAO DỊCH</th>
                   <th style={{ padding: '12px 14px', minWidth: '180px', whiteSpace: 'nowrap' }}>MÔ TẢ KHOẢN CHI</th>
-                  <th style={{ padding: '12px 14px', minWidth: '140px', whiteSpace: 'nowrap' }}>NGƯỜI CHI</th>
+                  <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI CHI</th>
+                  <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI ỨNG</th>
                   <th style={{ padding: '12px 14px', width: '130px', textAlign: 'right', whiteSpace: 'nowrap' }}>SỐ TIỀN</th>
-                  <th style={{ padding: '12px 14px', width: '130px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI DUYỆT</th>
-                  <th style={{ padding: '12px 14px', width: '125px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI TRẢ</th>
-                  <th style={{ padding: '12px 14px', width: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>HÓA ĐƠN VAT</th>
+                  <th style={{ padding: '12px 14px', width: '110px', textAlign: 'center', whiteSpace: 'nowrap' }}>DUYỆT</th>
+                  <th style={{ padding: '12px 14px', width: '115px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẢ NV</th>
+                  <th style={{ padding: '12px 14px', width: '115px', textAlign: 'center', whiteSpace: 'nowrap' }}>HOÀN ỨNG CTY</th>
+                  <th style={{ padding: '12px 14px', width: '90px', textAlign: 'center', whiteSpace: 'nowrap' }}>HÓA ĐƠN VAT</th>
                   <th style={{ padding: '12px 14px', width: '80px', textAlign: 'center', whiteSpace: 'nowrap' }}>ẢNH BILL</th>
-                  <th style={{ padding: '12px 14px', width: '160px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
+                  <th style={{ padding: '12px 14px', width: '180px', textAlign: 'center', whiteSpace: 'nowrap' }}>THAO TÁC</th>
                 </tr>
               </thead>
               <tbody>
@@ -899,8 +918,21 @@ export default function ExpensesPage() {
                           </span>
                         </button>
                       </td>
+                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                        {exp.advanced_by ? (
+                          <span
+                            className="badge badge--neutral"
+                            style={{ fontSize: '11px', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 700 }}
+                            title="Người ứng tiền thay"
+                          >
+                            👤 {exp.advanced_by.full_name}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chính người chi</span>
+                        )}
+                      </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <strong style={{ fontSize: '13.5px', color: 'var(--primary)' }}>
+                        <strong style={{ fontSize: '13.5px', color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
                           {formatVND(exp.amount)}
                         </strong>
                       </td>
@@ -913,11 +945,28 @@ export default function ExpensesPage() {
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStaffPaid(exp._id, Boolean(exp.paid_to_staff))}
+                          className={`btn ${exp.paid_to_staff ? 'btn--ghost' : 'btn--warning'}`}
+                          style={{
+                            padding: '3px 8px', fontSize: '10.5px', fontWeight: 700,
+                            height: '24px', minHeight: '24px',
+                            background: exp.paid_to_staff ? 'var(--green-soft)' : undefined,
+                            color: exp.paid_to_staff ? 'var(--green)' : undefined,
+                            borderColor: exp.paid_to_staff ? 'var(--green)' : undefined,
+                          }}
+                          title="Bấm để chuyển đổi trạng thái đã trả / chưa trả tiền túi cho người chi"
+                        >
+                          {exp.paid_to_staff ? '✓ Đã trả NV' : '⏳ Chưa trả NV'}
+                        </button>
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span
                           className={`badge ${isPaid ? 'badge--success' : 'badge--danger'}`}
                           style={{ fontSize: '11px', padding: '3px 8px' }}
                         >
-                          {isPaid ? '💳 Đã trả' : '⏳ Chưa trả'}
+                          {isPaid ? '💳 Cty đã hoàn' : '⏳ Chờ Cty hoàn'}
                         </span>
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
@@ -972,6 +1021,19 @@ export default function ExpensesPage() {
                               </button>
                             </>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPageAdvancerModalExp(exp);
+                              setPageSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
+                            }}
+                            className="btn btn--ghost"
+                            style={{ padding: '3px 6px', fontSize: '11px', gap: '3px' }}
+                            title="Chỉ định hoặc đổi người ứng tiền thay"
+                          >
+                            <ArrowRightLeft size={11} /> Đổi người ứng
+                          </button>
 
                           {canMarkPaid && (
                             <button
@@ -1030,13 +1092,28 @@ export default function ExpensesPage() {
               return (
                 <div key={exp._id} className="card animate-fade-in" style={{ padding: '14px', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                       <span className={`badge ${isApproved ? 'badge--success' : isPending ? 'badge--warning' : 'badge--danger'}`} style={{ fontSize: '10.5px' }}>
                         {isApproved ? '✅ Đã duyệt' : isPending ? '⏳ Chờ duyệt' : '❌ Từ chối'}
                       </span>
                       <span className={`badge ${isPaid ? 'badge--success' : 'badge--danger'}`} style={{ fontSize: '10.5px' }}>
-                        {isPaid ? '💳 Đã trả' : '⏳ Chưa trả'}
+                        {isPaid ? '💳 Cty đã hoàn' : '⏳ Chờ Cty hoàn'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStaffPaid(exp._id, Boolean(exp.paid_to_staff))}
+                        className={`btn ${exp.paid_to_staff ? 'btn--ghost' : 'btn--warning'}`}
+                        style={{
+                          padding: '2px 7px', fontSize: '10px', fontWeight: 700,
+                          height: '22px', minHeight: '22px',
+                          background: exp.paid_to_staff ? 'var(--green-soft)' : undefined,
+                          color: exp.paid_to_staff ? 'var(--green)' : undefined,
+                          borderColor: exp.paid_to_staff ? 'var(--green)' : undefined,
+                        }}
+                        title="Bấm để đánh dấu đã trả / chưa trả tiền túi cho người chi"
+                      >
+                        {exp.paid_to_staff ? '✓ Đã trả NV' : '⏳ Chưa trả NV'}
+                      </button>
                     </div>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
                       📅 {formatDate(exp.date)}
@@ -1047,20 +1124,26 @@ export default function ExpensesPage() {
                     {exp.description}
                   </div>
 
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px', fontVariantNumeric: 'tabular-nums' }}>
                     {formatVND(exp.amount)}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', flexWrap: 'wrap', gap: '4px' }}>
                     <button
                       type="button"
                       className="staff-profile-trigger"
                       onClick={() => setViewingStaffDetail(resolveExpenseStaff(exp))}
                       title={`Xem hồ sơ ${exp.user_id?.full_name || exp.user_name || 'nhân viên'}`}
                     >
-                      👤 {exp.user_id?.full_name || exp.user_name || 'Nhân viên'}
+                      👤 Chi: {exp.user_id?.full_name || exp.user_name || 'Nhân viên'}
                     </button>
-                    <span>{exp.has_vat_invoice ? '🧾 Có VAT' : '—'}</span>
+                    {exp.advanced_by ? (
+                      <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>
+                        Ứng: {exp.advanced_by.full_name}
+                      </span>
+                    ) : (
+                      <span>{exp.has_vat_invoice ? '🧾 Có VAT' : '—'}</span>
+                    )}
                   </div>
 
                   {exp.receipt_url && (
@@ -1097,6 +1180,20 @@ export default function ExpensesPage() {
                           {isPaid ? 'Đổi về chưa trả' : '💳 Xác nhận đã hoàn ứng'}
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPageAdvancerModalExp(exp);
+                          setPageSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
+                        }}
+                        className="btn btn--ghost btn--full"
+                        style={{ padding: '6px', fontSize: '11.5px', gap: '4px' }}
+                        title="Chỉ định hoặc đổi người ứng tiền thay"
+                      >
+                        <ArrowRightLeft size={12} /> Đổi người ứng
+                      </button>
+
                       {canDelete && !canApprove && !canMarkPaid && (
                         <button
                           onClick={() => handleDelete(exp._id)}
@@ -1257,6 +1354,44 @@ export default function ExpensesPage() {
               )}
             </div>
 
+            {/* Người ứng tiền thay (Tùy chọn) */}
+            <div className="form-group">
+              <label className="form-label">👤 Người ứng tiền thay (Tùy chọn)</label>
+              <select
+                className="form-input"
+                value={formAdvancer}
+                onChange={e => setFormAdvancer(e.target.value)}
+              >
+                <option value="">-- Mặc định (Chính tôi bỏ tiền túi chi trả) --</option>
+                {staffList
+                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
+                  .map(s => (
+                    <option key={s._id || s.id} value={String(s._id || s.id)}>
+                      {s.full_name} ({s.position || s.role || 'NV'})
+                    </option>
+                  ))}
+              </select>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                💡 Nếu người khác (ví dụ Anh Trường) đã chi trả trước cho bạn, chọn tên người đó để công ty hoàn trả tiền thẳng cho họ.
+              </div>
+            </div>
+
+            {formAdvancer && (
+              <div className="form-group" style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={formPaidToStaff}
+                    onChange={e => setFormPaidToStaff(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                  />
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
+                    Người ứng tiền đã chi trả khoản này cho người chi
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">Ghi chú thêm</label>
               <textarea
@@ -1394,6 +1529,107 @@ export default function ExpensesPage() {
         </div>,
         document.body
       )}
-</div>
+
+      {/* Modal Chuyển Người Ứng Tiền Thay Cho Bảng / Card */}
+      {pageAdvancerModalExp && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 999999, padding: '16px' }}
+          onClick={() => setPageAdvancerModalExp(null)}
+        >
+          <div
+            className="modal-card animate-scale-up"
+            style={{ maxWidth: '420px', width: '100%', padding: '20px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UserCheck size={18} color="var(--primary)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                  Chỉ Định Người Ứng Tiền Thay
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPageAdvancerModalExp(null)}
+                className="btn btn--ghost"
+                style={{ padding: '4px 8px' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '12.5px' }}>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Khoản chi: <strong style={{ color: 'var(--text)' }}>{pageAdvancerModalExp.description}</strong>
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                Số tiền: <strong style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{formatVND(pageAdvancerModalExp.amount)}</strong>
+              </div>
+              <div style={{ color: 'var(--text-secondary)' }}>
+                Người chi thực tế: <strong>{pageAdvancerModalExp.user_id?.full_name || 'Nhân viên'}</strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
+                Chọn Người Ứng Tiền (Người nhận cty hoàn trả):
+              </label>
+              <select
+                value={pageSelectedAdvancerId}
+                onChange={e => setPageSelectedAdvancerId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                }}
+              >
+                <option value="">-- Mặc định (Chính người chi nhận tiền) --</option>
+                {staffList
+                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
+                  .map(s => (
+                    <option key={s._id || s.id} value={String(s._id || s.id)}>
+                      {s.full_name} ({s.position || s.role || 'NV'})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setPageAdvancerModalExp(null)}
+                className="btn btn--ghost"
+                style={{ fontSize: '12.5px', padding: '7px 14px' }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setSavingPageAdvancer(true);
+                  try {
+                    await handleUpdateAdvancedBy(pageAdvancerModalExp._id, pageSelectedAdvancerId || null);
+                    setPageAdvancerModalExp(null);
+                  } finally {
+                    setSavingPageAdvancer(false);
+                  }
+                }}
+                disabled={savingPageAdvancer}
+                className="btn btn--primary"
+                style={{ fontSize: '12.5px', padding: '7px 16px', fontWeight: 700 }}
+              >
+                {savingPageAdvancer ? 'Đang lưu...' : 'Xác Nhận Chuyển'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

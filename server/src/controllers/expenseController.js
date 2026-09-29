@@ -200,7 +200,7 @@ const getExpenses = async (req, res) => {
 // POST /api/expenses — Nhân viên báo cáo khoản chi mới
 const createExpense = async (req, res) => {
   try {
-    const { date, description, amount, has_vat_invoice, receipt_url, notes } = req.body;
+    const { date, description, amount, has_vat_invoice, receipt_url, notes, advanced_by, paid_to_staff } = req.body;
 
     if (!date || !description || amount === undefined || amount === null) {
       return res.status(400).json({ error: 'Vui lòng nhập đầy đủ ngày giao dịch, mô tả và số tiền.' });
@@ -221,6 +221,9 @@ const createExpense = async (req, res) => {
       notes: notes ? notes.trim() : null,
       approval_status: 'pending',
       payment_status: 'unpaid',
+      advanced_by: advanced_by || null,
+      paid_to_staff: Boolean(paid_to_staff),
+      paid_to_staff_at: paid_to_staff ? new Date() : null,
     });
 
     // Thông báo cho Admin và Leader trực tiếp quản lý người gửi.
@@ -279,7 +282,7 @@ const createExpense = async (req, res) => {
 const updateExpense = async (req, res) => {
   try {
     const { id } = req.params;
-    const { date, description, amount, has_vat_invoice, receipt_url, notes } = req.body;
+    const { date, description, amount, has_vat_invoice, receipt_url, notes, advanced_by, paid_to_staff } = req.body;
 
     const expense = await Expense.findById(id);
     if (!expense) return res.status(404).json({ error: 'Không tìm thấy khoản chi tiêu.' });
@@ -310,6 +313,11 @@ const updateExpense = async (req, res) => {
     if (has_vat_invoice !== undefined) expense.has_vat_invoice = Boolean(has_vat_invoice);
     if (receipt_url !== undefined) expense.receipt_url = receipt_url;
     if (notes !== undefined) expense.notes = notes ? notes.trim() : null;
+    if (advanced_by !== undefined) expense.advanced_by = advanced_by || null;
+    if (paid_to_staff !== undefined) {
+      expense.paid_to_staff = Boolean(paid_to_staff);
+      expense.paid_to_staff_at = Boolean(paid_to_staff) ? (expense.paid_to_staff_at || new Date()) : null;
+    }
 
     await expense.save();
 
