@@ -427,7 +427,7 @@ const markAsPaid = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { payment_status = 'paid', payment_note } = req.body; // 'paid' | 'unpaid'
+    const { payment_status = 'paid', payment_note, paid_from_fund } = req.body; // 'paid' | 'unpaid'
     if (!['paid', 'unpaid'].includes(payment_status)) {
       return res.status(400).json({ error: 'Trạng thái hoàn ứng không hợp lệ.' });
     }
@@ -443,10 +443,13 @@ const markAsPaid = async (req, res) => {
       expense.paid_by = req.user._id;
       expense.paid_at = new Date();
       expense.payment_note = payment_note ? payment_note.trim() : 'Đã thanh toán / chuyển khoản';
+      expense.paid_from_fund = paid_from_fund !== undefined ? Boolean(paid_from_fund) : true;
     } else {
       expense.paid_by = null;
       expense.paid_at = null;
       expense.payment_note = null;
+      expense.paid_from_fund = false;
+      expense.fund_id = null;
     }
 
     await expense.save();

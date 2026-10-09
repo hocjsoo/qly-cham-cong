@@ -93,6 +93,7 @@ const timesheetLockRoutes = require('./routes/timesheetLock.routes');
 const announcementRoutes  = require('./routes/announcement.routes');
 const expenseRoutes       = require('./routes/expense.routes');
 const ttsScheduleRoutes   = require('./routes/ttsSchedule.routes');
+const fundRoutes          = require('./routes/fund.routes');
 
 app.use('/api/auth',          authRoutes);
 app.use('/api/attendance',    attendanceRoutes);
@@ -113,6 +114,7 @@ app.use('/api/timesheet-lock',timesheetLockRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/expenses',      expenseRoutes);
 app.use('/api/tts-schedules', ttsScheduleRoutes);
+app.use('/api/funds',          fundRoutes);
 
 const mongoose = require('mongoose');
 

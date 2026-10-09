@@ -23,6 +23,7 @@ export default function ReimbursementMatrixTable({
   handleUpdateAdvancedBy,
   isAdmin = false,
   user,
+  fundStats = null,
 }) {
   // Chế độ xem: 'settlement' (Bảng quyết toán theo người) | 'grid' (Lưới ma trận đã lọc sạch 0đ)
   const [subView, setSubView] = useState('settlement');
@@ -227,6 +228,7 @@ export default function ReimbursementMatrixTable({
           beneficiary={pdfTarget.beneficiary}
           expenses={pdfTarget.expenses}
           totalAmount={pdfTarget.totalAmount}
+          fundStats={fundStats}
           formatVND={formatVND}
           formatDate={formatDate}
         />

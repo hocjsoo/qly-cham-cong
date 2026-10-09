@@ -17,6 +17,9 @@ import useLatestRequest from '../hooks/useLatestRequest';
 import { downloadBlob } from '../utils/downloadBlob';
 import { sanitizeCsvCell } from '../utils/exportCsv';
 import ReimbursementMatrixTable from '../components/expenses/ReimbursementMatrixTable';
+import AdvanceFundSummaryCard from '../components/expenses/AdvanceFundSummaryCard';
+import FundDepositModal from '../components/expenses/FundDepositModal';
+import FundHistoryModal from '../components/expenses/FundHistoryModal';
 
 const formatVND = (amount) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -87,6 +90,18 @@ export default function ExpensesPage() {
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Fund State
+  const [fundsData, setFundsData] = useState(null);
+  const [showFundDepositModal, setShowFundDepositModal] = useState(false);
+  const [showFundHistoryModal, setShowFundHistoryModal] = useState(false);
+
+  const loadFunds = useCallback(async () => {
+    try {
+      const { data } = await api.get('/funds');
+      setFundsData(data);
+    } catch {}
+  }, []);
+
   const loadData = useCallback(async () => {
     const request = beginExpenseRequest();
     if (!request) return;
@@ -114,12 +129,13 @@ export default function ExpensesPage() {
       } else if (fetchedExpenses.length === 0 && currentPage > 1) {
         setCurrentPage(1);
       }
+      loadFunds();
     } catch {
       if (request.isCurrent()) toast.error('Lỗi tải danh sách chi tiêu');
     } finally {
       if (request.isCurrent()) setLoading(false);
     }
-  }, [currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search, expenseKey, beginExpenseRequest]);
+  }, [currentPage, filterUser, filterApproval, filterPayment, filterVat, filterMonth, filterYear, search, expenseKey, beginExpenseRequest, loadFunds]);
 
   const loadStaffList = useCallback(async () => {
     const request = beginStaffRequest();
@@ -142,7 +158,8 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     loadStaffList();
-  }, [loadStaffList]);
+    loadFunds();
+  }, [loadStaffList, loadFunds]);
 
   const handleImageCapture = (e) => {
     const file = e.target.files?.[0];
@@ -650,6 +667,16 @@ export default function ExpensesPage() {
       </div>
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
+        {/* Advance Fund Summary Card (Sổ Quỹ Tạm Ứng Xoay Vòng) */}
+        <AdvanceFundSummaryCard
+          fundStats={fundsData?.stats}
+          onOpenDepositModal={() => setShowFundDepositModal(true)}
+          onOpenHistoryModal={() => setShowFundHistoryModal(true)}
+          formatVND={formatVND}
+          isAdmin={isAdmin}
+          isFundHolder={isAdmin || Boolean(fundsData?.funds?.some(f => String(f.holder_id?._id || f.holder_id) === String(user?._id)))}
+        />
+
         {/* Top Financial KPI Summary Cards */}
         <div className="kpi-grid-4" style={{ marginBottom: "16px" }}>
           <div className="stat-card-modern">
@@ -867,6 +894,7 @@ export default function ExpensesPage() {
             handleUpdateAdvancedBy={handleUpdateAdvancedBy}
             isAdmin={isAdmin}
             user={user}
+            fundStats={fundsData?.stats}
           />
         ) : viewMode === 'table' ? (
           /* TABLE VIEW MODE */
@@ -1633,6 +1661,25 @@ export default function ExpensesPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Nạp Quỹ & Lịch Sử Quỹ Tạm Ứng */}
+      <FundDepositModal
+        isOpen={showFundDepositModal}
+        onClose={() => setShowFundDepositModal(false)}
+        staffList={staffList}
+        onSuccess={() => { loadFunds(); loadData(); }}
+        formatVND={formatVND}
+      />
+
+      <FundHistoryModal
+        isOpen={showFundHistoryModal}
+        onClose={() => setShowFundHistoryModal(false)}
+        funds={fundsData?.funds || []}
+        isAdmin={isAdmin}
+        onSuccess={() => { loadFunds(); loadData(); }}
+        formatVND={formatVND}
+        formatDate={formatDate}
+      />
     </div>
   );
 }

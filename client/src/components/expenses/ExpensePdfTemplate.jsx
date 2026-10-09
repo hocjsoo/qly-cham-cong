@@ -7,6 +7,7 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
   beneficiary,
   expenses = [],
   totalAmount = 0,
+  fundStats = null,
   formatVND,
   formatDate,
   companyName = 'CÔNG TY TNHH THIẾT KẾ KIẾN TRÚC ET',
@@ -57,7 +58,7 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
         </div>
 
         {/* Thông tin Người Nhận Hoàn Ứng */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#f8fafc', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '22px', fontSize: '12.5px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', background: '#f8fafc', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '18px', fontSize: '12.5px' }}>
           <div>
             <div style={{ marginBottom: '6px' }}>
               <span style={{ color: '#64748b' }}>Người thụ hưởng: </span>
@@ -87,6 +88,28 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
             </div>
           </div>
         </div>
+
+        {/* Cân Đối Sổ Quỹ Tạm Ứng (Nếu có dữ liệu quỹ) */}
+        {fundStats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', background: '#f1f5f9', padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '18px', textAlign: 'center', fontSize: '11.5px' }}>
+            <div>
+              <div style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>Tổng Sếp Đã Cấp Quỹ</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#2563eb', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>{formatVND(fundStats.totalFundIn)}</div>
+            </div>
+            <div>
+              <div style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>Tổng Đã Xuất Quỹ Trả</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>{formatVND(fundStats.totalFundOut)}</div>
+            </div>
+            <div>
+              <div style={{ color: '#64748b', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
+                {fundStats.fundBalance >= 0 ? 'Số Dư Quỹ Hiện Còn' : 'Cty Cần Cấp Bù'}
+              </div>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: fundStats.fundBalance >= 0 ? '#16a34a' : '#dc2626', marginTop: '2px', fontVariantNumeric: 'tabular-nums' }}>
+                {formatVND(Math.abs(fundStats.fundBalance))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bảng kê chi tiết các khoản chi */}
         <table className="pdf-export-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', marginBottom: '20px' }}>

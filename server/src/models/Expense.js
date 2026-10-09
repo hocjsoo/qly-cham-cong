@@ -80,6 +80,15 @@ const expenseSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  paid_from_fund: {
+    type: Boolean,
+    default: false, // Khoản chi được xuất quỹ tạm ứng để thanh toán
+  },
+  fund_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AdvanceFund',
+    default: null, // Đợt nạp quỹ đã khấu trừ
+  },
   notes: {
     type: String,
     default: null,

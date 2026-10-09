@@ -4,6 +4,7 @@ const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const Department = require('../models/Department');
 const Expense = require('../models/Expense');
+const AdvanceFund = require('../models/AdvanceFund');
 const {
   isLeaderRole,
   buildLeaderUserScope,
@@ -522,11 +523,17 @@ const exportExpensesExcel = async (req, res) => {
       filter.description = { $regex: search.trim(), $options: 'i' };
     }
 
-    const expenses = await Expense.find(filter)
-      .populate('user_id', 'full_name employee_code bank_name bank_account branch department_name')
-      .populate('advanced_by', 'full_name employee_code bank_name bank_account branch department_name')
-      .sort({ date: -1, created_at: -1 })
-      .lean();
+    const [expenses, funds] = await Promise.all([
+      Expense.find(filter)
+        .populate('user_id', 'full_name employee_code bank_name bank_account branch department_name')
+        .populate('advanced_by', 'full_name employee_code bank_name bank_account branch department_name')
+        .sort({ date: -1, created_at: -1 })
+        .lean(),
+      AdvanceFund.find()
+        .populate('holder_id', 'full_name employee_code')
+        .sort({ date: -1, created_at: -1 })
+        .lean(),
+    ]);
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'ET Office Portal';
@@ -770,6 +777,86 @@ const exportExpensesExcel = async (req, res) => {
         }
       });
     });
+
+    // Sheet 3: Sổ Quỹ Tạm Ứng & Cân Đối Dòng Tiền
+    const sheet3 = workbook.addWorksheet('Sổ Quỹ Tạm Ứng', {
+      properties: { defaultRowHeight: 24 },
+      views: [{ state: 'frozen', xSplit: 0, ySplit: 2 }]
+    });
+
+    sheet3.mergeCells('A1:F1');
+    const title3 = sheet3.getCell('A1');
+    title3.value = 'SỔ QUỸ TẠM ỨNG & CÂN ĐỐI DÒNG TIỀN VĂN PHÒNG';
+    title3.font = { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+    title3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    title3.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet3.getRow(1).height = 30;
+
+    const headers3 = [
+      { header: 'STT', width: 7 },
+      { header: 'NGÀY NẠP', width: 14 },
+      { header: 'NGƯỜI RÓT TIỀN', width: 22 },
+      { header: 'NGƯỜI GIỮ QUỸ', width: 22 },
+      { header: 'SỐ TIỀN CẤP (VNĐ)', width: 22 },
+      { header: 'GHI CHÚ / ĐỢT', width: 30 },
+    ];
+    sheet3.getRow(2).values = headers3.map(h => h.header);
+    sheet3.getRow(2).height = 26;
+    sheet3.getRow(2).eachCell(cell => {
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    headers3.forEach((h, idx) => { sheet3.getColumn(idx + 1).width = h.width; });
+
+    let totalFundIn = 0;
+    funds.forEach((f, idx) => {
+      const numAmt = Number(f.amount) || 0;
+      totalFundIn += numAmt;
+      const row = sheet3.addRow([
+        idx + 1,
+        f.date || '—',
+        f.sender_name || 'Ban Giám Đốc / Sếp',
+        f.holder_id?.full_name || '—',
+        numAmt,
+        f.note || '—'
+      ]);
+      row.height = 22;
+      row.eachCell((cell, colIdx) => {
+        cell.font = { name: 'Arial', size: 9.5 };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        };
+        if (colIdx === 1 || colIdx === 2) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        else if (colIdx === 5) {
+          cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          cell.numFmt = '#,##0';
+          cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+        } else {
+          cell.alignment = { horizontal: 'left', vertical: 'middle' };
+        }
+      });
+    });
+
+    const totalFundOut = expenses
+      .filter(e => e.payment_status === 'paid')
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const fundBalance = totalFundIn - totalFundOut;
+
+    const addSummaryRow = (label, val, color) => {
+      const r = sheet3.addRow(['', label, '', '', val, '']);
+      r.height = 26;
+      r.getCell(2).font = { name: 'Arial', size: 10, bold: true };
+      r.getCell(5).font = { name: 'Arial', size: 10.5, bold: true, color: { argb: color } };
+      r.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' };
+      r.getCell(5).numFmt = '#,##0';
+    };
+    addSummaryRow('1. TỔNG TIỀN SẾP ĐÃ CẤP QUỸ', totalFundIn, 'FF2563EB');
+    addSummaryRow('2. TỔNG TIỀN ĐÃ CHI TRẢ TỪNG KỲ', totalFundOut, 'FF475569');
+    addSummaryRow(fundBalance >= 0 ? '3. SỐ DƯ QUỸ HIỆN CÒN (DƯ QUỸ)' : '3. CÔNG TY CẦN CẤP BÙ (ÂM QUỸ)', fundBalance, fundBalance >= 0 ? 'FF16A34A' : 'FFDC2626');
 
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = `Bang_Ke_Chi_Tieu_ET_${new Date().toISOString().slice(0, 10)}.xlsx`;

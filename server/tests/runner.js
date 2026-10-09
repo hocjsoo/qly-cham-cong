@@ -32,6 +32,7 @@ const runMultiOfficeTests = require('./unit/multiOfficeLocation.test');
 const runSystemSettingsTests = require('./unit/systemSettings.test');
 const runVehicleParkingTests = require('./unit/vehicleParkingManagement.test');
 const { runExpenseManagementTests } = require('./unit/expenseManagement.test');
+const runFundManagementTests = require('./unit/fundManagement.test');
 const { runLeaderboardRankingTests } = require('./unit/leaderboardRanking.test');
 const runTtsWeeklyScheduleTests = require('./unit/ttsWeeklySchedule.test');
 const runOvernightShiftAndOtTests = require('./unit/overnightShiftAndOt.test');
@@ -125,6 +126,7 @@ async function runAllTests() {
     await runSystemSettingsTests(assert);
     runVehicleParkingTests(assert);
     await runExpenseManagementTests();
+    runFundManagementTests(assert);
     runLeaderboardRankingTests();
     runTtsWeeklyScheduleTests(assert);
     await runOvernightShiftAndOtTests(assert);
