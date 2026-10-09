@@ -4,8 +4,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Download, Table2, Copy, Check, ChevronDown, ChevronUp,
-  Building2, CheckCircle2, RotateCcw, FileText, ArrowRightLeft, X,
-  UserCheck, Wallet, FileSpreadsheet
+  Building2, CheckCircle2, RotateCcw, FileText, X, Wallet, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ExpensePdfTemplate from './ExpensePdfTemplate';
@@ -20,7 +19,6 @@ export default function ReimbursementMatrixTable({
   formatDate,
   staffList = [],
   handleMarkPaid,
-  handleUpdateAdvancedBy,
   isAdmin = false,
   user,
   fundStats = null,
@@ -32,17 +30,12 @@ export default function ReimbursementMatrixTable({
   const [settlingUserId, setSettlingUserId] = useState(null);
   const [payingItemId, setPayingItemId] = useState(null);
 
-  // Modal đổi người ứng tiền thay
-  const [advancerModalExp, setAdvancerModalExp] = useState(null);
-  const [selectedAdvancerId, setSelectedAdvancerId] = useState('');
-  const [savingAdvancer, setSavingAdvancer] = useState(false);
-
   // Xuất file PDF Bảng Kê Giải Trình
   const pdfTemplateRef = useRef(null);
   const [pdfTarget, setPdfTarget] = useState(null);
   const [exportingPdfId, setExportingPdfId] = useState(null);
 
-  // Danh sách quyết toán: Gom tất cả khoản chi theo từng người nhận hoàn ứng (advanced_by hoặc user_id)
+  // Danh sách quyết toán: Gom tất cả khoản chi theo từng nhân sự chi thực tế
   const settlementList = useMemo(() => {
     const list = (matrixData.displayUsers || []).map(u => {
       const total = matrixData.userTotals.get(u.id) || 0;
@@ -51,8 +44,8 @@ export default function ReimbursementMatrixTable({
       const userExpenses = [];
       (matrixData.rows || []).forEach(r => {
         (r.items || []).forEach(item => {
-          const itemBeneficiaryId = String(item.advanced_by?._id || item.advanced_by || item.user_id?._id || item.user_id || '');
-          if (itemBeneficiaryId === String(u.id)) {
+          const itemUserId = String(item.user_id?._id || item.user_id || '');
+          if (itemUserId === String(u.id)) {
             userExpenses.push(item);
           }
         });
@@ -204,18 +197,6 @@ export default function ReimbursementMatrixTable({
       toast.error('Lỗi khi xuất file PDF');
     } finally {
       setExportingPdfId(null);
-    }
-  };
-
-  // Đổi người ứng tiền thay
-  const handleConfirmChangeAdvancer = async () => {
-    if (!advancerModalExp || !handleUpdateAdvancedBy) return;
-    setSavingAdvancer(true);
-    try {
-      await handleUpdateAdvancedBy(advancerModalExp._id, selectedAdvancerId || null);
-      setAdvancerModalExp(null);
-    } finally {
-      setSavingAdvancer(false);
     }
   };
 
@@ -548,7 +529,6 @@ export default function ReimbursementMatrixTable({
                       </div>
 
                       {item.expenses.map((exp, eIdx) => {
-                        const isOriginalSpender = !exp.advanced_by || String(exp.advanced_by?._id || exp.advanced_by) === String(exp.user_id?._id || exp.user_id);
                         const isPaid = exp.payment_status === 'paid';
 
                         return (
@@ -561,22 +541,11 @@ export default function ReimbursementMatrixTable({
                               border: '1px solid var(--border-muted)',
                             }}
                           >
-                            {/* Nội dung khoản chi & người chi gốc */}
+                            {/* Nội dung khoản chi */}
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1, minWidth: '240px' }}>
                               <span style={{ color: 'var(--text-secondary)', fontWeight: 600, fontSize: '11.5px' }}>{formatDate(exp.date)}</span>
                               <span style={{ color: 'var(--text)', fontWeight: 700 }}>{exp.description}</span>
                               {exp.has_vat_invoice && <span className="badge badge--info" style={{ fontSize: '10px' }}>VAT</span>}
-                              
-                              {/* Badge Người chi gốc nếu khoản này do người khác chi nhưng người này ứng thay */}
-                              {!isOriginalSpender && (
-                                <span
-                                  className="badge badge--neutral"
-                                  style={{ fontSize: '10px', padding: '1px 6px', background: 'var(--primary-soft)', color: 'var(--primary)' }}
-                                  title="Khoản chi do nhân viên này chi hộ, người hiện tại ứng thay"
-                                >
-                                  👤 {exp.user_id?.full_name || 'NV'} chi
-                                </span>
-                              )}
                             </div>
 
                             {/* Cột số tiền & Nút thao tác duy nhất */}
@@ -584,22 +553,6 @@ export default function ReimbursementMatrixTable({
                               <strong style={{ color: 'var(--text)', fontSize: '13px', fontVariantNumeric: 'tabular-nums', marginRight: '6px' }}>
                                 {formatVND(exp.amount)}
                               </strong>
-
-                              {/* Đổi người ứng thay (Chuyển người nhận hoàn ứng) */}
-                              {handleUpdateAdvancedBy && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setAdvancerModalExp(exp);
-                                    setSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
-                                  }}
-                                  className="btn btn--ghost"
-                                  style={{ padding: '4px 8px', fontSize: '11px', height: '28px', minHeight: '28px', gap: '4px' }}
-                                  title="Chỉ định hoặc đổi người ứng tiền thay"
-                                >
-                                  <ArrowRightLeft size={11} /> Đổi người ứng
-                                </button>
-                              )}
 
                               {/* Nút Thanh Toán Hoàn Ứng Duy Nhất (Chỉ Admin bấm trả) */}
                               {isAdmin ? (
@@ -813,102 +766,6 @@ export default function ReimbursementMatrixTable({
               )}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* Modal Chuyển Người Ứng Tiền Thay (Advancer Assignment Modal) */}
-      {advancerModalExp && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 999999, padding: '16px' }}
-          onClick={() => setAdvancerModalExp(null)}
-        >
-          <div
-            className="modal-card animate-scale-up"
-            style={{ maxWidth: '420px', width: '100%', padding: '20px' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserCheck size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                  Chỉ Định Người Ứng Tiền Thay
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAdvancerModalExp(null)}
-                className="btn btn--ghost"
-                style={{ padding: '4px 8px' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '12.5px' }}>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Khoản chi: <strong style={{ color: 'var(--text)' }}>{advancerModalExp.description}</strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Số tiền: <strong style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{formatVND(advancerModalExp.amount)}</strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)' }}>
-                Người chi thực tế: <strong>{advancerModalExp.user_id?.full_name || 'Nhân viên'}</strong>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
-                Chọn Người Ứng Tiền (Người nhận cty hoàn trả):
-              </label>
-              <select
-                value={selectedAdvancerId}
-                onChange={e => setSelectedAdvancerId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-input)',
-                  color: 'var(--text)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                }}
-              >
-                <option value="">-- Mặc định (Chính người chi nhận tiền) --</option>
-                {staffList
-                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
-                  .map(s => (
-                    <option key={s._id || s.id} value={String(s._id || s.id)}>
-                      {s.full_name} ({s.position || s.role || 'NV'})
-                    </option>
-                  ))}
-              </select>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
-                💡 Khi chọn người ứng tiền (ví dụ Anh Trường), khoản chi này sẽ tự động chuyển vào Bảng Kê Quyết Toán của người đó để công ty hoàn trả 1 cục.
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setAdvancerModalExp(null)}
-                className="btn btn--ghost"
-                style={{ fontSize: '12.5px', padding: '7px 14px' }}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmChangeAdvancer}
-                disabled={savingAdvancer}
-                className="btn btn--primary"
-                style={{ fontSize: '12.5px', padding: '7px 16px', fontWeight: 700 }}
-              >
-                {savingAdvancer ? 'Đang lưu...' : 'Xác Nhận Chuyển'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

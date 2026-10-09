@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import {
   Plus, Search, Download, Check, X, CreditCard,
   Trash2, Camera, LayoutList, LayoutGrid, Table2,
-  ArrowRightLeft, UserCheck, FileSpreadsheet
+  FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -82,11 +82,6 @@ export default function ExpensesPage() {
   const [formVat, setFormVat] = useState(false);
   const [formReceipt, setFormReceipt] = useState(null);
   const [formNotes, setFormNotes] = useState('');
-  const [formAdvancer, setFormAdvancer] = useState('');
-  const [formPaidToStaff, setFormPaidToStaff] = useState(false);
-  const [pageAdvancerModalExp, setPageAdvancerModalExp] = useState(null);
-  const [pageSelectedAdvancerId, setPageSelectedAdvancerId] = useState('');
-  const [savingPageAdvancer, setSavingPageAdvancer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -209,8 +204,6 @@ export default function ExpensesPage() {
         has_vat_invoice: formVat,
         receipt_url: formReceipt,
         notes: formNotes.trim() || null,
-        advanced_by: formAdvancer || null,
-        paid_to_staff: Boolean(formPaidToStaff),
       });
 
       toast.success('Báo cáo khoản chi tiêu thành công! 🎉');
@@ -220,8 +213,6 @@ export default function ExpensesPage() {
       setFormVat(false);
       setFormReceipt(null);
       setFormNotes('');
-      setFormAdvancer('');
-      setFormPaidToStaff(false);
       setCurrentPage(1);
       loadData();
     } catch (err) {
@@ -282,30 +273,6 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleToggleStaffPaid = useCallback(async (expenseId, currentPaid) => {
-    try {
-      const { data } = await api.put(`/expenses/${expenseId}/staff-paid`, {
-        paid_to_staff: !currentPaid,
-      });
-      toast.success(data.message || 'Đã cập nhật trạng thái chi trả người chi!');
-      loadData();
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi cập nhật chi trả người chi');
-    }
-  }, [loadData]);
-
-  const handleUpdateAdvancedBy = useCallback(async (expenseId, advancedByUserId) => {
-    try {
-      const { data } = await api.put(`/expenses/${expenseId}/advanced-by`, {
-        advanced_by: advancedByUserId,
-      });
-      toast.success(data.message || 'Đã chuyển người ứng tiền!');
-      loadData();
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'Lỗi chuyển người ứng tiền');
-    }
-  }, [loadData]);
-
   const handleExportCSV = async () => {
     const toastId = toast.loading('Đang chuẩn bị dữ liệu xuất CSV...');
     try {
@@ -332,7 +299,6 @@ export default function ExpensesPage() {
         'Ngày giao dịch',
         'Mô tả khoản chi',
         'Người chi',
-        'Người ứng tiền thay',
         'Số tiền (VNĐ)',
         'Trạng thái duyệt',
         'Trạng thái hoàn tiền',
@@ -348,27 +314,24 @@ export default function ExpensesPage() {
         totalAmount += Number(expItem.amount) || 0;
         const spenderUser = staffList.find(s => String(s._id || s.id) === String(expItem.user_id?._id || expItem.user_id)) || {};
         const spenderName = expItem.user_id?.full_name || expItem.user_name || spenderUser.full_name || '—';
-        const advancerName = expItem.advanced_by?.full_name || 'Chính người chi';
-        const beneficiaryUser = expItem.advanced_by || spenderUser;
         const approvalVi = expItem.approval_status === 'approved' ? 'Đã duyệt' : expItem.approval_status === 'rejected' ? 'Từ chối' : 'Chờ duyệt';
         const paymentVi = expItem.payment_status === 'paid' ? 'Đã trả' : 'Chưa trả';
         const vatVi = expItem.has_vat_invoice ? 'Có VAT' : 'Không VAT';
-        const rawStk = beneficiaryUser.bank_account ? String(beneficiaryUser.bank_account).trim() : '';
+        const rawStk = spenderUser.bank_account ? String(spenderUser.bank_account).trim() : '';
 
         return [
           idx + 1,
           sanitizeCsvCell(formatDate(expItem.date)),
           sanitizeCsvCell(expItem.description),
           sanitizeCsvCell(spenderName),
-          sanitizeCsvCell(advancerName),
           expItem.amount,
           sanitizeCsvCell(approvalVi),
           sanitizeCsvCell(paymentVi),
           sanitizeCsvCell(vatVi),
-          sanitizeCsvCell(beneficiaryUser.bank_name),
+          sanitizeCsvCell(spenderUser.bank_name),
           // Định dạng ="STK" để Excel nhận diện chuẩn Text, tuyệt đối không bị biến thành số mũ 1,251E+13
           rawStk ? `="${rawStk}"` : '—',
-          sanitizeCsvCell(beneficiaryUser.branch),
+          sanitizeCsvCell(spenderUser.branch),
           sanitizeCsvCell(expItem.notes)
         ];
       });
@@ -377,7 +340,6 @@ export default function ExpensesPage() {
         'TỔNG CỘNG',
         '""',
         sanitizeCsvCell(`Tổng ${fullList.length} khoản chi`),
-        '""',
         '""',
         totalAmount,
         '""',
@@ -496,21 +458,6 @@ export default function ExpensesPage() {
       }
     });
     expenses.forEach(exp => {
-      const advId = String(exp.advanced_by?._id || exp.advanced_by || '');
-      if (advId && !userMap.has(advId)) {
-        const name = exp.advanced_by?.full_name || 'Người ứng';
-        userMap.set(advId, {
-          id: advId,
-          full_name: name,
-          short_name: shortNameMap.get(advId) || name.split(' ').pop(),
-          avatar_url: exp.advanced_by?.avatar_url,
-          employee_code: exp.advanced_by?.employee_code,
-          department_name: exp.advanced_by?.department_name,
-          bank_name: exp.advanced_by?.bank_name || null,
-          bank_account: exp.advanced_by?.bank_account || null,
-          branch: exp.advanced_by?.branch || null,
-        });
-      }
       const id = String(exp.user_id?._id || exp.user_id || '');
       if (id && !userMap.has(id)) {
         const name = exp.user_id?.full_name || exp.user_name || 'Nhân viên';
@@ -556,8 +503,7 @@ export default function ExpensesPage() {
         });
       }
       const g = groupMap.get(groupKey);
-      // Người nhận hoàn ứng từ công ty: Nếu có người ứng thay (advanced_by) thì gom về người ứng, ngược lại là người chi (user_id)
-      const uid = String(exp.advanced_by?._id || exp.advanced_by || exp.user_id?._id || exp.user_id || '');
+      const uid = String(exp.user_id?._id || exp.user_id || '');
       g.userAmounts[uid] = (g.userAmounts[uid] || 0) + (exp.amount || 0);
       g.total += (exp.amount || 0);
       g.items.push(exp);
@@ -906,7 +852,6 @@ export default function ExpensesPage() {
                   <th style={{ padding: '12px 14px', width: '105px', whiteSpace: 'nowrap' }}>NGÀY GIAO DỊCH</th>
                   <th style={{ padding: '12px 14px', minWidth: '180px', whiteSpace: 'nowrap' }}>MÔ TẢ KHOẢN CHI</th>
                   <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI CHI</th>
-                  <th style={{ padding: '12px 14px', minWidth: '130px', whiteSpace: 'nowrap' }}>NGƯỜI ỨNG</th>
                   <th style={{ padding: '12px 14px', width: '130px', textAlign: 'right', whiteSpace: 'nowrap' }}>SỐ TIỀN</th>
                   <th style={{ padding: '12px 14px', width: '120px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI DUYỆT</th>
                   <th style={{ padding: '12px 14px', width: '125px', textAlign: 'center', whiteSpace: 'nowrap' }}>TRẠNG THÁI TRẢ</th>
@@ -981,19 +926,6 @@ export default function ExpensesPage() {
                           </span>
                         </button>
                       </td>
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                        {exp.advanced_by ? (
-                          <span
-                            className="badge badge--neutral"
-                            style={{ fontSize: '11px', background: 'var(--primary-soft)', color: 'var(--primary)', fontWeight: 700 }}
-                            title="Người ứng tiền thay"
-                          >
-                            👤 {exp.advanced_by.full_name}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Chính người chi</span>
-                        )}
-                      </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <strong style={{ fontSize: '13.5px', color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>
                           {formatVND(exp.amount)}
@@ -1067,19 +999,6 @@ export default function ExpensesPage() {
                               </button>
                             </>
                           )}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPageAdvancerModalExp(exp);
-                              setPageSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
-                            }}
-                            className="btn btn--ghost"
-                            style={{ padding: '3px 6px', fontSize: '11px', gap: '3px' }}
-                            title="Chỉ định hoặc đổi người ứng tiền thay"
-                          >
-                            <ArrowRightLeft size={11} /> Đổi người ứng
-                          </button>
 
                           {canMarkPaid && (
                             <button
@@ -1168,13 +1087,7 @@ export default function ExpensesPage() {
                     >
                       👤 Chi: {exp.user_id?.full_name || exp.user_name || 'Nhân viên'}
                     </button>
-                    {exp.advanced_by ? (
-                      <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700 }}>
-                        Ứng: {exp.advanced_by.full_name}
-                      </span>
-                    ) : (
-                      <span>{exp.has_vat_invoice ? '🧾 Có VAT' : '—'}</span>
-                    )}
+                    <span>{exp.has_vat_invoice ? '🧾 Có VAT' : '—'}</span>
                   </div>
 
                   {exp.receipt_url && (
@@ -1211,19 +1124,6 @@ export default function ExpensesPage() {
                           {isPaid ? 'Đổi về chưa trả' : '💳 Xác nhận đã hoàn ứng'}
                         </button>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPageAdvancerModalExp(exp);
-                          setPageSelectedAdvancerId(String(exp.advanced_by?._id || exp.advanced_by || ''));
-                        }}
-                        className="btn btn--ghost btn--full"
-                        style={{ padding: '6px', fontSize: '11.5px', gap: '4px' }}
-                        title="Chỉ định hoặc đổi người ứng tiền thay"
-                      >
-                        <ArrowRightLeft size={12} /> Đổi người ứng
-                      </button>
 
                       {canDelete && !canApprove && !canMarkPaid && (
                         <button
@@ -1385,44 +1285,6 @@ export default function ExpensesPage() {
               )}
             </div>
 
-            {/* Người ứng tiền thay (Tùy chọn) */}
-            <div className="form-group">
-              <label className="form-label">👤 Người ứng tiền thay (Tùy chọn)</label>
-              <select
-                className="form-input"
-                value={formAdvancer}
-                onChange={e => setFormAdvancer(e.target.value)}
-              >
-                <option value="">-- Mặc định (Chính tôi bỏ tiền túi chi trả) --</option>
-                {staffList
-                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
-                  .map(s => (
-                    <option key={s._id || s.id} value={String(s._id || s.id)}>
-                      {s.full_name} ({s.position || s.role || 'NV'})
-                    </option>
-                  ))}
-              </select>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                💡 Nếu người khác (ví dụ Anh Trường) đã chi trả trước cho bạn, chọn tên người đó để công ty hoàn trả tiền thẳng cho họ.
-              </div>
-            </div>
-
-            {formAdvancer && (
-              <div className="form-group" style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', userSelect: 'none' }}>
-                  <input
-                    type="checkbox"
-                    checked={formPaidToStaff}
-                    onChange={e => setFormPaidToStaff(e.target.checked)}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
-                  />
-                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text)' }}>
-                    Người ứng tiền đã chi trả khoản này cho người chi
-                  </span>
-                </label>
-              </div>
-            )}
-
             <div className="form-group">
               <label className="form-label">Ghi chú thêm</label>
               <textarea
@@ -1559,107 +1421,6 @@ export default function ExpensesPage() {
           </div>
         </div>,
         document.body
-      )}
-
-      {/* Modal Chuyển Người Ứng Tiền Thay Cho Bảng / Card */}
-      {pageAdvancerModalExp && (
-        <div
-          className="modal-overlay"
-          style={{ zIndex: 999999, padding: '16px' }}
-          onClick={() => setPageAdvancerModalExp(null)}
-        >
-          <div
-            className="modal-card animate-scale-up"
-            style={{ maxWidth: '420px', width: '100%', padding: '20px' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserCheck size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '15px', fontWeight: 800, margin: 0, color: 'var(--text)' }}>
-                  Chỉ Định Người Ứng Tiền Thay
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPageAdvancerModalExp(null)}
-                className="btn btn--ghost"
-                style={{ padding: '4px 8px' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', marginBottom: '16px', fontSize: '12.5px' }}>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Khoản chi: <strong style={{ color: 'var(--text)' }}>{pageAdvancerModalExp.description}</strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Số tiền: <strong style={{ color: 'var(--primary)', fontVariantNumeric: 'tabular-nums' }}>{formatVND(pageAdvancerModalExp.amount)}</strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)' }}>
-                Người chi thực tế: <strong>{pageAdvancerModalExp.user_id?.full_name || 'Nhân viên'}</strong>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px' }}>
-                Chọn Người Ứng Tiền (Người nhận cty hoàn trả):
-              </label>
-              <select
-                value={pageSelectedAdvancerId}
-                onChange={e => setPageSelectedAdvancerId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-input)',
-                  color: 'var(--text)',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                }}
-              >
-                <option value="">-- Mặc định (Chính người chi nhận tiền) --</option>
-                {staffList
-                  .filter(s => s.employment_status !== 'resigned' && s.employment_status !== 'Đã nghỉ việc')
-                  .map(s => (
-                    <option key={s._id || s.id} value={String(s._id || s.id)}>
-                      {s.full_name} ({s.position || s.role || 'NV'})
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setPageAdvancerModalExp(null)}
-                className="btn btn--ghost"
-                style={{ fontSize: '12.5px', padding: '7px 14px' }}
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  setSavingPageAdvancer(true);
-                  try {
-                    await handleUpdateAdvancedBy(pageAdvancerModalExp._id, pageSelectedAdvancerId || null);
-                    setPageAdvancerModalExp(null);
-                  } finally {
-                    setSavingPageAdvancer(false);
-                  }
-                }}
-                disabled={savingPageAdvancer}
-                className="btn btn--primary"
-                style={{ fontSize: '12.5px', padding: '7px 16px', fontWeight: 700 }}
-              >
-                {savingPageAdvancer ? 'Đang lưu...' : 'Xác Nhận Chuyển'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Modal Nạp Quỹ & Lịch Sử Quỹ Tạm Ứng */}

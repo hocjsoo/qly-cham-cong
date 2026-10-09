@@ -126,14 +126,12 @@ export const ExpensePdfTemplate = forwardRef(function ExpensePdfTemplate({
           <tbody>
             {expenses.map((exp, idx) => {
               const spenderName = exp.user_id?.full_name || exp.user_name || '—';
-              const isAdvanced = exp.advanced_by && String(exp.advanced_by?._id || exp.advanced_by) === String(beneficiary?.id || beneficiary?._id);
               return (
                 <tr key={exp._id || idx} style={{ background: idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <td style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #cbd5e1', color: '#64748b' }}>{idx + 1}</td>
                   <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1', fontWeight: 600 }}>{formatDate(exp.date)}</td>
                   <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a' }}>{spenderName}</div>
-                    {isAdvanced && <div style={{ fontSize: '10px', color: '#2563eb', fontWeight: 600 }}>(Đã ứng thay)</div>}
                   </td>
                   <td style={{ padding: '8px 10px', border: '1px solid #cbd5e1' }}>
                     <div style={{ fontWeight: 700, color: '#0f172a' }}>{exp.description}</div>
