@@ -30,7 +30,7 @@ const getFunds = async (req, res) => {
         .sort({ date: -1, created_at: -1 })
         .lean(),
       AdvanceFund.find().select('amount date').lean(),
-      Expense.find({ payment_status: 'paid', paid_from_fund: true }).select('amount date').lean(),
+      Expense.find({ payment_status: 'paid' }).select('amount date').lean(),
     ]);
 
     const totalFundIn = allFundDeposits.reduce((acc, f) => acc + (f.amount || 0), 0);

@@ -613,74 +613,30 @@ export default function ExpensesPage() {
       </div>
 
       <div className="container container--wide" style={{ paddingTop: '16px' }}>
-        {/* Advance Fund Summary Card (Sổ Quỹ Tạm Ứng Xoay Vòng) */}
+        {/* Advance Fund & Cashflow Summary Card (Hợp nhất 1 hàng duy nhất) */}
         <AdvanceFundSummaryCard
           fundStats={fundsData?.stats}
+          summary={summary}
           onOpenDepositModal={() => setShowFundDepositModal(true)}
           onOpenHistoryModal={() => setShowFundHistoryModal(true)}
+          onFilterPending={() => {
+            setFilterApproval(filterApproval === 'pending' ? 'all' : 'pending');
+            setCurrentPage(1);
+          }}
+          onFilterPaid={() => {
+            setFilterPayment(filterPayment === 'paid' ? 'all' : 'paid');
+            setCurrentPage(1);
+          }}
+          onFilterUnpaid={() => {
+            setFilterPayment(filterPayment === 'unpaid' ? 'all' : 'unpaid');
+            setCurrentPage(1);
+          }}
+          currentPaymentFilter={filterPayment}
+          currentApprovalFilter={filterApproval}
           formatVND={formatVND}
           isAdmin={isAdmin}
           isFundHolder={isAdmin || Boolean(fundsData?.funds?.some(f => String(f.holder_id?._id || f.holder_id) === String(user?._id)))}
         />
-
-        {/* Top Financial KPI Summary Cards */}
-        <div className="kpi-grid-4" style={{ marginBottom: "16px" }}>
-          <div className="stat-card-modern">
-            <div className="stat-card-modern__value" style={{ color: "var(--primary)" }}>
-              {formatVND(summary.totalApprovedAmount)}
-            </div>
-            <div className="stat-card-modern__label">💰 Tổng Đã Duyệt Chi</div>
-            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Khoản chi hợp lệ</div>
-          </div>
-
-          <div
-            onClick={() => { setFilterApproval(filterApproval === "pending" ? "all" : "pending"); setCurrentPage(1); }}
-            className="stat-card-modern card--interactive"
-            style={{
-              cursor: "pointer",
-              border: filterApproval === "pending" ? "2px solid var(--yellow)" : "1px solid var(--border)",
-              background: filterApproval === "pending" ? "var(--yellow-soft)" : "var(--bg-card)"
-            }}
-          >
-            <div className="stat-card-modern__value" style={{ color: "var(--yellow)" }}>
-              {summary.totalPendingCount} khoản ({formatVND(summary.totalPendingAmount)})
-            </div>
-            <div className="stat-card-modern__label">⏳ Chờ Duyệt Chi</div>
-            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Cần Admin xem xét</div>
-          </div>
-
-          <div
-            onClick={() => { setFilterPayment(filterPayment === "unpaid" ? "all" : "unpaid"); setCurrentPage(1); }}
-            className="stat-card-modern card--interactive"
-            style={{
-              cursor: "pointer",
-              border: filterPayment === "unpaid" ? "2px solid var(--red)" : "1px solid var(--border)",
-              background: filterPayment === "unpaid" ? "var(--red-soft)" : "var(--bg-card)"
-            }}
-          >
-            <div className="stat-card-modern__value" style={{ color: "var(--red)" }}>
-              {formatVND(summary.totalUnpaidAmount)}
-            </div>
-            <div className="stat-card-modern__label">💸 Chưa Hoàn Tiền</div>
-            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Cần chuyển khoản trả</div>
-          </div>
-
-          <div
-            onClick={() => { setFilterPayment(filterPayment === "paid" ? "all" : "paid"); setCurrentPage(1); }}
-            className="stat-card-modern card--interactive"
-            style={{
-              cursor: "pointer",
-              border: filterPayment === "paid" ? "2px solid var(--green)" : "1px solid var(--border)",
-              background: filterPayment === "paid" ? "var(--green-soft)" : "var(--bg-card)"
-            }}
-          >
-            <div className="stat-card-modern__value" style={{ color: "var(--green)" }}>
-              {formatVND(summary.totalPaidAmount)}
-            </div>
-            <div className="stat-card-modern__label">💳 Đã Hoàn Ứng</div>
-            <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>Đã thanh toán xong</div>
-          </div>
-        </div>
 
         {/* Filter Controls Toolbar */}
         <div className="card" style={{ padding: '12px 14px', marginBottom: '14px' }}>
