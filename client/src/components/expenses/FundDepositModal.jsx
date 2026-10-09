@@ -2,7 +2,7 @@
 // Modal Ghi Nhận Đợt Sếp Rót Tiền Vào Sổ Quỹ Tạm Ứng
 
 import { useState } from 'react';
-import { X, Plus, Wallet } from 'lucide-react';
+import { X, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 

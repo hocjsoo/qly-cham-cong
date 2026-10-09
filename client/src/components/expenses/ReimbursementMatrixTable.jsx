@@ -4,7 +4,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Download, Table2, Copy, Check, ChevronDown, ChevronUp,
-  Building2, CheckCircle2, RotateCcw, FileText, X, Wallet, FileSpreadsheet
+  Building2, CheckCircle2, RotateCcw, FileText, Wallet, FileSpreadsheet
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ExpensePdfTemplate from './ExpensePdfTemplate';
@@ -20,7 +20,6 @@ export default function ReimbursementMatrixTable({
   staffList = [],
   handleMarkPaid,
   isAdmin = false,
-  user,
   fundStats = null,
 }) {
   // Chế độ xem: 'settlement' (Bảng quyết toán theo người) | 'grid' (Lưới ma trận đã lọc sạch 0đ)

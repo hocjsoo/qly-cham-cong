@@ -837,7 +837,6 @@ export default function ExpensesPage() {
             formatDate={formatDate}
             staffList={staffList}
             handleMarkPaid={handleMarkPaid}
-            handleUpdateAdvancedBy={handleUpdateAdvancedBy}
             isAdmin={isAdmin}
             user={user}
             fundStats={fundsData?.stats}
