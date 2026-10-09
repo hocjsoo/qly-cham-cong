@@ -48,6 +48,8 @@ const getFunds = async (req, res) => {
         fundBalance,
         periodFundIn,
         paidFundCount: paidFundExpenses.length,
+        isFiltered: Boolean(month && month !== 'all'),
+        periodLabel: month && month !== 'all' ? `Tháng ${month}/${year || new Date().getFullYear()}` : (year && year !== 'all' ? `Năm ${year}` : 'Toàn bộ'),
       },
     });
   } catch (error) {

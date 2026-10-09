@@ -145,7 +145,19 @@ const getExpenses = async (req, res) => {
     let myTotalUnpaid = 0;
 
     if (!isExport) {
-      const summaryDateFilter = year && year !== 'all' ? { date: { $regex: `^${year}-` } } : {};
+      let summaryDateFilter = {};
+      if (month && month !== 'all') {
+        const targetYear = year || new Date().getFullYear();
+        const monthStr = String(month).padStart(2, '0');
+        summaryDateFilter.date = { $regex: `^${targetYear}-${monthStr}` };
+      } else if (year && year !== 'all') {
+        summaryDateFilter.date = { $regex: `^${year}-` };
+      }
+
+      if (user_id && user_id !== 'all') {
+        summaryDateFilter.user_id = user_id;
+      }
+
       const allExpenses = await Expense.find(summaryDateFilter)
         .select('user_id amount approval_status payment_status date')
         .lean();

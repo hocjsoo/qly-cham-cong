@@ -92,10 +92,13 @@ export default function ExpensesPage() {
 
   const loadFunds = useCallback(async () => {
     try {
-      const { data } = await api.get('/funds');
+      const params = new URLSearchParams();
+      if (filterMonth !== 'all') params.append('month', filterMonth);
+      if (filterYear !== 'all') params.append('year', filterYear);
+      const { data } = await api.get(`/funds?${params.toString()}`);
       setFundsData(data);
     } catch {}
-  }, []);
+  }, [filterMonth, filterYear]);
 
   const loadData = useCallback(async () => {
     const request = beginExpenseRequest();
@@ -617,6 +620,10 @@ export default function ExpensesPage() {
         <AdvanceFundSummaryCard
           fundStats={fundsData?.stats}
           summary={summary}
+          filterMonth={filterMonth}
+          filterYear={filterYear}
+          filterUser={filterUser}
+          staffList={staffList}
           onOpenDepositModal={() => setShowFundDepositModal(true)}
           onOpenHistoryModal={() => setShowFundHistoryModal(true)}
           onFilterPending={() => {
