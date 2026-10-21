@@ -63,6 +63,16 @@ const getTopologyStatus = () => {
   return { readyState, isTestEnv: false, requiresTransaction: true };
 };
 
+// Admin đã ghi đè ký hiệu công thủ công (notes chứa [X] / [0,875X] / [1,5X]...) thì mọi luồng
+// tự động (check-in, check-out, override giờ) KHÔNG được ghi đè work_units đã chốt.
+const EXPLICIT_SYMBOL_MARKERS = ['[X]', '[0,5X]', '[1,5X]', '[1.5X]', '[1,75X]', '[1.75X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]'];
+const hasExplicitSymbolOverride = (notes) => {
+  const upper = String(notes || '').toUpperCase();
+  if (EXPLICIT_SYMBOL_MARKERS.some(marker => upper.includes(marker))) return true;
+  // Ký hiệu công trừ động: [0,875X] / [0.875X] / [0,75X]...
+  return /\[0[.,]\d+X\]/.test(upper);
+};
+
 // Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
 // Công trừ THEO PHÚT THIẾU (yêu cầu khách 20/10/2026): công = 1 - phút muộn / chuẩn ngày (default 480p = 8h).
 // late_tier chỉ còn làm nhãn hiển thị, không còn điều khiển mốc 0.75.
@@ -732,9 +742,14 @@ const checkOut = async (req, res) => {
     attendance.early_minutes = metrics.earlyMinutes;
     attendance.is_overnight = isOvernight;
 
-    if (activeHoliday) attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
+    if (activeHoliday) {
+      if (!hasExplicitSymbolOverride(attendance.notes)) {
+        attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
+      }
+    }
     // Công trừ theo thời gian thiếu thực tế (muộn + về sớm). WFH/site/client & ngày lễ miễn trừ.
-    else if (!['wfh', 'site', 'client'].includes(attendance.check_in_type)) {
+    // Nếu Admin đã chốt ký hiệu công thủ công thì giữ nguyên, không tự tính lại.
+    else if (!['wfh', 'site', 'client'].includes(attendance.check_in_type) && !hasExplicitSymbolOverride(attendance.notes)) {
       const missingMins = (attendance.late_minutes || 0) + (metrics.earlyMinutes || 0);
       attendance.work_units = calculateProRataWorkUnits(missingMins, (Number(settings?.work_hours_per_day) || 8) * 60);
     }
@@ -1586,10 +1601,7 @@ const overrideAttendance = async (req, res) => {
 
       const effectiveType = check_in_type || attendance.check_in_type || 'office';
       const isExempt = ['wfh', 'site', 'client'].includes(effectiveType);
-      const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[1,75X]', '[1.75X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
-        .some(symbol => upperNotes.includes(symbol));
-      if (!hasExplicitSymbolOverride) {
+      if (!hasExplicitSymbolOverride(notes || attendance.notes)) {
         attendance.work_units = holidayWorkUnits ?? (isExempt ? 1.0 : (lateInfo.work_units ?? 1.0));
       }
     } else if (is_late !== undefined) {
@@ -1602,10 +1614,7 @@ const overrideAttendance = async (req, res) => {
     if (check_in_type) {
       attendance.check_in_type = check_in_type;
       const isExempt = ['wfh', 'site', 'client'].includes(check_in_type);
-      const upperNotes = (notes || attendance.notes || '').toUpperCase();
-      const hasExplicitSymbolOverride = ['[X]', '[0,75X]', '[0.75X]', '[0,5X]', '[0.5X]', '[1,5X]', '[1.5X]', '[1,75X]', '[1.75X]', '[2X]', '[2.0X]', '[3X]', '[3.0X]']
-        .some(symbol => upperNotes.includes(symbol));
-      if (!hasExplicitSymbolOverride && (holidayWorkUnits !== null || isExempt)) {
+      if (!hasExplicitSymbolOverride(notes || attendance.notes) && (holidayWorkUnits !== null || isExempt)) {
         attendance.work_units = holidayWorkUnits ?? 1.0;
       }
     }
@@ -2017,6 +2026,7 @@ module.exports = {
   verifyFlaggedAttendance,
   getSelfiePhoto,
   calculateLateTier,
+  hasExplicitSymbolOverride,
   calculateOT,
   calculateRawTotalHours,
   calculateAttendanceMetrics,

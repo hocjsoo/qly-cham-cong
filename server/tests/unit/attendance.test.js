@@ -6,6 +6,7 @@
 
 const {
   calculateLateTier,
+  hasExplicitSymbolOverride,
   calculateOT,
   calculateRawTotalHours,
   calculateAttendanceMetrics,
@@ -69,6 +70,14 @@ function runAttendanceTests(assert) {
   const r8h3 = calculateLateTier('2026-08-31T10:00:00+07:00', '09:00', 30, 60, 570);
   assert(r8h3.is_late === true && r8h3.work_units === 0.8947 && r8h3.credit_symbol === '0,8947x',
     'TC-ATT-08.3: Chuẩn ngày 570p, muộn 60p -> 0,8947x');
+
+  // TC-ATT-08.4 [NEW 20/10/2026]: Guard chống ghi đè ký hiệu Admin đã chốt (defect checkout clobber)
+  assert(hasExplicitSymbolOverride('Ký hiệu: [0,875x] | Sửa: Admin') === true,
+    'TC-ATT-08.4a: notes có [0,875x] (ký hiệu động) -> phát hiện đã override');
+  assert(hasExplicitSymbolOverride('Ký hiệu: [1,5x] | Công hệ số') === true,
+    'TC-ATT-08.4b: notes có [1,5x] -> phát hiện đã override');
+  assert(hasExplicitSymbolOverride('Cách VP: 120m | IP: 1.2.3.4') === false,
+    'TC-ATT-08.4c: notes thường -> không chặn tính công tự động');
 
   // TC-ATT-09: Chuyển đổi chuẩn xác từ UTC Server sang Giờ Việt Nam (+07:00)
   // 09:26:00 VN (+07:00) = 02:26:00.000Z

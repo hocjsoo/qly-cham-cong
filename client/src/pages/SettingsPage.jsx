@@ -93,6 +93,7 @@ export default function SettingsPage() {
           lunch_break_end: data.lunch_break_end || '13:00',
           minor_late_mins: data.minor_late_mins ?? 30,
           medium_late_mins: data.medium_late_mins ?? 60,
+          work_hours_per_day: data.work_hours_per_day ?? 8,
           ot_start_time: data.ot_start_time || '18:30',
           ot_mode: data.ot_mode || 'manual',
           working_days: data.working_days || ['Mon','Tue','Wed','Thu','Fri','Sat'],
@@ -471,6 +472,10 @@ export default function SettingsPage() {
                     <div className="form-group">
                       <label className="form-label">Muộn vừa (phút)</label>
                       <input type="number" className="form-input" value={shiftForm.medium_late_mins} onChange={e => setShiftForm(p => ({...p, medium_late_mins: Number(e.target.value)}))} min="1" max="120" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Giờ công chuẩn/ngày</label>
+                      <input type="number" className="form-input" value={shiftForm.work_hours_per_day} onChange={e => setShiftForm(p => ({...p, work_hours_per_day: Number(e.target.value)}))} min="1" max="16" step="0.5" />
                     </div>
                     <div className="form-group">
                       <label className="form-label">OT tính từ</label>

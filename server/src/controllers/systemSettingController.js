@@ -42,7 +42,7 @@ const updateSettings = async (req, res) => {
 
     const fields = [
       'work_start_time', 'work_end_time', 'lunch_break_start', 'lunch_break_end',
-      'minor_late_mins', 'medium_late_mins', 'ot_start_time', 'ot_mode',
+      'minor_late_mins', 'medium_late_mins', 'work_hours_per_day', 'ot_start_time', 'ot_mode',
       'working_days', 'holidays', 'makeup_days',
       'company_name', 'company_logo_url', 'company_address', 'email_footer_note',
       'announcement_display_days', 'anniversary_display_mode', 'anniversary_display_days',
@@ -51,8 +51,11 @@ const updateSettings = async (req, res) => {
 
     for (const field of fields) {
       if (req.body[field] !== undefined) {
-        if (field === 'minor_late_mins' || field === 'medium_late_mins' || field === 'announcement_display_days' || field === 'anniversary_display_days') {
-          settings[field] = Number(req.body[field]);
+        if (field === 'minor_late_mins' || field === 'medium_late_mins' || field === 'work_hours_per_day' || field === 'announcement_display_days' || field === 'anniversary_display_days') {
+          const num = Number(req.body[field]);
+          settings[field] = field === 'work_hours_per_day'
+            ? Math.min(16, Math.max(1, Math.round(num) || 8))
+            : num;
         } else {
           settings[field] = req.body[field];
         }

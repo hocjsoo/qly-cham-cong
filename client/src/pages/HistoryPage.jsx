@@ -126,6 +126,7 @@ export default function HistoryPage() {
 
   const startTime = settings?.work_start_time || '09:00';
   const endTime = settings?.work_end_time || '18:30';
+  const standardMinutes = (Number(settings?.work_hours_per_day) || 8) * 60;
   const fetchHolidays = useCallback((force = false) => {
     const request = beginHolidayRequest();
     if (!request) return;
@@ -531,7 +532,7 @@ export default function HistoryPage() {
                     ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
                   <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ 1.0 công <code>x</code>)</div>
-                  <div>• Muộn / về sớm X phút ➔ công = 1 − X / 480 (vd: muộn 60p ➔ <strong>0,875x</strong> = trừ 1/8 công)</div>
+                  <div>• Muộn / về sớm X phút ➔ công = 1 − X / {standardMinutes} (vd: muộn {Math.round(standardMinutes/8)}p ➔ <strong>0,875x</strong> = trừ 1/8 công)</div>
                   <div>• Có đơn làm bù / OT được duyệt ➔ phục hồi 100% công thiếu.</div>
                 </div>
 
