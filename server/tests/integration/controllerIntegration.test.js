@@ -2016,6 +2016,91 @@ async function runControllerIntegrationTests(assert) {
       'TC-HTTP-23.6: POST /api/attendance/checkout bị chặn 403 Forbidden khi tháng đã chốt khóa'
     );
 
+    // TC-HTTP-23.6b [21/10/2026]: Checkout chốt công theo GIỜ VÀO/RA (không trừ nghỉ trưa)
+    // Ca 11:00 -> 18:30 = 7h30 => 450/480 = 0.9375 công; ca 10:00 -> 18:30 = 8h30 => 1.0 công
+    const RealDateCheckout = global.Date;
+    // Lưu mock hiện tại để khôi phục sau test (tránh rò rỉ sang các test kế tiếp)
+    const savedMocks = {
+      timesheetLockFindOne: TimesheetLock.findOne,
+      systemSettingFindOne: SystemSetting.findOne,
+      officeLocationFind: OfficeLocation.find,
+      holidayFindOne: Holiday.findOne,
+      attendanceFindOne: Attendance.findOne,
+    };
+    TimesheetLock.findOne = async function() { return null; };
+    SystemSetting.findOne = function() {
+      const settingsDoc = { work_end_time: '18:30', ot_start_time: '18:30', work_hours_per_day: 8 };
+      return {
+        select: function() { return this; },
+        lean: async function() { return settingsDoc; },
+        then: function(resolve) { return Promise.resolve(settingsDoc).then(resolve); },
+      };
+    };
+    OfficeLocation.find = async function() { return []; };
+    Holiday.findOne = function() {
+      return { select: function() { return this; }, lean: async function() { return null; }, then: function(r) { return Promise.resolve(null).then(r); } };
+    };
+
+    const makeOpenShift = (checkInAt) => {
+      const doc = new Attendance({
+        _id: new mongoose.Types.ObjectId(),
+        user_id: mockEmpUser._id,
+        date: '2026-10-21',
+        check_in_time: new Date(checkInAt),
+        check_in_type: 'office',
+        work_units: 1.0,
+        is_late: true,
+        late_minutes: 120,
+        status: 'present',
+      });
+      doc.save = async function() { return this; };
+      return doc;
+    };
+
+    try {
+      // 1. Vào 11:00, ra 18:30 -> thiếu 30p -> 0.9375
+      const shortShift = makeOpenShift('2026-10-21T11:00:00+07:00');
+      Attendance.findOne = async function() { return shortShift; };
+      class MockClockShort extends RealDateCheckout {
+        constructor(...args) { if (args.length === 0) { super(new RealDateCheckout('2026-10-21T18:30:00+07:00').getTime()); } else { super(...args); } }
+        static now() { return new RealDateCheckout('2026-10-21T18:30:00+07:00').getTime(); }
+      }
+      global.Date = MockClockShort;
+      const resShort = await request(app)
+        .post('/api/attendance/checkout')
+        .set('Authorization', `Bearer ${employeeToken}`)
+        .send({ lat: 21.0285, lng: 105.8542 });
+      assert(
+        resShort.status === 200 && resShort.body.attendance.work_units === 0.9375,
+        'TC-HTTP-23.6b: Checkout ca 11:00->18:30 = 7h30 -> 0.9375 công (không trừ nghỉ trưa)'
+      );
+
+      // 2. Vào 10:00, ra 18:30 -> 8h30 -> đủ 1.0 công (muộn 1h không bị trừ)
+      global.Date = RealDateCheckout;
+      const lateButFull = makeOpenShift('2026-10-21T10:00:00+07:00');
+      Attendance.findOne = async function() { return lateButFull; };
+      class MockClockFull extends RealDateCheckout {
+        constructor(...args) { if (args.length === 0) { super(new RealDateCheckout('2026-10-21T18:30:00+07:00').getTime()); } else { super(...args); } }
+        static now() { return new RealDateCheckout('2026-10-21T18:30:00+07:00').getTime(); }
+      }
+      global.Date = MockClockFull;
+      const resFull = await request(app)
+        .post('/api/attendance/checkout')
+        .set('Authorization', `Bearer ${employeeToken}`)
+        .send({ lat: 21.0285, lng: 105.8542 });
+      assert(
+        resFull.status === 200 && resFull.body.attendance.work_units === 1.0,
+        'TC-HTTP-23.6c: Checkout ca 10:00->18:30 = 8h30 -> đủ 1.0 công (muộn nhưng làm đủ giờ)'
+      );
+    } finally {
+      global.Date = RealDateCheckout;
+      TimesheetLock.findOne = savedMocks.timesheetLockFindOne;
+      SystemSetting.findOne = savedMocks.systemSettingFindOne;
+      OfficeLocation.find = savedMocks.officeLocationFind;
+      Holiday.findOne = savedMocks.holidayFindOne;
+      Attendance.findOne = savedMocks.attendanceFindOne;
+    }
+
     // TC-HTTP-23.7: PUT /api/attendance/override/:id bị chặn 403 Forbidden khi tháng đã chốt khóa
     const resOverrideLocked = await request(app)
       .put(`/api/attendance/override/${mockLateAttDoc._id}`)
