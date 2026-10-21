@@ -35,9 +35,13 @@ function getTimesheetSymbol(rec) {
   if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) return 'KL';
   if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) return 'K';
   if (notes.includes('NGHỈ LỄ') || notes.includes('(L)') || notes.includes('[L]')) return 'L';
-  if (rec.work_units === 0.75 || notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) return '0,75x';
-  if (rec.work_units === 0.5 || rec.status === 'half_day' || notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) return '0,5x';
-  if (notes.includes('[X]') || rec.work_units === 1.0 || rec.total_hours >= 7.5) return 'x';
+  // Công trừ theo phút thiếu (yêu cầu khách 20/10/2026): ký hiệu động theo work_units (0.875 -> '0,875x')
+  if (notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) return '0,75x';
+  if (rec.status === 'half_day' || notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) return '0,5x';
+  if (notes.includes('[X]') || rec.work_units === 1.0) return 'x';
+  const wu = Number(rec.work_units);
+  if (Number.isFinite(wu) && wu > 0 && wu < 1) return `${wu.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
+  if (rec.total_hours >= 7.5) return 'x';
   if (rec.total_hours >= 5.5) return '0,75x';
   if (rec.total_hours > 0) return '0,5x';
   return '';
@@ -89,8 +93,10 @@ const createSummaryRows = ({ users, attendances, month, year }) => {
       else if (symbol === 'KL') totals.unpaidLeave += 1;
       else if (symbol === 'K') totals.otherLeave += 1;
       else if (symbol === 'x') totals.office += 1;
-      else if (symbol === '0,75x') totals.office += 0.75;
-      else if (symbol === '0,5x') totals.office += 0.5;
+      // Ký hiệu công trừ động (0,75x / 0,875x / 0,9375x...): quy về số công thật từ work_units
+      else if (/^\d+([.,]\d+)?x$/.test(symbol)) {
+        totals.office += Number(attendanceByDate.get(`${monthStr}-${columnKey}`)?.work_units) || Number(symbol.replace(',', '.')) || 0;
+      }
       else if (symbol === '1,5x' || symbol === '1,75x' || symbol === '2x' || symbol === '3x') {
         totals.office += Number(attendanceByDate.get(`${monthStr}-${columnKey}`)?.work_units) || 0;
       }

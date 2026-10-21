@@ -229,7 +229,10 @@ export async function mockRequest(method, url, data = {}) {
     const workStartSeconds = ((workStart[0] || 9) * 3600) + ((workStart[1] || 0) * 60);
     const isExemptFromLate = ['wfh', 'site', 'client'].includes(data.type || 'office');
     const isLate = !isExemptFromLate && currentSeconds > workStartSeconds;
-    const isAfterWorkUnitCutoff = !isExemptFromLate && currentSeconds > ((9 * 3600) + (30 * 60));
+    // Công trừ theo phút thiếu (yêu cầu khách 20/10/2026): công = 1 - phút muộn / chuẩn ngày
+    const lateMinutes = isLate ? Math.max(0, Math.floor((currentSeconds - workStartSeconds) / 60)) : 0;
+    const standardMinutes = (Number(settings.work_hours_per_day) || 8) * 60;
+    const prorataUnits = Math.max(0, Math.round((1 - lateMinutes / standardMinutes) * 10000) / 10000);
     const holidays = getMockStorage('holidays', []);
     const activeHoliday = holidays.find(holiday => {
       const startDate = String(holiday.date || '');
@@ -248,9 +251,9 @@ export async function mockRequest(method, url, data = {}) {
       check_in_type: data.type || 'office',
       check_in_note: data.note || '',
       is_late: isLate,
-      late_minutes: isLate ? Math.max(0, Math.floor((currentSeconds - workStartSeconds) / 60)) : 0,
+      late_minutes: lateMinutes,
       status: isLate ? 'late' : 'present',
-      work_units: activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : (isAfterWorkUnitCutoff ? 0.75 : 1),
+      work_units: activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : prorataUnits,
       holiday_id: activeHoliday?._id || null,
       selfie_url: data.selfie_url || null,
       has_selfie: Boolean(data.selfie_url),

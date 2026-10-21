@@ -54,7 +54,11 @@ function resolveMatrixSymbol(att, isHoliday) {
     if (notes.includes('KHÔNG LƯƠNG') || notes.includes('(KL)') || notes.includes('[KL]')) return 'KL';
     if (notes.includes('(K)') || notes.includes('KHÁC') || notes.includes('[K]')) return 'K';
     if (att.status === 'holiday' || notes.includes('NGHỈ LỄ') || notes.includes('(L)') || notes.includes('[L]')) return 'L';
-    if (att.work_units === 0.75 || notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) return '0,75x';
+    // [NEW 20/10/2026] Ký hiệu công trừ động: 0.75 -> '0,75x'; 0.875 -> '0,875x'...
+    if (Number.isFinite(Number(att.work_units)) && Number(att.work_units) > 0 && Number(att.work_units) < 1) {
+      return `${Number(att.work_units).toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
+    }
+    if (notes.includes('[0,75X]') || notes.includes('[0.75X]') || notes.includes('0,75X') || notes.includes('0.75X')) return '0,75x';
     if (att.work_units === 0.5 || att.status === 'half_day' || notes.includes('[0,5X]') || notes.includes('[0.5X]') || notes.includes('0,5X') || notes.includes('0.5X')) return '0,5x';
     if (notes.includes('[X]') || att.work_units === 1.0 || att.total_hours >= 7.5) return 'x';
     if (att.total_hours >= 5.5) return '0,75x';

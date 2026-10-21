@@ -15,6 +15,8 @@ const {
   calculateRawTotalHours,
   calculateOT,
   calculateAttendanceMetrics,
+  calculateProRataWorkUnits,
+  formatWorkUnitSymbol,
   normalizeHolidayMultiplier,
   getVnDateString,
   isOvernightShift,
@@ -62,7 +64,9 @@ const getTopologyStatus = () => {
 };
 
 // Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
-function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60) {
+// Công trừ THEO PHÚT THIẾU (yêu cầu khách 20/10/2026): công = 1 - phút muộn / chuẩn ngày (default 480p = 8h).
+// late_tier chỉ còn làm nhãn hiển thị, không còn điều khiển mốc 0.75.
+function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60, standardMinutes = 480) {
   if (!checkInDate) {
     return {
       is_late: false,
@@ -103,6 +107,9 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
   const minorMinutesNum = Number(minorMins ?? 30);
   const mediumMinutesNum = Number(mediumMins ?? 60);
 
+  // Công theo thời gian thiếu: muộn 30p -> 0,9375x; 60p -> 0,875x; trừ trần tại đủ chuẩn ngày
+  const prorataUnits = calculateProRataWorkUnits(diffMins, standardMinutes);
+
   if (diffMs <= 0) {
     return {
       is_late: false,
@@ -117,18 +124,18 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
       is_late: true,
       late_minutes: diffMins,
       late_tier: diffMins <= minorMinutesNum ? 'late_minor' : 'late_medium',
-      label: `Muộn nhẹ (+${diffMins}p)`,
-      work_units: 1.0,
-      credit_symbol: 'x'
+      label: `Muộn nhẹ (+${diffMins}p − trừ công)`,
+      work_units: prorataUnits,
+      credit_symbol: formatWorkUnitSymbol(prorataUnits)
     };
   } else {
     return {
       is_late: true,
       late_minutes: diffMins,
       late_tier: diffMins <= mediumMinutesNum ? 'late_medium' : 'late_severe',
-      label: `Muộn trừ công (+${diffMins}p - 0.75 công)`,
-      work_units: 0.75,
-      credit_symbol: '0,75x'
+      label: `Muộn (+${diffMins}p − ${formatWorkUnitSymbol(prorataUnits)})`,
+      work_units: prorataUnits,
+      credit_symbol: formatWorkUnitSymbol(prorataUnits)
     };
   }
 }
@@ -169,7 +176,7 @@ const checkIn = async (req, res) => {
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
-      settingsQuery = settingsQuery.select('work_start_time work_end_time minor_late_mins medium_late_mins default_gps_radius_meters');
+      settingsQuery = settingsQuery.select('work_start_time work_end_time minor_late_mins medium_late_mins work_hours_per_day default_gps_radius_meters');
     }
     if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
 
@@ -203,6 +210,7 @@ const checkIn = async (req, res) => {
       work_start_time: '09:00',
       minor_late_mins: 30,
       medium_late_mins: 60,
+      work_hours_per_day: 8,
     };
 
     // Kiểm tra bảng công tháng/nhân viên có bị chốt khóa hay không (bảo vệ tính bất biến)
@@ -418,7 +426,8 @@ const checkIn = async (req, res) => {
       now,
       settings.work_start_time || '09:00',
       settings.minor_late_mins ?? 30,
-      settings.medium_late_mins ?? 60
+      settings.medium_late_mins ?? 60,
+      (Number(settings.work_hours_per_day) || 8) * 60
     );
 
     const combinedNote = [
@@ -633,7 +642,7 @@ const checkOut = async (req, res) => {
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
-      settingsQuery = settingsQuery.select('work_end_time ot_start_time');
+      settingsQuery = settingsQuery.select('work_end_time ot_start_time work_hours_per_day');
     }
     if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
 
@@ -724,6 +733,11 @@ const checkOut = async (req, res) => {
     attendance.is_overnight = isOvernight;
 
     if (activeHoliday) attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
+    // Công trừ theo thời gian thiếu thực tế (muộn + về sớm). WFH/site/client & ngày lễ miễn trừ.
+    else if (!['wfh', 'site', 'client'].includes(attendance.check_in_type)) {
+      const missingMins = (attendance.late_minutes || 0) + (metrics.earlyMinutes || 0);
+      attendance.work_units = calculateProRataWorkUnits(missingMins, (Number(settings?.work_hours_per_day) || 8) * 60);
+    }
 
     // Phân định rõ ràng OT xuyên ngày (chờ Admin duyệt) vs OT cùng ngày
     if (isOvernight) {
@@ -1495,7 +1509,7 @@ const overrideAttendance = async (req, res) => {
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
-      settingsQuery = settingsQuery.select('work_start_time work_end_time ot_start_time');
+      settingsQuery = settingsQuery.select('work_start_time work_end_time ot_start_time work_hours_per_day');
     }
     if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
 
@@ -1509,7 +1523,7 @@ const overrideAttendance = async (req, res) => {
     if (holidayQuery && typeof holidayQuery.lean === 'function') holidayQuery = holidayQuery.lean();
 
     const [settingsResult, activeHoliday] = await Promise.all([settingsQuery, holidayQuery]);
-    const settings = settingsResult || { work_start_time: '09:00', work_end_time: '18:30', ot_start_time: '18:30' };
+    const settings = settingsResult || { work_start_time: '09:00', work_end_time: '18:30', ot_start_time: '18:30', work_hours_per_day: 8 };
     const holidayWorkUnits = activeHoliday ? normalizeHolidayMultiplier(activeHoliday.work_multiplier) : null;
 
     const [dYear, dMonth] = targetDate.split('-').map(Number);
@@ -1561,7 +1575,7 @@ const overrideAttendance = async (req, res) => {
 
     if (check_in_time) {
       attendance.check_in_time = parseVNTime(check_in_time);
-      const lateInfo = calculateLateTier(attendance.check_in_time, settings.work_start_time);
+      const lateInfo = calculateLateTier(attendance.check_in_time, settings.work_start_time, 30, 60, (Number(settings.work_hours_per_day) || 8) * 60);
       if (is_late !== undefined) {
         attendance.is_late = Boolean(is_late);
       } else {

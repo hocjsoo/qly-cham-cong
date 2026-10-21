@@ -106,7 +106,7 @@ export const PdfMatrixTemplate = forwardRef(function PdfMatrixTemplate(
                         padding: '6px 4px', fontWeight: 800, border: '1px solid #cbd5e1',
                         background: isSun ? '#fef2f2' : d.ot_hours > 0 ? '#fff7ed' : 'transparent',
                         color: isHolidayWorkSymbol(daySymbol) ? '#be185d' :
-                               daySymbol === 'x' || daySymbol === '0,75x' ? '#059669' :
+                               daySymbol === 'x' || /^0[.,]\d+x$/.test(daySymbol) ? '#059669' :
                                daySymbol === '0,5x' ? '#d97706' :
                                daySymbol === 'CT1' ? '#2563eb' :
                                daySymbol === 'CT2' ? '#7c3aed' :

@@ -82,6 +82,24 @@ const calculateAttendanceMetrics = (
   };
 };
 
+// Công trừ theo thời gian thiếu thực tế (yêu cầu khách hàng 20/10/2026):
+// công = 1 - (số phút thiếu / số phút chuẩn ngày). Muộn/về sớm 60p -> trừ 1/8 công (0.875).
+// Làm tròn 4 chữ số thập phân để 1/8 giữ chính xác 0.8750.
+const calculateProRataWorkUnits = (missingMinutes, standardMinutes = 480) => {
+  const miss = Math.max(0, Number(missingMinutes) || 0);
+  const std = Number(standardMinutes) > 0 ? Number(standardMinutes) : 480;
+  return Math.max(0, Math.round((1 - miss / std) * 10000) / 10000);
+};
+
+// Ký hiệu bảng công động: 1 -> 'x'; 0.875 -> '0,875x'; 0.75 -> '0,75x' (giữ tương thích legacy); 0 -> 'KL'
+const formatWorkUnitSymbol = (workUnits) => {
+  const u = Number(workUnits);
+  if (!Number.isFinite(u)) return '';
+  if (u >= 1) return 'x';
+  if (u <= 0) return 'KL';
+  return `${u.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
+};
+
 const formatDurationHoursMinutes = (hours) => {
   const numHours = Number(hours);
   if (!Number.isFinite(numHours) || numHours <= 0) return '0 giờ 00 phút';
@@ -107,6 +125,8 @@ module.exports = {
   calculateRawTotalHours,
   calculateOT,
   calculateAttendanceMetrics,
+  calculateProRataWorkUnits,
+  formatWorkUnitSymbol,
   formatDurationHoursMinutes,
   normalizeHolidayMultiplier,
 };

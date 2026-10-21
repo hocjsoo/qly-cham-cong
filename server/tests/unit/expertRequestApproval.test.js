@@ -113,7 +113,7 @@ const simulateApproveRequest = (request, targetUser, reviewer, existingAttendanc
           }
         }
         att.status = 'present';
-        att.work_units = (att.is_late && att.late_minutes > 30) ? 0.75 : 1.0;
+        att.work_units = att.work_units != null && att.work_units > 0 ? att.work_units : Math.max(0, Math.round((1 - ((att.late_minutes || 0) + (att.early_minutes || 0)) / 480) * 10000) / 10000);
         att.notes = `Duyệt bổ sung checkout ${proposedTime}`;
       } else if (request.type === 'overtime') {
         const ot = calculateOtHours(request.start_time, request.end_time);

@@ -75,10 +75,10 @@ const compressSelfieFile = async file => {
 };
 
 const LATE_TIERS = {
-  on_time:     { label: 'Đúng giờ',                    cls: 'badge--success', icon: '✅' },
-  late_minor:  { label: 'Muộn nhẹ 1–30p (1.0 công)',   cls: 'badge--warning', icon: '⏰' },
-  late_medium: { label: 'Muộn trừ công (>30p - 0.75c)', cls: 'badge--danger',  icon: '⚠️' },
-  late_severe: { label: 'Muộn nhiều (0.75 công)',       cls: 'badge--danger',  icon: '🚨' },
+  on_time:     { label: 'Đúng giờ',                  cls: 'badge--success', icon: '✅' },
+  late_minor:  { label: 'Muộn nhẹ (trừ công theo phút thiếu)',   cls: 'badge--warning', icon: '⏰' },
+  late_medium: { label: 'Muộn vừa (trừ công theo phút thiếu)',   cls: 'badge--danger',  icon: '⚠️' },
+  late_severe: { label: 'Muộn nhiều (trừ công theo phút thiếu)', cls: 'badge--danger',  icon: '🚨' },
 };
 
 const fmt = (iso) => {

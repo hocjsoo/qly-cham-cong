@@ -1870,8 +1870,8 @@ async function runControllerIntegrationTests(assert) {
       return null;
     };
 
-    // TC-HTTP-23.3: POST /api/attendance/checkin với clock injection cố định 09:45 AM (> 09:30)
-    // Chứng minh: ca office bị tính 0.75 công, nhưng ca WFH/công tác được miễn trừ và giữ đủ 1.0 công
+    // TC-HTTP-23.3: POST /api/attendance/checkin với clock injection cố định 09:45 AM
+    // [NEW 20/10/2026] Công trừ theo phút thiếu: 09:45 = muộn 45p -> công = 1 - 45/480 = 0.9063; WFH miễn trừ giữ 1.0
     const RealDate = global.Date;
     const fixedClockTime = new Date('2026-08-31T09:45:00+07:00');
     class MockClockDate extends RealDate {
@@ -1894,7 +1894,7 @@ async function runControllerIntegrationTests(assert) {
         return new Attendance(data);
       };
 
-      // 1. Kiểm tra ca office lúc 09:45 -> Bị giảm công xuống 0.75x
+      // 1. Kiểm tra ca office lúc 09:45 -> Muộn 45p, trừ theo phút thiếu (0.9063)
       const resOfficeLate = await request(app)
         .post('/api/attendance/checkin')
         .set('Authorization', `Bearer ${employeeToken}`)
@@ -1906,9 +1906,9 @@ async function runControllerIntegrationTests(assert) {
 
       assert(
         resOfficeLate.status === 201 &&
-          resOfficeLate.body.attendance.work_units === 0.75 &&
+          resOfficeLate.body.attendance.work_units === 0.9063 &&
           resOfficeLate.body.attendance.is_late === true,
-        'TC-HTTP-23.3a: Check-in văn phòng lúc 09:45 AM (> 09:30) bị tính 0.75 công (work_units=0.75, is_late=true)'
+        'TC-HTTP-23.3a: Check-in văn phòng lúc 09:45 AM -> muộn 45p, trừ theo phút thiếu (work_units=0.9063, is_late=true)'
       );
 
       // 2. Kiểm tra ca WFH lúc 09:45 -> Vẫn giữ nguyên đủ 1.0 công (miễn trừ WFH)
@@ -1925,20 +1925,21 @@ async function runControllerIntegrationTests(assert) {
         resWfhCheckin.status === 201 &&
           resWfhCheckin.body.attendance.work_units === 1.0 &&
           resWfhCheckin.body.attendance.check_in_type === 'wfh',
-        'TC-HTTP-23.3b: POST /api/attendance/checkin loại hình WFH lúc 09:45 AM luôn duy trì đủ 1.0 công (không bị trừ 0.75 công)'
+        'TC-HTTP-23.3b: POST /api/attendance/checkin loại hình WFH lúc 09:45 AM luôn duy trì đủ 1.0 công (miễn trừ trừ công)'
       );
     } finally {
       global.Date = RealDate;
     }
 
-    // TC-HTTP-23.4: PUT /api/attendance/override/:id cập nhật giờ check-in từ 09:35 về 09:20 -> work_units tự động đồng bộ từ 0.75 lên 1.0
+    // TC-HTTP-23.4: PUT /api/attendance/override/:id cập nhật giờ check-in từ 09:35 về 09:20
+    // [NEW 20/10/2026] work_units đồng bộ theo phút thiếu: 09:20 = muộn 20p -> 1 - 20/480 = 0.9583
     const mockLateAttDoc = new Attendance({
       _id: new mongoose.Types.ObjectId(),
       user_id: mockEmpUser._id,
       date: '2026-08-31',
       check_in_time: new Date('2026-08-31T09:35:00+07:00'),
       check_in_type: 'office',
-      work_units: 0.75,
+      work_units: 0.9063,
       is_late: true,
       late_minutes: 35,
       status: 'present',
@@ -1955,9 +1956,9 @@ async function runControllerIntegrationTests(assert) {
 
     assert(
       resOverrideTime.status === 200 &&
-        resOverrideTime.body.attendance.work_units === 1.0 &&
+        resOverrideTime.body.attendance.work_units === 0.9583 &&
         resOverrideTime.body.attendance.late_minutes === 20,
-      'TC-HTTP-23.4: PUT /api/attendance/override/:id sửa giờ từ 09:35 về 09:20 -> work_units tự động đồng bộ lại thành 1.0'
+      'TC-HTTP-23.4: PUT /api/attendance/override/:id sửa giờ từ 09:35 về 09:20 -> work_units đồng bộ theo phút thiếu (0.9583)'
     );
 
     // TC-HTTP-23.5: PUT /api/attendance/override/:id khi Admin đã override ký hiệu công rõ ràng [0,75x] -> Bảo toàn work_units=0.75 không bị ghi đè

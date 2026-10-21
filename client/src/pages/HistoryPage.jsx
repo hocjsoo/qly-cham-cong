@@ -17,15 +17,6 @@ const fmt = (iso) => {
   return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 };
 
-const addMinsToTime = (timeStr, mins) => {
-  if (!timeStr) return '';
-  const [h, m] = timeStr.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  const newH = String(Math.floor(total / 60) % 24).padStart(2, '0');
-  const newM = String(total % 60).padStart(2, '0');
-  return `${newH}:${newM}`;
-};
-
 const MONTHS = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6',
   'Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
 
@@ -45,9 +36,18 @@ const formatHolidayWorkSymbol = value => {
 };
 
 // Ký hiệu bảng chấm công chuẩn theo mẫu ET_Staff 2026
+// Công trừ THEO PHÚT THIẾU (yêu cầu khách 20/10/2026): 0,875x = muộn/về sớm 1h...
+const formatProRataSymbol = (workUnits) => {
+  const u = Number(workUnits);
+  if (!Number.isFinite(u)) return '—';
+  if (u >= 1) return 'x';
+  if (u <= 0) return 'KL';
+  return `${u.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
+};
+
 const TIMESHEET_SYMBOLS = [
   { code: 'x', label: 'Đủ công (1.0)', color: 'var(--green)' },
-  { code: '0.75x', label: '3/4 công', color: 'var(--green)' },
+  { code: 'pro-rata', label: 'Công trừ theo phút thiếu (vd 0,875x)', color: 'var(--green)' },
   { code: '0.5x', label: '1/2 công', color: 'var(--yellow)' },
   { code: '1,5x', label: 'Ngày lễ (1.5)', color: 'var(--holiday-work)' },
   { code: '1,75x', label: 'Ngày lễ (1.75)', color: 'var(--holiday-work)' },
@@ -69,10 +69,8 @@ function getTimesheetSymbol(rec) {
   if (rec.check_in_type === 'site') return 'CT1';
   if (rec.check_in_type === 'client') return 'CT2';
   if (rec.status === 'leave' || rec.notes?.includes('Nghỉ phép')) return 'P';
-  if (rec.work_units === 0.75) return '0.75x';
-  if (rec.work_units === 0.5 || rec.status === 'half_day') return '0.5x';
-  if (rec.total_hours <= 4) return '0.5x';
-  if (rec.total_hours >= 6 && rec.total_hours < 7.5) return '0.75x';
+  if (Number.isFinite(Number(rec.work_units)) && rec.work_units < 1) return formatProRataSymbol(rec.work_units);
+  if (rec.status === 'half_day' || rec.total_hours <= 4) return '0.5x';
   return 'x';
 }
 
@@ -128,7 +126,6 @@ export default function HistoryPage() {
 
   const startTime = settings?.work_start_time || '09:00';
   const endTime = settings?.work_end_time || '18:30';
-  const minorLateTime = addMinsToTime(startTime, settings?.minor_late_mins ?? 30);
   const fetchHolidays = useCallback((force = false) => {
     const request = beginHolidayRequest();
     if (!request) return;
@@ -534,8 +531,8 @@ export default function HistoryPage() {
                     ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
                   <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ 1.0 công <code>x</code>)</div>
-                  <div>• <strong>{addMinsToTime(startTime, 1)} – {minorLateTime}</strong>: Muộn nhẹ (Tính đủ công)</div>
-                  <div>• <strong>&gt; {minorLateTime}</strong>: Muộn quá 30p (Tính <strong>0.75 công</strong>, trừ 0.25c nếu không có giải trình)</div>
+                  <div>• Muộn / về sớm X phút ➔ công = 1 − X / 480 (vd: muộn 60p ➔ <strong>0,875x</strong> = trừ 1/8 công)</div>
+                  <div>• Có đơn làm bù / OT được duyệt ➔ phục hồi 100% công thiếu.</div>
                 </div>
 
                 {/* Rule 3: Leave & Explanation */}
@@ -558,7 +555,7 @@ export default function HistoryPage() {
                     <strong style={{ color: 'var(--green)' }}>x</strong> : Đủ công (1.0)
                   </div>
                   <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-                    <strong style={{ color: 'var(--green)' }}>0,75x</strong> : 3/4 công
+                    <strong style={{ color: 'var(--green)' }}>0,75x · 0,875x · 0,9375x…</strong> : công trừ theo phút thiếu
                   </div>
                   <div style={{ background: 'var(--bg-raised)', padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                     <strong style={{ color: 'var(--yellow)' }}>0,5x</strong> : 1/2 công

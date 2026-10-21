@@ -14,8 +14,9 @@ const systemSettingSchema = new mongoose.Schema(
     work_end_time: { type: String, default: '18:30' },         // Giờ về chuẩn
     lunch_break_start: { type: String, default: '12:00' },     // Giờ nghỉ trưa
     lunch_break_end: { type: String, default: '13:00' },       // Giờ hết nghỉ trưa
-    minor_late_mins: { type: Number, default: 30 },            // Muộn nhẹ (≤ 30p, 1.0 công nhắc nhở)
-    medium_late_mins: { type: Number, default: 60 },           // Muộn vừa (> 30p, trừ 0.25 công)
+    minor_late_mins: { type: Number, default: 30 },            // Muộn nhẹ (≤ 30p, nhãn "Muộn nhẹ")
+    medium_late_mins: { type: Number, default: 60 },           // Muộn vừa (> 30p, nhãn "Muộn vừa")
+    work_hours_per_day: { type: Number, default: 8, min: 1, max: 16 }, // Số giờ công chuẩn/ngày (công = 1 - phút thiếu/(giờ*60))
     ot_start_time: { type: String, default: '18:30' },         // OT tính từ 18:30
     ot_mode: { type: String, enum: ['auto', 'manual'], default: 'manual' }, // auto=tính giờ, manual=giám đốc xét
     default_gps_radius_meters: { type: Number, default: 250 }, // Bán kính GPS mặc định (m)

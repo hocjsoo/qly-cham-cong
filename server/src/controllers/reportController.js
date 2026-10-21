@@ -340,14 +340,10 @@ const getPayroll = async (req, res) => {
       ), 0).toFixed(2));
       const otEquivalentDays = parseFloat((otHours * OT_MULTIPLIER / WORK_HOURS_PER_DAY).toFixed(1));
 
-      // Phạt muộn: muộn nhẹ(1-10p) = 0.25 ngày, muộn(11-30p) = 0.5 ngày, muộn nhiều(>30p) = 1 ngày
-      let penaltyDays = 0;
-      recs.filter(r => r.is_late).forEach(r => {
-        if (r.late_tier === 'late_severe') penaltyDays += 1;
-        else if (r.late_tier === 'late_medium') penaltyDays += 0.5;
-        else if (r.late_tier === 'late_minor') penaltyDays += 0.25;
-        else penaltyDays += 0.25; // fallback
-      });
+      // Phạt muộn theo bậc đã BỎ (yêu cầu khách 20/10/2026): trừ giờ thiếu đã nằm
+      // trong work_units (công = 1 - phút thiếu/480). Giữ key penalty_days=0 cho tương thích API/CSV,
+      // tránh trừ công 2 lớp (0.75 công + thêm 1 ngày phạt).
+      const penaltyDays = 0;
 
       const totalWorkDays = parseFloat((attendanceDays + otEquivalentDays - penaltyDays).toFixed(2));
       const attendanceRate = STANDARD_WORK_DAYS > 0

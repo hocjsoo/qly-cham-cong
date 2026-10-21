@@ -648,7 +648,9 @@ export default function ReportPage() {
   const handleSaveCellOverride = async () => {
     if (!selectedCell) return;
     const VALID_SYMBOLS = ['', 'x', '0,75x', '0,5x', '1,5x', '1,75x', '2x', '3x', 'CT1', 'CT2', 'WFH', 'P', 'O', 'KL', 'L', 'K'];
-    if (!VALID_SYMBOLS.includes(cellSymbol)) {
+    // Công trừ theo phút thiếu (yêu cầu khách 20/10/2026): chấp nhận mọi ký hiệu số như 0,875x
+    const isDynamicProRataSymbol = /^0[.,]\d+x$/.test(cellSymbol);
+    if (!VALID_SYMBOLS.includes(cellSymbol) && !isDynamicProRataSymbol) {
       toast.error('Vui lòng chọn Ký hiệu công hợp lệ');
       return;
     }
@@ -1079,9 +1081,11 @@ export default function ReportPage() {
                   bg = 'rgba(236, 72, 153, 0.15)'; color = 'var(--holiday-work)';
                 } else if (symbol === 'x' || symbol === '1.0x') {
                   bg = 'var(--green-soft)'; color = 'var(--green)';
+                } else if (/^0[.,]\d+x$/.test(symbol) && parseFloat(String(symbol).replace(',', '.')) >= 0.75) {
+                  bg = 'var(--green-soft)'; color = 'var(--green)';
                 } else if (symbol === '0,75x' || symbol === '0.75x') {
                   bg = 'var(--green-soft)'; color = 'var(--green)';
-                } else if (symbol === '0,5x' || symbol === '0.5x') {
+                } else if (/^0[.,]\d+x$/.test(symbol) || symbol === '0,5x' || symbol === '0.5x') {
                   bg = 'var(--yellow-soft)'; color = 'var(--yellow)';
                 } else if (symbol === 'CT1') {
                   bg = 'var(--blue-soft)'; color = 'var(--blue)';
@@ -1375,11 +1379,11 @@ export default function ReportPage() {
                                             bg = 'rgba(16, 185, 129, 0.08)';
                                             border = '1px solid rgba(16, 185, 129, 0.35)';
                                             symbolColor = '#10b981';
-                                          } else if (daySymbol === '0,75x' || daySymbol === '0.75x') {
+                                          } else if (/^0[.,]\d+x$/.test(daySymbol) && parseFloat(String(daySymbol).replace(',', '.')) >= 0.75) {
                                             bg = 'rgba(16, 185, 129, 0.08)';
                                             border = '1px solid rgba(16, 185, 129, 0.35)';
                                             symbolColor = '#059669';
-                                          } else if (daySymbol === '0,5x' || daySymbol === '0.5x') {
+                                          } else if (/^0[.,]\d+x$/.test(daySymbol) || daySymbol === '0,5x' || daySymbol === '0.5x') {
                                             bg = 'rgba(245, 158, 11, 0.08)';
                                             border = '1px solid rgba(245, 158, 11, 0.35)';
                                             symbolColor = '#d97706';
@@ -1658,7 +1662,7 @@ export default function ReportPage() {
                             ))}
                           </div>
                           <div className="timesheet-legend">
-                            <span className="timesheet-legend__item is-green"><i />x · 0,5x · 0,75x</span>
+                            <span className="timesheet-legend__item is-green"><i />x · công trừ theo phút thiếu (0,875x…)</span>
                             <span className="timesheet-legend__item is-holiday-work"><i />1,5x · 1,75x · 2x · 3x ngày lễ</span>
                             <span className="timesheet-legend__item is-blue"><i />CT1 · CT2 · WFH</span>
                             <span className="timesheet-legend__item is-purple"><i />P · O · KL · K</span>
@@ -2142,7 +2146,7 @@ export default function ReportPage() {
                   <div style={{ marginTop: '3px' }}>
                     <span
                       className={`badge ${
-                        ['x', '0,75x', '0,5x', '1,5x', '1.5x', '1,75x', '1.75x', '2x', '2.0x', '3x', '3.0x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) ? 'badge--success' :
+                        (['x', '0,75x', '0,5x', '1,5x', '1.5x', '1,75x', '1.75x', '2x', '2.0x', '3x', '3.0x', 'CT1', 'CT2', 'WFH'].includes(selectedCell.current_symbol) || /^0[.,]\d+x$/.test(selectedCell.current_symbol)) ? 'badge--success' :
                         ['P', 'O'].includes(selectedCell.current_symbol) ? 'badge--warning' :
                         ['KL', 'K'].includes(selectedCell.current_symbol) ? 'badge--danger' : 'badge--neutral'
                       }`}

@@ -69,7 +69,10 @@ const resolveStructuredTimesheetSymbol = (attendance, isHoliday = false) => {
   if (attendance.check_in_type === 'client') return 'CT2';
   if (attendance.check_in_type === 'site') return 'CT1';
   if (attendance.check_in_type === 'wfh') return 'WFH';
-  if (workUnits === 0.75) return '0,75x';
+  // [NEW 20/10/2026] Công trừ động theo phút thiếu: 0.75 -> '0,75x'; 0.875 -> '0,875x'...
+  if (Number.isFinite(workUnits) && workUnits > 0 && workUnits < 1) {
+    return `${workUnits.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
+  }
   if (workUnits === 1) return 'x';
   return null;
 };
@@ -296,8 +299,10 @@ const getFullMatrix = async (req, res) => {
           else if (symbol === 'K') other_leave += 1;
           else if (['1,5x', '1,75x', '2x', '3x'].includes(symbol)) nlv_office += Number(att.work_units) || 0;
           else if (symbol === 'x') nlv_office += 1;
-          else if (symbol === '0,75x') nlv_office += 0.75;
-          else if (symbol === '0,5x') nlv_office += 0.5;
+          // Ký hiệu công trừ động (0,75x / 0,875x / 0,9375x...): lấy số công thật từ work_units
+          else if (/^\d+([.,]\d+)?x$/.test(symbol)) {
+            nlv_office += Number(att.work_units) || Number(symbol.replace(',', '.')) || 0;
+          }
         } else if (hd.isHoliday) {
           // Ngày nghỉ lễ của công ty không có chấm công -> Ghi nhận ký hiệu nghỉ lễ 'L'
           symbol = 'L';
@@ -456,7 +461,9 @@ const overrideCell = async (req, res) => {
   const rawSymbol = new_symbol.trim();
 
   // 1. Kiểm tra tính hợp lệ của Ký hiệu công (ngăn chặn ký hiệu lạ / dữ liệu không nhất quán)
-  if (rawSymbol !== '' && !SYMBOL_TO_STATUS_MAP[rawSymbol]) {
+  // [NEW 20/10/2026] Chấp nhận ký hiệu công trừ động theo phút thiếu: 0,875x / 0,9375x / 0,75x...
+  const isProRataSymbol = /^0[.,]\d+x$/.test(rawSymbol);
+  if (rawSymbol !== '' && !SYMBOL_TO_STATUS_MAP[rawSymbol] && !isProRataSymbol) {
     return res.status(400).json({
       error: 'Ký hiệu công không hợp lệ. Chỉ chấp nhận: x, 0,75x, 0,5x, 1,5x, 1,75x, 2x, 3x, CT1, CT2, WFH, P, O, KL, K, L hoặc để trống (chỉ tính OT).'
     });
@@ -722,7 +729,17 @@ const overrideCell = async (req, res) => {
       };
     }
 
-    const targetConfig = SYMBOL_TO_STATUS_MAP[rawSymbol] || SYMBOL_TO_STATUS_MAP[''];
+    // Config cho ký hiệu công trừ động: suy work_units trực tiếp từ số trong ký hiệu (0,875x -> 0.875)
+    const proRataConfig = isProRataSymbol ? {
+      total_hours: Math.round(parseFloat(rawSymbol.replace(',', '.')) * 8 * 10) / 10,
+      work_units: parseFloat(rawSymbol.replace(',', '.')),
+      is_late: false,
+      late_tier: 'on_time',
+      check_in_type: 'office',
+      status: 'present',
+      notes: `Công trừ theo phút thiếu (${rawSymbol})`,
+    } : null;
+    const targetConfig = SYMBOL_TO_STATUS_MAP[rawSymbol] || proRataConfig || SYMBOL_TO_STATUS_MAP[''];
 
     // 2. Kiểm tra tính hợp lệ của Giờ OT: Số hữu hạn, 0 <= OT <= 16, bước 0.5h
     let confirmedOtHours = attendance?.ot_hours || 0;
