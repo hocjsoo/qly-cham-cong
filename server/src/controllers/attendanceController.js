@@ -15,7 +15,7 @@ const {
   calculateRawTotalHours,
   calculateOT,
   calculateAttendanceMetrics,
-  calculateProRataWorkUnits,
+  calculateWorkedWorkUnits,
   formatWorkUnitSymbol,
   normalizeHolidayMultiplier,
   getVnDateString,
@@ -74,9 +74,10 @@ const hasExplicitSymbolOverride = (notes) => {
 };
 
 // Phân loại mức đi muộn theo quy định công ty chuẩn múi giờ +07:00 (Ca 09:00 - 18:30)
-// Công trừ THEO PHÚT THIẾU (yêu cầu khách 20/10/2026): công = 1 - phút muộn / chuẩn ngày (default 480p = 8h).
-// late_tier chỉ còn làm nhãn hiển thị, không còn điều khiển mốc 0.75.
-function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60, standardMinutes = 480) {
+// [21/10/2026] Đi muộn KHÔNG trừ công ngay: chỉ ghi nhận nhãn + số phút muộn (tạm tính 1.0 công).
+// Công thực tế được chốt khi check-out theo GIỜ LÀM THỰC TẾ (calculateWorkedWorkUnits):
+// "muộn mà tăng ca đủ giờ thì không bị trừ, chỉ làm không đủ 8 tiếng mới trừ".
+function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, mediumMins = 60) {
   if (!checkInDate) {
     return {
       is_late: false,
@@ -117,9 +118,6 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
   const minorMinutesNum = Number(minorMins ?? 30);
   const mediumMinutesNum = Number(mediumMins ?? 60);
 
-  // Công theo thời gian thiếu: muộn 30p -> 0,9375x; 60p -> 0,875x; trừ trần tại đủ chuẩn ngày
-  const prorataUnits = calculateProRataWorkUnits(diffMins, standardMinutes);
-
   if (diffMs <= 0) {
     return {
       is_late: false,
@@ -134,18 +132,18 @@ function calculateLateTier(checkInDate, workStartStr = '09:00', minorMins = 30, 
       is_late: true,
       late_minutes: diffMins,
       late_tier: diffMins <= minorMinutesNum ? 'late_minor' : 'late_medium',
-      label: `Muộn nhẹ (+${diffMins}p − trừ công)`,
-      work_units: prorataUnits,
-      credit_symbol: formatWorkUnitSymbol(prorataUnits)
+      label: `Muộn nhẹ (+${diffMins}p)`,
+      work_units: 1.0,
+      credit_symbol: 'x'
     };
   } else {
     return {
       is_late: true,
       late_minutes: diffMins,
       late_tier: diffMins <= mediumMinutesNum ? 'late_medium' : 'late_severe',
-      label: `Muộn (+${diffMins}p − ${formatWorkUnitSymbol(prorataUnits)})`,
-      work_units: prorataUnits,
-      credit_symbol: formatWorkUnitSymbol(prorataUnits)
+      label: `Muộn (+${diffMins}p)`,
+      work_units: 1.0,
+      credit_symbol: 'x'
     };
   }
 }
@@ -652,7 +650,7 @@ const checkOut = async (req, res) => {
 
     let settingsQuery = SystemSetting.findOne({ key: 'global' });
     if (settingsQuery && typeof settingsQuery.select === 'function') {
-      settingsQuery = settingsQuery.select('work_end_time ot_start_time work_hours_per_day');
+      settingsQuery = settingsQuery.select('work_end_time ot_start_time work_hours_per_day lunch_break_start lunch_break_end');
     }
     if (settingsQuery && typeof settingsQuery.lean === 'function') settingsQuery = settingsQuery.lean();
 
@@ -747,11 +745,16 @@ const checkOut = async (req, res) => {
         attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
       }
     }
-    // Công trừ theo thời gian thiếu thực tế (muộn + về sớm). WFH/site/client & ngày lễ miễn trừ.
+    // Chốt công theo GIỜ LÀM THỰC TẾ của cả ngày (đã trừ nghỉ trưa):
+    // muộn nhưng ở lại đủ 8h -> 1.0 công; thiếu giờ mới trừ. WFH/site/client & ngày lễ miễn trừ.
     // Nếu Admin đã chốt ký hiệu công thủ công thì giữ nguyên, không tự tính lại.
     else if (!['wfh', 'site', 'client'].includes(attendance.check_in_type) && !hasExplicitSymbolOverride(attendance.notes)) {
-      const missingMins = (attendance.late_minutes || 0) + (metrics.earlyMinutes || 0);
-      attendance.work_units = calculateProRataWorkUnits(missingMins, (Number(settings?.work_hours_per_day) || 8) * 60);
+      const worked = calculateWorkedWorkUnits(checkInTime, now, {
+        standardMinutes: (Number(settings?.work_hours_per_day) || 8) * 60,
+        lunchStart: settings?.lunch_break_start || '12:00',
+        lunchEnd: settings?.lunch_break_end || '13:00',
+      });
+      attendance.work_units = worked.workUnits;
     }
 
     // Phân định rõ ràng OT xuyên ngày (chờ Admin duyệt) vs OT cùng ngày

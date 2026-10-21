@@ -100,6 +100,47 @@ const formatWorkUnitSymbol = (workUnits) => {
   return `${u.toFixed(4).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',')}x`;
 };
 
+// Số phút nghỉ trưa thực tế nằm trong khoảng [checkIn, checkOut] của ca.
+// Ca xuyên đêm chỉ trừ giờ trưa của ngày check-in (giờ trưa ngày hôm sau không tính).
+const calculateLunchOverlapMinutes = (checkInDate, checkOutDate, lunchStart = '12:00', lunchEnd = '13:00') => {
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) return 0;
+
+  const lunchFrom = buildVnThreshold(checkIn, lunchStart, '12:00');
+  const lunchTo = buildVnThreshold(checkIn, lunchEnd, '13:00');
+  if (!lunchFrom || !lunchTo || lunchTo <= lunchFrom) return 0;
+
+  const overlapStart = Math.max(checkIn.getTime(), lunchFrom.getTime());
+  const overlapEnd = Math.min(checkOut.getTime(), lunchTo.getTime());
+  return Math.max(0, Math.round((overlapEnd - overlapStart) / (1000 * 60)));
+};
+
+// Công theo GIỜ LÀM THỰC TẾ (yêu cầu khách 21/10/2026):
+// "muộn mà tăng ca đủ giờ thì không bị trừ, chỉ làm không đủ 8 tiếng mới trừ".
+// Công = min(1, giờ làm thực tế / giờ chuẩn ngày); giờ làm thực tế đã trừ nghỉ trưa.
+const calculateWorkedWorkUnits = (
+  checkInDate,
+  checkOutDate,
+  { standardMinutes = 480, lunchStart = '12:00', lunchEnd = '13:00' } = {}
+) => {
+  const std = Number(standardMinutes) > 0 ? Number(standardMinutes) : 480;
+  const checkIn = new Date(checkInDate);
+  const checkOut = new Date(checkOutDate);
+
+  if (Number.isNaN(checkIn.getTime()) || Number.isNaN(checkOut.getTime()) || checkOut <= checkIn) {
+    return { workedMinutes: 0, missingMinutes: std, workUnits: 0, lunchMinutes: 0 };
+  }
+
+  const lunchMinutes = calculateLunchOverlapMinutes(checkIn, checkOut, lunchStart, lunchEnd);
+  const presenceMinutes = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60));
+  const workedMinutes = Math.max(0, presenceMinutes - lunchMinutes);
+  const missingMinutes = Math.max(0, std - workedMinutes);
+  const workUnits = Math.max(0, Math.round((1 - missingMinutes / std) * 10000) / 10000);
+
+  return { workedMinutes, missingMinutes, workUnits, lunchMinutes };
+};
+
 const formatDurationHoursMinutes = (hours) => {
   const numHours = Number(hours);
   if (!Number.isFinite(numHours) || numHours <= 0) return '0 giờ 00 phút';
@@ -126,6 +167,8 @@ module.exports = {
   calculateOT,
   calculateAttendanceMetrics,
   calculateProRataWorkUnits,
+  calculateLunchOverlapMinutes,
+  calculateWorkedWorkUnits,
   formatWorkUnitSymbol,
   formatDurationHoursMinutes,
   normalizeHolidayMultiplier,

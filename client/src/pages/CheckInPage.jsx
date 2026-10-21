@@ -76,9 +76,9 @@ const compressSelfieFile = async file => {
 
 const LATE_TIERS = {
   on_time:     { label: 'Đúng giờ',                  cls: 'badge--success', icon: '✅' },
-  late_minor:  { label: 'Muộn nhẹ (trừ công theo phút thiếu)',   cls: 'badge--warning', icon: '⏰' },
-  late_medium: { label: 'Muộn vừa (trừ công theo phút thiếu)',   cls: 'badge--danger',  icon: '⚠️' },
-  late_severe: { label: 'Muộn nhiều (trừ công theo phút thiếu)', cls: 'badge--danger',  icon: '🚨' },
+  late_minor:  { label: 'Muộn nhẹ (chốt công khi check-out)',   cls: 'badge--warning', icon: '⏰' },
+  late_medium: { label: 'Muộn vừa (chốt công khi check-out)',   cls: 'badge--danger',  icon: '⚠️' },
+  late_severe: { label: 'Muộn nhiều (chốt công khi check-out)', cls: 'badge--danger',  icon: '🚨' },
 };
 
 const fmt = (iso) => {

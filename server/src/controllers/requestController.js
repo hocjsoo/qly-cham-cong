@@ -6,7 +6,7 @@ const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
 const TimesheetLock = require('../models/TimesheetLock');
 const SystemSetting = require('../models/SystemSetting');
-const { calculateOT, calculateAttendanceMetrics, calculateProRataWorkUnits, normalizeHolidayMultiplier } = require('../utils/attendanceCalculations');
+const { calculateOT, calculateAttendanceMetrics, calculateWorkedWorkUnits, normalizeHolidayMultiplier } = require('../utils/attendanceCalculations');
 const { logAction } = require('../utils/auditLogger');
 const { deductLeaveOnApproval, revertLeaveOnUndo } = require('./leaveBalanceController');
 const {
@@ -634,7 +634,7 @@ const approveRequest = async (req, res) => {
       let settingQuery = SystemSetting.findOne({ key: 'global' });
       if (activeSession && typeof settingQuery.session === 'function') settingQuery = settingQuery.session(activeSession);
       if (settingQuery && typeof settingQuery.select === 'function') {
-        settingQuery = settingQuery.select('work_end_time ot_start_time work_hours_per_day');
+        settingQuery = settingQuery.select('work_end_time ot_start_time work_hours_per_day lunch_break_start lunch_break_end');
       }
       if (settingQuery && typeof settingQuery.lean === 'function') settingQuery = settingQuery.lean();
       const systemSetting = await settingQuery || {};
@@ -706,10 +706,13 @@ const approveRequest = async (req, res) => {
 
             att.status = 'present';
             if (att.work_units == null || att.work_units === 0) {
-              att.work_units = calculateProRataWorkUnits(
-                (att.late_minutes || 0) + (att.early_minutes || 0),
-                (Number(systemSetting.work_hours_per_day) || 8) * 60
-              );
+              // Chốt công theo giờ làm thực tế của ca đã bổ sung checkout (trừ nghỉ trưa)
+              const workedUnits = calculateWorkedWorkUnits(att.check_in_time, checkOutDate, {
+                standardMinutes: (Number(systemSetting.work_hours_per_day) || 8) * 60,
+                lunchStart: systemSetting.lunch_break_start || '12:00',
+                lunchEnd: systemSetting.lunch_break_end || '13:00',
+              });
+              att.work_units = workedUnits.workUnits;
             }
             const timeLabel = isOvernight ? `${d} ➔ ${targetEndDate} ${proposedTime}` : proposedTime;
             att.notes = (att.notes ? att.notes + ' | ' : '') + `Duyệt bổ sung checkout ${timeLabel} (${request.reason})`;
