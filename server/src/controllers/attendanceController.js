@@ -745,14 +745,13 @@ const checkOut = async (req, res) => {
         attendance.work_units = normalizeHolidayMultiplier(activeHoliday.work_multiplier);
       }
     }
-    // Chốt công theo GIỜ LÀM THỰC TẾ của cả ngày (đã trừ nghỉ trưa):
+    // Chốt công theo GIỜ VÀO/RA thực tế của cả ngày (không trừ nghỉ trưa):
     // muộn nhưng ở lại đủ 8h -> 1.0 công; thiếu giờ mới trừ. WFH/site/client & ngày lễ miễn trừ.
     // Nếu Admin đã chốt ký hiệu công thủ công thì giữ nguyên, không tự tính lại.
     else if (!['wfh', 'site', 'client'].includes(attendance.check_in_type) && !hasExplicitSymbolOverride(attendance.notes)) {
+      // Chỉ tính giờ vào/ra, không trừ nghỉ trưa
       const worked = calculateWorkedWorkUnits(checkInTime, now, {
         standardMinutes: (Number(settings?.work_hours_per_day) || 8) * 60,
-        lunchStart: settings?.lunch_break_start || '12:00',
-        lunchEnd: settings?.lunch_break_end || '13:00',
       });
       attendance.work_units = worked.workUnits;
     }

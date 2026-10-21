@@ -47,7 +47,7 @@ const formatProRataSymbol = (workUnits) => {
 
 const TIMESHEET_SYMBOLS = [
   { code: 'x', label: 'Đủ công (1.0)', color: 'var(--green)' },
-  { code: 'pro-rata', label: 'Công theo giờ làm thực tế (vd 0,875x)', color: 'var(--green)' },
+  { code: 'pro-rata', label: 'Công theo giờ vào/ra (vd 0,9375x)', color: 'var(--green)' },
   { code: '0.5x', label: '1/2 công', color: 'var(--yellow)' },
   { code: '1,5x', label: 'Ngày lễ (1.5)', color: 'var(--holiday-work)' },
   { code: '1,75x', label: 'Ngày lễ (1.75)', color: 'var(--holiday-work)' },
@@ -532,8 +532,8 @@ export default function HistoryPage() {
                     ⚠️ Quy Định Các Mức Đi Muộn
                   </div>
                   <div>• <strong>≤ {startTime}</strong>: Đúng giờ (Tính đủ 1.0 công <code>x</code>)</div>
-                  <div>• Công chốt khi <strong>check-out</strong> theo giờ làm thực tế: đủ {Math.round(standardMinutes/60*10)/10}h ➔ <strong>x</strong>; thiếu X phút ➔ công = 1 − X / {standardMinutes}</div>
-                  <div>• Đi muộn nhưng ở lại làm đủ {Math.round(standardMinutes/60*10)/10}h ➔ <strong>không bị trừ</strong> (miễn là tổng giờ làm đủ)</div>
+                  <div>• Công chốt khi <strong>check-out</strong>, tính theo <strong>giờ vào / giờ ra</strong> (không trừ nghỉ trưa): đủ {Math.round(standardMinutes/60*10)/10}h ➔ <strong>x</strong>; thiếu X phút ➔ công = 1 − X / {standardMinutes}</div>
+                  <div>• Đi muộn nhưng ở lại đủ {Math.round(standardMinutes/60*10)/10}h ➔ <strong>không bị trừ</strong></div>
                   <div>• Có đơn làm bù / OT được duyệt ➔ phục hồi 100% công thiếu.</div>
                 </div>
 

@@ -58,24 +58,28 @@ function runAttendanceTests(assert) {
   assert(r8.is_late === true && r8.late_tier === 'late_severe' && r8.late_minutes === 75 && r8.work_units === 1.0,
     'TC-ATT-08: Check-in 10:15 -> Muộn 75p, nhãn late_severe, tạm tính 1.0 công');
 
-  // TC-ATT-08.1..08.3 [NEW 21/10/2026]: Chốt công theo GIỜ LÀM THỰC TẾ (đã trừ nghỉ trưa 1h)
+  // TC-ATT-08.1..08.6 [21/10/2026]: Chốt công theo GIỜ VÀO/RA thuần — KHÔNG trừ nghỉ trưa
   const unit = (inT, outT, std = 480) => calculateWorkedWorkUnits(
     `2026-10-21T${inT}:00+07:00`, `2026-10-21T${outT}:00+07:00`,
-    { standardMinutes: std, lunchStart: '12:00', lunchEnd: '13:00' }
+    { standardMinutes: std }
   ).workUnits;
 
   assert(unit('09:00', '18:30') === 1.0,
-    'TC-ATT-08.1: Đúng giờ, về 18:30 (8h30 - 1h trưa = 8h30) -> đủ 1.0 công');
+    'TC-ATT-08.1: Đúng giờ, về 18:30 (9h30) -> đủ 1.0 công');
   assert(unit('10:00', '19:30') === 1.0,
     'TC-ATT-08.2: MUỘN 1h nhưng TĂNG CA đủ giờ (về 19:30) -> KHÔNG bị trừ, 1.0 công');
-  assert(unit('10:00', '18:30') === 0.9375,
-    'TC-ATT-08.3: Muộn 1h, không làm bù -> 7h30/8h = 0.9375 công');
-  assert(unit('09:00', '17:00') === 0.875,
-    'TC-ATT-08.4: Về sớm 1h -> 7h/8h = 0.875 công');
+  assert(unit('10:00', '18:30') === 1.0,
+    'TC-ATT-08.3: Muộn 1h, không làm bù -> vẫn 8h30 >= 8h nên 1.0 công (không trừ giờ trưa)');
+  assert(unit('09:00', '17:00') === 1.0,
+    'TC-ATT-08.4: Vào 09:00 về 17:00 -> đúng 8h -> 1.0 công');
   assert(unit('09:00', '12:00') === 0.375,
-    'TC-ATT-08.5: Làm nửa buổi sáng (3h, trùng giờ trưa 0p) -> 0.375 công');
-  assert(unit('11:00', '18:30') === 0.8125,
-    'TC-ATT-08.6: Vào 11:00 (muộn 2h) về 18:30 -> 6h30/8h = 0.8125 công');
+    'TC-ATT-08.5: Làm nửa buổi sáng (3h) -> 0.375 công');
+  assert(unit('09:00', '16:30') === 0.9375,
+    'TC-ATT-08.6: Vào 09:00 về 16:30 (7h30) -> 0.9375 công');
+  assert(unit('11:00', '18:30') === 0.9375,
+    'TC-ATT-08.7: Vào 11:00 (muộn 2h) về 18:30 (7h30) -> 0.9375 công');
+  assert(unit('09:00', '18:30', 570) === 1.0,
+    'TC-ATT-08.8: Chuẩn ngày 9h30 (570p) -> ngày đủ 9h30 cũng 1.0 công');
 
   // TC-ATT-08.4 [NEW 20/10/2026]: Guard chống ghi đè ký hiệu Admin đã chốt (defect checkout clobber)
   assert(hasExplicitSymbolOverride('Ký hiệu: [0,875x] | Sửa: Admin') === true,

@@ -707,10 +707,9 @@ const approveRequest = async (req, res) => {
             att.status = 'present';
             if (att.work_units == null || att.work_units === 0) {
               // Chốt công theo giờ làm thực tế của ca đã bổ sung checkout (trừ nghỉ trưa)
+              // Chỉ tính giờ vào/ra, không trừ nghỉ trưa
               const workedUnits = calculateWorkedWorkUnits(att.check_in_time, checkOutDate, {
                 standardMinutes: (Number(systemSetting.work_hours_per_day) || 8) * 60,
-                lunchStart: systemSetting.lunch_break_start || '12:00',
-                lunchEnd: systemSetting.lunch_break_end || '13:00',
               });
               att.work_units = workedUnits.workUnits;
             }
