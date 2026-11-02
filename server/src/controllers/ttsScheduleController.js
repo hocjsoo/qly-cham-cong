@@ -57,6 +57,53 @@ const resolveRegistrationStatus = ({ schedule, meta, todayVn, now = new Date() }
 const isScheduleAdmin = user => Boolean(user && user.role === 'admin');
 const canManageDuties = user => Boolean(isScheduleAdmin(user) || user?.can_manage_tts_schedule === true);
 
+// Nhân bản duties của tuần mẫu sang tuần đích: ghép theo vị trí thứ trong tuần (Thứ 2 -> Thứ 2, ... Thứ 7 -> Thứ 7)
+const inheritDutiesFromTemplate = (templateDuties, templateWeekStart, targetMeta) => {
+  const templateMeta = buildWeekMeta(templateWeekStart);
+  if (!templateMeta || !Array.isArray(templateDuties) || templateDuties.length === 0) return [];
+  const byDate = new Map(templateDuties.map(duty => [String(duty?.date || ''), duty]));
+  return targetMeta.allowed_dates.map((date, index) => {
+    const duty = byDate.get(templateMeta.allowed_dates[index]) || {};
+    const mapIds = ids => (Array.isArray(ids) ? ids : []).map(id => String(id?._id || id || '')).filter(Boolean);
+    return {
+      date,
+      office_cleaning_user_ids: mapIds(duty.office_cleaning_user_ids),
+      restroom_cleaning_user_ids: mapIds(duty.restroom_cleaning_user_ids),
+      note: String(duty.note || ''),
+    };
+  });
+};
+
+// Tìm tuần mẫu trực nhật gần nhất (trước tuần đích) đang bật repeat_duties
+const findDutyTemplate = async (weekStart) => TtsWeeklySchedule
+  .findOne({ week_start: { $lt: weekStart }, repeat_duties: true, 'duties.0': { $exists: true } })
+  .select('week_start duties')
+  .sort({ week_start: -1 })
+  .lean();
+
+const buildEmptyScheduleView = (meta) => ({
+  week_start: meta.week_start,
+  week_end: meta.week_end,
+  registration_deadline: meta.registration_deadline,
+  status: 'open',
+  registrations: [],
+  duties: [],
+  instructions: {
+    before_work: 'Quét nhà\nDọn bàn chung\nDọn bàn máy in',
+    during_day: 'Dọn, rửa và cất gọn đồ dùng sau khi sử dụng\nĐổ rác cuối ngày',
+    weekly: 'Dọn nhà vệ sinh 1 tuần/lần, vào Thứ 7 hằng tuần',
+  },
+});
+
+// Gán duties (đã hydrate user) vào schedule trả về — kể cả khi tuần chưa có document trong DB.
+// Phải toObject() thay vì mutate doc thật: gán plain object vào path ref ObjectId sẽ bị Mongoose
+// cast âm thầm thành _id và mất toàn bộ tên người khi serialize.
+const applyDutyInheritance = (schedule, meta, template, hydratedDuties) => {
+  const target = schedule ? schedule.toObject() : buildEmptyScheduleView(meta);
+  if (template) target.duties = hydratedDuties;
+  return target;
+};
+
 const buildDutyRotationHistory = (schedules = []) => {
   const history = new Map();
   schedules.forEach((schedule) => {
@@ -180,6 +227,37 @@ const getWeeklySchedule = async (req, res) => {
       });
 
     const todayVn = getVnDateString(new Date()) || formatDate(new Date());
+
+    // Kế thừa trực nhật từ tuần mẫu (repeat_duties) cho tuần chưa có phân công riêng.
+    // Chỉ áp dụng cho tuần hiện tại / tương lai — tuần quá khứ giữ nguyên để bảo toàn lịch sử.
+    const hasOwnDuties = Boolean(schedule && Array.isArray(schedule.duties) && schedule.duties.length > 0);
+    const template = !hasOwnDuties && meta.week_end >= todayVn ? await findDutyTemplate(meta.week_start) : null;
+    let hydratedDuties = null;
+    let dutiesSource = hasOwnDuties ? 'own' : 'none';
+    let dutiesSourceWeekStart = null;
+    if (template) {
+      const inheritedRaw = inheritDutiesFromTemplate(template.duties, template.week_start, meta);
+      const dutyUserIds = [...new Set(inheritedRaw.flatMap(duty => [
+        ...duty.office_cleaning_user_ids,
+        ...duty.restroom_cleaning_user_ids,
+      ]))];
+      const dutyUsers = dutyUserIds.length
+        ? await User.find({ _id: { $in: dutyUserIds } }).select('full_name employee_code employee_type avatar_url').lean()
+        : [];
+      const userById = new Map(dutyUsers.map(user => [String(user._id), user]));
+      const toPerson = id => userById.get(id) || { _id: id, full_name: 'Nhân sự đã rời công ty' };
+      hydratedDuties = inheritedRaw.map(duty => ({
+        date: duty.date,
+        office_cleaning_user_ids: duty.office_cleaning_user_ids.map(toPerson),
+        restroom_cleaning_user_ids: duty.restroom_cleaning_user_ids.map(toPerson),
+        note: duty.note,
+      }));
+      dutiesSource = 'inherited';
+      dutiesSourceWeekStart = template.week_start;
+    }
+
+    const responseSchedule = applyDutyInheritance(schedule, meta, template, hydratedDuties);
+
     const regStatus = resolveRegistrationStatus({
       schedule,
       meta,
@@ -188,19 +266,10 @@ const getWeeklySchedule = async (req, res) => {
     });
 
     res.json({
-      schedule: schedule || {
-        week_start: meta.week_start,
-        week_end: meta.week_end,
-        registration_deadline: meta.registration_deadline,
-        status: 'open',
-        registrations: [],
-        duties: [],
-        instructions: {
-          before_work: 'Quét nhà\nDọn bàn chung\nDọn bàn máy in',
-          during_day: 'Dọn, rửa và cất gọn đồ dùng sau khi sử dụng\nĐổ rác cuối ngày',
-          weekly: 'Dọn nhà vệ sinh 1 tuần/lần, vào Thứ 7 hằng tuần',
-        },
-      },
+      schedule: responseSchedule,
+      duties_source: dutiesSource,
+      duties_source_week_start: dutiesSourceWeekStart,
+      repeat_template_week_start: schedule?.repeat_duties ? meta.week_start : (template?.week_start || null),
       tts_users: ttsUsers,
       people,
       allowed_dates: meta.allowed_dates,
@@ -327,6 +396,12 @@ const updateDuties = async (req, res) => {
     });
     const schedule = await getOrCreateSchedule(meta, req.user._id);
     schedule.duties = normalized;
+    // Lưu tuần mẫu với phân công trống rỗng sẽ giết chuỗi kế thừa một cách âm thầm -> tự tắt lặp
+    if (schedule.repeat_duties && !normalized.some(duty =>
+      duty.office_cleaning_user_ids.length + duty.restroom_cleaning_user_ids.length > 0
+    )) {
+      schedule.repeat_duties = false;
+    }
     schedule.updated_by = req.user._id;
     await schedule.save();
 
@@ -389,6 +464,50 @@ const toggleLock = async (req, res) => {
   }
 };
 
+// PUT /api/tts-schedules/:weekStart/repeat-duties — Bật/tắt lặp phân công trực nhật cho các tuần sau
+const updateRepeatDuties = async (req, res) => {
+  if (!canManageDuties(req.user)) return res.status(403).json({ error: 'Bạn không có quyền thiết lập lặp phân công trực nhật.' });
+  const meta = buildWeekMeta(req.params.weekStart);
+  if (!meta) return res.status(400).json({ error: 'Tuần không hợp lệ.' });
+  try {
+    const repeat = req.body.repeat === true;
+    const todayVn = getVnDateString(new Date()) || formatDate(new Date());
+    if (repeat && meta.week_end < todayVn) {
+      return res.status(400).json({ error: 'Chỉ được bật lặp trực nhật trên tuần hiện tại hoặc tuần tương lai.' });
+    }
+    const schedule = await getOrCreateSchedule(meta, req.user._id);
+    const hasRealAssignment = Array.isArray(schedule.duties) && schedule.duties.some(duty =>
+      (duty.office_cleaning_user_ids?.length || 0) + (duty.restroom_cleaning_user_ids?.length || 0) > 0
+    );
+    if (repeat && !hasRealAssignment) {
+      return res.status(400).json({ error: 'Tuần này chưa có ai được phân công trực nhật. Hãy bấm "Phân công" và lưu trước khi bật lặp.' });
+    }
+    if (repeat) {
+      // Chỉ duy nhất 1 tuần mẫu được bật cùng lúc
+      await TtsWeeklySchedule.updateMany(
+        { _id: { $ne: schedule._id }, repeat_duties: true },
+        { $set: { repeat_duties: false } }
+      );
+    }
+    schedule.repeat_duties = repeat;
+    schedule.updated_by = req.user._id;
+    await schedule.save();
+    res.json({
+      message: repeat
+        ? `Đã bật lặp trực nhật: các tuần sau sẽ dùng phân công của tuần ${meta.week_start} cho đến khi được điều chỉnh.`
+        : 'Đã tắt lặp trực nhật: các tuần sau sẽ không còn tự nhân bản phân công của tuần này.',
+      repeat_duties: schedule.repeat_duties,
+      week_start: meta.week_start,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({ error: 'Một tuần mẫu khác vừa được bật lặp. Vui lòng tải lại trang và kiểm tra.' });
+    }
+    console.error('UpdateRepeatDuties error:', error);
+    res.status(500).json({ error: 'Lỗi thiết lập lặp phân công trực nhật.' });
+  }
+};
+
 module.exports = {
   getWeeklySchedule,
   updateMyRegistration,
@@ -396,6 +515,7 @@ module.exports = {
   updateDuties,
   updateInstructions,
   toggleLock,
+  updateRepeatDuties,
   __test: {
     buildWeekMeta,
     sanitizeSlots,
@@ -405,5 +525,9 @@ module.exports = {
     buildDutyRotationHistory,
     resolveRegistrationStatus,
     protectPastSlots,
+    inheritDutiesFromTemplate,
+    findDutyTemplate,
+    applyDutyInheritance,
+    buildEmptyScheduleView,
   },
 };

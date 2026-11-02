@@ -102,6 +102,68 @@ function runTtsWeeklyScheduleTests(assert) {
     protectedFirstRegistration[1].morning === false && protectedFirstRegistration[1].afternoon === false &&
     protectedFirstRegistration[2].morning === true && protectedFirstRegistration[2].afternoon === true,
   'TC-TTS-19: TTS đăng ký lần đầu sau hạn không thể khai thêm dữ liệu cho ngày đã qua');
+
+  // === LẶP TRỰC NHẬT CHO CÁC TUẦN SAU (repeat_duties) ===
+  const templateWeekStart = '2026-08-31'; // Thứ 2 -> Thứ 7 (31/08 - 05/09)
+  const templateDuties = [
+    { date: '2026-08-31', office_cleaning_user_ids: [{ _id: 'u1' }, { _id: 'u2' }], restroom_cleaning_user_ids: [], note: 'Thứ 2 tuần mẫu' },
+    { date: '2026-09-05', office_cleaning_user_ids: [{ _id: 'u3' }], restroom_cleaning_user_ids: [{ _id: 'u1' }], note: '' },
+  ];
+  const targetWeek = __test.buildWeekMeta('2026-11-02'); // Tuần khác hoàn toàn (02/11 - 07/11)
+  const inherited = __test.inheritDutiesFromTemplate(templateDuties, templateWeekStart, targetWeek);
+
+  assert(inherited.length === 6 && inherited[0].date === '2026-11-02' && inherited[5].date === '2026-11-07',
+    'TC-TTS-20: Lặp trực nhật sinh đủ 6 ngày đúng tuần đích');
+  assert(inherited[0].office_cleaning_user_ids.length === 2 && inherited[0].office_cleaning_user_ids[0] === 'u1' &&
+    inherited[0].office_cleaning_user_ids[1] === 'u2' && inherited[0].restroom_cleaning_user_ids.length === 0 &&
+    inherited[0].note === 'Thứ 2 tuần mẫu',
+    'TC-TTS-21: Phân công Thứ 2 của tuần mẫu được giữ nguyên người và ghi chú');
+  assert(inherited[5].office_cleaning_user_ids.length === 1 && inherited[5].office_cleaning_user_ids[0] === 'u3' &&
+    inherited[5].restroom_cleaning_user_ids[0] === 'u1' && inherited[5].date === '2026-11-07',
+    'TC-TTS-22: Phân công Thứ 7 của tuần mẫu khớp đúng Thứ 7 của tuần đích');
+  assert(inherited[1].office_cleaning_user_ids.length === 0 && inherited[2].restroom_cleaning_user_ids.length === 0 &&
+    inherited[3].note === '',
+    'TC-TTS-23: Ngày không có phân công trong tuần mẫu được nhân bản rỗng thay vì lỗi');
+
+  const emptyInherit = __test.inheritDutiesFromTemplate([], templateWeekStart, targetWeek);
+  const badInherit = __test.inheritDutiesFromTemplate(templateDuties, '2026-09-02', targetWeek); // week_start không phải Thứ 2
+  assert(emptyInherit.length === 0 && badInherit.length === 0,
+    'TC-TTS-24: Tuần mẫu rỗng hoặc week_start không hợp lệ trả về danh sách rỗng an toàn');
+
+  const multiAssignee = __test.inheritDutiesFromTemplate([
+    { date: '2026-08-31', office_cleaning_user_ids: ['u1', 'u2', 'u3'], restroom_cleaning_user_ids: [null, 'u2', undefined], note: null },
+  ], templateWeekStart, __test.buildWeekMeta(templateWeekStart));
+  assert(multiAssignee[0].office_cleaning_user_ids.join(',') === 'u1,u2,u3' &&
+    multiAssignee[0].restroom_cleaning_user_ids.join(',') === 'u2',
+    'TC-TTS-25: Chuẩn hóa ObjectId lẫn chuỗi và loại bỏ id rỗng khi nhân bản phân công');
+
+  // P0 regression: tuần tương lai chưa có document vẫn phải nhận duties kế thừa
+  const assembledNull = __test.applyDutyInheritance(null, targetWeek, { week_start: templateWeekStart, duties: templateDuties }, inherited);
+  assert(assembledNull.duties.length === 6 && assembledNull.duties[0].date === '2026-11-02' &&
+    assembledNull.week_start === '2026-11-02' && assembledNull.status === 'open' &&
+    assembledNull.instructions.before_work.includes('Quét nhà'),
+    'TC-TTS-26: Tuần chưa có document vẫn trả duties kế thừa thay vì rỗng (không mất phân công của kịch bản chính)');
+  const assembledNoTemplate = __test.applyDutyInheritance(null, targetWeek, null, null);
+  assert(assembledNoTemplate.duties.length === 0 && assembledNoTemplate.status === 'open' &&
+    Array.isArray(assembledNoTemplate.registrations),
+    'TC-TTS-27: Không có tuần mẫu thì tuần mới trả về view rỗng chuẩn như trước đây');
+
+  // P1 regression: gán duties hydrate vào MongooseDocument thật không được bị cast thành ObjectId
+  const TtsWeeklySchedule = require('../../src/models/TtsWeeklySchedule');
+  const liveDoc = new TtsWeeklySchedule({
+    week_start: '2026-11-02',
+    week_end: '2026-11-07',
+    registration_deadline: new Date(),
+    duties: [],
+  });
+  const hydratedDuties = inherited.map(duty => ({
+    ...duty,
+    office_cleaning_user_ids: duty.office_cleaning_user_ids.map(id => ({ _id: id, full_name: `Người ${id}` })),
+    restroom_cleaning_user_ids: duty.restroom_cleaning_user_ids.map(id => ({ _id: id, full_name: `Người ${id}` })),
+  }));
+  const serializedLive = JSON.stringify(__test.applyDutyInheritance(liveDoc, targetWeek, { week_start: templateWeekStart, duties: templateDuties }, hydratedDuties));
+  assert(serializedLive.includes('"full_name":"Người u1"') && serializedLive.includes('2026-11-02'),
+    'TC-TTS-28: Duties kế thừa trên MongooseDocument thật giữ nguyên object người khi serialize (không bị cast âm thầm thành _id)');
 }
 
 module.exports = runTtsWeeklyScheduleTests;

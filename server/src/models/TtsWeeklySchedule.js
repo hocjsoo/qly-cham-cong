@@ -28,6 +28,8 @@ const ttsWeeklyScheduleSchema = new mongoose.Schema({
   week_end: { type: String, required: true },
   registration_deadline: { type: Date, required: true },
   status: { type: String, enum: ['open', 'locked'], default: 'open' },
+  // Tuần mẫu trực nhật: các tuần sau (chưa có phân công riêng) tự kế thừa duties của tuần này
+  repeat_duties: { type: Boolean, default: false },
   registrations: { type: [registrationSchema], default: [] },
   duties: { type: [dutySchema], default: [] },
   instructions: {
@@ -37,5 +39,8 @@ const ttsWeeklyScheduleSchema = new mongoose.Schema({
   },
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+
+// Ràng buộc DB: toàn hệ thống chỉ được tồn tại duy nhất 1 tuần mẫu repeat_duties (chống race 2 admin bật cùng lúc)
+ttsWeeklyScheduleSchema.index({ repeat_duties: 1 }, { unique: true, partialFilterExpression: { repeat_duties: true } });
 
 module.exports = mongoose.model('TtsWeeklySchedule', ttsWeeklyScheduleSchema);

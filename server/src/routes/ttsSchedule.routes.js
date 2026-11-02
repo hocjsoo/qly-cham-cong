@@ -7,6 +7,7 @@ const {
   updateDuties,
   updateInstructions,
   toggleLock,
+  updateRepeatDuties,
 } = require('../controllers/ttsScheduleController');
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.get('/', getWeeklySchedule);
 router.put('/my-registration', updateMyRegistration);
 router.put('/:weekStart/registration/:userId', updateRegistrationByManager);
 router.put('/:weekStart/duties', updateDuties);
+router.put('/:weekStart/repeat-duties', updateRepeatDuties);
 router.put('/:weekStart/instructions', updateInstructions);
 router.post('/:weekStart/lock', toggleLock);
 

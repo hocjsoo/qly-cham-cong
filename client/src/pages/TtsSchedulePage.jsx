@@ -3,7 +3,7 @@ import {
   CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, Edit3,
   Lock, LockOpen, Save, Users, X, Check, BriefcaseBusiness,
   SprayCan, Bath, Info, UserRoundCheck, ShieldCheck,
-  MessageSquareText,
+  MessageSquareText, Repeat2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -228,6 +228,18 @@ export default function TtsSchedulePage() {
     finally { setSaving(false); }
   };
 
+  const toggleRepeatDuties = async () => {
+    if (writesDisabled) return;
+    const willRepeat = payload?.repeat_template_week_start !== weekStart;
+    setSaving(true);
+    try {
+      const res = await api.put(`/tts-schedules/${weekStart}/repeat-duties`, { repeat: willRepeat });
+      toast.success(res.data?.message || (willRepeat ? 'Đã bật lặp trực nhật' : 'Đã tắt lặp trực nhật'));
+      await loadSchedule();
+    } catch (error) { toast.error(error?.response?.data?.error || 'Không thiết lập được lặp trực nhật'); }
+    finally { setSaving(false); }
+  };
+
   const openInstructions = () => {
     if (writesDisabled) return;
     setDraftInstructions({
@@ -346,6 +358,19 @@ export default function TtsSchedulePage() {
               </button>
             )}
             {canManageDuties && <button className="btn btn--ghost" onClick={openDuties} disabled={writesDisabled}><SprayCan size={16} /> Phân công</button>}
+            {canManageDuties && (weekStart >= currentMonday() || payload?.repeat_template_week_start === weekStart) && (
+              <button
+                className={`btn ${payload?.repeat_template_week_start === weekStart ? 'btn--primary' : 'btn--ghost'}`}
+                onClick={toggleRepeatDuties}
+                disabled={writesDisabled || payload?.duties_source === 'inherited'}
+                aria-pressed={payload?.repeat_template_week_start === weekStart}
+                title={payload?.duties_source === 'inherited'
+                  ? 'Tuần này đang kế thừa phân công — bấm "Phân công" và lưu trước khi bật lặp'
+                  : 'Các tuần sau tự dùng phân công trực nhật của tuần này cho đến khi được chỉnh riêng'}
+              >
+                <Repeat2 size={16} /> {payload?.repeat_template_week_start === weekStart ? 'Hủy lặp trực nhật' : 'Lặp các tuần sau'}
+              </button>
+            )}
             {isAdmin && <button className="btn btn--ghost" onClick={() => setPermissionEditorOpen(true)} disabled={writesDisabled}><ShieldCheck size={16} /> Phân quyền</button>}
             {canManage && <button className="btn btn--ghost" onClick={toggleScheduleLock} disabled={writesDisabled}>{schedule?.status === 'locked' ? <LockOpen size={16} /> : <Lock size={16} />}{schedule?.status === 'locked' ? 'Mở lịch' : 'Khóa lịch'}</button>}
           </div>
@@ -426,7 +451,13 @@ export default function TtsSchedulePage() {
 
             <section className="tts-lower-grid">
               <div className="tts-duty-card">
-                <div className="tts-section-heading"><div><span className="tts-section-icon tts-section-icon--amber"><BriefcaseBusiness size={18} /></span><div><h2>Lịch trực nhật</h2><p>Phân công rõ người, rõ ngày</p></div></div>{canManageDuties && <button className="tts-icon-button" onClick={openDuties} aria-label="Sửa phân công" disabled={writesDisabled}><Edit3 size={16} /></button>}</div>
+                <div className="tts-section-heading"><div><span className="tts-section-icon tts-section-icon--amber"><BriefcaseBusiness size={18} /></span><div><h2>Lịch trực nhật</h2><p>
+                  {payload?.duties_source === 'inherited'
+                    ? <>Tự động lặp từ phân công tuần <strong>{formatShortDate(payload?.duties_source_week_start)}</strong> · Sửa tuần này sẽ tạo phân công riêng</>
+                    : payload?.repeat_template_week_start === weekStart
+                    ? '🔁 Đang lặp phân công này cho các tuần sau'
+                    : 'Phân công rõ người, rõ ngày'}
+                </p></div></div>{canManageDuties && <button className="tts-icon-button" onClick={openDuties} aria-label="Sửa phân công" disabled={writesDisabled}><Edit3 size={16} /></button>}</div>
                 <div className="tts-duty-list">{days.map((date, index) => {
                   const duty = duties.get(date);
                   const office = duty?.office_cleaning_user_ids || [];
