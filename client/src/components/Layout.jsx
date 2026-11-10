@@ -166,7 +166,7 @@ export default function Layout() {
     { to: '/expenses', icon: Receipt, label: 'Chi tiêu' },
     { to: '/reports', icon: BarChart2, label: 'Bảng công' },
     { to: '/history', icon: History, label: 'Lịch sử' },
-    { to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' },
+    ...(isAdmin ? [{ to: '/leaderboard', icon: Trophy, label: 'Xếp hạng' }] : []),
     { to: '/vehicles', icon: Bike, label: 'Gửi xe' },
     ...(!isStaff ? [{ to: '/staff', icon: Users, label: 'Nhân viên' }] : []),
     ...(isAdmin ? [{ to: '/emails', icon: Mail, label: 'Gửi Email' }] : []),

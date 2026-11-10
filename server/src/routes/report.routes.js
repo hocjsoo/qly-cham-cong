@@ -15,8 +15,9 @@ const { requireRole } = require('../middlewares/roleMiddleware');
 
 router.use(authMiddleware);
 
-// GET /api/reports/leaderboard — Bảng xếp hạng vinh danh đa chiều (Tất cả nhân viên)
-router.get('/leaderboard', getLeaderboard);
+// GET /api/reports/leaderboard — Bảng xếp hạng vinh danh (Ẩn cho nhân viên: số liệu chưa chuẩn
+// đến khi máy chấm công vật lý chạy, chỉ Admin xem trong thời gian này)
+router.get('/leaderboard', requireRole('admin'), getLeaderboard);
 
 // GET /api/reports/trend?months=6 — Xu hướng cho Dashboard (Admin & Leader)
 router.get('/trend', requireRole('admin', 'manager'), getTrend);

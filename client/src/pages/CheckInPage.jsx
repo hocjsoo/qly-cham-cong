@@ -1188,12 +1188,14 @@ export default function CheckInPage() {
                 <span className="badge badge--info" style={{ fontSize: '10px' }}>{myProjects.length}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span
-                  onClick={(e) => { e.stopPropagation(); navigate('/projects'); }}
-                  style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}
-                >
-                  Xem tất cả →
-                </span>
+                {user?.role === 'admin' && (
+                  <span
+                    onClick={(e) => { e.stopPropagation(); navigate('/projects'); }}
+                    style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 700, padding: '2px 6px', borderRadius: '4px' }}
+                  >
+                    Xem tất cả →
+                  </span>
+                )}
                 <button
                   type="button"
                   className="btn btn--ghost"

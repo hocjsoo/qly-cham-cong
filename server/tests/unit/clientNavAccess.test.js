@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', roles: ['admin', 'leader', 'manager'] },
   { path: '/staff', label: 'Nhân sự', roles: ['admin', 'leader', 'manager'] },
   { path: '/projects', label: 'Dự án', roles: ['admin'] },
+  { path: '/leaderboard', label: 'Xếp hạng', roles: ['admin'] },
   { path: '/reports', label: 'Báo cáo', roles: ['admin'] },
   { path: '/timesheet-lock', label: 'Chốt công', roles: ['admin'] },
   { path: '/users', label: 'Tài khoản', roles: ['admin'] },
@@ -68,6 +69,18 @@ function runClientNavAccessTests(assert) {
     'TC-UI-NAV-04.6: Chặn Leader truy cập trực tiếp URL /projects (Admin only)');
   assert(canAccessRoute('admin', '/projects') === true,
     'TC-UI-NAV-04.7: Cho phép Admin truy cập URL /projects');
+
+  // TC-UI-NAV-05: Xếp hạng ẩn — chỉ Admin xem (số liệu chưa chuẩn đến khi có máy chấm công)
+  const empLb = getVisibleNavItems('employee').map(m => m.path);
+  const leadLb = getVisibleNavItems('leader').map(m => m.path);
+  assert(!empLb.includes('/leaderboard') && !leadLb.includes('/leaderboard'),
+    'TC-UI-NAV-05.1: Employee và Leader không thấy menu Xếp hạng (số liệu chưa chuẩn)');
+  assert(getVisibleNavItems('admin').map(m => m.path).includes('/leaderboard'),
+    'TC-UI-NAV-05.2: Admin vẫn thấy menu Xếp hạng để kiểm tra');
+  assert(canAccessRoute('employee', '/leaderboard') === false && canAccessRoute('leader', '/leaderboard') === false,
+    'TC-UI-NAV-05.3: Chặn Employee/Leader truy cập trực tiếp URL /leaderboard');
+  assert(canAccessRoute('admin', '/leaderboard') === true,
+    'TC-UI-NAV-05.4: Cho phép Admin truy cập URL /leaderboard');
 }
 
 module.exports = runClientNavAccessTests;
