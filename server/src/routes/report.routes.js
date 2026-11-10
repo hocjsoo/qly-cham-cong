@@ -22,14 +22,14 @@ router.get('/leaderboard', requireRole('admin'), getLeaderboard);
 // GET /api/reports/trend?months=6 — Xu hướng cho Dashboard (Admin & Leader)
 router.get('/trend', requireRole('admin', 'manager'), getTrend);
 
-// GET /api/reports/monthly?month=7&year=2026 — Bảng công tổng hợp (Tất cả nhân sự xem minh bạch)
-router.get('/monthly', getMonthlyReport);
+// GET /api/reports/monthly?month=7&year=2026 — Bảng công tổng hợp (Admin only: client tab overview đã gate isAdmin)
+router.get('/monthly', requireRole('admin'), getMonthlyReport);
 
 // GET /api/reports/individual-detail?user_id=...&month=6&year=2026 — Bảng chi tiết cá nhân
 router.get('/individual-detail', getIndividualDetailReport);
 
-// GET /api/reports/ranking?month=7&year=2026
-router.get('/ranking', getRanking);
+// GET /api/reports/ranking?month=7&year=2026 — Bảng xếp hạng theo điểm (Admin only: cùng dữ liệu /leaderboard đã ẩn)
+router.get('/ranking', requireRole('admin'), getRanking);
 
 // GET /api/reports/stats
 router.get('/stats', getAttendanceStats);

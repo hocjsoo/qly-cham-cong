@@ -833,7 +833,7 @@ export default function DashboardPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '10px' }}>
               {[
                 ...(isAdmin ? [{ to: '/projects', icon: '🚀', label: 'Dự Án', desc: `${combinedProjects.length} dự án` }] : []),
-                { to: '/leaderboard', icon: '🏆', label: 'Xếp Hạng', desc: 'Thi đua chuyên cần' },
+                ...(isAdmin ? [{ to: '/leaderboard', icon: '🏆', label: 'Xếp Hạng', desc: 'Thi đua chuyên cần' }] : []),
                 { to: '/vehicles', icon: '🚲', label: 'Gửi Xe', desc: 'Phương tiện' },
                 { to: '/expenses', icon: '🧾', label: 'Chi Tiêu', desc: 'Bảng hoàn ứng' },
                 { to: '/profile', icon: '👤', label: 'Cá Nhân', desc: 'Tài khoản & xe' },
